@@ -1,0 +1,78 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+//1.  cod no term para criar as tabelas:  npx prisma format
+
+//2. cruar as tabelas :   npx prisma db push
+
+//3. para criar o modulo par a cada uma das tabelas(substituir anga pelo nome da tabela):  nest generate resource manga
+
+//4. Criar a pasta do Prisma no NestJS
+  //npx @nestjs/cli generate module prisma
+  //npx @nestjs/cli generate service prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       Int    @id @default(autoincrement())
+  nome     String
+  email    String @unique
+  password String
+
+  // Relacionamentos: Um utilizador pode ter vários Mangas e Animes
+  mangas Manga[]
+  animes Anime[]
+}
+
+model Manga {
+  id     Int    @id @default(autoincrement())
+  titulo String
+
+  // Dados da Obra (Japão/API)
+  statusLancamento  String // Ex: "Finished", "Publishing", "On Hiatus"
+  numCapitulosTotal Float? // Total que a obra tem (ou desconhecido)
+  capaUrl           String?
+  generos           String // Se usares SQLite, lembra-te: String sem []
+  autor             String?
+  descricao         String?
+
+  // Dados do Utilizador (O teu progresso)
+  statusLeitura String @default("Planeado") // "Lendo", "Completo", "Pausado", "Dropado"
+  capAtual      Float  @default(0) // O capítulo onde TU estás
+  prioridade    Int    @default(5)
+
+  // Relacionamento
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+}
+
+model Anime {
+  id     Int    @id @default(autoincrement())
+  titulo String
+
+  // Dados da Obra (Japão/API)
+  statusLancamento  String // Ex: "Finished", "Currently Airing"
+  capaUrl           String?
+  generos           String
+  descricao         String?
+  dataLancamento    DateTime?
+  numTemporadas     Int?
+  numEpisodiosTotal Int?
+
+  // Dados do Utilizador (O teu progresso)
+  statusVisualizacao String @default("Planeado") // "Assistindo", "Completo", "Pausado"
+  epAtual            Int    @default(0) // O episódio onde TU estás
+
+  // Relacionamento
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+}

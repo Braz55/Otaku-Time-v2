@@ -1,95 +1,98 @@
-# Otaku Time Pro
+<p align="center">
+  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
+</p>
 
-O teu gestor inteligente de Anime & Manga, alimentado por Inteligência Artificial.
+[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
+[circleci-url]: https://circleci.com/gh/nestjs/nest
 
-Otaku Time é uma plataforma Fullstack concebida para entusiastas que procuram mais do que uma simples lista. É um ecossistema que organiza, converte fusos horários e utiliza LLMs (Large Language Models) para monitorizar lançamentos, especialmente de obras underground onde a informação é escassa.
+  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
+    <p align="center">
+<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
+<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
+<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
+<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
+<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
+<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
+<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
+  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
+    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
+  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
+</p>
+  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
+  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
 
+## Description
 
-## Diferenciais do Projeto
-IA-Powered Tracking: Integração com o modelo Llama para extração e limpeza de metadados de transmissões JST (Japan Standard Time).
+[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
-Smart Timezone Conversion: Converte automaticamente as estreias japonesas para o horário local (Portugal/Brasil), garantindo que nunca perdes um episódio.
+## Project setup
 
-Gestão de Prioridades: Sistema de ordenação personalizado para mangas, resolvendo as limitações das plataformas tradicionais.
+```bash
+$ npm install
+```
 
-Arquitetura Moderna: Desenvolvido com uma separação clara entre Backend (NestJS), Frontend (Next.js) e um Microserviço de IA (Python).
+## Compile and run the project
 
+```bash
+# development
+$ npm run start
 
-## Arquitetura do Sistema
-graph LR
-    A[Frontend Next.js] -- API Requests --> B[Backend NestJS]
-    B -- Data Sync --> C[(PostgreSQL)]
-    B -- Prompting --> D[AI Microservice - Llama]
-    D -- Parsing --> E[Jikan API]
+# watch mode
+$ npm run start:dev
 
-## Tecnologias Utilizadas
-###  Back end
-NestJS: Framework Node.js progressiva para construção de aplicações eficientes.
+# production mode
+$ npm run start:prod
+```
 
-TypeScript: Superset de JavaScript que adiciona tipagem estática.
+## Run tests
 
-Prisma ORM: Para gestão de base de dados e consultas seguras.
-### IA & Data
-Python: Engine para processamento de linguagem natural.
+```bash
+# unit tests
+$ npm run test
 
-Ollama/Llama 3: Modelo de linguagem local para automação de horários.
+# e2e tests
+$ npm run test:e2e
 
-Jikan API: Wrapper oficial da base de dados MyAnimeList.
+# test coverage
+$ npm run test:cov
+```
 
-## objetivo de desenvolvimento 
-Este projeto foi criado para elevar o nível de acompanhamento de mídia otaku, migrando de uma lógica de scripts simples para uma aplicação escalável e profissional, focada na experiência do utilizador e na precisão de dados.
+## Deployment
 
-## Diagramas de classes
-:::mermaid
-classDiagram
-class Manga {
-    +String titulo
-    +float numCapitulos
-    +String capaUrl
-    +String statusLancamento
-    +String statusLeitura
-    +int capAtual
-    +List~String~ generos
-    +String autor
-    +String descricao
-    +int priorida
-}
+When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
 
-class Anime {
-    +String titulo
-    +String capaUrl
-    +String estadoVisualização
-    +String statusLancamento
-    +List~String~ generos
-    +String descricao
-    +Date dataLancamento
-    +int numTemporadas
-    +int numEpisodios
-}
+If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
 
-class User {
-    +String nome
-    +String email
-    +String password
-    +List~Manga~ listaManga
-    +List~Anime~ listaAnime
-}
+```bash
+$ npm install -g @nestjs/mau
+$ mau deploy
+```
 
-User "1" -- "*" Manga : segue
-User "1" -- "*" Anime : segue
-:::
+With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
 
-## guia das pastas
-### gerir pastas 
-na pasta priasma é onde ocorre as dependencias das tabelas
+## Resources
 
-### modulos
-manga/
-├── dto/                    # (Data Transfer Objects) Define as regras do que o utilizador envia
-│   ├── create-manga.dto.ts # "Para criar um manga, preciso obrigatoriamente do título"
-│   └── update-manga.dto.ts # "Para atualizar, o título é opcional"
-├── entities/               # A classe que representa o Manga no código
-│   └── manga.entity.ts
-├── manga.controller.ts     # As ROTAS (Onde o utilizador "bate" com o pedido)
-├── manga.module.ts         # O "Cimento" que liga tudo isto
-└── manga.service.ts        # A LÓGICA (Onde o código decide o que fazer)
+Check out a few resources that may come in handy when working with NestJS:
+
+- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
+- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
+- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
+- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
+- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
+- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
+- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
+- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+
+## Support
+
+Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+
+## Stay in touch
+
+- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
+- Website - [https://nestjs.com](https://nestjs.com/)
+- Twitter - [@nestframework](https://twitter.com/nestframework)
+
+## License
+
+Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).

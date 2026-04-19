@@ -1,17 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { CreateAnimeDto } from './dto/create-anime.dto';
 import { UpdateAnimeDto } from './dto/update-anime.dto';
-import { PrismaService } from '../prisma/prisma.service'; // <-- Importar
+import { PrismaService } from '../prisma/prisma.service'; // <-- Importamos a ponte
 
 @Injectable()
 export class AnimeService {
-  constructor(private prisma: PrismaService) {} // <-- Injetar
+
+  // Injetamos o Prisma aqui:
+  constructor(private prisma: PrismaService) {}
+  
   create(createAnimeDto: CreateAnimeDto) {
     return 'This action adds a new anime';
   }
 
   findAll() {
-    return this.prisma.user.findMany(); // <-- Usar
+    return this.prisma.anime.findMany();
   }
 
   findOne(id: number) {

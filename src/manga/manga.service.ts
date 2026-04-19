@@ -5,17 +5,15 @@ import { PrismaService } from '../prisma/prisma.service'; // <-- Importamos a po
 
 @Injectable()
 export class MangaService {
-
   // Injetamos o Prisma aqui:
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) {} 
 
   create(createMangaDto: CreateMangaDto) {
     return 'This action adds a new manga';
   }
 
-  //metodo que vai a db e carrega o que lá está
   findAll() {
-    return this.prisma.manga.findMany(); // <-- MAGIA ACONTECE AQUI!
+    return this.prisma.manga.findMany();
   }
 
   findOne(id: number) {

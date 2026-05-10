@@ -1,10 +1,13 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client'; // <-- Tens este import?
+import { PrismaClient } from '@prisma/client';
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit { 
-  // O segredo está no "extends PrismaClient" ali em cima ^
-  
+export class PrismaService extends PrismaClient implements OnModuleInit {
+  constructor() {
+    // Dizemos ao cliente do Prisma exatamente onde está a BD
+    super();
+  }
+
   async onModuleInit() {
     await this.$connect();
   }

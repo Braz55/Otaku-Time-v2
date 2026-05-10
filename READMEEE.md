@@ -104,3 +104,16 @@ manga/
 6. criar a ponte entre as tabelas e a bas e de dados: 6.1 npx @nestjs/cli generate module prisma         
 6.2npx @nestjs/cli generate service prisma
 7. correr o server: npm run start:dev
+
+## 🧠 Motor de Recomendação (IA) - Roadmap
+
+A funcionalidade principal do Otaku-Time-v2 será um sistema de recomendação inteligente utilizando LLMs (ex: Llama 3 / Open WebUI).
+
+### Objetivos:
+* **Filtro de Histórico:** O LLM terá acesso aos dados do SQLite (via NestJS) para saber o que já foi lido/visto, evitando recomendações repetidas.
+* **Busca Semântica e Narrativa:** Interface para selecionar géneros, tipos de narrativa (ex: "sistemas de magia complexos", "protagonistas cinzentos") e tom da obra.
+* **RAG (Retrieval-Augmented Generation):** O sistema deverá ser capaz de pesquisar na internet por obras recentes ou menos conhecidas que se alinhem com os filtros escolhidos.
+* **Contexto Dinâmico:** O chat de recomendação deve funcionar como um "expert" que conhece o gosto do utilizador e justifica o porquê de cada sugestão.
+
+## comandos uteis
+* npx prisma studio -- para ver a base de dados

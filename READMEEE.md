@@ -117,3 +117,15 @@ A funcionalidade principal do Otaku-Time-v2 será um sistema de recomendação i
 
 ## comandos uteis
 * npx prisma studio -- para ver a base de dados
+
+
+## 🗺️ O Mapa do Teu Projeto (O que temos até agora)
+Para o teu sistema de Mangas e IA funcionar, só precisas destas 4 peças a falar umas com as outras:
+
+A Base de Dados (dev.db): É o ficheiro onde tudo fica guardado.
+
+O Prisma (schema.prisma): É o tradutor. Ele traduz o que escreves em TypeScript para a base de dados.
+
+O DTO (O "Contrato"): É a regra que diz: "Para criar um utilizador, preciso de Nome, Email e Password".
+
+O Service (user.service.ts): É o motor que recebe o DTO e diz ao Prisma: "Guarda isto!".

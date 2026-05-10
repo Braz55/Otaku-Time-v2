@@ -12,4 +12,6 @@ export class CreateAnimeDto {
   numEpisodiosTotal?: number;
   statusVisualizacao?: string;
   epAtual?: number;
+  temporada?: string;
+  ano?: number;
 }

@@ -12,6 +12,17 @@ export class AnimeController {
     return this.animeService.create(createAnimeDto);
   }
 
+  // NOVO: Endpoint para importar automaticamente
+  @Post('import')
+  importAnime(@Body() body: { nome: string; userId: number }) {
+    return this.animeService.importFromAniList(body.nome, body.userId);
+  }
+
+  @Get('search/:nome')
+  searchAniList(@Param('nome') nome: string) {
+    return this.animeService.searchAniList(nome);
+  }
+
   @Get()
   findAll() {
     return this.animeService.findAll();

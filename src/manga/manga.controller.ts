@@ -12,6 +12,12 @@ export class MangaController {
     return this.mangaService.create(createMangaDto);
   }
 
+  // NOVO: Endpoint para importar Manga automaticamente
+  @Post('import')
+  importManga(@Body() body: { nome: string; userId: number }) {
+    return this.mangaService.importFromAniList(body.nome, body.userId);
+  }
+
   @Get()
   findAll() {
     return this.mangaService.findAll();

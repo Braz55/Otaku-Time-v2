@@ -66,6 +66,8 @@ model Anime {
   dataLancamento    DateTime?
   numTemporadas     Int?
   numEpisodiosTotal Int?
+  temporada          String?  // Ex: "FALL", "WINTER"
+  ano                Int?     // Ex: 2023
 
   // Dados do Utilizador (O teu progresso)
   statusVisualizacao String @default("Planeado") // "Assistindo", "Completo", "Pausado"

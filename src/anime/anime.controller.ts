@@ -19,8 +19,11 @@ export class AnimeController {
   }
 
   @Get('search/:nome')
-  searchAniList(@Param('nome') nome: string) {
-    return this.animeService.searchAniList(nome);
+  async search(@Param('nome') nome: string) {
+    console.log('1. Controller recebeu pedido para:', nome);
+    const resultados = await this.animeService.searchAnimeList(nome);
+    console.log('2. Service devolveu:', resultados.length, 'itens');
+    return resultados;
   }
 
   @Get()

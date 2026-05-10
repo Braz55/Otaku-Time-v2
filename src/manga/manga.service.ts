@@ -37,6 +37,8 @@ export class MangaService {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'Authorization': `Bearer ${process.env.ANILIST_TOKEN}`,
+          'User-Agent': 'Mozilla/5.0'
         },
         body: JSON.stringify({ query, variables }),
       });
@@ -87,6 +89,49 @@ export class MangaService {
     return this.prisma.manga.create({
       data: novoManga,
     });
+  }
+
+  // 3. NOVA FUNÇÃO: Devolve uma LISTA de 10 Mangas para a interface de pesquisa
+  async searchMangaList(nomeManga: string) {
+    console.log('--- PESQUISA MANGA ---');
+    const query = `
+      query ($s: String) {
+        Page(page: 1, perPage: 10) {
+          media(search: $s, type: MANGA) {
+            id
+            title { english romaji }
+            coverImage { large }
+          }
+        }
+      }
+    `;
+
+    const variables = { s: nomeManga };
+
+    try {
+      const response = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${process.env.ANILIST_TOKEN}`,
+          'User-Agent': 'Mozilla/5.0'
+        },
+        body: JSON.stringify({ query, variables }),
+      });
+
+      const result = await response.json() as any;
+      console.log('Resposta AniList (Manga):', JSON.stringify(result));
+      
+      if (result.errors) {
+        console.error('Erro AniList:', result.errors);
+        return [];
+      }
+      return result?.data?.Page?.media || [];
+    } catch (error) {
+      console.error('Erro fetch manga:', error);
+      return [];
+    }
   }
 
   findAll() {

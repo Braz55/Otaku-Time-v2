@@ -5,7 +5,7 @@ import { PrismaLibSql } from '@prisma/adapter-libsql';
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit {
   constructor() {
-    const dbUrl = process.env.DATABASE_URL?.replace("file:./dev.db", "file:./prisma/dev.db") || "file:./prisma/dev.db";
+    const dbUrl = process.env.DATABASE_URL || "file:./prisma/dev.db";
     const adapter = new PrismaLibSql({ url: dbUrl });
     
     super({ adapter });

@@ -117,6 +117,8 @@ A funcionalidade principal do Otaku-Time-v2 será um sistema de recomendação i
 
 ## comandos uteis
 * npx prisma studio -- para ver a base de dados
+* npm run dev -- poe a correr a interface
+* npx prisma db push -- refaz a db
 
 
 ## 🗺️ O Mapa do Teu Projeto (O que temos até agora)

@@ -12,20 +12,25 @@ export class AnimeService {
     });
   }
 
+
+
   // NOVA FUNÇÃO: Vai buscar dados à AniList!
   async searchAniList(nomeAnime: string) {
     const query = `
       query ($search: String) {
-        Media(search: $search, type: ANIME) {
-          title { english romaji }
-          status
-          episodes
-          season
-          seasonYear
-          genres
-          tags { name rank }
-          description
-          coverImage { large }
+        Page(perPage: 10) {
+          media(search: $search, type: ANIME, sort: SEARCH_MATCH) {
+            id
+            title {
+              english
+              romaji
+              native
+            }
+            coverImage {
+              large
+            }
+            status
+          }
         }
       }
     `;
@@ -38,6 +43,8 @@ export class AnimeService {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'Authorization': `Bearer ${process.env.ANILIST_TOKEN}`,
+          'User-Agent': 'Mozilla/5.0'
         },
         body: JSON.stringify({ query, variables }),
       });
@@ -92,6 +99,59 @@ export class AnimeService {
     return this.prisma.anime.create({
       data: novoAnime,
     });
+  }
+
+  
+  // NOVA FUNÇÃO: Devolve uma LISTA de 10 Animes para a interface
+  async searchAnimeList(nomeAnime: string) {
+    // 1. Limpa o nome
+    const termo = nomeAnime.trim();
+
+    // 2. Query simplificada ao máximo (exatamente como nos exemplos da doc)
+    const query = `
+    {
+      Page(perPage: 10) {
+        media(search: "${termo}", type: ANIME) {
+          id
+          title {
+            romaji
+            english
+          }
+          coverImage {
+            large
+          }
+        }
+      }
+    }
+    `;
+
+    try {
+      const response = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${process.env.ANILIST_TOKEN}`,
+          'User-Agent': 'Mozilla/5.0'
+        },
+        body: JSON.stringify({ query }), // Enviamos apenas a query string
+      });
+
+      const result = await response.json();
+
+      // Este log vai mostrar se a AniList deu erro de sintaxe
+      console.log('--- RESPOSTA ANILIST ---');
+      console.log(JSON.stringify(result, null, 2));
+
+      if (result.data && result.data.Page) {
+        return result.data.Page.media;
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Erro no fetch:', error);
+      return [];
+    }
   }
 
   findAll() {

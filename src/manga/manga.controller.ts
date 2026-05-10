@@ -23,6 +23,12 @@ export class MangaController {
     return this.mangaService.findAll();
   }
 
+  @Get('search/:nome')
+  search(@Param('nome') nome: string) {
+    // Atenção: Aqui tem de chamar a searchMangaList e não a antiga
+    return this.mangaService.searchMangaList(nome); 
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.mangaService.findOne(+id);

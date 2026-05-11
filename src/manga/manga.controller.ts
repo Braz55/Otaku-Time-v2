@@ -1,45 +1,49 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request } from '@nestjs/common';
 import { MangaService } from './manga.service';
-import { CreateMangaDto } from './dto/create-manga.dto';
 import { UpdateMangaDto } from './dto/update-manga.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('manga')
 export class MangaController {
   constructor(private readonly mangaService: MangaService) {}
 
-
-  // NOVO: Endpoint para importar Manga automaticamente
+  @UseGuards(JwtAuthGuard)
   @Post('import')
-  importManga(@Body() body: { nome: string; userId: number }) {
-    return this.mangaService.importFromAniList(body.nome, body.userId);
+  importManga(@Body() body: { nome: string }, @Request() req) {
+    return this.mangaService.importFromAniList(body.nome, req.user.userId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('external/:nome')
   getExternalDetails(@Param('nome') nome: string) {
     return this.mangaService.searchAniListManga(nome);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get()
-  findAll() {
-    return this.mangaService.findAll(1);
+  findAll(@Request() req) {
+    return this.mangaService.findAll(req.user.userId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('search/:nome')
   search(@Param('nome') nome: string) {
-    // Atenção: Aqui tem de chamar a searchMangaList e não a antiga
     return this.mangaService.searchMangaList(nome); 
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.mangaService.findOne(+id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateMangaDto: UpdateMangaDto) {
     return this.mangaService.update(+id, updateMangaDto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.mangaService.remove(+id);

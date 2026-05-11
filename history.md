@@ -26,3 +26,25 @@ A experiência do utilizador foi refinada para ser mais fluída e intuitiva:
 ## 4. Ajustes Técnicos e Performance
 * **Prisma 7:** Atualização do `schema.prisma` para as novas normas do Prisma 7, centralizando a gestão da base de dados via `prisma.config.ts`.
 * **Refatoração de Controllers:** Limpeza de endpoints obsoletos e simplificação da API REST para lidar com os novos objetos aninhados.
+
+
+# 📅 Atualização: Calendário e Inteligência de Lançamentos
+
+Concluímos a implementação do Passo 2. O **OtakuTime** agora possui funcionalidades avançadas de agendamento e sincronização de datas em tempo real.
+
+## 1. Infraestrutura de Dados
+* **Esquema de Base de Dados:** Atualização do Prisma para incluir os campos `proximoEpisodioData` e `proximoEpisodioNumero` na tabela global de Animes.
+* **Persistência Local:** Os metadados de lançamento são agora armazenados no SQLite, permitindo consultas rápidas sem dependência constante da API externa.
+
+## 2. Inteligência de Lançamentos (Backend)
+* **Integração AniList:** O backend foi configurado para extrair automaticamente o objeto `nextAiringEpisode` (contendo `airingAt` e `episode`) sempre que um conteúdo em lançamento é adicionado.
+* **Conversão de Timestamps:** Implementação de lógica para converter os timestamps Unix da API em objetos `DateTime` compatíveis com o fuso horário local.
+
+## 3. Interface: Calendário de Lançamentos (/calendar)
+* **Vista Semanal:** Criação de uma nova página de Calendário com design moderno que exibe os próximos 7 dias de lançamentos.
+* **Filtro Personalizado:** O calendário é dinâmico e focado no utilizador, exibindo apenas os animes que constam na "Minha Lista" e que possuem o status `RELEASING`.
+* **Indicadores Visuais:** Inclusão de contagem de episódios e selos de "Confirmado" para datas obtidas via API oficial.
+
+## 4. Navegação e UX
+* **Acesso Rápido:** Adição de um novo botão de Calendário no Header principal, posicionado estrategicamente ao lado das ações de perfil.
+* **Navegação Intuitiva:** Interface que permite alternar entre os dias da semana para visualizar o agendamento futuro de forma clara.

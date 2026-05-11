@@ -132,7 +132,9 @@ export class MangaService {
       capAtual: item.capAtual,
       numCapitulosTotal: item.manga.numCapitulosTotal,
       prioridade: item.prioridade,
-      statusLancamento: item.manga.statusLancamento
+      statusLancamento: item.manga.statusLancamento,
+      proximoCapituloData: item.manga.proximoCapituloData,
+      proximoCapituloNumero: item.manga.proximoCapituloNumero
     }));
   }
 
@@ -155,7 +157,9 @@ export class MangaService {
       capAtual: item.capAtual,
       numCapitulosTotal: item.manga.numCapitulosTotal,
       prioridade: item.prioridade,
-      statusLancamento: item.manga.statusLancamento
+      statusLancamento: item.manga.statusLancamento,
+      proximoCapituloData: item.manga.proximoCapituloData,
+      proximoCapituloNumero: item.manga.proximoCapituloNumero
     };
   }
 

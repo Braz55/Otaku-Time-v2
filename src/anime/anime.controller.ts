@@ -1,47 +1,49 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request } from '@nestjs/common';
 import { AnimeService } from './anime.service';
-import { CreateAnimeDto } from './dto/create-anime.dto';
 import { UpdateAnimeDto } from './dto/update-anime.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('anime')
 export class AnimeController {
   constructor(private readonly animeService: AnimeService) {}
 
-
-  // NOVO: Endpoint para importar automaticamente
+  @UseGuards(JwtAuthGuard)
   @Post('import')
-  importAnime(@Body() body: { nome: string; userId: number }) {
-    return this.animeService.importFromAniList(body.nome, body.userId);
+  importAnime(@Body() body: { nome: string }, @Request() req) {
+    return this.animeService.importFromAniList(body.nome, req.user.userId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('external/:nome')
   getExternalDetails(@Param('nome') nome: string) {
     return this.animeService.searchAniList(nome);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('search/:nome')
   async search(@Param('nome') nome: string) {
-    console.log('1. Controller recebeu pedido para:', nome);
-    const resultados = await this.animeService.searchAnimeList(nome);
-    console.log('2. Service devolveu:', resultados.length, 'itens');
-    return resultados;
+    return this.animeService.searchAnimeList(nome);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get()
-  findAll() {
-    return this.animeService.findAll(1); // Default para o user 1 enquanto não há auth
+  findAll(@Request() req) {
+    return this.animeService.findAll(req.user.userId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.animeService.findOne(+id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateAnimeDto: UpdateAnimeDto) {
     return this.animeService.update(+id, updateAnimeDto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.animeService.remove(+id);

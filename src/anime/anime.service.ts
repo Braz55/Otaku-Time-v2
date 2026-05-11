@@ -21,6 +21,10 @@ export class AnimeService {
             episodes
             season
             seasonYear
+            nextAiringEpisode {
+              airingAt
+              episode
+            }
           }
         }
       }
@@ -33,7 +37,7 @@ export class AnimeService {
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' },
         body: JSON.stringify({ query, variables }),
       });
-      const result = await response.json();
+      const result = await response.json() as any;
       return result?.data?.Page?.media[0] || null;
     } catch (error) {
       console.error('Erro na ligação à AniList:', error);
@@ -57,6 +61,8 @@ export class AnimeService {
         numEpisodiosTotal: aniListData.episodes,
         capaUrl: aniListData.coverImage.large,
         statusLancamento: aniListData.status,
+        proximoEpisodio: aniListData.nextAiringEpisode?.episode,
+        proximoEpisodioData: aniListData.nextAiringEpisode ? new Date(aniListData.nextAiringEpisode.airingAt * 1000) : null,
       },
       create: {
         id: aniListData.id,
@@ -68,6 +74,8 @@ export class AnimeService {
         numEpisodiosTotal: aniListData.episodes,
         temporada: aniListData.season,
         ano: aniListData.seasonYear,
+        proximoEpisodio: aniListData.nextAiringEpisode?.episode,
+        proximoEpisodioData: aniListData.nextAiringEpisode ? new Date(aniListData.nextAiringEpisode.airingAt * 1000) : null,
       },
     });
 
@@ -137,7 +145,9 @@ export class AnimeService {
       epAtual: item.epAtual,
       numEpisodiosTotal: item.anime.numEpisodiosTotal,
       temporada: item.anime.temporada,
-      ano: item.anime.ano
+      ano: item.anime.ano,
+      proximoEpisodio: item.anime.proximoEpisodio,
+      proximoEpisodioData: item.anime.proximoEpisodioData
     }));
   }
 
@@ -161,7 +171,9 @@ export class AnimeService {
       epAtual: item.epAtual,
       numEpisodiosTotal: item.anime.numEpisodiosTotal,
       temporada: item.anime.temporada,
-      ano: item.anime.ano
+      ano: item.anime.ano,
+      proximoEpisodio: item.anime.proximoEpisodio,
+      proximoEpisodioData: item.anime.proximoEpisodioData
     };
   }
 

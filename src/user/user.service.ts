@@ -1,32 +1,48 @@
 import { Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
-import { PrismaService } from '../prisma/prisma.service'; // Importamos a nossa ponte
+import { PrismaService } from '../prisma/prisma.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UserService {
-  // Injetamos o PrismaService para podermos comunicar com a BD
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createUserDto: CreateUserDto) {
-    // Aqui dizemos ao Prisma para criar um novo User com os dados do DTO
+    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
     return this.prisma.user.create({
-      data: createUserDto,
+      data: {
+        ...createUserDto,
+        password: hashedPassword,
+      },
+    });
+  }
+
+  async findByEmail(email: string) {
+    return this.prisma.user.findUnique({
+      where: { email },
     });
   }
 
   findAll() {
-    return this.prisma.user.findMany(); // Já deixamos o findAll a funcionar também!
+    return this.prisma.user.findMany();
   }
 
   findOne(id: number) {
-    return `This action returns a #${id} user`;
+    return this.prisma.user.findUnique({
+      where: { id },
+    });
   }
 
   update(id: number, updateDto: any) {
-    return `This action updates a #${id} user`;
+    return this.prisma.user.update({
+      where: { id },
+      data: updateDto,
+    });
   }
 
   remove(id: number) {
-    return `This action removes a #${id} user`;
+    return this.prisma.user.delete({
+      where: { id },
+    });
   }
 }

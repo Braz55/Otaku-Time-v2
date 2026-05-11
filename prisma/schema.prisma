@@ -34,7 +34,8 @@ model Anime {
   generos           String?
   capaUrl           String?
   numEpisodiosTotal Int?
-  proximoEpisodio   Int?
+  proximoEpisodio   Int?        // Número do próximo episódio (se disponível)
+  proximoEpisodioData DateTime? // Data e hora exata do lançamento do próximo episódio
   dataLancamento    DateTime?
   temporada         String?
   ano               Int?
@@ -54,15 +55,17 @@ model UserAnime {
 }
 
 model Manga {
-  id                Int         @id // Usar o ID da AniList diretamente
-  titulo            String
-  statusLancamento  String?
-  numCapitulosTotal Float?
-  capaUrl           String?
-  generos           String?
-  autor             String?
-  descricao         String?
-  utilizadores      UserManga[]
+  id                    Int         @id // Usar o ID da AniList diretamente
+  titulo                String
+  statusLancamento      String?
+  numCapitulosTotal     Float?
+  capaUrl               String?
+  generos               String?
+  autor                 String?
+  descricao             String?
+  proximoCapituloData   DateTime? // Data prevista para o próximo capítulo
+  proximoCapituloNumero Float?    // Número do próximo capítulo
+  utilizadores          UserManga[]
 }
 
 model UserManga {

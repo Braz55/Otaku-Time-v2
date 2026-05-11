@@ -17,9 +17,9 @@ export class AnimeService {
   // NOVA FUNÇÃO: Vai buscar dados à AniList!
   async searchAniList(nomeAnime: string) {
     const query = `
-      query ($search: String) {
-        Page(perPage: 10) {
-          media(search: $search, type: ANIME, sort: SEARCH_MATCH) {
+      query ($s: String) {
+        Page(perPage: 1) {
+          media(search: $s, type: ANIME, sort: SEARCH_MATCH) {
             id
             title {
               english
@@ -30,12 +30,18 @@ export class AnimeService {
               large
             }
             status
+            description
+            genres
+            tags { name }
+            episodes
+            season
+            seasonYear
           }
         }
       }
     `;
 
-    const variables = { search: nomeAnime };
+    const variables = { s: nomeAnime };
 
     try {
       const response = await fetch('https://graphql.anilist.co', {
@@ -43,7 +49,6 @@ export class AnimeService {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Authorization': `Bearer ${process.env.ANILIST_TOKEN}`,
           'User-Agent': 'Mozilla/5.0'
         },
         body: JSON.stringify({ query, variables }),
@@ -51,13 +56,12 @@ export class AnimeService {
 
       const result = await response.json();
       
-      // Se a AniList devolver erros no JSON
       if (result.errors) {
         console.error('Erro na AniList:', result.errors);
         return null;
       }
 
-      return result.data.Media;
+      return result?.data?.Page?.media[0] || null;
     } catch (error) {
       console.error('Erro na ligação à AniList:', error);
       return null;
@@ -66,21 +70,17 @@ export class AnimeService {
 
   // NOVA FUNÇÃO: Vai à AniList e GRAVA na tua base de dados automaticamente!
   async importFromAniList(nomeAnime: string, userId: number) {
-    // 1. Vai buscar os dados à AniList usando a função que já temos
     const aniListData = await this.searchAniList(nomeAnime);
 
     if (!aniListData) {
       throw new Error('Anime não encontrado na AniList');
     }
 
-    // 2. Vamos juntar os Géneros e as 5 melhores Tags para a tua IA ler depois
-    const topTags = aniListData.tags.slice(0, 5).map((tag: any) => tag.name).join(', ');
-    const generosComTags = `${aniListData.genres.join(', ')}, ${topTags}`;
+    const topTags = aniListData.tags ? aniListData.tags.slice(0, 5).map((tag: any) => tag.name).join(', ') : '';
+    const generosComTags = `${aniListData.genres ? aniListData.genres.join(', ') : ''}, ${topTags}`;
 
-    // 3. Limpar as tags de HTML (<br>) da descrição da AniList
-    const descricaoLimpa = aniListData.description.replace(/<[^>]*>?/gm, '');
+    const descricaoLimpa = aniListData.description ? aniListData.description.replace(/<[^>]*>?/gm, '') : "Sem descrição.";
 
-    // 4. Mapear os dados da AniList para o formato do teu DTO/Prisma
     const novoAnime = {
       titulo: aniListData.title.english || aniListData.title.romaji,
       statusLancamento: aniListData.status,
@@ -88,14 +88,13 @@ export class AnimeService {
       descricao: descricaoLimpa,
       numEpisodiosTotal: aniListData.episodes,
       capaUrl: aniListData.coverImage.large,
-      userId: userId, // Ligamos ao teu utilizador (ID 1)
+      userId: userId,
       statusVisualizacao: "Planeado",
       epAtual: 0,
       temporada: aniListData.season,
       ano: aniListData.seasonYear,
     };
 
-    // 5. Mandar o Prisma gravar!
     return this.prisma.anime.create({
       data: novoAnime,
     });
@@ -104,26 +103,27 @@ export class AnimeService {
   
   // NOVA FUNÇÃO: Devolve uma LISTA de 10 Animes para a interface
   async searchAnimeList(nomeAnime: string) {
-    // 1. Limpa o nome
     const termo = nomeAnime.trim();
 
-    // 2. Query simplificada ao máximo (exatamente como nos exemplos da doc)
     const query = `
-    {
-      Page(perPage: 10) {
-        media(search: "${termo}", type: ANIME) {
-          id
-          title {
-            romaji
-            english
-          }
-          coverImage {
-            large
+      query ($s: String) {
+        Page(perPage: 10) {
+          media(search: $s, type: ANIME, sort: SEARCH_MATCH) {
+            id
+            title {
+              romaji
+              english
+            }
+            coverImage {
+              large
+            }
+            status
           }
         }
       }
-    }
     `;
+
+    const variables = { s: termo };
 
     try {
       const response = await fetch('https://graphql.anilist.co', {
@@ -131,15 +131,13 @@ export class AnimeService {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Authorization': `Bearer ${process.env.ANILIST_TOKEN}`,
           'User-Agent': 'Mozilla/5.0'
         },
-        body: JSON.stringify({ query }), // Enviamos apenas a query string
+        body: JSON.stringify({ query, variables }),
       });
 
       const result = await response.json();
 
-      // Este log vai mostrar se a AniList deu erro de sintaxe
       console.log('--- RESPOSTA ANILIST ---');
       console.log(JSON.stringify(result, null, 2));
 

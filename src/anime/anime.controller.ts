@@ -18,6 +18,11 @@ export class AnimeController {
     return this.animeService.importFromAniList(body.nome, body.userId);
   }
 
+  @Get('external/:nome')
+  getExternalDetails(@Param('nome') nome: string) {
+    return this.animeService.searchAniList(nome);
+  }
+
   @Get('search/:nome')
   async search(@Param('nome') nome: string) {
     console.log('1. Controller recebeu pedido para:', nome);

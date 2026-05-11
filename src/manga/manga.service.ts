@@ -139,14 +139,45 @@ export class MangaService {
   }
 
   findOne(id: number) {
-    return `This action returns a #${id} manga`;
+    return this.prisma.manga.findUnique({
+      where: { id },
+    });
   }
 
-  update(id: number, updateDto: any) {
-    return `This action updates a #${id} manga`;
+  async update(id: number, updateDto: any) {
+    // Buscar o estado atual
+    const atual = await this.prisma.manga.findUnique({ where: { id } });
+    if (!atual) return null;
+
+    let novosDados = { ...updateDto };
+
+    // Lógica de progresso
+    if (updateDto.capAtual !== undefined) {
+      const cap = updateDto.capAtual;
+
+      // Auto-start
+      if (atual.statusLeitura === "Planeado" && cap > 0) {
+        novosDados.statusLeitura = "Lendo";
+      }
+
+      // Auto-complete
+      if (atual.numCapitulosTotal && cap >= atual.numCapitulosTotal) {
+        novosDados.statusLeitura = "Completo";
+        novosDados.capAtual = atual.numCapitulosTotal;
+      }
+
+      if (cap < 0) novosDados.capAtual = 0;
+    }
+
+    return this.prisma.manga.update({
+      where: { id },
+      data: novosDados,
+    });
   }
 
   remove(id: number) {
-    return `This action removes a #${id} manga`;
+    return this.prisma.manga.delete({
+      where: { id },
+    });
   }
 }

@@ -2,7 +2,7 @@
 
 body {
   background-color: #0f1014;
-  color: #d1d5db; /* gray-300 */
+  color: #e5e7eb; /* gray-200 */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -10,4 +10,22 @@ body {
 h1, h2, h3, h4, h5, h6 {
   color: white;
   font-weight: 600;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s ease-out forwards;
 }

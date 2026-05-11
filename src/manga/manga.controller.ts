@@ -18,6 +18,11 @@ export class MangaController {
     return this.mangaService.importFromAniList(body.nome, body.userId);
   }
 
+  @Get('external/:nome')
+  getExternalDetails(@Param('nome') nome: string) {
+    return this.mangaService.searchAniListManga(nome);
+  }
+
   @Get()
   findAll() {
     return this.mangaService.findAll();

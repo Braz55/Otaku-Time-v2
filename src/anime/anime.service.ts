@@ -157,14 +157,45 @@ export class AnimeService {
   }
 
   findOne(id: number) {
-    return `This action returns a #${id} anime`;
+    return this.prisma.anime.findUnique({
+      where: { id },
+    });
   }
 
-  update(id: number, updateDto: any) {
-    return `This action updates a #${id} anime`;
+  async update(id: number, updateDto: any) {
+    // Buscar o estado atual antes de atualizar
+    const atual = await this.prisma.anime.findUnique({ where: { id } });
+    if (!atual) return null;
+
+    let novosDados = { ...updateDto };
+
+    // Lógica de progresso
+    if (updateDto.epAtual !== undefined) {
+      const ep = updateDto.epAtual;
+      
+      // Auto-start: Se começar a ver, muda para "Assistindo"
+      if (atual.statusVisualizacao === "Planeado" && ep > 0) {
+        novosDados.statusVisualizacao = "Assistindo";
+      }
+
+      // Auto-complete: Se chegar ao fim, muda para "Completo"
+      if (atual.numEpisodiosTotal && ep >= atual.numEpisodiosTotal) {
+        novosDados.statusVisualizacao = "Completo";
+        novosDados.epAtual = atual.numEpisodiosTotal; // Não deixa passar do total
+      }
+
+      if (ep < 0) novosDados.epAtual = 0;
+    }
+
+    return this.prisma.anime.update({
+      where: { id },
+      data: novosDados,
+    });
   }
 
   remove(id: number) {
-    return `This action removes a #${id} anime`;
+    return this.prisma.anime.delete({
+      where: { id },
+    });
   }
 }

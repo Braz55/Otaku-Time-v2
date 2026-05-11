@@ -48,3 +48,30 @@ Concluímos a implementação do Passo 2. O **OtakuTime** agora possui funcional
 ## 4. Navegação e UX
 * **Acesso Rápido:** Adição de um novo botão de Calendário no Header principal, posicionado estrategicamente ao lado das ações de perfil.
 * **Navegação Intuitiva:** Interface que permite alternar entre os dias da semana para visualizar o agendamento futuro de forma clara.
+
+# ✨ Atualização Premium: Interface, Ranking e Descoberta
+
+Transformámos o OtakuTime numa plataforma de aspeto "Premium", com foco em personalização e descoberta de conteúdos.
+
+## 1. Redesign Visual Completo (UI/UX)
+A interface foi reconstruída com uma estética moderna e minimalista:
+*   **Glassmorphism Header:** Barra superior fixa com efeito de desfoque e transparência, mantendo a navegação sempre acessível.
+*   **Layout Dinâmico:** Reorganização do cabeçalho com o seletor de Anime/Manga posicionado ao lado do logótipo para uma navegação mais rápida.
+*   **Experiência Cinematográfica:** A página de detalhes agora apresenta um fundo dinâmico baseado na capa do conteúdo, com tipografia em negrito e transições suaves.
+*   **Cards Premium:** Implementação de cartões com efeitos de elevação (*hover*), badges automáticas e sombras profundas.
+
+## 2. Sistema de Ranking Pessoal
+A funcionalidade de prioridade foi evoluída para um sistema de **Ranking Real**:
+*   **Top 1, 2, 3...:** Os utilizadores podem agora definir a posição exata de cada item na sua fila de espera (#1, #2, etc.).
+*   **Ordenação Automática:** A biblioteca organiza-se agora de forma ascendente (o #1 aparece primeiro), facilitando a gestão do backlog.
+*   **Badge de Posição:** Cada capa na biblioteca exibe um selo com a sua posição no ranking pessoal do utilizador.
+
+## 3. Descoberta e Filtros por Género
+Expandimos a plataforma para permitir a descoberta de novos conteúdos sem sair do site:
+*   **Genre Chips:** Barra horizontal com scroll suave contendo os géneros mais populares da AniList (Ação, Romance, Isekai, etc.).
+*   **Pesquisa Híbrida:** Integração de filtros por género que funcionam em conjunto com a categoria selecionada.
+*   **Novos Endpoints de Descoberta:** O backend foi atualizado para suportar pesquisas por género, trazendo os conteúdos mais populares de cada categoria via API externa.
+
+## 4. Arquitetura Frontend Robusta
+*   **Global Layout:** Implementação de um `Layout` universal que garante a presença do cabeçalho em todas as páginas da aplicação.
+*   **MediaContext:** Centralização do estado global (Anime vs Manga e Lista vs Pesquisa), permitindo que a navegação seja fluida e que as preferências do utilizador persistam ao mudar de página.

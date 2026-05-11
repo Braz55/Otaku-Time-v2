@@ -26,6 +26,12 @@ export class AnimeController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('genre/:genre')
+  async searchByGenre(@Param('genre') genre: string) {
+    return this.animeService.searchByGenre(genre);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get()
   findAll(@Request() req) {
     return this.animeService.findAll(req.user.userId);

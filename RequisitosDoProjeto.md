@@ -12,6 +12,7 @@
 * **Gestão de Biblioteca (Tracking):**
   * O utilizador deve poder adicionar, atualizar e remover conteúdos da sua lista pessoal.
   * O utilizador deve poder atribuir diferentes estados de acompanhamento (ex: A ver/Lendo, Planeado, Concluído, Pausado, Desistiu).
+  * O utilizador deve poder definir uma **prioridade (ex: 1 a 10)** para cada item, permitindo ordenar a sua biblioteca pelo que deseja ler/ver primeiro.
   * O sistema deve permitir incrementar/editar o número de episódios ou capítulos vistos/lidos.
 
 * **Painel de Informações (Detalhes):**

@@ -43,13 +43,14 @@ model Anime {
 }
 
 model UserAnime {
-  id      Int            @id @default(autoincrement())
-  epAtual Int            @default(0)
-  status  TrackingStatus @default(PLANNED)
-  userId  Int
-  animeId Int
-  user    User           @relation(fields: [userId], references: [id])
-  anime   Anime          @relation(fields: [animeId], references: [id])
+  id         Int            @id @default(autoincrement())
+  epAtual    Int            @default(0)
+  status     TrackingStatus @default(PLANNED)
+  prioridade Int            @default(5)
+  userId     Int
+  animeId    Int
+  user       User           @relation(fields: [userId], references: [id])
+  anime      Anime          @relation(fields: [animeId], references: [id])
 
   @@unique([userId, animeId])
 }

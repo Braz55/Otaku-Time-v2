@@ -32,6 +32,12 @@ export class MangaController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('genre/:genre')
+  async searchByGenre(@Param('genre') genre: string) {
+    return this.mangaService.searchByGenre(genre);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.mangaService.findOne(+id);

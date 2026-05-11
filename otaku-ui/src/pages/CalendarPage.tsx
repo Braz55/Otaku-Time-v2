@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useMedia } from '../context/MediaContext';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Calendar as CalendarIcon, Clock, ExternalLink } from 'lucide-react';
 import { format, isSameDay, startOfToday, addDays, eachDayOfInterval } from 'date-fns';
@@ -9,14 +10,16 @@ interface AiringAnime {
   id: number;
   titulo: string;
   capaUrl: string;
-  proximoEpisodio: number;
-  proximoEpisodioData: string;
+  displayNum: number;
+  displayDate: string;
+  type: 'anime' | 'manga';
 }
 
 const CalendarPage = () => {
   const { token } = useAuth();
+  const { categoria } = useMedia();
   const navigate = useNavigate();
-  const [animes, setAnimes] = useState<AiringAnime[]>([]);
+  const [items, setItems] = useState<AiringAnime[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(startOfToday());
 
@@ -38,13 +41,13 @@ const CalendarPage = () => {
 
       const airingAnime = animeData
         .filter((a: any) => a.proximoEpisodioData !== null)
-        .map((a: any) => ({ ...a, type: 'anime', displayDate: a.proximoEpisodioData, displayNum: a.proximoEpisodio }));
+        .map((a: any) => ({ ...a, type: 'anime' as const, displayDate: a.proximoEpisodioData, displayNum: a.proximoEpisodio }));
 
       const airingManga = mangaData
         .filter((m: any) => m.proximoCapituloData !== null)
-        .map((m: any) => ({ ...m, type: 'manga', displayDate: m.proximoCapituloData, displayNum: m.proximoCapituloNumero }));
+        .map((m: any) => ({ ...m, type: 'manga' as const, displayDate: m.proximoCapituloData, displayNum: m.proximoCapituloNumero }));
 
-      setAnimes([...airingAnime, ...airingManga]);
+      setItems([...airingAnime, ...airingManga]);
     } catch (error) {
       console.error("Erro ao carregar calendário:", error);
     } finally {
@@ -56,8 +59,8 @@ const CalendarPage = () => {
     fetchAiring();
   }, []);
 
-  const itemsOnSelectedDay = animes.filter(item => 
-    isSameDay(new Date(item.displayDate), selectedDate)
+  const itemsOnSelectedDay = items.filter(item => 
+    item.type === categoria && isSameDay(new Date(item.displayDate), selectedDate)
   );
 
   return (

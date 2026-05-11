@@ -29,3 +29,16 @@ h1, h2, h3, h4, h5, h6 {
 .animate-slide-up {
   animation: slideUp 0.5s ease-out forwards;
 }
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .mask-fade-edges {
+    mask-image: linear-gradient(to right, transparent, black 50px, black calc(100% - 50px), transparent);
+  }
+}

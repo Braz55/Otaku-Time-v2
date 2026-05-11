@@ -146,6 +146,7 @@ export class AnimeService {
       numEpisodiosTotal: item.anime.numEpisodiosTotal,
       temporada: item.anime.temporada,
       ano: item.anime.ano,
+      prioridade: item.prioridade,
       proximoEpisodio: item.anime.proximoEpisodio,
       proximoEpisodioData: item.anime.proximoEpisodioData
     }));
@@ -172,6 +173,7 @@ export class AnimeService {
       numEpisodiosTotal: item.anime.numEpisodiosTotal,
       temporada: item.anime.temporada,
       ano: item.anime.ano,
+      prioridade: item.prioridade,
       proximoEpisodio: item.anime.proximoEpisodio,
       proximoEpisodioData: item.anime.proximoEpisodioData
     };
@@ -235,5 +237,34 @@ export class AnimeService {
     return this.prisma.userAnime.delete({
       where: { id },
     });
+  }
+
+  async searchByGenre(genre: string) {
+    const query = `
+      query ($g: String) {
+        Page(perPage: 24) {
+          media(genre: $g, type: ANIME, sort: POPULARITY_DESC) {
+            id
+            title { english romaji }
+            coverImage { large }
+            genres
+          }
+        }
+      }
+    `;
+    const variables = { g: genre };
+
+    try {
+      const response = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ query, variables }),
+      });
+      const result = await response.json() as any;
+      return result?.data?.Page?.media || [];
+    } catch (error) {
+      console.error('Erro ao buscar por género na AniList:', error);
+      return [];
+    }
   }
 }

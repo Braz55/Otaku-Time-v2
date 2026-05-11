@@ -4,11 +4,12 @@ import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import CalendarPage from './pages/CalendarPage';
+import Layout from './components/Layout';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
+  return isAuthenticated ? <Layout>{children}</Layout> : <Navigate to="/login" />;
 };
 
 function App() {

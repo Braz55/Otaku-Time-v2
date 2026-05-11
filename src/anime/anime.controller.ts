@@ -7,10 +7,6 @@ import { UpdateAnimeDto } from './dto/update-anime.dto';
 export class AnimeController {
   constructor(private readonly animeService: AnimeService) {}
 
-  @Post()
-  create(@Body() createAnimeDto: CreateAnimeDto) {
-    return this.animeService.create(createAnimeDto);
-  }
 
   // NOVO: Endpoint para importar automaticamente
   @Post('import')
@@ -33,7 +29,7 @@ export class AnimeController {
 
   @Get()
   findAll() {
-    return this.animeService.findAll();
+    return this.animeService.findAll(1); // Default para o user 1 enquanto não há auth
   }
 
   @Get(':id')

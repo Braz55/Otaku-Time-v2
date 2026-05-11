@@ -7,10 +7,6 @@ import { UpdateMangaDto } from './dto/update-manga.dto';
 export class MangaController {
   constructor(private readonly mangaService: MangaService) {}
 
-  @Post()
-  create(@Body() createMangaDto: CreateMangaDto) {
-    return this.mangaService.create(createMangaDto);
-  }
 
   // NOVO: Endpoint para importar Manga automaticamente
   @Post('import')
@@ -25,7 +21,7 @@ export class MangaController {
 
   @Get()
   findAll() {
-    return this.mangaService.findAll();
+    return this.mangaService.findAll(1);
   }
 
   @Get('search/:nome')

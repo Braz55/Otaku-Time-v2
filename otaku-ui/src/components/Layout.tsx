@@ -8,12 +8,17 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { categoria, setCategoria, setIsShowingFavorites } = useMedia();
+  const { categoria, setCategoria, setIsShowingFavorites, triggerHome } = useMedia();
   const navigate = useNavigate();
 
   const handleShowFavorites = () => {
     setIsShowingFavorites(true);
     navigate('/'); // Sempre volta para a home para mostrar a biblioteca
+  };
+
+  const handleShowDashboard = () => {
+    triggerHome();
+    navigate('/');
   };
 
   return (
@@ -24,6 +29,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           setCategoria(cat);
         }} 
         onShowFavorites={handleShowFavorites}
+        onShowDashboard={handleShowDashboard}
       />
       <main>
         {children}

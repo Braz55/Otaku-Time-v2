@@ -1,15 +1,16 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Heart, User, LogOut } from 'lucide-react';
+import { Heart, User, LogOut, Home, MessageSquare } from 'lucide-react';
 
 interface HeaderProps {
   categoria: 'anime' | 'manga';
   setCategoria: (cat: 'anime' | 'manga') => void;
   onShowFavorites: () => void;
+  onShowDashboard: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowFavorites }) => {
+const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowFavorites, onShowDashboard }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -45,13 +46,29 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowFavorite
 
         {/* Actions Right */}
         <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={onShowDashboard}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#1a1c23] text-gray-400 rounded-xl hover:text-white transition-all border border-gray-800 font-bold text-sm active:scale-95"
+          >
+            <Home className="w-4 h-4" />
+            <span className="hidden md:inline uppercase tracking-wider">Início</span>
+          </button>
+          <button 
+            onClick={() => navigate('/chat')}
+            className="flex items-center gap-2 px-5 py-2.5 bg-purple-500/10 text-purple-400 rounded-xl hover:bg-purple-600 hover:text-white transition-all border border-purple-500/20 font-bold text-sm active:scale-95"
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span className="hidden md:inline uppercase tracking-wider">Chat AI</span>
+          </button>
           <button 
             onClick={onShowFavorites}
-            className="flex items-center gap-3 px-8 py-4 bg-gradient-to-br from-pink-500/20 to-rose-500/10 text-pink-400 rounded-2xl hover:from-pink-600 hover:to-rose-600 hover:text-white transition-all border border-pink-500/20 font-black text-base shadow-lg active:scale-95"
+            className="flex items-center gap-2 px-5 py-2.5 bg-pink-500/10 text-pink-400 rounded-xl hover:bg-pink-600 hover:text-white transition-all border border-pink-500/20 font-bold text-sm active:scale-95"
           >
-            <Heart className="w-5 h-5 fill-current" />
-            <span className="hidden sm:inline uppercase tracking-wider">A Minha Lista</span>
+            <Heart className="w-4 h-4 fill-current" />
+            <span className="hidden md:inline uppercase tracking-wider">A Minha Lista</span>
           </button>
+        </div>
           
           <div className="flex items-center gap-3 ml-2 pl-6 border-l border-gray-800">
             <button className="p-4 bg-[#1a1c23] text-gray-400 rounded-2xl hover:text-white border border-gray-800 transition-all hover:border-purple-500/50 shadow-md">

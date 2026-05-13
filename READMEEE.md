@@ -42,41 +42,75 @@ Este projeto foi criado para elevar o nível de acompanhamento de mídia otaku, 
 ## Diagramas de classes
 :::mermaid
 classDiagram
-class Manga {
-    +String titulo
-    +float numCapitulos
-    +String capaUrl
-    +String statusLancamento
-    +String statusLeitura
-    +int capAtual
-    +List~String~ generos
-    +String autor
-    +String descricao
-    +int priorida
-}
+    class User {
+        +Int id
+        +String nome
+        +String email
+        +String password
+        +List~UserAnime~ animes
+        +List~UserManga~ mangas
+        +List~ChatSession~ sessions
+    }
 
-class Anime {
-    +String titulo
-    +String capaUrl
-    +String estadoVisualização
-    +String statusLancamento
-    +List~String~ generos
-    +String descricao
-    +Date dataLancamento
-    +int numTemporadas
-    +int numEpisodios
-}
+    class Anime {
+        +Int id
+        +String titulo
+        +String statusLancamento
+        +String descricao
+        +String generos
+        +String capaUrl
+        +Int numEpisodiosTotal
+        +Int proximoEpisodio
+        +DateTime proximoEpisodioData
+    }
 
-class User {
-    +String nome
-    +String email
-    +String password
-    +List~Manga~ listaManga
-    +List~Anime~ listaAnime
-}
+    class Manga {
+        +Int id
+        +String titulo
+        +String statusLancamento
+        +Float numCapitulosTotal
+        +String capaUrl
+        +String generos
+        +String autor
+        +String descricao
+        +DateTime proximoCapituloData
+        +Float proximoCapituloNumero
+    }
 
-User "1" -- "*" Manga : segue
-User "1" -- "*" Anime : segue
+    class UserAnime {
+        +Int id
+        +Int epAtual
+        +TrackingStatus status
+        +Int prioridade
+    }
+
+    class UserManga {
+        +Int id
+        +Float capAtual
+        +TrackingStatus status
+        +Int prioridade
+    }
+
+    class ChatSession {
+        +Int id
+        +String titulo
+        +DateTime createdAt
+        +DateTime updatedAt
+    }
+
+    class ChatMessage {
+        +Int id
+        +String role
+        +String content
+        +DateTime createdAt
+    }
+
+    User "1" -- "*" UserAnime : possui
+    User "1" -- "*" UserManga : possui
+    User "1" -- "*" ChatSession : possui
+    Anime "1" -- "*" UserAnime : associado
+    Manga "1" -- "*" UserManga : associado
+    ChatSession "1" -- "*" ChatMessage : contém
 :::
 
 ## guia das pastas

@@ -7,6 +7,7 @@ export class MangaService {
 
   // 1. Busca dados detalhados da AniList (Manga)
   async searchAniListManga(nomeManga: string) {
+    // ... (mesmo código da query)
     const query = `
       query ($s: String) {
         Page(perPage: 1) {
@@ -38,6 +39,7 @@ export class MangaService {
       return null;
     }
   }
+
 
   // 2. Importa para o Catálogo Global e adiciona à lista do utilizador
   async importFromAniList(nomeManga: string, userId: number) {
@@ -128,7 +130,7 @@ export class MangaService {
       capaUrl: item.manga.capaUrl,
       generos: item.manga.generos,
       descricao: item.manga.descricao,
-      status: this.mapStatus(item.status, 'manga'),
+      status: item.status,
       capAtual: item.capAtual,
       numCapitulosTotal: item.manga.numCapitulosTotal,
       prioridade: item.prioridade,
@@ -153,7 +155,7 @@ export class MangaService {
       capaUrl: item.manga.capaUrl,
       generos: item.manga.generos,
       descricao: item.manga.descricao,
-      status: this.mapStatus(item.status, 'manga'),
+      status: item.status,
       capAtual: item.capAtual,
       numCapitulosTotal: item.manga.numCapitulosTotal,
       prioridade: item.prioridade,
@@ -196,7 +198,7 @@ export class MangaService {
       capaUrl: updated.manga.capaUrl,
       generos: updated.manga.generos,
       descricao: updated.manga.descricao,
-      status: this.mapStatus(updated.status, 'manga'),
+      status: updated.status,
       capAtual: updated.capAtual,
       numCapitulosTotal: updated.manga.numCapitulosTotal,
       prioridade: updated.prioridade,

@@ -18,28 +18,29 @@ enum TrackingStatus {
 }
 
 model User {
-  id       Int         @id @default(autoincrement())
+  id       Int           @id @default(autoincrement())
   nome     String
-  email    String      @unique
+  email    String        @unique
   password String
   animes   UserAnime[]
   mangas   UserManga[]
+  sessions ChatSession[]
 }
 
 model Anime {
-  id                Int         @id // Usar o ID da AniList diretamente
-  titulo            String
-  statusLancamento  String?
-  descricao         String?
-  generos           String?
-  capaUrl           String?
-  numEpisodiosTotal Int?
-  proximoEpisodio   Int?        // Número do próximo episódio (se disponível)
+  id                  Int         @id // Usar o ID da AniList diretamente
+  titulo              String
+  statusLancamento    String?
+  descricao           String?
+  generos             String?
+  capaUrl             String?
+  numEpisodiosTotal   Int?
+  proximoEpisodio     Int?        // Número do próximo episódio (se disponível)
   proximoEpisodioData DateTime? // Data e hora exata do lançamento do próximo episódio
-  dataLancamento    DateTime?
-  temporada         String?
-  ano               Int?
-  utilizadores      UserAnime[]
+  dataLancamento      DateTime?
+  temporada           String?
+  ano                 Int?
+  utilizadores        UserAnime[]
 }
 
 model UserAnime {
@@ -80,4 +81,23 @@ model UserManga {
   manga      Manga          @relation(fields: [mangaId], references: [id])
 
   @@unique([userId, mangaId])
+}
+
+model ChatSession {
+  id        Int           @id @default(autoincrement())
+  titulo    String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  userId    Int
+  user      User          @relation(fields: [userId], references: [id])
+  messages  ChatMessage[]
+}
+
+model ChatMessage {
+  id        Int         @id @default(autoincrement())
+  role      String      // 'user' ou 'assistant'
+  content   String
+  createdAt DateTime    @default(now())
+  sessionId Int
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 }

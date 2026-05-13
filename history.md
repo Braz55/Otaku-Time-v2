@@ -75,3 +75,44 @@ Expandimos a plataforma para permitir a descoberta de novos conteúdos sem sair 
 ## 4. Arquitetura Frontend Robusta
 *   **Global Layout:** Implementação de um `Layout` universal que garante a presença do cabeçalho em todas as páginas da aplicação.
 *   **MediaContext:** Centralização do estado global (Anime vs Manga e Lista vs Pesquisa), permitindo que a navegação seja fluida e que as preferências do utilizador persistam ao mudar de página.
+
+# 🚀 Atualização: Dashboard de Acompanhamento e Navegação Fluida
+
+A plataforma foi otimizada para o consumo diário, transformando a página inicial num centro de controlo inteligente para o utilizador.
+
+## 1. Novo Dashboard de "Acompanhamento" (To-Watch/Read)
+*   **Vista Dual-Column:** Substituímos a vista inicial estática por um painel dinâmico de duas colunas: **"VER ASSEGUIR"** (Anime) e **"LER ASSEGUIR"** (Manga).
+*   **Filtro Automático:** O dashboard exibe apenas conteúdos que o utilizador está atualmente a consumir (`WATCHING`) e que possuem progresso pendente.
+*   **Ações Instantâneas:** Inclusão de botões "VISTO" e "LIDO" diretamente nos cards do dashboard, permitindo atualizar o progresso com um clique sem sair da página inicial.
+
+## 2. Inteligência de Progresso em Lançamentos
+*   **Lógica de Lançamento:** Implementámos um sistema que deteta quando um conteúdo é infinito ou está em lançamento (sem total definido).
+*   **Barra de Progresso Dinâmica:** A barra de progresso agora calcula a percentagem com base no **último episódio lançado** (ex: 12 / 24+) em vez de mostrar um erro ou ficar vazia.
+*   **Tradução Automática:** Traduzimos todos os estados de lançamento (RELEASING, FINISHED, etc.) para Português na interface.
+
+## 3. Experiência de Navegação Refinada
+*   **Navegação Compacta:** Refatoração do Header para incluir botões dedicados de "Início" e "A Minha Lista", permitindo alternar rapidamente entre o dashboard de descobertas e a biblioteca pessoal.
+*   **Reset Inteligente:** Configuração de um gatilho de reset global que limpa pesquisas, filtros e estados de visualização sempre que o utilizador clica em "Início", garantindo uma experiência sempre fresca.
+*   **Correção de Mismatch de Categoria:** Resolvemos um problema crítico onde clicar num card de Anime no dashboard podia abrir detalhes de um Manga (e vice-versa) se o modo global estivesse incorreto.
+
+## 4. Exploração de APIs Externas (Laboratório)
+*   **Integração MangaDex:** Testámos a integração com a MangaDex API usando um sistema de *Smart Match* (validando Autor e Ano) para obter o número exato de capítulos lançados.
+*   **Fallback Anime-Planet:** Implementámos um scraper experimental para o site Anime-Planet como fonte secundária de dados.
+*   **Decisão de Arquitetura:** Por opção de simplicidade e performance, estas integrações externas foram removidas, mantendo a AniList como fonte única de verdade, mas preservando as melhorias visuais de "Lançando" baseadas nos metadados oficiais.
+
+# 🤖 Atualização: Integração de Inteligência Artificial (Chatbot)
+
+Iniciámos a implementação do assistente virtual inteligente do OtakuTime, utilizando tecnologia de LLM local.
+
+## 1. Infraestrutura IA Local (Ollama)
+*   **Conectividade:** Validámos a comunicação com o motor **Ollama** na porta padrão `11434`.
+*   **Modelo de Linguagem:** Configuração baseada no **Llama 3.1 8B**, garantindo respostas rápidas e sem custos de API externa.
+
+## 2. Backend: O Motor do Chat (`ChatModule`)
+*   **ChatService:** Implementação do serviço central de IA com lógica de *Prompt Engineering*. Definimos um "System Prompt" que molda a personalidade do bot como um especialista Otaku amigável.
+*   **Endpoint Seguro:** Criação da rota `POST /chat`, protegida por autenticação JWT, garantindo que apenas utilizadores autorizados acedem ao assistente.
+*   **Formatação Markdown:** A IA foi instruída a responder usando Markdown (negritos, listas, tabelas) para facilitar a renderização rica no frontend.
+
+## 3. Próximos Passos (UI/UX)
+*   **Interface de Chat:** Criação da página de chat no React com suporte a histórico de mensagens e design "Premium".
+*   **Streaming de Respostas:** (Opcional) Implementação de streaming para que as letras apareçam em tempo real.

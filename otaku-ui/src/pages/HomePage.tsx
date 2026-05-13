@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMedia } from '../context/MediaContext';
-import { Search, Calendar as CalendarIcon, Sparkles, Loader2, ChevronLeft, Plus, Trash2, PlusCircle, MinusCircle } from 'lucide-react';
+import { Search, Calendar as CalendarIcon, Sparkles, Loader2, ChevronLeft, Plus, Trash2, PlusCircle, MinusCircle, Star, Clock, CheckCircle2, PauseCircle, XCircle, PlayCircle, List } from 'lucide-react';
 import MediaCard from '../components/MediaCard';
 
 // Interfaces
@@ -20,17 +20,28 @@ const GENRES = [
   "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"
 ];
 
+const TRACKING_STATUS_OPTIONS = [
+  { value: 'WATCHING', animeLabel: 'A Ver', mangaLabel: 'A Ler', icon: PlayCircle, color: 'text-green-400', bg: 'bg-green-400/10' },
+  { value: 'PLANNED', animeLabel: 'Ver mais tarde', mangaLabel: 'Ler mais tarde', icon: Clock, color: 'text-blue-400', bg: 'bg-blue-400/10' },
+  { value: 'COMPLETED', animeLabel: 'Visto', mangaLabel: 'Lido', icon: CheckCircle2, color: 'text-purple-400', bg: 'bg-purple-400/10' },
+  { value: 'PAUSED', animeLabel: 'Em Pausa', mangaLabel: 'Em Pausa', icon: PauseCircle, color: 'text-yellow-400', bg: 'bg-yellow-400/10' },
+  { value: 'DROPPED', animeLabel: 'Desistiu', mangaLabel: 'Desistiu', icon: XCircle, color: 'text-red-400', bg: 'bg-red-400/10' },
+];
+
 const HomePage = () => {
   const { user, token } = useAuth();
-  const { categoria, setCategoria, isShowingFavorites, setIsShowingFavorites } = useMedia();
+  const { categoria, setCategoria, isShowingFavorites, setIsShowingFavorites, triggerHome, homeTrigger } = useMedia();
   const navigate = useNavigate();
   const [termoPesquisa, setTermoPesquisa] = useState('');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [resultadosPesquisa, setResultadosPesquisa] = useState<any[]>([]);
   const [resultadosDB, setResultadosDB] = useState<any[]>([]);
+  const [animesDashboard, setAnimesDashboard] = useState<any[]>([]);
+  const [mangasDashboard, setMangasDashboard] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<'home' | 'details'>('home');
   const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [showEpList, setShowEpList] = useState(false);
 
   const getHeaders = () => ({
     'Content-Type': 'application/json',
@@ -66,6 +77,7 @@ const HomePage = () => {
       if (response.ok) {
         alert(`"${titulo}" adicionado com sucesso!`);
         consultarMinhaLista();
+        carregarDashboard();
         setIsShowingFavorites(true);
       }
     } catch (error) {
@@ -94,10 +106,59 @@ const HomePage = () => {
     }
   };
 
-  const abrirDetalhes = async (idOrTitle: number | string, isExternal: boolean = false) => {
+  const carregarDashboard = async () => {
     setLoading(true);
-    const endpoint = isExternal ? 'external' : '';
-    const url = `http://localhost:3001/${categoria}${endpoint ? '/' + endpoint : ''}/${encodeURIComponent(idOrTitle)}`;
+    try {
+      const [animeRes, mangaRes] = await Promise.all([
+        fetch('http://localhost:3001/anime', { headers: getHeaders() }),
+        fetch('http://localhost:3001/manga', { headers: getHeaders() })
+      ]);
+      
+      const animes = await animeRes.json();
+      const mangas = await mangaRes.json();
+
+      if (Array.isArray(animes)) {
+        setAnimesDashboard(animes.filter(a => a.status === 'WATCHING' && a.epAtual < (a.numEpisodiosTotal || 9999)));
+      }
+      if (Array.isArray(mangas)) {
+        setMangasDashboard(mangas.filter(m => m.status === 'WATCHING' && m.capAtual < (m.numCapitulosTotal || 9999)));
+      }
+    } catch (error) {
+      console.error("Erro ao carregar dashboard:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const marcarComoVisto = async (item: any, type: 'anime' | 'manga') => {
+    const campo = type === 'anime' ? 'epAtual' : 'capAtual';
+    const novoValor = (item[campo] || 0) + 1;
+    const url = `http://localhost:3001/${type}/${item.id}`;
+    
+    try {
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify({ [campo]: novoValor })
+      });
+      if (response.ok) {
+        carregarDashboard();
+        if (selectedItem && selectedItem.id === item.id) {
+          const updated = await response.json();
+          setSelectedItem(updated);
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao marcar como visto:", error);
+    }
+  };
+
+  const abrirDetalhes = async (id: number, isExternal = false, forcedType?: 'anime' | 'manga') => {
+    setLoading(true);
+    const targetType = forcedType || categoria;
+    const url = isExternal 
+      ? `http://localhost:3001/${targetType}/anilist/${id}`
+      : `http://localhost:3001/${targetType}/${id}`;
     
     try {
       const response = await fetch(url, { headers: getHeaders() });
@@ -122,6 +183,7 @@ const HomePage = () => {
         setSelectedItem({ ...data, isExternal: false });
       }
       setView('details');
+      setShowEpList(false); // Reset list view when opening new item
     } catch (error) {
       console.error("Erro ao carregar detalhes:", error);
     } finally {
@@ -191,13 +253,16 @@ const HomePage = () => {
 
   useEffect(() => {
     consultarMinhaLista();
-    if (!isShowingFavorites && termoPesquisa) {
-      pesquisar();
+    carregarDashboard();
+    
+    // Se voltarmos para o dashboard (isShowingFavorites === false), resetamos tudo
+    if (!isShowingFavorites) {
+      setView('home');
+      setSelectedItem(null);
+      setTermoPesquisa('');
+      setSelectedGenre(null);
     }
-    if (!isShowingFavorites && selectedGenre) {
-      pesquisarPorGenero(selectedGenre);
-    }
-  }, [categoria]);
+  }, [categoria, isShowingFavorites, homeTrigger]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
@@ -268,36 +333,120 @@ const HomePage = () => {
               </div>
             </section>
 
-            {/* Results Grid */}
+            {/* Results Grid / Dashboard */}
             <section className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-2xl font-bold flex items-center gap-3">
-                  <span className={`w-2 h-8 rounded-full ${isShowingFavorites ? 'bg-pink-500' : 'bg-purple-500'}`}></span>
-                  {isShowingFavorites ? `A Minha Lista (${categoria})` : resultadosPesquisa.length > 0 ? 'Resultados da Pesquisa' : 'Início'}
-                </h2>
-                {loading && <Loader2 className="w-6 h-6 text-purple-500 animate-spin" />}
-              </div>
+              {!isShowingFavorites && !termoPesquisa && !selectedGenre ? (
+                /* NEW DASHBOARD VIEW */
+                <div className="grid md:grid-cols-2 gap-12">
+                  {/* Anime Column */}
+                  <div className="space-y-6">
+                    <h2 className="text-2xl font-black flex items-center gap-3 text-purple-400">
+                      <PlayCircle className="w-6 h-6" />
+                      VER ASSEGUIR
+                    </h2>
+                    <div className="space-y-4">
+                      {animesDashboard.length > 0 ? animesDashboard.map(item => (
+                        <div key={item.id} className="group flex items-center gap-4 bg-[#1a1c23] p-4 rounded-3xl border border-gray-800 hover:border-purple-500/50 transition-all">
+                          <img 
+                            src={item.capaUrl} 
+                            className="w-20 h-20 object-cover rounded-2xl cursor-pointer" 
+                            alt="" 
+                            onClick={() => abrirDetalhes(item.id, false, 'anime')}
+                          />
+                          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => abrirDetalhes(item.id, false, 'anime')}>
+                            <h3 className="font-bold text-gray-200 truncate">{item.titulo}</h3>
+                            <p className="text-xs text-gray-500 font-black mt-1">EPISÓDIO {item.epAtual + 1}</p>
+                            <div className="w-full bg-gray-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                              <div 
+                                className="bg-purple-500 h-full transition-all duration-500" 
+                                style={{ width: `${(item.epAtual / (item.numEpisodiosTotal || (item.proximoEpisodio ? item.proximoEpisodio - 1 : item.epAtual + 1))) * 100}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => marcarComoVisto(item, 'anime')}
+                            className="px-6 py-3 bg-purple-600/10 hover:bg-purple-600 text-purple-400 hover:text-white rounded-2xl font-black text-xs transition-all border border-purple-500/20 active:scale-95"
+                          >
+                            VISTO
+                          </button>
+                        </div>
+                      )) : (
+                        <p className="text-gray-600 italic text-sm py-4">Nada para ver de momento...</p>
+                      )}
+                    </div>
+                  </div>
 
-              {(isShowingFavorites ? resultadosDB : resultadosPesquisa).length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                  {(isShowingFavorites ? resultadosDB : resultadosPesquisa).map((item) => (
-                    <MediaCard 
-                      key={item.id}
-                      titulo={isShowingFavorites ? item.titulo : (item.title.english || item.title.romaji)}
-                      capaUrl={isShowingFavorites ? item.capaUrl : item.coverImage.large}
-                      generos={isShowingFavorites ? item.generos : item.genres?.join(', ')}
-                      ranking={isShowingFavorites ? item.prioridade : undefined}
-                      progresso={isShowingFavorites ? (categoria === 'anime' ? `EP ${item.epAtual}` : `CAP ${item.capAtual}`) : undefined}
-                      onClick={() => abrirDetalhes(isShowingFavorites ? item.id : (item.title.english || item.title.romaji), !isShowingFavorites)}
-                    />
-                  ))}
+                  {/* Manga Column */}
+                  <div className="space-y-6">
+                    <h2 className="text-2xl font-black flex items-center gap-3 text-pink-400">
+                      <Clock className="w-6 h-6" />
+                      LER ASSEGUIR
+                    </h2>
+                    <div className="space-y-4">
+                      {mangasDashboard.length > 0 ? mangasDashboard.map(item => (
+                        <div key={item.id} className="group flex items-center gap-4 bg-[#1a1c23] p-4 rounded-3xl border border-gray-800 hover:border-pink-500/50 transition-all">
+                          <img 
+                            src={item.capaUrl} 
+                            className="w-20 h-20 object-cover rounded-2xl cursor-pointer" 
+                            alt="" 
+                            onClick={() => abrirDetalhes(item.id, false, 'manga')}
+                          />
+                          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => abrirDetalhes(item.id, false, 'manga')}>
+                            <h3 className="font-bold text-gray-200 truncate">{item.titulo}</h3>
+                            <p className="text-xs text-gray-500 font-black mt-1">CAPÍTULO {item.capAtual + 1}</p>
+                            <div className="w-full bg-gray-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                              <div 
+                                className="bg-pink-500 h-full transition-all duration-500" 
+                                style={{ width: `${(item.capAtual / (item.numCapitulosTotal || (item.proximoCapituloNumero ? item.proximoCapituloNumero - 1 : item.capAtual + 1))) * 100}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => marcarComoVisto(item, 'manga')}
+                            className="px-6 py-3 bg-pink-600/10 hover:bg-pink-600 text-pink-400 hover:text-white rounded-2xl font-black text-xs transition-all border border-pink-500/20 active:scale-95"
+                          >
+                            LIDO
+                          </button>
+                        </div>
+                      )) : (
+                        <p className="text-gray-600 italic text-sm py-4">Nada para ler de momento...</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ) : (
-                <div className="text-center py-20 bg-[#1a1c23]/30 rounded-[40px] border border-dashed border-gray-800">
-                  <p className="text-gray-500 text-lg">
-                    {isShowingFavorites ? 'Ainda não tens itens na tua lista.' : 'Pesquisa algo para começar!'}
-                  </p>
-                </div>
+                /* ORIGINAL SEARCH/LIST VIEW */
+                <>
+                  <div className="flex items-center justify-between mb-8">
+                    <h2 className="text-2xl font-bold flex items-center gap-3">
+                      <span className={`w-2 h-8 rounded-full ${isShowingFavorites ? 'bg-pink-500' : 'bg-purple-500'}`}></span>
+                      {isShowingFavorites ? `A Minha Lista (${categoria})` : resultadosPesquisa.length > 0 ? 'Resultados da Pesquisa' : 'Início'}
+                    </h2>
+                    {loading && <Loader2 className="w-6 h-6 text-purple-500 animate-spin" />}
+                  </div>
+
+                  {(isShowingFavorites ? resultadosDB : resultadosPesquisa).length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                      {(isShowingFavorites ? resultadosDB : resultadosPesquisa).map((item) => (
+                        <MediaCard 
+                          key={item.id}
+                          titulo={isShowingFavorites ? item.titulo : (item.title.english || item.title.romaji)}
+                          capaUrl={isShowingFavorites ? item.capaUrl : item.coverImage.large}
+                          generos={isShowingFavorites ? item.generos : item.genres?.join(', ')}
+                          ranking={isShowingFavorites ? item.prioridade : undefined}
+                          progresso={isShowingFavorites ? (categoria === 'anime' ? `EP ${item.epAtual}` : `CAP ${item.capAtual}`) : undefined}
+                          onClick={() => abrirDetalhes(isShowingFavorites ? item.id : (item.title.english || item.title.romaji), !isShowingFavorites)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-20 bg-[#1a1c23]/30 rounded-[40px] border border-dashed border-gray-800">
+                      <p className="text-gray-500 text-lg">
+                        {isShowingFavorites ? 'Ainda não tens itens na tua lista.' : 'Pesquisa algo para começar!'}
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
             </section>
           </div>
@@ -345,34 +494,97 @@ const HomePage = () => {
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap gap-12 py-10 border-t border-gray-800/50">
-                      <div className="space-y-2">
-                        <p className="text-gray-500 text-[10px] uppercase font-black tracking-widest">Status</p>
-                        <p className="font-bold text-xl text-purple-400 uppercase">{selectedItem.statusLancamento}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 py-10 border-t border-gray-800/50">
+                      <div className="bg-gray-800/30 p-6 rounded-3xl border border-gray-700/50 flex flex-col items-center justify-center text-center">
+                        <p className="text-gray-500 text-[10px] uppercase font-black tracking-widest mb-2">Status</p>
+                        <p className="font-bold text-xl text-purple-400 uppercase">
+                          {selectedItem.statusLancamento === 'RELEASING' ? 'Em Lançamento' : 
+                           selectedItem.statusLancamento === 'FINISHED' ? 'Finalizado' : 
+                           selectedItem.statusLancamento === 'HIATUS' ? 'Em Hiato' : 
+                           selectedItem.statusLancamento === 'CANCELLED' ? 'Cancelado' : 
+                           selectedItem.statusLancamento || 'Desconhecido'}
+                        </p>
                       </div>
                       
-                      <div className="space-y-2">
-                        <p className="text-gray-500 text-[10px] uppercase font-black tracking-widest">O teu Progresso</p>
-                        <div className="flex items-center gap-4">
+                      <div className={`p-6 rounded-3xl border transition-all flex flex-col items-center justify-center text-center ${showEpList ? 'bg-purple-900/10 border-purple-500/50 sm:col-span-3' : 'bg-gray-800/30 border-gray-700/50'}`}>
+                        <p className="text-gray-500 text-[10px] uppercase font-black tracking-widest mb-2">Progresso</p>
+                        <div className="flex items-center gap-4 mb-4">
                           {!selectedItem.isExternal && (
-                            <button onClick={() => atualizarProgresso(-1)} className="p-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors">
-                              <MinusCircle className="w-6 h-6" />
+                            <button onClick={() => atualizarProgresso(-1)} className="p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors">
+                              <MinusCircle className="w-5 h-5" />
                             </button>
                           )}
-                          <p className="font-black text-3xl">
-                            <span className="text-purple-400">
-                              {categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual}
-                            </span> 
-                            <span className="text-gray-700 mx-2">/</span> 
-                            <span className="text-gray-500">{categoria === 'anime' ? selectedItem.numEpisodiosTotal || '?' : selectedItem.numCapitulosTotal || '?'}</span>
-                          </p>
+                          <div className="flex items-center gap-1">
+                            <input 
+                              type="number"
+                              min="0"
+                              max={categoria === 'anime' ? selectedItem.numEpisodiosTotal : selectedItem.numCapitulosTotal}
+                              value={categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', val);
+                              }}
+                              className="bg-transparent text-purple-400 font-black text-3xl w-16 text-center outline-none border-b-2 border-purple-500/20 focus:border-purple-500 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                            <span className="text-gray-700 font-black text-2xl mx-1">/</span> 
+                            <span className="text-gray-500 font-black text-2xl">
+                              {categoria === 'anime' 
+                                ? (selectedItem.numEpisodiosTotal || (selectedItem.proximoEpisodio ? `${selectedItem.proximoEpisodio - 1}+` : (selectedItem.statusLancamento === 'RELEASING' ? 'Lançando' : '?')))
+                                : (selectedItem.numCapitulosTotal || (selectedItem.proximoCapituloNumero ? `${selectedItem.proximoCapituloNumero}+` : (selectedItem.statusLancamento === 'RELEASING' ? 'Lançando' : '?')))
+                              }
+                            </span>
+                          </div>
                           {!selectedItem.isExternal && (
-                            <button onClick={() => atualizarProgresso(1)} className="p-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 shadow-lg shadow-purple-900/20 transition-all">
-                              <PlusCircle className="w-6 h-6" />
+                            <button onClick={() => atualizarProgresso(1)} className="p-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 transition-all">
+                              <PlusCircle className="w-5 h-5" />
+                            </button>
+                          )}
+                          {!selectedItem.isExternal && (
+                            <button 
+                              onClick={() => setShowEpList(!showEpList)}
+                              className={`p-1.5 rounded-lg transition-all ${showEpList ? 'bg-purple-500 text-white' : 'bg-gray-800 text-gray-500 hover:text-white'}`}
+                            >
+                              <List className="w-5 h-5" />
                             </button>
                           )}
                         </div>
+
+                        {showEpList && !selectedItem.isExternal && (
+                          <div className="w-full mt-4 border-t border-purple-500/20 pt-6 animate-in slide-in-from-top-4 duration-300">
+                            <div className="grid grid-cols-6 sm:grid-cols-10 md:grid-cols-12 lg:grid-cols-15 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                              {[...Array(categoria === 'anime' 
+                                ? (selectedItem.numEpisodiosTotal || (selectedItem.proximoEpisodio ? selectedItem.proximoEpisodio - 1 : 0)) 
+                                : (Math.ceil(selectedItem.numCapitulosTotal || 0) || (selectedItem.proximoCapituloNumero ? selectedItem.proximoCapituloNumero - 1 : 0))
+                              )].map((_, i) => {
+                                const num = i + 1;
+                                const isWatched = num <= (categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual);
+                                return (
+                                  <button
+                                    key={num}
+                                    onClick={() => atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', num)}
+                                    className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all ${
+                                      isWatched 
+                                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' 
+                                      : 'bg-gray-800/50 text-gray-500 hover:bg-gray-700 hover:text-white border border-gray-700'
+                                    }`}
+                                  >
+                                    {num}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
+
+                      {!showEpList && (
+                        <div className="bg-gray-800/30 p-6 rounded-3xl border border-gray-700/50 flex flex-col items-center justify-center text-center">
+                          <p className="text-gray-500 text-[10px] uppercase font-black tracking-widest mb-2">Temporada</p>
+                          <p className="font-bold text-xl text-gray-300">
+                            {selectedItem.temporada ? `${selectedItem.temporada} ${selectedItem.ano || ''}` : selectedItem.ano || 'N/A'}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -393,27 +605,34 @@ const HomePage = () => {
                       ) : (
                         <div className="space-y-6">
                           <div className="space-y-3">
-                            <label className="text-[10px] text-gray-500 uppercase font-black tracking-widest">Posição na Lista</label>
-                            <div className="relative">
-                              <input 
-                                type="number"
-                                min="1"
-                                value={selectedItem.prioridade || ''}
-                                onChange={(e) => {
-                                  const val = e.target.value === '' ? null : parseInt(e.target.value);
-                                  atualizarCampo('prioridade', val);
-                                }}
-                                className="w-full bg-black/40 border border-gray-800 rounded-2xl px-5 py-4 focus:border-purple-500 outline-none transition-colors font-black text-2xl text-purple-400"
-                                placeholder="Ranking"
-                              />
-                              <span className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-700 font-black text-xl">#</span>
+                            <label className="text-[10px] text-gray-500 uppercase font-black tracking-widest">Estado de Acompanhamento</label>
+                            <div className="grid grid-cols-1 gap-2">
+                              {TRACKING_STATUS_OPTIONS.map((opt) => {
+                                const Icon = opt.icon;
+                                const isSelected = selectedItem.status === opt.value;
+                                return (
+                                  <button
+                                    key={opt.value}
+                                    onClick={() => atualizarCampo('status', opt.value)}
+                                    className={`flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all text-sm font-bold ${
+                                      isSelected 
+                                      ? `${opt.bg} border-purple-500 ${opt.color}` 
+                                      : 'bg-black/20 border-gray-800 text-gray-500 hover:border-gray-700'
+                                    }`}
+                                  >
+                                    <Icon className="w-4 h-4" />
+                                    {categoria === 'anime' ? opt.animeLabel : opt.mangaLabel}
+                                  </button>
+                                );
+                              })}
                             </div>
                           </div>
+
                           <button 
                             onClick={() => removerDaLista(selectedItem.id)}
-                            className="w-full bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 py-5 rounded-2xl font-black transition-all flex items-center justify-center gap-3"
+                            className="w-full bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 py-4 rounded-2xl font-black transition-all flex items-center justify-center gap-3 text-sm mt-4"
                           >
-                            <Trash2 className="w-6 h-6" />
+                            <Trash2 className="w-5 h-5" />
                             REMOVER DA LISTA
                           </button>
                         </div>

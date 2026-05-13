@@ -164,11 +164,11 @@ const HomePage = () => {
       const response = await fetch(url, { headers: getHeaders() });
       const data = await response.json();
       
-      if (isExternal) {
+      if (isExternal && data) {
         const normalized = {
           id: data.id,
-          titulo: data.title.english || data.title.romaji,
-          capaUrl: data.coverImage.large,
+          titulo: data.title?.english || data.title?.romaji || 'Título Desconhecido',
+          capaUrl: data.coverImage?.large,
           descricao: data.description ? data.description.replace(/<[^>]*>?/gm, '') : "Sem descrição.",
           generos: data.genres ? data.genres.join(', ') : (data.tags ? data.tags.map((t: any) => t.name).join(', ') : ''),
           statusLancamento: data.status,
@@ -179,13 +179,16 @@ const HomePage = () => {
           isExternal: true
         };
         setSelectedItem(normalized);
-      } else {
+      } else if (data) {
         setSelectedItem({ ...data, isExternal: false });
+      } else {
+        throw new Error('Nenhum dado recebido');
       }
       setView('details');
-      setShowEpList(false); // Reset list view when opening new item
+      setShowEpList(false);
     } catch (error) {
       console.error("Erro ao carregar detalhes:", error);
+      alert("Não foi possível carregar os detalhes deste anime. Tenta novamente.");
     } finally {
       setLoading(false);
     }
@@ -435,7 +438,7 @@ const HomePage = () => {
                           generos={isShowingFavorites ? item.generos : item.genres?.join(', ')}
                           ranking={isShowingFavorites ? item.prioridade : undefined}
                           progresso={isShowingFavorites ? (categoria === 'anime' ? `EP ${item.epAtual}` : `CAP ${item.capAtual}`) : undefined}
-                          onClick={() => abrirDetalhes(isShowingFavorites ? item.id : (item.title.english || item.title.romaji), !isShowingFavorites)}
+                          onClick={() => abrirDetalhes(item.id, !isShowingFavorites)}
                         />
                       ))}
                     </div>

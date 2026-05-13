@@ -14,6 +14,12 @@ export class AnimeController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('anilist/:id')
+  getAniListById(@Param('id') id: string) {
+    return this.animeService.searchAniListById(+id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('external/:nome')
   getExternalDetails(@Param('nome') nome: string) {
     return this.animeService.searchAniList(nome);

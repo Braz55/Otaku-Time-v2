@@ -14,6 +14,12 @@ export class MangaController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('anilist/:id')
+  getAniListById(@Param('id') id: string) {
+    return this.mangaService.searchAniListById(+id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('external/:nome')
   getExternalDetails(@Param('nome') nome: string) {
     return this.mangaService.searchAniListManga(nome);

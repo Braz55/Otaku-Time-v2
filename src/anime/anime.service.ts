@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class AnimeService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // Busca dados detalhados da AniList
+  // Busca dados detalhados da AniList por Nome
   async searchAniList(nomeAnime: string) {
     const query = `
       query ($s: String) {
@@ -45,6 +45,44 @@ export class AnimeService {
     }
   }
 
+  // Busca dados detalhados da AniList por ID
+  async searchAniListById(id: number) {
+    const query = `
+      query ($id: Int) {
+        Media(id: $id, type: ANIME) {
+          id
+          title { english romaji native }
+          coverImage { large }
+          status
+          description
+          genres
+          tags { name }
+          episodes
+          season
+          seasonYear
+          nextAiringEpisode {
+            airingAt
+            episode
+          }
+        }
+      }
+    `;
+    const variables = { id };
+
+    try {
+      const response = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ query, variables }),
+      });
+      const result = await response.json() as any;
+      return result?.data?.Media || null;
+    } catch (error) {
+      console.error('Erro ao buscar ID na AniList:', error);
+      return null;
+    }
+  }
+
   // Importa para o Catálogo Global e adiciona à lista do utilizador
   async importFromAniList(nomeAnime: string, userId: number) {
     const aniListData = await this.searchAniList(nomeAnime);
@@ -54,7 +92,6 @@ export class AnimeService {
     const generosComTags = `${aniListData.genres ? aniListData.genres.join(', ') : ''}, ${topTags}`;
     const descricaoLimpa = aniListData.description ? aniListData.description.replace(/<[^>]*>?/gm, '') : "Sem descrição.";
 
-    // 1. Upsert no Catálogo Global (Anime)
     const anime = await this.prisma.anime.upsert({
       where: { id: aniListData.id },
       update: {
@@ -79,23 +116,14 @@ export class AnimeService {
       },
     });
 
-    // 2. Criar ou obter a relação na lista pessoal (UserAnime)
     return this.prisma.userAnime.upsert({
-      where: {
-        userId_animeId: { userId, animeId: anime.id },
-      },
-      update: {}, // Mantém o progresso se já existir
-      create: {
-        userId,
-        animeId: anime.id,
-        status: 'PLANNED',
-        epAtual: 0,
-      },
+      where: { userId_animeId: { userId, animeId: anime.id } },
+      update: {},
+      create: { userId, animeId: anime.id, status: 'PLANNED', epAtual: 0 },
       include: { anime: true }
     });
   }
 
-  // Pesquisa simplificada para a interface (devolve 10 resultados)
   async searchAnimeList(nomeAnime: string) {
     const query = `
       query ($s: String) {
@@ -110,29 +138,21 @@ export class AnimeService {
       }
     `;
     const variables = { s: nomeAnime.trim() };
-
     try {
       const response = await fetch('https://graphql.anilist.co', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({ query, variables }),
       });
       const result = await response.json();
       return result?.data?.Page?.media || [];
     } catch (error) {
-      console.error('Erro no fetch:', error);
       return [];
     }
   }
 
-  // Retorna a lista pessoal do utilizador
   async findAll(userId: number) {
-    const list = await this.prisma.userAnime.findMany({
-      where: { userId },
-      include: { anime: true }
-    });
-
-    // Mapear para o formato que o frontend espera
+    const list = await this.prisma.userAnime.findMany({ where: { userId }, include: { anime: true } });
     return list.map(item => ({
       id: item.id,
       animeId: item.animeId,
@@ -152,14 +172,9 @@ export class AnimeService {
     }));
   }
 
-  // Retorna um item da lista pessoal
   async findOne(id: number) {
-    const item = await this.prisma.userAnime.findUnique({
-      where: { id },
-      include: { anime: true }
-    });
+    const item = await this.prisma.userAnime.findUnique({ where: { id }, include: { anime: true } });
     if (!item) return null;
-
     return {
       id: item.id,
       animeId: item.animeId,
@@ -179,16 +194,10 @@ export class AnimeService {
     };
   }
 
-  // Atualiza o progresso na lista pessoal
   async update(id: number, updateDto: any) {
-    const atual = await this.prisma.userAnime.findUnique({
-      where: { id },
-      include: { anime: true }
-    });
+    const atual = await this.prisma.userAnime.findUnique({ where: { id }, include: { anime: true } });
     if (!atual) return null;
-
     let novosDados = { ...updateDto };
-
     if (updateDto.epAtual !== undefined) {
       const ep = updateDto.epAtual;
       if (atual.status === 'PLANNED' && ep > 0) novosDados.status = 'WATCHING';
@@ -196,74 +205,23 @@ export class AnimeService {
         novosDados.status = 'COMPLETED';
         novosDados.epAtual = atual.anime.numEpisodiosTotal;
       }
-      if (ep < 0) novosDados.epAtual = 0;
     }
-
-    const updated = await this.prisma.userAnime.update({
-      where: { id },
-      data: novosDados,
-      include: { anime: true }
-    });
-
-    return {
-      id: updated.id,
-      animeId: updated.animeId,
-      titulo: updated.anime.titulo,
-      statusLancamento: updated.anime.statusLancamento,
-      capaUrl: updated.anime.capaUrl,
-      generos: updated.anime.generos,
-      descricao: updated.anime.descricao,
-      status: updated.status,
-      epAtual: updated.epAtual,
-      numEpisodiosTotal: updated.anime.numEpisodiosTotal,
-      temporada: updated.anime.temporada,
-      ano: updated.anime.ano
-    };
+    const updated = await this.prisma.userAnime.update({ where: { id }, data: novosDados, include: { anime: true } });
+    return { ...updated, titulo: updated.anime.titulo, capaUrl: updated.anime.capaUrl };
   }
 
-  private mapStatus(status: string, type: 'anime' | 'manga') {
-    const mapping = {
-      PLANNED: 'Planeado',
-      WATCHING: type === 'anime' ? 'Assistindo' : 'Lendo',
-      COMPLETED: 'Completo',
-      PAUSED: 'Pausado',
-      DROPPED: 'Dropado'
-    };
-    return mapping[status] || status;
-  }
-
-  // Remove apenas da lista pessoal, mantém no catálogo global
-  remove(id: number) {
-    return this.prisma.userAnime.delete({
-      where: { id },
-    });
+  async remove(id: number) {
+    return this.prisma.userAnime.delete({ where: { id } });
   }
 
   async searchByGenre(genre: string) {
-    const query = `
-      query ($g: String) {
-        Page(perPage: 24) {
-          media(genre: $g, type: ANIME, sort: POPULARITY_DESC) {
-            id
-            title { english romaji }
-            coverImage { large }
-            genres
-          }
-        }
-      }
-    `;
+    const query = `query ($g: String) { Page(perPage: 24) { media(genre: $g, type: ANIME, sort: POPULARITY_DESC) { id title { english romaji } coverImage { large } genres } } }`;
     const variables = { g: genre };
-
     try {
-      const response = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ query, variables }),
-      });
+      const response = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query, variables }) });
       const result = await response.json() as any;
       return result?.data?.Page?.media || [];
     } catch (error) {
-      console.error('Erro ao buscar por género na AniList:', error);
       return [];
     }
   }

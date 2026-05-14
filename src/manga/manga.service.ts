@@ -5,21 +5,75 @@ import { PrismaService } from '../prisma/prisma.service';
 export class MangaService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // Função "Detetive" para o MangaDex
+  // PLANO B: Baka-Updates (MangaUpdates) - Versão "Status Parse"
+  async getLatestChapterFromBakaUpdates(title: string): Promise<number | null> {
+    try {
+      console.log(`[Plano B] A pesquisar "${title}" no Baka-Updates...`);
+      
+      const searchRes = await fetch('https://api.mangaupdates.com/v1/series/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ search: title, limit: 1 })
+      });
+      const searchData = await searchRes.json() as any;
+
+      if (!searchData.results || searchData.results.length === 0) return null;
+      
+      const seriesId = searchData.results[0].record.series_id;
+      const detailRes = await fetch(`https://api.mangaupdates.com/v1/series/${seriesId}`);
+      const detailData = await detailRes.json() as any;
+
+      if (detailData.status) {
+        const match = detailData.status.match(/(\d+)\s+Chapters/i);
+        if (match && match[1]) {
+          return parseInt(match[1]);
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('[Plano B] Erro:', error);
+      return null;
+    }
+  }
+
+  // Função para sincronizar o capítulo mais recente com a DB
+  async syncLatestChapter(anilistId: number): Promise<number | null> {
+    const manga = await this.searchAniListById(anilistId);
+    if (!manga) return null;
+    const title = manga.title.english || manga.title.romaji;
+
+    // Tentar Planos
+    let latest = await this.getLatestChapterFromMangaDex(anilistId, title);
+    if (!latest) {
+      console.log(`[Sync] MangaDex falhou para "${title}". A tentar Baka-Updates...`);
+      latest = await this.getLatestChapterFromBakaUpdates(title);
+    }
+
+    if (latest) {
+      // Gravar na DB se encontrámos um valor
+      await this.prisma.manga.update({
+        where: { id: anilistId },
+        data: { numCapitulosTotal: latest }
+      }).catch(() => {
+        console.log(`[Sync] Manga com ID ${anilistId} não existe na DB local para atualizar.`);
+      });
+    }
+
+    return latest;
+  }
+
+  // Função "Detetive" para o MangaDex (Plano A)
   async getLatestChapterFromMangaDex(anilistId: number, title: string): Promise<number | null> {
     try {
-      // 1. Pesquisa com filtros de adulto para não esconder nada
       const mdUrl = `https://api.mangadex.org/manga?title=${encodeURIComponent(title)}&limit=5&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&contentRating[]=pornographic`;
       const response = await fetch(mdUrl);
       const data = await response.json() as any;
 
       if (!data.data || data.data.length === 0) return null;
 
-      // 2. Handshake: Procurar o ID da AniList nos links do MangaDex
       const match = data.data.find(m => m.attributes.links?.al == anilistId.toString());
 
       if (match) {
-        // 3. Se encontrou, pede o feed de capítulos (ordenado pelo mais recente em Inglês)
         const feedRes = await fetch(`https://api.mangadex.org/manga/${match.id}/feed?limit=1&order[chapter]=desc&translatedLanguage[]=en`);
         const feedData = await feedRes.json() as any;
         

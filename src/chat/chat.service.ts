@@ -43,7 +43,6 @@ export class ChatService {
     const year = yearMatch ? parseInt(yearMatch[1]) : undefined;
     const cleanQuery = query.replace(/\b(20\d{2})\b/g, '').trim();
 
-    // Pesquisa mais abrangente: busca por termo E por género se o termo for curto
     const gqlQuery = `
       query ($search: String, $year: Int) {
         Page(perPage: 15) {
@@ -52,7 +51,6 @@ export class ChatService {
             title { english romaji }
             genres
             description
-            averageScore
           }
         }
       }
@@ -62,20 +60,15 @@ export class ChatService {
       const response = await fetch('https://graphql.anilist.co', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: gqlQuery,
-          variables: { search: cleanQuery || undefined, year }
-        })
+        body: JSON.stringify({ query: gqlQuery, variables: { search: cleanQuery || undefined, year } })
       });
       const data = await response.json() as any;
       return data.data?.Page?.media || [];
-    } catch (err) {
-      return [];
-    }
+    } catch { return []; }
   }
 
   private async detectSearchIntent(prompt: string): Promise<string | null> {
-    const detectPrompt = `Identify the main anime/manga themes or titles in this message. Return ONLY keywords. If it's a general chat, return "NONE".\nMessage: "${prompt}"`;
+    const detectPrompt = `Identify keywords for anime search from this: "${prompt}". Return ONLY keywords or "NONE".`;
     try {
       const response = await fetch(this.ollamaUrl, {
         method: 'POST',
@@ -88,67 +81,60 @@ export class ChatService {
     } catch { return null; }
   }
 
-  async generateResponse(sessionId: number, prompt: string): Promise<string> {
+  // Gera o título automático da sessão
+  async autoRenameSession(sessionId: number, firstMessage: string) {
+    const session = await this.prisma.chatSession.findUnique({ where: { id: sessionId } });
+    if (!session || (session.titulo !== 'Nova Conversa' && session.titulo !== 'Nova Conversa')) return;
+
+    const prompt = `Create a short, creative 3-word title in Portuguese for a chat starting with: "${firstMessage}". Return ONLY the title.`;
+    try {
+      const res = await fetch(this.ollamaUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: this.model, prompt, stream: false }),
+      });
+      const data = await res.json() as any;
+      const newTitle = data.response?.replace(/["']/g, '').trim() || 'Conversa';
+      await this.prisma.chatSession.update({ where: { id: sessionId }, data: { titulo: newTitle } });
+    } catch (e) { console.error('Erro ao renomear:', e); }
+  }
+
+  async generateStreamResponse(sessionId: number, prompt: string) {
     const session = await this.prisma.chatSession.findUnique({
       where: { id: sessionId },
       include: {
-        user: {
-          include: {
-            animes: { include: { anime: true } },
-            mangas: { include: { manga: true } }
-          }
-        }
+        user: { include: { animes: { include: { anime: true } }, mangas: { include: { manga: true } } } }
       }
     });
 
-    if (!session) return 'Sessão não encontrada.';
+    if (!session) throw new Error('Sessão não encontrada');
 
+    // Detectar intenção e contexto (simplificado para velocidade)
     const searchTerms = await this.detectSearchIntent(prompt);
     let searchContext = '';
-    
     if (searchTerms) {
       const results = await this.searchAnilist(searchTerms);
-      if (results.length > 0) {
-        searchContext = `
-        CATÁLOGO DE APOIO (Obras populares relacionadas):
-        ${results.map((r: any) => `- ${r.title.english || r.title.romaji} (ID: ${r.id}, Géneros: ${r.genres.join(', ')})`).join('\n')}
-        `;
-      }
+      searchContext = results.length > 0 ? `Catalogo: ${results.map((r: any) => r.title.english || r.title.romaji).join(', ')}` : '';
     }
 
-    const history = await this.getSessionMessages(sessionId);
-    const userContext = `O utilizador já viu/segue: ${session.user.animes.map(a => a.anime.titulo).join(', ')}`;
-
     const systemPrompt = `
-      És o Otaku Bot, um sommelier de animes e mangas. 
-      O teu objetivo é ter conversas profundas, interessantes e dar recomendações variadas e surpreendentes.
-      
-      DADOS DO UTILIZADOR:
-      ${userContext}
-      
+      És o Otaku Bot, um sommelier apaixonado por animes e mangas.
+      Contexto utilizador: ${session.user.animes.map(a => a.anime.titulo).join(', ')}.
       ${searchContext}
-      
-      REGRAS:
-      1. Usa o "CATÁLOGO DE APOIO" apenas como inspiração. Podes recomendar obras que NÃO estão lá se achares que são melhores.
-      2. Tenta variar as recomendações: sugere um clássico, um "hidden gem" (obra pouco conhecida) e algo recente.
-      3. Justifica as tuas escolhas com base no que o utilizador já gosta.
-      4. Sê apaixonado por animes! Fala de diretores, estúdios ou animação se fizer sentido.
-      5. Se souberes o ID da obra, podes colocar no fim [REC:ID], mas o foco agora é a QUALIDADE da recomendação.
+      Sê entusiasta, justifica as tuas recomendações e usa [REC:ID] para obras que conheças o ID da AniList.
     `;
 
-    try {
-      const response = await fetch(this.ollamaUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: this.model,
-          prompt: `${systemPrompt}\n\nUser: ${prompt}\nBot:`,
-          stream: false,
-        }),
-      });
-      const data = await response.json() as any;
-      return data.response || 'Erro na resposta.';
-    } catch (error) { return 'Erro de comunicação.'; }
+    const response = await fetch(this.ollamaUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: this.model,
+        prompt: `${systemPrompt}\n\nUser: ${prompt}\nBot:`,
+        stream: true,
+      }),
+    });
+
+    return response.body; // Devolve o stream direto do fetch
   }
 
   async deleteSession(sessionId: number) {

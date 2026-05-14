@@ -1,5 +1,12 @@
 # 🚀 Atualização Estrutural: OtakuTime v2.0
 
+## [2026-05-14] - Chat Premium & Metadata Integration
+- **Streaming de Chat (SSE):** Implementada resposta em tempo real do Ollama (Llama 3.1), proporcionando uma experiência de escrita natural.
+- **Auto-Nomeação de Sessões:** O Bot agora gera títulos criativos para as conversas baseando-se na primeira mensagem do utilizador.
+- **Links Externos Oficiais:** Adicionado suporte para capturar e exibir links da Lezhin, Tappytoon, MangaPlus, etc.
+- **Database Schema (v3):** Adicionado campo `linksExternos` aos modelos de Anime e Manga.
+- **UI Discovery:** Adicionada barra de pesquisa no seletor da "Minha Lista" e secção de links na vista de detalhes.
+
 ## 1. Reestruturação da Base de Dados (N-para-N)
 Mudámos a arquitetura de dados para separar o conteúdo global das listas pessoais, garantindo maior escalabilidade e performance.
 
@@ -115,12 +122,11 @@ Iniciámos a implementação do assistente virtual inteligente do OtakuTime, uti
 
 ## 3. Próximos Passos (UI/UX)
 *   **Interface de Chat:** Criação da página de chat no React com suporte a histórico de mensagens e design "Premium".
-*   **Streaming de Respostas:** (Opcional) Implementação de streaming para que as letras apareçam em tempo real.#   R o a d m a p :   C h a t b o t   P r o g r e s s 
- -   D a t a b a s e   p e r s i s t e n c e   e n a b l e d 
- -   C o n t e x t u a l   m e m o r y   a d d e d 
- -   I n t e r a c t i v e   c a r d s   i n f r a s t r u c t u r e   r e a d y 
- 
- # #   T o - D o   N e x t 
- 1 .   D e b u g   A I   f o r m a t t i n g 
- 2 .   A d d   W e b   S e a r c h  
- 
+*   **Streaming de Respostas:** (Opcional) Implementação de streaming para que as letras apareçam em tempo real.#   R o a d m a p :   C h a t b o t   P r o g r e s s 
+ -   D a t a b a s e   p e r s i s t e n c e   e n a b l e d 
+ -   C o n t e x t u a l   m e m o r y   a d d e d 
+ -   I n t e r a c t i v e   c a r d s   i n f r a s t r u c t u r e   r e a d y 
+ 
+ # #   T o - D o   N e x t 
+ 1 .   D e b u g   A I   f o r m a t t i n g 
+ 2 .   A d d   W e b   S e a r c h 

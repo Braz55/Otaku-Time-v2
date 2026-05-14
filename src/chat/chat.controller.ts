@@ -1,45 +1,82 @@
-import { Controller, Post, Body, Get, Param, Delete, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Delete, UseGuards, Req, Res } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { Response } from 'express';
 
 @Controller('chat')
 @UseGuards(JwtAuthGuard)
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
-  // Criar nova sessão
   @Post('sessions')
   async createSession(@Req() req, @Body('titulo') titulo: string) {
     return this.chatService.createSession(req.user.userId, titulo);
   }
 
-  // Listar sessões do utilizador
   @Get('sessions')
   async getSessions(@Req() req) {
     return this.chatService.getSessions(req.user.userId);
   }
 
-  // Obter mensagens de uma sessão
   @Get('sessions/:id/messages')
   async getMessages(@Param('id') id: string) {
     return this.chatService.getSessionMessages(Number(id));
   }
 
-  // Enviar mensagem e receber resposta da IA
   @Post('sessions/:id/messages')
-  async sendMessage(@Param('id') id: string, @Body('message') message: string) {
+  async sendMessage(
+    @Param('id') id: string, 
+    @Body('message') message: string,
+    @Res() res: Response
+  ) {
     const sessionId = Number(id);
     
     // 1. Guarda a mensagem do utilizador
     await this.chatService.saveMessage(sessionId, 'user', message);
+
+    // 2. Dispara a auto-nomeação em background (sem bloquear o chat)
+    this.chatService.autoRenameSession(sessionId, message).catch(console.error);
     
-    // 2. Gera a resposta da IA
-    const aiResponse = await this.chatService.generateResponse(sessionId, message);
-    
-    // 3. Guarda a resposta da IA
-    const savedAiMsg = await this.chatService.saveMessage(sessionId, 'assistant', aiResponse);
-    
-    return savedAiMsg;
+    // 3. Configura os headers para Streaming (SSE)
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    // 4. Inicia o Stream da IA
+    const stream = await this.chatService.generateStreamResponse(sessionId, message);
+    if (!stream) {
+      res.write('data: {"error": "Falha no stream"}\n\n');
+      return res.end();
+    }
+
+    const reader = stream.getReader();
+    let fullContent = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = new TextDecoder().decode(value);
+        // O Ollama envia vários objetos JSON no stream. Vamos passá-los para o frontend.
+        res.write(`data: ${chunk}\n\n`);
+
+        // Vamos guardando o texto para salvar na DB no fim
+        try {
+          const parsed = JSON.parse(chunk);
+          if (parsed.response) fullContent += parsed.response;
+        } catch (e) {
+          // Às vezes o chunk pode vir cortado, ignoramos erros de parse aqui
+        }
+      }
+    } finally {
+      // 5. Quando o stream acaba, guarda a resposta completa na DB
+      if (fullContent) {
+        await this.chatService.saveMessage(sessionId, 'assistant', fullContent);
+      }
+      res.write('data: [DONE]\n\n');
+      res.end();
+    }
   }
 
   @Delete('sessions/:id')

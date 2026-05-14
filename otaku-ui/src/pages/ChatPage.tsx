@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useMedia } from '../context/MediaContext';
-import { MessageSquare, Send, Plus, Trash2, Bot, User, Loader2, X, PlusCircle, Star, ChevronLeft, Sparkles, Wand2, Hash, Zap, AlertCircle } from 'lucide-react';
+import { MessageSquare, Send, Plus, Trash2, Bot, User, Loader2, X, Star, ChevronLeft, Sparkles, Wand2, Bookmark, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import MediaCard from '../components/MediaCard';
 
@@ -78,15 +78,22 @@ const RecommendationCard = ({ id, token, onOpen }: { id: string, token: string, 
 
 const ChatPage = () => {
   const { token } = useAuth();
-  const navigate = useNavigate();
+  const { categoria } = useMedia();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSession, setActiveSession] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
-  const [showGenreSelector, setShowGenreSelector] = useState(false);
+  
+  // Guided Rec States
+  const [showGuidedArea, setShowGuidedArea] = useState(false);
+  const [guidedView, setGuidedView] = useState<'genres' | 'mylist'>('genres');
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const [selectedFromList, setSelectedFromList] = useState<any>(null);
+  const [userList, setUserList] = useState<any[]>([]);
+  const [userListSearch, setUserListSearch] = useState('');
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const getHeaders = () => ({
@@ -94,15 +101,14 @@ const ChatPage = () => {
     'Authorization': `Bearer ${token}`
   });
 
-  useEffect(() => {
-    fetchSessions();
-  }, []);
-
+  useEffect(() => { fetchSessions(); }, []);
   useEffect(() => {
     if (activeSession) fetchMessages(activeSession);
     else setMessages([]);
   }, [activeSession]);
-
+  useEffect(() => {
+    if (showGuidedArea && guidedView === 'mylist') fetchUserList();
+  }, [showGuidedArea, guidedView, categoria]);
   useEffect(() => scrollToBottom(), [messages]);
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -111,13 +117,8 @@ const ChatPage = () => {
     try {
       const res = await fetch('http://localhost:3001/chat/sessions', { headers: getHeaders() });
       const data = await res.json();
-      if (Array.isArray(data)) {
-        setSessions(data);
-        if (data.length > 0 && !activeSession) setActiveSession(data[0].id);
-      }
-    } catch (err) {
-      console.error(err);
-    }
+      if (Array.isArray(data)) setSessions(data);
+    } catch (err) { console.error(err); }
   };
 
   const fetchMessages = async (sessionId: number) => {
@@ -125,26 +126,28 @@ const ChatPage = () => {
       const res = await fetch(`http://localhost:3001/chat/sessions/${sessionId}/messages`, { headers: getHeaders() });
       const data = await res.json();
       if (Array.isArray(data)) setMessages(data);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
+  };
+
+  const fetchUserList = async () => {
+    try {
+      const res = await fetch(`http://localhost:3001/${categoria}`, { headers: getHeaders() });
+      const data = await res.json();
+      if (Array.isArray(data)) setUserList(data);
+    } catch (err) { console.error(err); }
   };
 
   const createNewSession = async () => {
-    const titulo = prompt('Título da conversa:', 'Nova Conversa');
-    if (!titulo) return;
     try {
       const res = await fetch('http://localhost:3001/chat/sessions', {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify({ titulo })
+        body: JSON.stringify({ titulo: 'Nova Conversa' })
       });
       const newSession = await res.json();
       setSessions([newSession, ...sessions]);
       setActiveSession(newSession.id);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const deleteSession = async (id: number, e: React.MouseEvent) => {
@@ -154,77 +157,71 @@ const ChatPage = () => {
       await fetch(`http://localhost:3001/chat/sessions/${id}`, { method: 'DELETE', headers: getHeaders() });
       setSessions(sessions.filter(s => s.id !== id));
       if (activeSession === id) setActiveSession(null);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const toggleGenre = (genre: string) => {
-    setSelectedGenres(prev => 
-      prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
-    );
-  };
-
-  const adicionarALista = async () => {
-    if (!selectedItem) return;
-    const type = selectedItem.tipo || (selectedItem.numCapitulosTotal ? 'manga' : 'anime');
-    try {
-      const res = await fetch(`http://localhost:3001/${type}`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({
-          id: selectedItem.id,
-          titulo: selectedItem.titulo,
-          capaUrl: selectedItem.capaUrl,
-          generos: selectedItem.generos,
-          descricao: selectedItem.descricao,
-          statusLancamento: selectedItem.statusLancamento,
-          numEpisodiosTotal: selectedItem.numEpisodiosTotal,
-          numCapitulosTotal: selectedItem.numCapitulosTotal
-        })
-      });
-      if (res.ok) {
-        alert('Adicionado com sucesso!');
-        setSelectedItem(null);
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Erro ao adicionar à lista.');
-    }
+    } catch (err) { console.error(err); }
   };
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!input.trim() && selectedGenres.length === 0) || !activeSession || loading) return;
+    if ((!input.trim() && selectedGenres.length === 0 && !selectedFromList) || !activeSession || loading) return;
 
     let finalPrompt = input.trim();
-    if (selectedGenres.length > 0) {
-      const genresStr = selectedGenres.join(', ');
-      finalPrompt = `Recomenda-me algo de ${genresStr}${finalPrompt ? '. Além disso: ' + finalPrompt : ''}`;
-    }
+    const parts = [];
+    if (selectedFromList) parts.push(`Semelhante a "${selectedFromList.titulo}"`);
+    if (selectedGenres.length > 0) parts.push(`Géneros: ${selectedGenres.join(', ')}`);
+    if (parts.length > 0) finalPrompt = `${parts.join(' | ')}${finalPrompt ? '. ' + finalPrompt : ''}`;
 
-    setMessages(prev => [...prev, { id: Date.now(), role: 'user', content: finalPrompt, createdAt: new Date().toISOString() }]);
+    const userMsg: Message = { id: Date.now(), role: 'user', content: finalPrompt, createdAt: new Date().toISOString() };
+    setMessages(prev => [...prev, userMsg]);
     setInput('');
     setSelectedGenres([]);
-    setShowGenreSelector(false);
+    setSelectedFromList(null);
+    setShowGuidedArea(false);
     setLoading(true);
 
     try {
-      const res = await fetch(`http://localhost:3001/chat/sessions/${activeSession}/messages`, {
+      const response = await fetch(`http://localhost:3001/chat/sessions/${activeSession}/messages`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({ message: finalPrompt })
       });
-      if (!res.ok) throw new Error();
-      const aiMsg = await res.json();
-      setMessages(prev => [...prev, aiMsg]);
+
+      if (!response.body) throw new Error('Stream não suportado');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let aiContent = '';
+      
+      // Cria uma mensagem vazia para a IA que será preenchida
+      const aiMsgId = Date.now() + 1;
+      setMessages(prev => [...prev, { id: aiMsgId, role: 'assistant', content: '', createdAt: new Date().toISOString() }]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.replace('data: ', '').trim();
+            if (dataStr === '[DONE]') {
+              fetchSessions(); // Atualiza títulos (Auto-nomeação)
+              continue;
+            }
+            try {
+              const parsed = JSON.parse(dataStr);
+              if (parsed.response) {
+                aiContent += parsed.response;
+                setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, content: aiContent } : m));
+              }
+            } catch (e) {}
+          }
+        }
+      }
     } catch (err) {
-      setMessages(prev => [...prev, { 
-        id: Date.now() + 1, 
-        role: 'assistant', 
-        content: 'Erro de comunicação com o motor de IA.', 
-        createdAt: new Date().toISOString() 
-      }]);
+      console.error(err);
+      setMessages(prev => [...prev, { id: Date.now() + 2, role: 'assistant', content: 'Lamentamos, ocorreu um erro na ligação.', createdAt: new Date().toISOString() }]);
     } finally {
       setLoading(false);
     }
@@ -235,9 +232,7 @@ const ChatPage = () => {
     const recRegex = /\[REC:(\d+)\]/g;
     const recommendations: string[] = [];
     let match;
-    while ((match = recRegex.exec(content)) !== null) {
-      recommendations.push(match[1]);
-    }
+    while ((match = recRegex.exec(content)) !== null) { recommendations.push(match[1]); }
     const cleanText = content.replace(recRegex, '').trim();
 
     return (
@@ -245,25 +240,25 @@ const ChatPage = () => {
         <p className="whitespace-pre-wrap leading-relaxed">{cleanText}</p>
         {recommendations.length > 0 && (
           <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
-            {recommendations.map(id => (
-              <RecommendationCard key={id} id={id} token={token || ''} onOpen={setSelectedItem} />
-            ))}
+            {recommendations.map(id => <RecommendationCard key={id} id={id} token={token || ''} onOpen={setSelectedItem} />)}
           </div>
         )}
       </div>
     );
   };
 
+  const filteredUserList = userList.filter(item => 
+    item.titulo.toLowerCase().includes(userListSearch.toLowerCase())
+  );
+
   return (
-    <div className="flex h-[calc(100vh-96px)] bg-[#0f1014] text-gray-200 overflow-hidden relative">
+    <div className="flex h-[calc(100vh-96px)] bg-[#0f1014] text-gray-200 overflow-hidden relative font-['Outfit']">
       
-      {/* Detalhes Overlay */}
+      {/* Overlay Detalhes */}
       {selectedItem && (
         <div className="absolute inset-0 z-50 bg-[#0f1014]/95 backdrop-blur-2xl flex flex-col animate-in fade-in zoom-in duration-300">
           <div className="flex items-center justify-between p-6 border-b border-gray-800">
-            <button onClick={() => setSelectedItem(null)} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors font-bold">
-              <ChevronLeft className="w-6 h-6" /> Voltar ao Chat
-            </button>
+            <button onClick={() => setSelectedItem(null)} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors font-bold"><ChevronLeft className="w-6 h-6" /> Voltar ao Chat</button>
             <button onClick={() => setSelectedItem(null)} className="p-2 hover:bg-gray-800 rounded-full transition-colors"><X className="w-6 h-6" /></button>
           </div>
           <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
@@ -292,12 +287,6 @@ const ChatPage = () => {
                   <h3 className="text-lg font-black text-white uppercase flex items-center gap-2"><Star className="w-5 h-5 text-yellow-500" /> Sinopse</h3>
                   <p className="text-gray-400 leading-relaxed text-lg">{selectedItem.descricao}</p>
                 </div>
-                <button 
-                  onClick={adicionarALista}
-                  className="w-full py-5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-[30px] font-black text-xl shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-3"
-                >
-                  <PlusCircle className="w-6 h-6" /> Adicionar à Minha Lista
-                </button>
               </div>
             </div>
           </div>
@@ -307,9 +296,7 @@ const ChatPage = () => {
       {/* Sidebar */}
       <div className="w-80 border-r border-gray-800 bg-[#16181d]/50 backdrop-blur-xl flex flex-col">
         <div className="p-6">
-          <button onClick={createNewSession} className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-2xl font-bold transition-all shadow-lg active:scale-95">
-            <Plus className="w-5 h-5" /> Nova Conversa
-          </button>
+          <button onClick={createNewSession} className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-2xl font-bold shadow-lg active:scale-95"><Plus className="w-5 h-5" /> Nova Conversa</button>
         </div>
         <div className="flex-1 overflow-y-auto px-4 space-y-2 custom-scrollbar">
           {sessions.map(session => (
@@ -337,11 +324,11 @@ const ChatPage = () => {
                 <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`flex gap-4 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                     <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${msg.role === 'user' ? 'bg-purple-600' : 'bg-pink-600'}`}>{msg.role === 'user' ? <User className="w-6 h-6" /> : <Bot className="w-6 h-6" />}</div>
-                    <div className={`p-5 rounded-3xl shadow-xl border ${msg.role === 'user' ? 'bg-purple-600/10 border-purple-500/20 rounded-tr-none text-gray-100' : 'bg-gray-800/50 border-gray-700/50 rounded-tl-none text-gray-200'}`}>{renderMessageContent(msg.content)}</div>
+                    <div className={`p-5 rounded-3xl shadow-xl border ${msg.role === 'user' ? 'bg-purple-600/10 border-purple-500/20 rounded-tr-none text-gray-100' : 'bg-[#1a1c23] border-gray-800/50 rounded-tl-none text-gray-200'}`}>{renderMessageContent(msg.content)}</div>
                   </div>
                 </div>
               ))}
-              {loading && (
+              {loading && !messages.find(m => m.role === 'assistant' && !m.content) && (
                 <div className="flex justify-start animate-in fade-in slide-in-from-bottom-4">
                   <div className="flex gap-4 max-w-[80%]">
                     <div className="w-10 h-10 rounded-2xl bg-pink-600 flex items-center justify-center shrink-0 shadow-lg"><Bot className="w-6 h-6 text-white" /></div>
@@ -359,35 +346,69 @@ const ChatPage = () => {
           )}
         </div>
 
-        {/* Input Area */}
+        {/* Guided Area */}
         <div className="p-8 bg-gradient-to-t from-[#0f1014] via-[#0f1014] to-transparent relative">
-          {showGenreSelector && (
-            <div className="mb-6 p-6 bg-[#16181d]/90 backdrop-blur-2xl border border-gray-800 rounded-[32px] shadow-2xl animate-in slide-in-from-bottom-4 fade-in duration-300 max-h-64 overflow-y-auto custom-scrollbar">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest flex items-center gap-2"><Sparkles className="w-4 h-4 text-purple-500" /> Explorar por Género</h3>
-                {selectedGenres.length > 0 && <button onClick={() => setSelectedGenres([])} className="text-[10px] font-bold text-red-400 hover:text-red-300 transition-colors uppercase">Limpar tudo</button>}
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                {GENRES.map(genre => (
-                  <button key={genre} onClick={() => toggleGenre(genre)} className={`px-4 py-3 rounded-2xl text-[11px] font-black transition-all border text-left flex items-center gap-2 ${selectedGenres.includes(genre) ? 'bg-purple-600 border-purple-400 text-white shadow-[0_5px_15px_rgba(147,51,234,0.3)]' : 'bg-gray-800/50 border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300'}`}>
-                    <div className={`w-1.5 h-1.5 rounded-full ${selectedGenres.includes(genre) ? 'bg-white animate-pulse' : 'bg-gray-600'}`}></div>{genre}
+          
+          {showGuidedArea && (
+            <div className="mb-6 p-6 bg-[#16181d]/95 backdrop-blur-3xl border border-gray-800 rounded-[32px] shadow-2xl animate-in slide-in-from-bottom-4 fade-in duration-300">
+              
+              <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 border-b border-gray-800 pb-4 gap-4">
+                <div className="flex gap-4">
+                  <button onClick={() => setGuidedView('genres')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${guidedView === 'genres' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-500 hover:text-gray-300'}`}>
+                    <Sparkles className="w-4 h-4" /> Géneros
                   </button>
-                ))}
+                  <button onClick={() => setGuidedView('mylist')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${guidedView === 'mylist' ? 'bg-pink-600 text-white' : 'bg-gray-800 text-gray-500 hover:text-gray-300'}`}>
+                    <Bookmark className="w-4 h-4" /> Minha Lista ({categoria})
+                  </button>
+                </div>
+                {guidedView === 'mylist' && (
+                  <div className="relative flex-1 max-w-xs">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+                    <input type="text" placeholder="Procurar na lista..." value={userListSearch} onChange={(e) => setUserListSearch(e.target.value)} className="w-full bg-gray-900 border border-gray-800 rounded-xl pl-10 pr-4 py-2 text-xs outline-none focus:border-pink-500/50 transition-all" />
+                  </div>
+                )}
+                {(selectedGenres.length > 0 || selectedFromList) && (
+                  <button onClick={() => { setSelectedGenres([]); setSelectedFromList(null); }} className="text-[10px] font-bold text-red-400 hover:text-red-300 transition-colors uppercase">Limpar Filtros</button>
+                )}
+              </div>
+
+              <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                {guidedView === 'genres' ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    {GENRES.map(genre => (
+                      <button key={genre} onClick={() => toggleGenre(genre)} className={`px-4 py-3 rounded-2xl text-[11px] font-black transition-all border text-left flex items-center gap-2 ${selectedGenres.includes(genre) ? 'bg-purple-600 border-purple-400 text-white shadow-[0_5px_15px_rgba(147,51,234,0.3)]' : 'bg-gray-800/50 border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${selectedGenres.includes(genre) ? 'bg-white animate-pulse' : 'bg-gray-600'}`}></div>{genre}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {filteredUserList.length > 0 ? filteredUserList.map(item => (
+                      <button key={item.id} onClick={() => setSelectedFromList(selectedFromList?.id === item.id ? null : item)} className={`group relative aspect-[3/4] rounded-2xl overflow-hidden border-2 transition-all ${selectedFromList?.id === item.id ? 'border-pink-500 scale-105 shadow-2xl shadow-pink-500/20' : 'border-gray-800 hover:border-gray-600'}`}>
+                        <img src={item.capaUrl} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt="" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+                        <div className="absolute bottom-2 left-2 right-2 text-[10px] font-black text-white truncate text-left">{item.titulo}</div>
+                        {selectedFromList?.id === item.id && <div className="absolute top-2 right-2 bg-pink-500 text-white p-1 rounded-full"><Star className="w-3 h-3 fill-white" /></div>}
+                      </button>
+                    )) : (
+                      <p className="col-span-full text-center py-10 text-gray-500 italic">Nada encontrado na tua lista.</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
 
           <div className="flex items-center gap-4 relative">
-            <button onClick={() => setShowGenreSelector(!showGenreSelector)} className={`p-4 rounded-2xl transition-all shadow-lg active:scale-95 border flex items-center gap-2 ${showGenreSelector ? 'bg-purple-600 border-purple-400 text-white' : 'bg-[#1a1c23] border-gray-800 text-purple-400 hover:text-white hover:bg-purple-600'}`}>
+            <button onClick={() => setShowGuidedArea(!showGuidedArea)} className={`p-4 rounded-2xl transition-all shadow-lg active:scale-95 border flex items-center gap-2 ${showGuidedArea ? 'bg-purple-600 border-purple-400 text-white' : 'bg-[#1a1c23] border-gray-800 text-purple-400 hover:text-white hover:bg-purple-600'}`}>
               <Wand2 className="w-6 h-6" />
-              {selectedGenres.length > 0 && <span className="absolute -top-2 -right-2 w-6 h-6 bg-pink-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-[#0f1014] animate-in zoom-in">{selectedGenres.length}</span>}
+              {(selectedGenres.length > 0 || selectedFromList) && <span className="absolute -top-2 -right-2 w-6 h-6 bg-pink-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-[#0f1014] animate-in zoom-in">{selectedGenres.length + (selectedFromList ? 1 : 0)}</span>}
             </button>
             <form onSubmit={sendMessage} className={`flex-1 flex gap-4 p-2 bg-[#1a1c23]/80 backdrop-blur-xl border rounded-[30px] shadow-2xl transition-all ${activeSession ? 'border-gray-700 focus-within:border-purple-500/50' : 'opacity-50 pointer-events-none border-transparent'}`}>
-              <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder={selectedGenres.length > 0 ? `A pedir ${selectedGenres.length} géneros... adiciona detalhes!` : "Pergunta algo sobre anime ou manga..."} className="flex-1 bg-transparent border-none outline-none px-6 py-4 text-gray-100 placeholder:text-gray-600" />
-              <button type="submit" disabled={(!input.trim() && selectedGenres.length === 0) || loading || !activeSession} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-4 rounded-full transition-all shadow-lg active:scale-90 disabled:opacity-50 disabled:active:scale-100">{loading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6" />}</button>
+              <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder={selectedFromList ? `Como "${selectedFromList.titulo}"...` : "Pergunta ao Sommelier..."} className="flex-1 bg-transparent border-none outline-none px-6 py-4 text-gray-100 placeholder:text-gray-600" />
+              <button type="submit" disabled={(!input.trim() && selectedGenres.length === 0 && !selectedFromList) || loading || !activeSession} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-4 rounded-full transition-all shadow-lg active:scale-90 disabled:opacity-50 disabled:active:scale-100">{loading && !messages.find(m => m.role === 'assistant' && !m.content) ? <Loader2 className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6" />}</button>
             </form>
           </div>
-          <p className="text-center text-[10px] text-gray-600 mt-4 uppercase tracking-[0.2em] font-black">Powered by OtakuTime Intelligence & Llama 3.1</p>
         </div>
       </div>
     </div>

@@ -5,7 +5,36 @@ import { PrismaService } from '../prisma/prisma.service';
 export class MangaService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // Busca dados detalhados da AniList por Nome
+  // Função "Detetive" para o MangaDex
+  async getLatestChapterFromMangaDex(anilistId: number, title: string): Promise<number | null> {
+    try {
+      // 1. Pesquisa com filtros de adulto para não esconder nada
+      const mdUrl = `https://api.mangadex.org/manga?title=${encodeURIComponent(title)}&limit=5&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&contentRating[]=pornographic`;
+      const response = await fetch(mdUrl);
+      const data = await response.json() as any;
+
+      if (!data.data || data.data.length === 0) return null;
+
+      // 2. Handshake: Procurar o ID da AniList nos links do MangaDex
+      const match = data.data.find(m => m.attributes.links?.al == anilistId.toString());
+
+      if (match) {
+        // 3. Se encontrou, pede o feed de capítulos (ordenado pelo mais recente em Inglês)
+        const feedRes = await fetch(`https://api.mangadex.org/manga/${match.id}/feed?limit=1&order[chapter]=desc&translatedLanguage[]=en`);
+        const feedData = await feedRes.json() as any;
+        
+        if (feedData.data && feedData.data[0]) {
+          return parseFloat(feedData.data[0].attributes.chapter);
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('Erro ao consultar MangaDex:', error);
+      return null;
+    }
+  }
+
+  // Pesquisa básica na AniList por Nome (para detalhes)
   async searchAniListManga(nomeManga: string) {
     const query = `
       query ($s: String) {
@@ -16,30 +45,25 @@ export class MangaService {
             status
             chapters
             genres
-            tags { name rank }
             description
             coverImage { large }
+            externalLinks { url site type language }
           }
         }
       }
     `;
-    const variables = { s: nomeManga };
-
     try {
       const response = await fetch('https://graphql.anilist.co', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' },
-        body: JSON.stringify({ query, variables }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, variables: { s: nomeManga } }),
       });
       const result = await response.json() as any;
       return result?.data?.Page?.media[0] || null;
-    } catch (error) {
-      console.error('Erro na ligação à AniList:', error);
-      return null;
-    }
+    } catch { return null; }
   }
 
-  // Busca dados detalhados da AniList por ID
+  // Pesquisa básica na AniList por ID (para detalhes)
   async searchAniListById(id: number) {
     const query = `
       query ($id: Int) {
@@ -49,41 +73,103 @@ export class MangaService {
           status
           chapters
           genres
-          tags { name rank }
           description
           coverImage { large }
+          externalLinks { url site type language }
         }
       }
     `;
-    const variables = { id };
-
     try {
       const response = await fetch('https://graphql.anilist.co', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ query, variables }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, variables: { id } }),
       });
       const result = await response.json() as any;
       return result?.data?.Media || null;
-    } catch (error) {
-      console.error('Erro ao buscar ID Manga na AniList:', error);
-      return null;
-    }
+    } catch { return null; }
   }
 
-  // Importa para o Catálogo Global e adiciona à lista do utilizador
+  // Pesquisa para a lista de resultados (Discovery)
+  async searchMangaList(nome: string) {
+    const query = `
+      query ($s: String) {
+        Page(perPage: 15) {
+          media(search: $s, type: MANGA, sort: POPULARITY_DESC) {
+            id
+            title { english romaji }
+            genres
+            description
+            status
+            chapters
+            coverImage { large }
+          }
+        }
+      }
+    `;
+    try {
+      const response = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, variables: { s: nome } })
+      });
+      const data = await response.json() as any;
+      return data.data?.Page?.media || [];
+    } catch { return []; }
+  }
+
+  // Pesquisa por Género
+  async searchByGenre(genre: string) {
+    const query = `
+      query ($genre: String) {
+        Page(perPage: 20) {
+          media(genre: $genre, type: MANGA, sort: POPULARITY_DESC) {
+            id
+            title { english romaji }
+            genres
+            description
+            status
+            chapters
+            coverImage { large }
+          }
+        }
+      }
+    `;
+    try {
+      const response = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, variables: { genre } })
+      });
+      const data = await response.json() as any;
+      return data.data?.Page?.media || [];
+    } catch { return []; }
+  }
+
+  // Importação simplificada
   async importFromAniList(nomeManga: string, userId: number) {
     const aniListData = await this.searchAniListManga(nomeManga);
-    if (!aniListData) throw new Error('Manga não encontrado na AniList');
+    if (!aniListData) throw new Error('Manga não encontrado');
 
-    const topTags = aniListData.tags ? aniListData.tags.slice(0, 5).map((tag: any) => tag.name).join(', ') : '';
-    const generosComTags = `${aniListData.genres ? aniListData.genres.join(', ') : ''}, ${topTags}`;
-    const descricaoLimpa = aniListData.description ? aniListData.description.replace(/<[^>]*>?/gm, '') : "Sem descrição disponível.";
-
+    const linksJSON = aniListData.externalLinks ? JSON.stringify(aniListData.externalLinks) : null;
+    
     const manga = await this.prisma.manga.upsert({
       where: { id: aniListData.id },
-      update: { numCapitulosTotal: aniListData.chapters, capaUrl: aniListData.coverImage.large, statusLancamento: aniListData.status },
-      create: { id: aniListData.id, titulo: aniListData.title.english || aniListData.title.romaji, statusLancamento: aniListData.status, generos: generosComTags, descricao: descricaoLimpa, numCapitulosTotal: aniListData.chapters, capaUrl: aniListData.coverImage.large },
+      update: { 
+        numCapitulosTotal: aniListData.chapters, 
+        capaUrl: aniListData.coverImage.large, 
+        linksExternos: linksJSON 
+      },
+      create: { 
+        id: aniListData.id, 
+        titulo: aniListData.title.english || aniListData.title.romaji, 
+        statusLancamento: aniListData.status, 
+        generos: aniListData.genres.join(', '), 
+        descricao: aniListData.description?.replace(/<[^>]*>?/gm, ''), 
+        numCapitulosTotal: aniListData.chapters, 
+        capaUrl: aniListData.coverImage.large,
+        linksExternos: linksJSON
+      },
     });
 
     return this.prisma.userManga.upsert({
@@ -94,82 +180,20 @@ export class MangaService {
     });
   }
 
-  async searchMangaList(nomeManga: string) {
-    const query = `query ($s: String) { Page(page: 1, perPage: 10) { media(search: $s, type: MANGA, sort: SEARCH_MATCH) { id title { english romaji } coverImage { large } status } } }`;
-    const variables = { s: nomeManga };
-    try {
-      const response = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query, variables }) });
-      const result = await response.json() as any;
-      return result?.data?.Page?.media || [];
-    } catch (error) {
-      return [];
-    }
-  }
-
+  // CRUD básico
   async findAll(userId: number) {
-    const list = await this.prisma.userManga.findMany({ where: { userId }, include: { manga: true } });
-    return list.map(item => ({
-      id: item.id,
-      mangaId: item.mangaId,
-      titulo: item.manga.titulo,
-      capaUrl: item.manga.capaUrl,
-      generos: item.manga.generos,
-      descricao: item.manga.descricao,
-      status: item.status,
-      capAtual: item.capAtual,
-      numCapitulosTotal: item.manga.numCapitulosTotal,
-      prioridade: item.prioridade,
-      statusLancamento: item.manga.statusLancamento
-    }));
+    return this.prisma.userManga.findMany({ where: { userId }, include: { manga: true } });
   }
 
   async findOne(id: number) {
-    const item = await this.prisma.userManga.findUnique({ where: { id }, include: { manga: true } });
-    if (!item) return null;
-    return {
-      id: item.id,
-      mangaId: item.mangaId,
-      titulo: item.manga.titulo,
-      capaUrl: item.manga.capaUrl,
-      generos: item.manga.generos,
-      descricao: item.manga.descricao,
-      status: item.status,
-      capAtual: item.capAtual,
-      numCapitulosTotal: item.manga.numCapitulosTotal,
-      prioridade: item.prioridade,
-      statusLancamento: item.manga.statusLancamento
-    };
+    return this.prisma.userManga.findUnique({ where: { id }, include: { manga: true } });
   }
 
   async update(id: number, updateDto: any) {
-    const atual = await this.prisma.userManga.findUnique({ where: { id }, include: { manga: true } });
-    if (!atual) return null;
-    let novosDados = { ...updateDto };
-    if (updateDto.capAtual !== undefined) {
-      const cap = updateDto.capAtual;
-      if (atual.status === 'PLANNED' && cap > 0) novosDados.status = 'WATCHING';
-      if (atual.manga.numCapitulosTotal && cap >= atual.manga.numCapitulosTotal) {
-        novosDados.status = 'COMPLETED';
-        novosDados.capAtual = atual.manga.numCapitulosTotal;
-      }
-    }
-    const updated = await this.prisma.userManga.update({ where: { id }, data: novosDados, include: { manga: true } });
-    return { ...updated, titulo: updated.manga.titulo, capaUrl: updated.manga.capaUrl };
+    return this.prisma.userManga.update({ where: { id }, data: updateDto, include: { manga: true } });
   }
 
   async remove(id: number) {
     return this.prisma.userManga.delete({ where: { id } });
-  }
-
-  async searchByGenre(genre: string) {
-    const query = `query ($g: String) { Page(perPage: 24) { media(genre: $g, type: MANGA, sort: POPULARITY_DESC) { id title { english romaji } coverImage { large } genres } } }`;
-    const variables = { g: genre };
-    try {
-      const response = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query, variables }) });
-      const result = await response.json() as any;
-      return result?.data?.Page?.media || [];
-    } catch (error) {
-      return [];
-    }
   }
 }

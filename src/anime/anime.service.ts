@@ -21,6 +21,7 @@ export class AnimeService {
             episodes
             season
             seasonYear
+            externalLinks { url site type language }
             nextAiringEpisode {
               airingAt
               episode
@@ -60,6 +61,7 @@ export class AnimeService {
           episodes
           season
           seasonYear
+          externalLinks { url site type language }
           nextAiringEpisode {
             airingAt
             episode
@@ -91,6 +93,7 @@ export class AnimeService {
     const topTags = aniListData.tags ? aniListData.tags.slice(0, 5).map((tag: any) => tag.name).join(', ') : '';
     const generosComTags = `${aniListData.genres ? aniListData.genres.join(', ') : ''}, ${topTags}`;
     const descricaoLimpa = aniListData.description ? aniListData.description.replace(/<[^>]*>?/gm, '') : "Sem descrição.";
+    const linksJSON = aniListData.externalLinks ? JSON.stringify(aniListData.externalLinks) : null;
 
     const anime = await this.prisma.anime.upsert({
       where: { id: aniListData.id },
@@ -98,6 +101,7 @@ export class AnimeService {
         numEpisodiosTotal: aniListData.episodes,
         capaUrl: aniListData.coverImage.large,
         statusLancamento: aniListData.status,
+        linksExternos: linksJSON,
         proximoEpisodio: aniListData.nextAiringEpisode?.episode,
         proximoEpisodioData: aniListData.nextAiringEpisode ? new Date(aniListData.nextAiringEpisode.airingAt * 1000) : null,
       },
@@ -111,6 +115,7 @@ export class AnimeService {
         numEpisodiosTotal: aniListData.episodes,
         temporada: aniListData.season,
         ano: aniListData.seasonYear,
+        linksExternos: linksJSON,
         proximoEpisodio: aniListData.nextAiringEpisode?.episode,
         proximoEpisodioData: aniListData.nextAiringEpisode ? new Date(aniListData.nextAiringEpisode.airingAt * 1000) : null,
       },
@@ -167,6 +172,7 @@ export class AnimeService {
       temporada: item.anime.temporada,
       ano: item.anime.ano,
       prioridade: item.prioridade,
+      linksExternos: item.anime.linksExternos,
       proximoEpisodio: item.anime.proximoEpisodio,
       proximoEpisodioData: item.anime.proximoEpisodioData
     }));
@@ -189,6 +195,7 @@ export class AnimeService {
       temporada: item.anime.temporada,
       ano: item.anime.ano,
       prioridade: item.prioridade,
+      linksExternos: item.anime.linksExternos,
       proximoEpisodio: item.anime.proximoEpisodio,
       proximoEpisodioData: item.anime.proximoEpisodioData
     };
@@ -207,7 +214,7 @@ export class AnimeService {
       }
     }
     const updated = await this.prisma.userAnime.update({ where: { id }, data: novosDados, include: { anime: true } });
-    return { ...updated, titulo: updated.anime.titulo, capaUrl: updated.anime.capaUrl };
+    return { ...updated, titulo: updated.anime.titulo, capaUrl: updated.anime.capaUrl, linksExternos: updated.anime.linksExternos };
   }
 
   async remove(id: number) {

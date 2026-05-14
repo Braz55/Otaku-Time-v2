@@ -1,98 +1,44 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🌸 OtakuTime v2 - Premium Discovery & AI Companion
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+OtakuTime v2 é uma plataforma de descoberta e acompanhamento de animes e mangas, elevada por inteligência artificial local para proporcionar uma experiência de "Sommelier" personalizada.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## ✨ Funcionalidades Premium
 
-## Description
+- **🤖 Companion de IA (Ollama + Llama 3.1):** Um assistente inteligente que conhece a tua biblioteca e sugere obras com base no teu gosto pessoal.
+- **⚡ Streaming de Respostas:** Interface de chat fluida com respostas em tempo real via Server-Sent Events (SSE).
+- **📝 Auto-Nomeação de Sessões:** Organização inteligente de conversas com títulos gerados por IA.
+- **🧭 Discovery Contextual (Varinha Mágica):** Filtra e descobre conteúdos por género ou semelhança com a tua lista atual.
+- **🔗 Links Oficiais Integrados:** Acesso direto a plataformas como Lezhin, Tappytoon, MangaPlus e Crunchyroll.
+- **📅 Calendário de Lançamentos:** Acompanha quando saem os novos episódios dos animes que estás a ver.
+- **📊 Ranking Pessoal:** Define a tua prioridade de visualização com um sistema de ranking real (#1, #2, etc.).
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## 🛠️ Stack Tecnológica
 
-## Project setup
+- **Backend:** NestJS, Prisma (SQLite), Ollama (Llama 3.1 8B).
+- **Frontend:** React, Tailwind CSS, Lucide Icons.
+- **APIs:** AniList GraphQL API.
 
-```bash
-$ npm install
-```
+## 🚀 Como Correr
 
-## Compile and run the project
+1. **Backend:**
+   ```bash
+   $ npm install
+   $ npx prisma db push
+   $ npm run start:dev
+   ```
 
-```bash
-# development
-$ npm run start
+2. **Frontend:**
+   ```bash
+   $ cd otaku-ui
+   $ npm install
+   $ npm run dev
+   ```
 
-# watch mode
-$ npm run start:dev
+3. **IA (Ollama):**
+   Certifica-te de que o Ollama está a correr com o modelo `llama3.1`.
 
-# production mode
-$ npm run start:prod
-```
+## 📜 Histórico de Versões
+Consulta o ficheiro [history.md](./history.md) para ver a evolução detalhada do projeto.
 
-## Run tests
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+---
+*Desenvolvido com ❤️ para a comunidade Otaku.*

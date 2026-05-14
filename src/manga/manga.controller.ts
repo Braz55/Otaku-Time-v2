@@ -14,6 +14,18 @@ export class MangaController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('latest-chapter/:anilistId')
+  async getLatestChapter(@Param('anilistId') id: string, @Request() req) {
+    // Para o MangaDex, precisamos do título. Vamos buscá-lo primeiro ou passá-lo por query.
+    // Como queremos que funcione mesmo para o que não está na DB, vamos buscar à AniList se necessário.
+    const manga = await this.mangaService.searchAniListById(+id);
+    if (!manga) return { latest: null };
+    const title = manga.title.english || manga.title.romaji;
+    const latest = await this.mangaService.getLatestChapterFromMangaDex(+id, title);
+    return { latest };
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('anilist/:id')
   getAniListById(@Param('id') id: string) {
     return this.mangaService.searchAniListById(+id);

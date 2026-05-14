@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMedia } from '../context/MediaContext';
-import { Search, Calendar as CalendarIcon, Sparkles, Loader2, ChevronLeft, Plus, Trash2, PlusCircle, MinusCircle, Star, Clock, CheckCircle2, PauseCircle, XCircle, PlayCircle, List } from 'lucide-react';
+import { Search, Calendar as CalendarIcon, Sparkles, Loader2, ChevronLeft, ChevronRight, ExternalLink as ExternalLinkIcon, Plus, Trash2, PlusCircle, MinusCircle, Star, Clock, CheckCircle2, PauseCircle, XCircle, PlayCircle, List, Info } from 'lucide-react';
 import MediaCard from '../components/MediaCard';
 
 // Interfaces
@@ -42,11 +42,30 @@ const HomePage = () => {
   const [view, setView] = useState<'home' | 'details'>('home');
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [showEpList, setShowEpList] = useState(false);
+  
+  // Novo estado para o capítulo mais recente do MangaDex
+  const [latestChapter, setLatestChapter] = useState<number | null>(null);
+  const [loadingLatest, setLoadingLatest] = useState(false);
 
   const getHeaders = () => ({
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${token}`
   });
+
+  const carregarCapituloMaisRecente = async (anilistId: number) => {
+    if (categoria !== 'manga') return;
+    setLoadingLatest(true);
+    setLatestChapter(null);
+    try {
+      const res = await fetch(`http://localhost:3001/manga/latest-chapter/${anilistId}`, { headers: getHeaders() });
+      const data = await res.json();
+      if (data && data.latest) setLatestChapter(data.latest);
+    } catch (err) {
+      console.error('Erro ao carregar cap mais recente:', err);
+    } finally {
+      setLoadingLatest(false);
+    }
+  };
 
   const pesquisar = async () => {
     if (!termoPesquisa) return;
@@ -176,19 +195,29 @@ const HomePage = () => {
           numCapitulosTotal: data.chapters,
           temporada: data.season,
           ano: data.seasonYear,
+          linksExternos: data.externalLinks ? JSON.stringify(data.externalLinks) : null,
           isExternal: true
         };
         setSelectedItem(normalized);
       } else if (data) {
-        setSelectedItem({ ...data, isExternal: false });
+        // Se for um item da DB, temos de aceder a data.manga se existir, ou data diretamente
+        const itemData = data.manga || data.anime || data;
+        setSelectedItem({ ...data, ...itemData, isExternal: false });
       } else {
         throw new Error('Nenhum dado recebido');
       }
+
+      // Se for Manga, disparar o carregamento do capítulo mais recente (MangaDex)
+      if (targetType === 'manga') {
+        // Usamos o mangaId (ID da AniList) se existir, caso contrário usamos o id direto
+        carregarCapituloMaisRecente(data.mangaId || data.id);
+      }
+
       setView('details');
       setShowEpList(false);
     } catch (error) {
       console.error("Erro ao carregar detalhes:", error);
-      alert("Não foi possível carregar os detalhes deste anime. Tenta novamente.");
+      alert("Não foi possível carregar os detalhes. Tenta novamente.");
     } finally {
       setLoading(false);
     }
@@ -282,11 +311,11 @@ const HomePage = () => {
                   Calendário
                 </button>
                 <button 
+                  onClick={() => navigate('/chat')}
                   className="flex items-center gap-2 px-6 py-3 bg-[#1a1c23] hover:bg-gray-800 text-gray-400 rounded-xl font-bold transition-all border border-gray-800 active:scale-95 text-sm"
-                  onClick={() => alert("Módulo IA em desenvolvimento...")}
                 >
                   <Sparkles className="w-4 h-4 text-yellow-500" />
-                  Pedir Sugestões
+                  Otaku Chat
                 </button>
               </div>
 
@@ -351,18 +380,18 @@ const HomePage = () => {
                       {animesDashboard.length > 0 ? animesDashboard.map(item => (
                         <div key={item.id} className="group flex items-center gap-4 bg-[#1a1c23] p-4 rounded-3xl border border-gray-800 hover:border-purple-500/50 transition-all">
                           <img 
-                            src={item.capaUrl} 
+                            src={item.anime?.capaUrl || item.capaUrl} 
                             className="w-20 h-20 object-cover rounded-2xl cursor-pointer" 
                             alt="" 
-                            onClick={() => abrirDetalhes(item.id, false, 'anime')}
+                            onClick={() => abrirDetalhes(item.animeId || item.id, false, 'anime')}
                           />
-                          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => abrirDetalhes(item.id, false, 'anime')}>
-                            <h3 className="font-bold text-gray-200 truncate">{item.titulo}</h3>
-                            <p className="text-xs text-gray-500 font-black mt-1">EPISÓDIO {item.epAtual + 1}</p>
+                          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => abrirDetalhes(item.animeId || item.id, false, 'anime')}>
+                            <h3 className="font-bold text-gray-200 truncate">{item.anime?.titulo || item.titulo}</h3>
+                            <p className="text-xs text-gray-500 font-black mt-1">EPISÓDIO {(item.epAtual || 0) + 1}</p>
                             <div className="w-full bg-gray-800 h-1.5 rounded-full mt-2 overflow-hidden">
                               <div 
                                 className="bg-purple-500 h-full transition-all duration-500" 
-                                style={{ width: `${(item.epAtual / (item.numEpisodiosTotal || (item.proximoEpisodio ? item.proximoEpisodio - 1 : item.epAtual + 1))) * 100}%` }}
+                                style={{ width: `${((item.epAtual || 0) / (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal || (item.anime?.proximoEpisodio ? item.anime.proximoEpisodio - 1 : (item.epAtual || 0) + 1))) * 100}%` }}
                               ></div>
                             </div>
                           </div>
@@ -389,18 +418,18 @@ const HomePage = () => {
                       {mangasDashboard.length > 0 ? mangasDashboard.map(item => (
                         <div key={item.id} className="group flex items-center gap-4 bg-[#1a1c23] p-4 rounded-3xl border border-gray-800 hover:border-pink-500/50 transition-all">
                           <img 
-                            src={item.capaUrl} 
+                            src={item.manga?.capaUrl || item.capaUrl} 
                             className="w-20 h-20 object-cover rounded-2xl cursor-pointer" 
                             alt="" 
-                            onClick={() => abrirDetalhes(item.id, false, 'manga')}
+                            onClick={() => abrirDetalhes(item.mangaId || item.id, false, 'manga')}
                           />
-                          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => abrirDetalhes(item.id, false, 'manga')}>
-                            <h3 className="font-bold text-gray-200 truncate">{item.titulo}</h3>
-                            <p className="text-xs text-gray-500 font-black mt-1">CAPÍTULO {item.capAtual + 1}</p>
+                          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => abrirDetalhes(item.mangaId || item.id, false, 'manga')}>
+                            <h3 className="font-bold text-gray-200 truncate">{item.manga?.titulo || item.titulo}</h3>
+                            <p className="text-xs text-gray-500 font-black mt-1">CAPÍTULO {(item.capAtual || 0) + 1}</p>
                             <div className="w-full bg-gray-800 h-1.5 rounded-full mt-2 overflow-hidden">
                               <div 
                                 className="bg-pink-500 h-full transition-all duration-500" 
-                                style={{ width: `${(item.capAtual / (item.numCapitulosTotal || (item.proximoCapituloNumero ? item.proximoCapituloNumero - 1 : item.capAtual + 1))) * 100}%` }}
+                                style={{ width: `${((item.capAtual || 0) / (item.manga?.numCapitulosTotal || item.numCapitulosTotal || (item.manga?.proximoCapituloNumero ? item.manga.proximoCapituloNumero - 1 : (item.capAtual || 0) + 1))) * 100}%` }}
                               ></div>
                             </div>
                           </div>
@@ -472,7 +501,30 @@ const HomePage = () => {
                       <img src={selectedItem.capaUrl} className="w-full h-full object-cover" alt={selectedItem.titulo} />
                     </div>
                     <div className="flex-1 pb-4">
-                      <h2 className="text-4xl md:text-6xl font-black mb-6 tracking-tight">{selectedItem.titulo}</h2>
+                      <h2 className="text-4xl md:text-6xl font-black mb-3 tracking-tight">{selectedItem.titulo}</h2>
+                      
+                      {/* Badge do Capítulo Mais Recente (MangaDex) */}
+                      {categoria === 'manga' && (
+                        <div className="flex items-center gap-3 mb-6">
+                          {loadingLatest ? (
+                            <div className="flex items-center gap-2 px-4 py-1.5 bg-gray-800/50 rounded-full border border-gray-700 animate-pulse">
+                              <Loader2 className="w-4 h-4 text-pink-500 animate-spin" />
+                              <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">A consultar MangaDex...</span>
+                            </div>
+                          ) : latestChapter ? (
+                            <div className="flex items-center gap-2 px-4 py-1.5 bg-pink-500/20 rounded-full border border-pink-500/30 shadow-[0_0_15px_rgba(236,72,153,0.2)] animate-in zoom-in">
+                              <Sparkles className="w-4 h-4 text-pink-400" />
+                              <span className="text-[10px] font-black text-pink-400 uppercase tracking-widest">Último Cap no MangaDex: {latestChapter}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 px-4 py-1.5 bg-gray-800/50 rounded-full border border-gray-700">
+                              <Info className="w-4 h-4 text-gray-600" />
+                              <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Sem info no MangaDex</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <div className="flex flex-wrap gap-2">
                         {selectedItem.generos?.split(',').map((g: string) => (
                           <span key={g} className="px-4 py-1.5 bg-white/10 backdrop-blur-md rounded-full text-xs font-black text-gray-300 border border-white/5 uppercase tracking-wider">
@@ -496,6 +548,38 @@ const HomePage = () => {
                         {selectedItem.descricao || "Sem descrição disponível."}
                       </p>
                     </div>
+
+                    {/* Secção de Links Oficiais */}
+                    {selectedItem.linksExternos && (
+                      <div className="space-y-6 pt-10 border-t border-gray-800/50">
+                        <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                          <span className="w-1.5 h-6 bg-pink-500 rounded-full"></span>
+                          Onde Assistir / Ler
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {JSON.parse(selectedItem.linksExternos).map((link: any, index: number) => (
+                            <a 
+                              key={index} 
+                              href={link.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="flex items-center justify-between p-5 bg-gray-800/20 hover:bg-purple-600/10 border border-gray-800 hover:border-purple-500/50 rounded-[24px] transition-all group shadow-lg"
+                            >
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-purple-600/10 flex items-center justify-center text-purple-400 group-hover:bg-purple-600 group-hover:text-white transition-all">
+                                  <ExternalLinkIcon className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-black text-gray-200 uppercase tracking-wide">{link.site}</p>
+                                  <p className="text-xs text-gray-500 font-bold uppercase">{link.language || 'Geral'}</p>
+                                </div>
+                              </div>
+                              <ChevronRight className="w-5 h-5 text-gray-600 group-hover:text-purple-400 transition-all group-hover:translate-x-1" />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 py-10 border-t border-gray-800/50">
                       <div className="bg-gray-800/30 p-6 rounded-3xl border border-gray-700/50 flex flex-col items-center justify-center text-center">
@@ -533,7 +617,7 @@ const HomePage = () => {
                             <span className="text-gray-500 font-black text-2xl">
                               {categoria === 'anime' 
                                 ? (selectedItem.numEpisodiosTotal || (selectedItem.proximoEpisodio ? `${selectedItem.proximoEpisodio - 1}+` : (selectedItem.statusLancamento === 'RELEASING' ? 'Lançando' : '?')))
-                                : (selectedItem.numCapitulosTotal || (selectedItem.proximoCapituloNumero ? `${selectedItem.proximoCapituloNumero}+` : (selectedItem.statusLancamento === 'RELEASING' ? 'Lançando' : '?')))
+                                : (selectedItem.numCapitulosTotal || (latestChapter ? `${latestChapter}+` : (selectedItem.statusLancamento === 'RELEASING' ? 'Lançando' : '?')))
                               }
                             </span>
                           </div>
@@ -557,7 +641,7 @@ const HomePage = () => {
                             <div className="grid grid-cols-6 sm:grid-cols-10 md:grid-cols-12 lg:grid-cols-15 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                               {[...Array(categoria === 'anime' 
                                 ? (selectedItem.numEpisodiosTotal || (selectedItem.proximoEpisodio ? selectedItem.proximoEpisodio - 1 : 0)) 
-                                : (Math.ceil(selectedItem.numCapitulosTotal || 0) || (selectedItem.proximoCapituloNumero ? selectedItem.proximoCapituloNumero - 1 : 0))
+                                : (Math.ceil(latestChapter || selectedItem.numCapitulosTotal || 0) || 0)
                               )].map((_, i) => {
                                 const num = i + 1;
                                 const isWatched = num <= (categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual);

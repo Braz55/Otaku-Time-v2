@@ -210,7 +210,7 @@ export class AnimeService {
     if (updateDto.epAtual !== undefined) {
       const ep = updateDto.epAtual;
       if (atual.status === 'PLANNED' && ep > 0) novosDados.status = 'WATCHING';
-      if (atual.anime.numEpisodiosTotal && ep >= atual.anime.numEpisodiosTotal) {
+      if (atual.anime.statusLancamento !== 'RELEASING' && atual.anime.numEpisodiosTotal && ep >= atual.anime.numEpisodiosTotal) {
         novosDados.status = 'COMPLETED';
         novosDados.epAtual = atual.anime.numEpisodiosTotal;
       }

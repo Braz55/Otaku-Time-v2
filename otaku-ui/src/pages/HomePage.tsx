@@ -21,7 +21,7 @@ const TRACKING_STATUS_OPTIONS = [
 
 const HomePage = () => {
   const { user, token } = useAuth();
-  const { categoria, isShowingFavorites, setIsShowingFavorites, isSearchOpen, homeTrigger } = useMedia();
+  const { categoria, setCategoria, isShowingFavorites, setIsShowingFavorites, isSearchOpen, homeTrigger } = useMedia();
   const [termoPesquisa, setTermoPesquisa] = useState('');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [resultadosPesquisa, setResultadosPesquisa] = useState<any[]>([]);
@@ -135,10 +135,24 @@ const HomePage = () => {
       const mangas = await mangaRes.json();
 
       if (Array.isArray(animes)) {
-        setAnimesDashboard(animes.filter(a => a.status === 'WATCHING' && (a.epAtual || 0) < (a.anime?.numEpisodiosTotal || 9999)));
+        setAnimesDashboard(animes.filter(a => {
+          if (a.status !== 'WATCHING') return false;
+          const status = a.anime?.statusLancamento || a.statusLancamento;
+          const proxEp = a.anime?.proximoEpisodio || a.proximoEpisodio;
+          const numTotal = a.anime?.numEpisodiosTotal || a.numEpisodiosTotal;
+          const maxDisp = (status === 'RELEASING' && proxEp) ? proxEp - 1 : (numTotal || 9999);
+          return (a.epAtual || 0) < maxDisp;
+        }));
       }
       if (Array.isArray(mangas)) {
-        setMangasDashboard(mangas.filter(m => m.status === 'WATCHING' && (m.capAtual || 0) < (m.manga?.numCapitulosTotal || 9999)));
+        setMangasDashboard(mangas.filter(m => {
+          if (m.status !== 'WATCHING') return false;
+          const status = m.manga?.statusLancamento || m.statusLancamento;
+          const proxCap = m.manga?.proximoCapituloNumero || m.proximoCapituloNumero;
+          const numTotal = m.manga?.numCapitulosTotal || m.numCapitulosTotal;
+          const maxDisp = (status === 'RELEASING' && proxCap) ? proxCap - 1 : (numTotal || 9999);
+          return (m.capAtual || 0) < maxDisp;
+        }));
       }
     } catch (error) {
       console.error("Erro ao carregar dashboard:", error);
@@ -173,6 +187,9 @@ const HomePage = () => {
   const abrirDetalhes = async (id: number, isExternal = false, forcedType?: 'anime' | 'manga') => {
     setLoading(true);
     const targetType = forcedType || categoria;
+    if (forcedType && forcedType !== categoria) {
+      setCategoria(forcedType);
+    }
     const url = isExternal 
       ? `http://localhost:3001/${targetType}/anilist/${id}`
       : `http://localhost:3001/${targetType}/${id}`;
@@ -380,7 +397,7 @@ const HomePage = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>play_circle</span>
-                    <h3 className="font-headline-lg text-headline-lg text-2xl font-bold">Fila de Prioridades</h3>
+                    <h3 className="font-headline-lg text-headline-lg text-2xl font-bold">Ver a seguir</h3>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -390,21 +407,24 @@ const HomePage = () => {
                       <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span> Continuar a ver
                     </h4>
                     {animesDashboard.length > 0 ? animesDashboard.map(item => {
-                      const totalEp = (item.anime?.statusLancamento === 'RELEASING' && item.anime?.proximoEpisodio) ? item.anime.proximoEpisodio - 1 : (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal || '?');
+                      const status = item.anime?.statusLancamento || item.statusLancamento;
+                      const proxEp = item.anime?.proximoEpisodio || item.proximoEpisodio;
+                      const numTotal = item.anime?.numEpisodiosTotal || item.numEpisodiosTotal;
+                      const totalEp = (status === 'RELEASING' && proxEp) ? proxEp - 1 : (numTotal || '?');
                       const progressoPercentual = typeof totalEp === 'number' && totalEp > 0 ? ((item.epAtual || 0) / totalEp) * 100 : (((item.epAtual || 0) / ((item.epAtual || 0) + 1)) * 100);
                       return (
                         <div key={item.id} className="glass-panel p-4 rounded-3xl flex gap-4 hover:bg-white/5 transition-all group relative overflow-hidden border border-white/5 hover:border-purple-500/30">
-                          <div className="w-24 h-32 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer" onClick={() => abrirDetalhes(item.animeId || item.id, false, 'anime')}>
+                          <div className="w-24 h-32 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer" onClick={() => abrirDetalhes(item.id, false, 'anime')}>
                             <img src={item.anime?.capaUrl || item.capaUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
                           </div>
                           <div className="flex-1 flex flex-col justify-between py-1">
-                            <div className="cursor-pointer" onClick={() => abrirDetalhes(item.animeId || item.id, false, 'anime')}>
+                            <div className="cursor-pointer" onClick={() => abrirDetalhes(item.id, false, 'anime')}>
                               <h5 className="font-bold text-lg line-clamp-1 group-hover:text-purple-400 transition-colors">{item.anime?.titulo || item.titulo}</h5>
                               <p className="text-sm text-on-surface-variant">Episódio {(item.epAtual || 0) + 1} / {totalEp}</p>
                             </div>
                             <div className="space-y-3">
-                              <div className="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden">
-                                <div className="h-full bg-primary shadow-[0_0_10px_rgba(221,184,255,0.5)] transition-all duration-500" style={{ width: `${Math.min(progressoPercentual, 100)}%` }}></div>
+                              <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden border border-white/5 shadow-inner">
+                                <div className="h-full bg-gradient-to-r from-purple-500 to-pink-500 shadow-[0_0_12px_rgba(168,85,247,0.8)] transition-all duration-500" style={{ width: `${item.epAtual > 0 ? Math.max(5, Math.min(progressoPercentual, 100)) : 0}%` }}></div>
                               </div>
                               <div className="flex gap-2">
                                 <button onClick={() => marcarComoVisto(item, 'anime')} className="flex-1 py-2 bg-primary/10 border border-primary/20 text-primary text-xs font-bold rounded-xl hover:bg-primary hover:text-on-primary transition-all shadow-sm">Marcar como Visto</button>
@@ -422,21 +442,24 @@ const HomePage = () => {
                       <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span> Continuar a ler
                     </h4>
                     {mangasDashboard.length > 0 ? mangasDashboard.map(item => {
-                      const totalCap = (item.manga?.statusLancamento === 'RELEASING' && item.manga?.proximoCapituloNumero) ? item.manga.proximoCapituloNumero - 1 : (item.manga?.numCapitulosTotal || item.numCapitulosTotal || '?');
+                      const status = item.manga?.statusLancamento || item.statusLancamento;
+                      const proxCap = item.manga?.proximoCapituloNumero || item.proximoCapituloNumero;
+                      const numTotal = item.manga?.numCapitulosTotal || item.numCapitulosTotal;
+                      const totalCap = (status === 'RELEASING' && proxCap) ? proxCap - 1 : (numTotal || '?');
                       const progressoPercentual = typeof totalCap === 'number' && totalCap > 0 ? ((item.capAtual || 0) / totalCap) * 100 : (((item.capAtual || 0) / ((item.capAtual || 0) + 1)) * 100);
                       return (
                         <div key={item.id} className="glass-panel p-4 rounded-3xl flex gap-4 hover:bg-white/5 transition-all group relative overflow-hidden border border-white/5 hover:border-pink-500/30">
-                          <div className="w-24 h-32 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer" onClick={() => abrirDetalhes(item.mangaId || item.id, false, 'manga')}>
+                          <div className="w-24 h-32 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer" onClick={() => abrirDetalhes(item.id, false, 'manga')}>
                             <img src={item.manga?.capaUrl || item.capaUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
                           </div>
                           <div className="flex-1 flex flex-col justify-between py-1">
-                            <div className="cursor-pointer" onClick={() => abrirDetalhes(item.mangaId || item.id, false, 'manga')}>
+                            <div className="cursor-pointer" onClick={() => abrirDetalhes(item.id, false, 'manga')}>
                               <h5 className="font-bold text-lg line-clamp-1 group-hover:text-pink-400 transition-colors">{item.manga?.titulo || item.titulo}</h5>
                               <p className="text-sm text-on-surface-variant">Capítulo {(item.capAtual || 0) + 1} / {totalCap}</p>
                             </div>
                             <div className="space-y-3">
-                              <div className="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden">
-                                <div className="h-full bg-secondary shadow-[0_0_10px_rgba(255,176,203,0.5)] transition-all duration-500" style={{ width: `${Math.min(progressoPercentual, 100)}%` }}></div>
+                              <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden border border-white/5 shadow-inner">
+                                <div className="h-full bg-gradient-to-r from-pink-500 to-rose-500 shadow-[0_0_12px_rgba(236,72,153,0.8)] transition-all duration-500" style={{ width: `${item.capAtual > 0 ? Math.max(5, Math.min(progressoPercentual, 100)) : 0}%` }}></div>
                               </div>
                               <div className="flex gap-2">
                                 <button onClick={() => marcarComoVisto(item, 'manga')} className="flex-1 py-2 bg-secondary/10 border border-secondary/20 text-secondary text-xs font-bold rounded-xl hover:bg-secondary hover:text-on-secondary transition-all shadow-sm">Marcar como Lido</button>

@@ -271,7 +271,18 @@ export class MangaService {
   }
 
   async update(id: number, updateDto: any) {
-    return this.prisma.userManga.update({ where: { id }, data: updateDto, include: { manga: true } });
+    const atual = await this.prisma.userManga.findUnique({ where: { id }, include: { manga: true } });
+    if (!atual) return null;
+    let novosDados = { ...updateDto };
+    if (updateDto.capAtual !== undefined) {
+      const cap = updateDto.capAtual;
+      if (atual.status === 'PLANNED' && cap > 0) novosDados.status = 'WATCHING';
+      if (atual.manga.statusLancamento !== 'RELEASING' && atual.manga.numCapitulosTotal && cap >= atual.manga.numCapitulosTotal) {
+        novosDados.status = 'COMPLETED';
+        novosDados.capAtual = atual.manga.numCapitulosTotal;
+      }
+    }
+    return this.prisma.userManga.update({ where: { id }, data: novosDados, include: { manga: true } });
   }
 
   async remove(id: number) {

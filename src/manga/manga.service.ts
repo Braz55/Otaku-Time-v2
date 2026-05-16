@@ -72,52 +72,46 @@ export class MangaService {
         if (detailData?.status) {
           console.log(`[Plano B] Status bruto para "${cand.record?.title}":`, detailData.status);
           
-          // Baka-Updates frequentemente coloca o status da Novel e do Webtoon no mesmo campo.
-          // Dividimos por quebras de linha, barras e pontos e vírgulas para isolar as partes.
-          const chunks = detailData.status.split(/[\n/;]/);
-          
           // Filtramos para excluir qualquer parte que mencione "novel" ou "original work"
-          const validChunks = chunks.filter((chunk: string) => !/(?:novel|original|orig\b)/i.test(chunk));
-          const cleanStatusStr = validChunks.join(' ');
+          const rawLines = detailData.status.split(/\n/);
+          const validLines = rawLines.filter((line: string) => !/(?:novel|original|orig\b)/i.test(line));
 
-          // Identificar blocos de Temporada/Side Story (onde o prefixo S1, Season, Side Story, Special vem ANTES do número de capítulos) vs Blocos de Sumário Geral
-          const seasonRegex = /\b(?:s\d+|season\s*\d+|part\s*\d+|side\s*story|special|spin\s*off|extra|gaiden)\b.*?\b\d+\s+Chapters/i;
-          const seasonChunks = validChunks.filter(c => seasonRegex.test(c));
-          const summaryChunks = validChunks.filter(c => !seasonRegex.test(c));
+          // ESTRATÉGIA: Procurar blocos com label explícito (ex: **S1:** 29 Chapters, **Side Story:** 9 Chapters)
+          // Estes blocos são identificados por um label em negrito (**...**) ou texto seguido de ":" antes do número de capítulos.
+          // Regex que captura: qualquer coisa antes de ":" (incluindo labels em negrito) + "X Chapters"
+          const labeledBlockRegex = /\*\*[^*]+\*\*\s*:?\s*(\d+)\s+Chapters|^[^:]+:\s*(\d+)\s+Chapters/im;
+          const allLabeledMatches = [...validLines.flatMap((line: string) => {
+            const m = line.match(/\*\*[^*]+\*\*\s*:?\s*(\d+)\s+Chapters|^[^:]+:\s*(\d+)\s+Chapters/i);
+            if (m) return [parseInt(m[1] || m[2])];
+            return [];
+          })];
 
-          // Extrair o total mencionado no sumário geral (se existir)
-          let totalFromSummary = 0;
-          for (const c of summaryChunks) {
-            const m = c.match(/(\d+)\s+Chapters/i);
-            if (m && m[1]) {
-              const val = parseInt(m[1]);
-              if (val > totalFromSummary) totalFromSummary = val;
-            }
+          let candidateMax = 0;
+
+          if (allLabeledMatches.length > 0) {
+            // Temos blocos com label explícito -> somar todos (S1 + S2 + S3 + Side Story + Special, etc.)
+            const sumLabeled = allLabeledMatches.reduce((acc, n) => acc + n, 0);
+            console.log(`[Plano B] Blocos rotulados encontrados: [${allLabeledMatches.join(', ')}] -> Soma: ${sumLabeled}`);
+            candidateMax = sumLabeled;
+          } else {
+            // Fallback: não há blocos com label -> procurar o maior número de "X Chapters" simples
+            const cleanStr = validLines.join(' ');
+            const chMatches = [...cleanStr.matchAll(/(\d+)\s+Chapters/gi)];
+            candidateMax = chMatches.length > 0
+              ? Math.max(...chMatches.map(m => parseInt(m[1])))
+              : 0;
+
+            // Também verificar intervalos finais (53~93)
+            const rangeMatches = [...cleanStr.matchAll(/[-~]\s*(\d+)\b/g)];
+            const maxFromRange = rangeMatches.length > 0
+              ? Math.max(...rangeMatches.map(m => parseInt(m[1])))
+              : 0;
+
+            candidateMax = Math.max(candidateMax, maxFromRange);
+            console.log(`[Plano B] Sem blocos rotulados, usando fallback numérico: ${candidateMax}`);
           }
 
-          // Somar os capítulos mencionados especificamente nas temporadas e side stories
-          let sumFromSeasons = 0;
-          for (const c of seasonChunks) {
-            const m = c.match(/(\d+)\s+Chapters/i);
-            if (m && m[1]) {
-              sumFromSeasons += parseInt(m[1]);
-            }
-          }
-
-          // Procurar por intervalos finais de capítulos no formato (53~93) ou (53-93)
-          const rangeMatches = [...cleanStatusStr.matchAll(/[-~]\s*(\d+)\b/g)];
-          const maxFromRange = rangeMatches.length > 0 
-            ? Math.max(...rangeMatches.map(m => parseInt(m[1]))) 
-            : 0;
-            
-          // Procurar por menções isoladas de "c.93" ou "ch.93"
-          const chMentionMatches = [...cleanStatusStr.matchAll(/\b(?:c|ch|chapter|cap)\.?\s*(\d+)\b/gi)];
-          const maxFromMentions = chMentionMatches.length > 0 
-            ? Math.max(...chMentionMatches.map(m => parseInt(m[1]))) 
-            : 0;
-
-          const candidateMax = Math.max(totalFromSummary, sumFromSeasons, maxFromRange, maxFromMentions);
-          console.log(`[Plano B] Cálculo para "${cand.record?.title}" -> Sumário: ${totalFromSummary}, Temporadas: ${sumFromSeasons}, Intervalo: ${maxFromRange}, Menção: ${maxFromMentions} | Max: ${candidateMax}`);
+          console.log(`[Plano B] Max para "${cand.record?.title}": ${candidateMax}`);
           
           if (candidateMax > overallMax) {
             overallMax = candidateMax;

@@ -34,6 +34,7 @@ const HomePage = () => {
   const [showEpList, setShowEpList] = useState(false);
   
   const [latestChapter, setLatestChapter] = useState<number | null>(null);
+  const [latestChapterSource, setLatestChapterSource] = useState<string>('MangaDex');
   const [latestChapterError, setLatestChapterError] = useState<string | null>(null);
   const [loadingLatest, setLoadingLatest] = useState(false);
   
@@ -50,12 +51,14 @@ const HomePage = () => {
     if (categoria !== 'manga') return;
     setLoadingLatest(true);
     setLatestChapter(null);
+    setLatestChapterSource('MangaDex');
     setLatestChapterError(null);
     try {
       const res = await fetch(`http://localhost:3001/manga/latest-chapter/${anilistId}`, { headers: getHeaders() });
       const data = await res.json();
       if (data) {
         if (data.latest) setLatestChapter(data.latest);
+        if (data.source) setLatestChapterSource(data.source);
         if (data.error) setLatestChapterError(data.error);
       }
     } catch (err) {
@@ -247,6 +250,7 @@ const HomePage = () => {
       if (response.ok) {
         setView('home');
         consultarMinhaLista();
+        carregarDashboard();
       }
     } catch (error) {
       console.error("Erro ao remover:", error);
@@ -268,6 +272,7 @@ const HomePage = () => {
         const data = await response.json();
         setSelectedItem((prev: any) => ({ ...prev, ...data, dbId: data.id }));
         setResultadosDB(prev => prev.map(item => item.id === targetId ? { ...item, ...data } : item));
+        carregarDashboard();
       }
     } catch (error) {
       console.error(`Erro ao atualizar ${campo}:`, error);
@@ -552,40 +557,40 @@ const HomePage = () => {
         </div>
       ) : (
           <div className="animate-in fade-in slide-in-from-left-4 duration-500">
-            <button onClick={() => setView('home')} className="mb-10 flex items-center gap-2 text-on-surface-variant hover:text-white transition-colors group font-bold">
+            <button onClick={() => setView('home')} className={`mb-10 flex items-center gap-2 px-5 py-2.5 rounded-full glass-panel border border-white/10 text-on-surface-variant hover:text-white transition-all group font-bold shadow-lg ${categoria === 'anime' ? 'hover:border-purple-500/50 hover:shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'hover:border-pink-500/50 hover:shadow-[0_0_15px_rgba(236,72,153,0.3)]'}`}>
               <span className="material-symbols-outlined group-hover:-translate-x-1 transition-transform">arrow_back</span>
               Back to Home
             </button>
             {selectedItem && (
-              <div className="glass-panel rounded-3xl overflow-hidden shadow-[0_0_100px_rgba(147,51,234,0.1)]">
+              <div className={`glass-panel rounded-3xl overflow-hidden border ${categoria === 'anime' ? 'border-purple-500/20 shadow-[0_0_100px_rgba(168,85,247,0.15)]' : 'border-pink-500/20 shadow-[0_0_100px_rgba(236,72,153,0.15)]'}`}>
                 <div className="relative h-[400px] md:h-[500px]">
                   <img src={selectedItem.capaUrl} className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-30" alt="" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent"></div>
+                  <div className={`absolute inset-0 bg-gradient-to-t from-background via-background/80 to-${categoria === 'anime' ? 'purple' : 'pink'}-900/20`}></div>
                   <div className="relative h-full flex flex-col md:flex-row items-end p-8 md:p-12 gap-8">
-                    <div className="w-48 md:w-64 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border-4 border-background flex-shrink-0">
-                      <img src={selectedItem.capaUrl} className="w-full h-full object-cover" alt={selectedItem.titulo} />
+                    <div className={`w-48 md:w-64 aspect-[2/3] rounded-2xl overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.8)] border-4 border-background ring-2 ${categoria === 'anime' ? 'ring-purple-500/50' : 'ring-pink-500/50'} flex-shrink-0 group`}>
+                      <img src={selectedItem.capaUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={selectedItem.titulo} />
                     </div>
                     <div className="flex-1 pb-4">
                       <div className="flex items-center gap-3 mb-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider ${categoria === 'anime' ? 'bg-primary/20 text-primary border-primary/30' : 'bg-secondary/20 text-secondary border-secondary/30'}`}>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider ${categoria === 'anime' ? 'bg-primary/20 text-primary border-primary/30 shadow-[0_0_10px_rgba(221,184,255,0.2)]' : 'bg-secondary/20 text-secondary border-secondary/30 shadow-[0_0_10px_rgba(255,176,203,0.2)]'}`}>
                           {categoria}
                         </span>
                         <span className="text-on-surface-variant text-sm flex items-center gap-1 font-bold">
                           <span className="material-symbols-outlined text-sm text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> {selectedItem.isExternal ? 'New' : `#${selectedItem.prioridade}`}
                         </span>
                       </div>
-                      <h2 className="font-display-lg text-4xl md:text-5xl font-bold mb-6 tracking-tight text-white">{selectedItem.titulo}</h2>
+                      <h2 className={`font-display-lg text-4xl md:text-5xl font-bold mb-6 tracking-tight bg-gradient-to-r ${categoria === 'anime' ? 'from-white via-purple-200 to-purple-400' : 'from-white via-pink-200 to-pink-400'} bg-clip-text text-transparent`}>{selectedItem.titulo}</h2>
                       {categoria === 'manga' && (
                         <div className="flex items-center gap-3 mb-6">
                           {loadingLatest ? (
                             <div className="flex items-center gap-2 px-4 py-1.5 bg-surface-variant/50 rounded-full border border-white/10 animate-pulse">
                               <Loader2 className="w-4 h-4 text-secondary animate-spin" />
-                              <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Checking MangaDex...</span>
+                              <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Checking Sources...</span>
                             </div>
                           ) : latestChapter ? (
                             <div className="flex items-center gap-2 px-4 py-1.5 bg-secondary/20 rounded-full border border-secondary/30 shadow-[0_0_15px_rgba(255,176,203,0.2)] animate-in zoom-in">
                               <span className="material-symbols-outlined text-[16px] text-secondary">auto_awesome</span>
-                              <span className="text-[10px] font-bold text-secondary uppercase tracking-widest">Latest on MangaDex: {latestChapter}</span>
+                              <span className="text-[10px] font-bold text-secondary uppercase tracking-widest">Latest on {latestChapterSource}: {latestChapter}</span>
                             </div>
                           ) : latestChapterError ? (
                             <div className="flex items-center gap-2 px-4 py-1.5 bg-red-500/10 rounded-full border border-red-500/30">
@@ -602,7 +607,7 @@ const HomePage = () => {
                       )}
                       <div className="flex flex-wrap gap-2">
                         {selectedItem.generos?.split(',').map((g: string) => (
-                          <span key={g} className="px-4 py-1.5 bg-white/5 backdrop-blur-md rounded-full text-xs font-bold text-on-surface border border-white/10 tracking-wider">
+                          <span key={g} className={`px-4 py-1.5 bg-white/5 backdrop-blur-md rounded-full text-xs font-bold text-on-surface border tracking-wider transition-all hover:scale-105 ${categoria === 'anime' ? 'border-purple-500/30 hover:bg-purple-500/20 hover:border-purple-500/60 hover:text-purple-300 shadow-[0_0_10px_rgba(168,85,247,0.1)]' : 'border-pink-500/30 hover:bg-pink-500/20 hover:border-pink-500/60 hover:text-pink-300 shadow-[0_0_10px_rgba(236,72,153,0.1)]'}`}>
                             {g.trim()}
                           </span>
                         ))}
@@ -614,7 +619,7 @@ const HomePage = () => {
                   <div className="md:col-span-2 space-y-12">
                     <div>
                       <h3 className="font-headline-lg text-2xl font-bold mb-6 flex items-center gap-3">
-                        <span className={`w-1.5 h-6 rounded-full ${categoria === 'anime' ? 'bg-primary' : 'bg-secondary'}`}></span>
+                        <span className={`w-1.5 h-6 rounded-full ${categoria === 'anime' ? 'bg-primary shadow-[0_0_10px_rgba(221,184,255,0.5)]' : 'bg-secondary shadow-[0_0_10px_rgba(255,176,203,0.5)]'}`}></span>
                         Synopsis
                       </h3>
                       <p className="text-on-surface-variant leading-relaxed text-lg font-body-lg">
@@ -631,11 +636,11 @@ const HomePage = () => {
                         <div className="space-y-6 pt-10 border-t border-white/5">
                           <div className="flex items-center justify-between mb-6">
                             <h3 className="font-headline-lg text-2xl font-bold flex items-center gap-3">
-                              <span className={`w-1.5 h-6 rounded-full ${categoria === 'anime' ? 'bg-primary' : 'bg-secondary'}`}></span>
+                              <span className={`w-1.5 h-6 rounded-full ${categoria === 'anime' ? 'bg-primary shadow-[0_0_10px_rgba(221,184,255,0.5)]' : 'bg-secondary shadow-[0_0_10px_rgba(255,176,203,0.5)]'}`}></span>
                               Where to {categoria === 'anime' ? 'Watch' : 'Read'}
                             </h3>
                             {!selectedItem.isExternal && (
-                              <button onClick={() => setShowAddLink(!showAddLink)} className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all text-xs border ${categoria === 'anime' ? 'bg-primary/10 text-primary border-primary/20 hover:bg-primary hover:text-on-primary' : 'bg-secondary/10 text-secondary border-secondary/20 hover:bg-secondary hover:text-on-secondary'}`}>
+                              <button onClick={() => setShowAddLink(!showAddLink)} className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all text-xs border ${categoria === 'anime' ? 'bg-primary/10 text-primary border-primary/20 hover:bg-primary hover:text-on-primary shadow-[0_0_15px_rgba(221,184,255,0.2)]' : 'bg-secondary/10 text-secondary border-secondary/20 hover:bg-secondary hover:text-on-secondary shadow-[0_0_15px_rgba(255,176,203,0.2)]'}`}>
                                 <span className="material-symbols-outlined text-[16px]">add</span> ADD LINK
                               </button>
                             )}
@@ -651,9 +656,9 @@ const HomePage = () => {
                           
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {todosLinks.map((link: any, index: number) => (
-                              <a key={index} href={link.url} target="_blank" rel="noopener noreferrer" className={`flex items-center justify-between p-5 glass-panel hover:bg-white/5 rounded-2xl transition-all group shadow-lg border-transparent hover:border-white/10`}>
+                              <a key={index} href={link.url} target="_blank" rel="noopener noreferrer" className={`flex items-center justify-between p-5 glass-panel hover:bg-white/5 rounded-2xl transition-all group shadow-lg border ${categoria === 'anime' ? 'border-white/5 hover:border-purple-500/40 hover:shadow-[0_0_20px_rgba(168,85,247,0.15)]' : 'border-white/5 hover:border-pink-500/40 hover:shadow-[0_0_20px_rgba(236,72,153,0.15)]'}`}>
                                 <div className="flex items-center gap-4">
-                                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${link.tipo === 'Custom' ? 'bg-secondary/10 text-secondary group-hover:bg-secondary group-hover:text-on-secondary' : 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-on-primary'}`}>
+                                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${link.tipo === 'Custom' ? 'bg-secondary/10 text-secondary group-hover:bg-secondary group-hover:text-on-secondary shadow-[0_0_10px_rgba(255,176,203,0.2)]' : 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-on-primary shadow-[0_0_10px_rgba(221,184,255,0.2)]'}`}>
                                     <span className="material-symbols-outlined">open_in_new</span>
                                   </div>
                                   <div>
@@ -675,9 +680,9 @@ const HomePage = () => {
                       );
                     })()}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 py-10 border-t border-white/5">
-                      <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center">
+                      <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${categoria === 'anime' ? 'hover:border-purple-500/40 hover:bg-purple-500/5 hover:shadow-[0_0_25px_rgba(168,85,247,0.15)]' : 'hover:border-pink-500/40 hover:bg-pink-500/5 hover:shadow-[0_0_25px_rgba(236,72,153,0.15)]'}`}>
                         <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-2">Status</p>
-                        <p className={`font-bold text-xl ${selectedItem.statusLancamento === 'RELEASING' ? 'text-primary' : 'text-on-surface'}`}>
+                        <p className={`font-bold text-xl ${selectedItem.statusLancamento === 'RELEASING' ? (categoria === 'anime' ? 'text-primary drop-shadow-[0_0_10px_rgba(221,184,255,0.5)]' : 'text-secondary drop-shadow-[0_0_10px_rgba(255,176,203,0.5)]') : 'text-on-surface'}`}>
                           {selectedItem.statusLancamento === 'RELEASING' ? 'Releasing' : 
                            selectedItem.statusLancamento === 'FINISHED' ? 'Finished' : 
                            selectedItem.statusLancamento === 'HIATUS' ? 'Hiatus' : 
@@ -685,16 +690,16 @@ const HomePage = () => {
                            selectedItem.statusLancamento || 'Unknown'}
                         </p>
                       </div>
-                      <div className={`p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center ${showEpList ? 'bg-primary/10 border border-primary/30 sm:col-span-3' : 'glass-panel'}`}>
+                      <div className={`p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center border ${showEpList ? (categoria === 'anime' ? 'bg-purple-500/10 border-purple-500/40 sm:col-span-3 shadow-[0_0_30px_rgba(168,85,247,0.2)]' : 'bg-pink-500/10 border-pink-500/40 sm:col-span-3 shadow-[0_0_30px_rgba(236,72,153,0.2)]') : `glass-panel ${categoria === 'anime' ? 'hover:border-purple-500/40 hover:bg-purple-500/5 hover:shadow-[0_0_25px_rgba(168,85,247,0.15)]' : 'hover:border-pink-500/40 hover:bg-pink-500/5 hover:shadow-[0_0_25px_rgba(236,72,153,0.15)]'}`}`}>
                         <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-2">Progress</p>
                         <div className="flex items-center gap-4 mb-4">
                           {!selectedItem.isExternal && (
-                            <button onClick={() => atualizarProgresso(-1)} className="p-1.5 rounded-lg bg-surface-variant hover:bg-white/10 transition-colors">
+                            <button onClick={() => atualizarProgresso(-1)} className={`p-1.5 rounded-lg bg-surface-variant hover:bg-white/10 transition-colors ${categoria === 'anime' ? 'hover:text-primary' : 'hover:text-secondary'}`}>
                               <span className="material-symbols-outlined text-[20px]">remove</span>
                             </button>
                           )}
                           <div className="flex items-center gap-1">
-                            <input type="number" min="0" max={categoria === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : selectedItem.numEpisodiosTotal) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : selectedItem.numCapitulosTotal)} value={categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${categoria === 'anime' ? 'text-primary' : 'text-secondary'} font-black text-3xl w-16 text-center outline-none border-b-2 border-white/10 focus:border-white/30 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`} />
+                            <input type="number" min="0" max={categoria === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : selectedItem.numEpisodiosTotal) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : selectedItem.numCapitulosTotal)} value={categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${categoria === 'anime' ? 'text-primary drop-shadow-[0_0_10px_rgba(221,184,255,0.3)]' : 'text-secondary drop-shadow-[0_0_10px_rgba(255,176,203,0.3)]'} font-black text-3xl w-16 text-center outline-none border-b-2 border-white/10 focus:border-white/30 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`} />
                             <span className="text-on-surface-variant font-black text-2xl mx-1">/</span> 
                             <span className="text-on-surface-variant font-black text-2xl">
                               {categoria === 'anime' 
@@ -704,12 +709,12 @@ const HomePage = () => {
                             </span>
                           </div>
                           {!selectedItem.isExternal && (
-                            <button onClick={() => atualizarProgresso(1)} className={`p-1.5 rounded-lg text-on-primary transition-all ${categoria === 'anime' ? 'bg-primary hover:bg-primary/80' : 'bg-secondary hover:bg-secondary/80'}`}>
+                            <button onClick={() => atualizarProgresso(1)} className={`p-1.5 rounded-lg text-on-primary transition-all ${categoria === 'anime' ? 'bg-primary hover:bg-primary/80 shadow-[0_0_15px_rgba(221,184,255,0.4)]' : 'bg-secondary hover:bg-secondary/80 shadow-[0_0_15px_rgba(255,176,203,0.4)]'}`}>
                               <span className="material-symbols-outlined text-[20px]">add</span>
                             </button>
                           )}
                           {!selectedItem.isExternal && (
-                            <button onClick={() => setShowEpList(!showEpList)} className={`p-1.5 rounded-lg transition-all ${showEpList ? (categoria === 'anime' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary') : 'bg-surface-variant text-on-surface-variant hover:text-white'}`}>
+                            <button onClick={() => setShowEpList(!showEpList)} className={`p-1.5 rounded-lg transition-all ${showEpList ? (categoria === 'anime' ? 'bg-primary text-on-primary shadow-[0_0_15px_rgba(221,184,255,0.4)]' : 'bg-secondary text-on-secondary shadow-[0_0_15px_rgba(255,176,203,0.4)]') : 'bg-surface-variant text-on-surface-variant hover:text-white'}`}>
                               <span className="material-symbols-outlined text-[20px]">list</span>
                             </button>
                           )}
@@ -724,7 +729,7 @@ const HomePage = () => {
                                 const num = i + 1;
                                 const isWatched = num <= (categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual);
                                 return (
-                                  <button key={num} onClick={() => atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', num)} className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all ${isWatched ? (categoria === 'anime' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary') : 'bg-surface-variant/50 text-on-surface-variant hover:bg-surface-variant hover:text-white border border-white/5'}`}>
+                                  <button key={num} onClick={() => atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', num)} className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all ${isWatched ? (categoria === 'anime' ? 'bg-primary text-on-primary shadow-[0_0_10px_rgba(221,184,255,0.4)]' : 'bg-secondary text-on-secondary shadow-[0_0_10px_rgba(255,176,203,0.4)]') : 'bg-surface-variant/50 text-on-surface-variant hover:bg-surface-variant hover:text-white border border-white/5'}`}>
                                     {num}
                                   </button>
                                 );
@@ -734,7 +739,7 @@ const HomePage = () => {
                         )}
                       </div>
                       {!showEpList && (
-                        <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center">
+                        <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${categoria === 'anime' ? 'hover:border-purple-500/40 hover:bg-purple-500/5 hover:shadow-[0_0_25px_rgba(168,85,247,0.15)]' : 'hover:border-pink-500/40 hover:bg-pink-500/5 hover:shadow-[0_0_25px_rgba(236,72,153,0.15)]'}`}>
                           <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-2">Season</p>
                           <p className="font-bold text-xl text-white">
                             {selectedItem.temporada ? `${selectedItem.temporada} ${selectedItem.ano || ''}` : selectedItem.ano || 'N/A'}
@@ -744,7 +749,7 @@ const HomePage = () => {
                     </div>
                   </div>
                   <div className="space-y-8">
-                    <div className="glass-panel p-8 rounded-[32px]">
+                    <div className={`glass-panel p-8 rounded-[32px] border ${categoria === 'anime' ? 'border-purple-500/20 shadow-[0_0_50px_rgba(168,85,247,0.08)]' : 'border-pink-500/20 shadow-[0_0_50px_rgba(236,72,153,0.08)]'}`}>
                       <h4 className="text-lg font-bold mb-6 flex items-center gap-2">Quick Actions</h4>
                       {selectedItem.isExternal ? (
                         <button onClick={() => { adicionarAoBanco(selectedItem.titulo); setView('home'); }} className="w-full bg-primary hover:bg-primary/80 text-on-primary py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 shadow-lg"><span className="material-symbols-outlined">add</span> ADD TO VAULT</button>
@@ -756,7 +761,7 @@ const HomePage = () => {
                               {TRACKING_STATUS_OPTIONS.map((opt) => {
                                 const isSelected = selectedItem.status === opt.value;
                                 return (
-                                  <button key={opt.value} onClick={() => atualizarCampo('status', opt.value)} className={`flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all text-sm font-bold ${isSelected ? (categoria === 'anime' ? 'bg-primary/20 border-primary text-primary' : 'bg-secondary/20 border-secondary text-secondary') : 'bg-surface-variant/30 border-white/5 text-on-surface-variant hover:border-white/20'}`}>
+                                  <button key={opt.value} onClick={() => atualizarCampo('status', opt.value)} className={`flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all text-sm font-bold ${isSelected ? (categoria === 'anime' ? 'bg-purple-500/20 border-purple-500 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.3)] scale-[1.02]' : 'bg-pink-500/20 border-pink-500 text-pink-300 shadow-[0_0_15px_rgba(236,72,153,0.3)] scale-[1.02]') : `bg-surface-variant/30 border-white/5 text-on-surface-variant ${categoria === 'anime' ? 'hover:border-purple-500/30 hover:bg-purple-500/5 hover:text-purple-200' : 'hover:border-pink-500/30 hover:bg-pink-500/5 hover:text-pink-200'}`}`}>
                                     {/* Using Material Symbols instead of Lucide icons */}
                                     <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
                                       {opt.value === 'WATCHING' ? 'play_circle' : 

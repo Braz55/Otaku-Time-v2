@@ -5,10 +5,10 @@ import { PrismaService } from '../prisma/prisma.service';
 export class MangaService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // PLANO B: Baka-Updates (MangaUpdates) - Versão "Status Parse"
-  async getLatestChapterFromBakaUpdates(title: string): Promise<number | null> {
+  // PLANO B: Baka-Updates (MangaUpdates) - Versão Ultra Otimizada (1 Pedido Base + Fallback de Novel)
+  async getLatestChapterFromBakaUpdates(title: string, mangaObj?: any): Promise<number | null> {
     try {
-      console.log(`[Plano B] A pesquisar "${title}" no Baka-Updates...`);
+      console.log(`[Plano B] A pesquisar "${title}" no Baka-Updates (limit: 1)...`);
       
       const searchRes = await fetch('https://api.mangaupdates.com/v1/series/search', {
         method: 'POST',
@@ -19,16 +19,117 @@ export class MangaService {
 
       if (!searchData.results || searchData.results.length === 0) return null;
       
-      const seriesId = searchData.results[0].record.series_id;
-      const detailRes = await fetch(`https://api.mangaupdates.com/v1/series/${seriesId}`);
-      const detailData = await detailRes.json() as any;
+      // Limpeza de strings para comparação justa
+      const clean = (s: string) => s ? s.toLowerCase().replace(/[^\w\s]/g, '').trim() : '';
+      const mainTitles = [title, mangaObj?.title?.english, mangaObj?.title?.romaji].filter(Boolean).map(clean);
 
-      if (detailData.status) {
-        const match = detailData.status.match(/(\d+)\s+Chapters/i);
-        if (match && match[1]) {
-          return parseInt(match[1]);
+      // 1. Filtrar para excluir adaptações de Novel
+      const nonNovels = searchData.results.filter((r: any) => r.record?.type?.toLowerCase() !== 'novel');
+
+      // 2. Filtrar candidatos legítimos (Correspondência exata, Side Stories/Especiais oficiais, ou pequenas variações de título)
+      const sequelKeywords = ['side story', 'special', 'sequel', 'part', 'season', 'gaiden', 'spinoff', 'spin off', 'extra', 'stories'];
+      
+      const validCandidates = nonNovels.filter((r: any) => {
+        const recTitle = clean(r.record?.title);
+        
+        return mainTitles.some(t => {
+          // Correspondência Exata (ex: "Codename Anastasia")
+          if (recTitle === t) return true;
+          
+          // Suporte a Side Stories / Sequências Oficiais (ex: "Semantic Error Side Story")
+          if (recTitle.startsWith(t)) {
+            const remainder = recTitle.replace(t, '').trim();
+            if (sequelKeywords.some(kw => remainder.includes(kw))) {
+              return true;
+            }
+          }
+
+          // Variações pequenas de título (ex: "Code Name Anastasia" vs "Codename Anastasia")
+          if (recTitle.includes(t) || t.includes(recTitle)) {
+            return Math.abs(recTitle.length - t.length) <= 5;
+          }
+
+          return false;
+        });
+      });
+
+      if (validCandidates.length === 0) {
+        console.log(`[Plano B] Nenhuma correspondência de Manhwa/Manga válida encontrada para "${title}".`);
+        return null;
+      }
+
+      console.log(`[Plano B] Candidatos válidos encontrados (${validCandidates.length}):`, validCandidates.map((c: any) => c.record?.title).join(', '));
+
+      let overallMax = 0;
+
+      // Inspecionar os detalhes de todos os candidatos válidos (top 5) para encontrar o maior progresso (incluindo Side Stories)
+      const topCandidates = validCandidates.slice(0, 5);
+      for (const cand of topCandidates) {
+        const seriesId = cand.record.series_id;
+        const detailRes = await fetch(`https://api.mangaupdates.com/v1/series/${seriesId}`);
+        const detailData = await detailRes.json() as any;
+
+        if (detailData?.status) {
+          console.log(`[Plano B] Status bruto para "${cand.record?.title}":`, detailData.status);
+          
+          // Baka-Updates frequentemente coloca o status da Novel e do Webtoon no mesmo campo.
+          // Dividimos por quebras de linha, barras e pontos e vírgulas para isolar as partes.
+          const chunks = detailData.status.split(/[\n/;]/);
+          
+          // Filtramos para excluir qualquer parte que mencione "novel" ou "original work"
+          const validChunks = chunks.filter((chunk: string) => !/(?:novel|original|orig\b)/i.test(chunk));
+          const cleanStatusStr = validChunks.join(' ');
+
+          // Identificar blocos de Temporada/Side Story (onde o prefixo S1, Season, Side Story, Special vem ANTES do número de capítulos) vs Blocos de Sumário Geral
+          const seasonRegex = /\b(?:s\d+|season\s*\d+|part\s*\d+|side\s*story|special|spin\s*off|extra|gaiden)\b.*?\b\d+\s+Chapters/i;
+          const seasonChunks = validChunks.filter(c => seasonRegex.test(c));
+          const summaryChunks = validChunks.filter(c => !seasonRegex.test(c));
+
+          // Extrair o total mencionado no sumário geral (se existir)
+          let totalFromSummary = 0;
+          for (const c of summaryChunks) {
+            const m = c.match(/(\d+)\s+Chapters/i);
+            if (m && m[1]) {
+              const val = parseInt(m[1]);
+              if (val > totalFromSummary) totalFromSummary = val;
+            }
+          }
+
+          // Somar os capítulos mencionados especificamente nas temporadas e side stories
+          let sumFromSeasons = 0;
+          for (const c of seasonChunks) {
+            const m = c.match(/(\d+)\s+Chapters/i);
+            if (m && m[1]) {
+              sumFromSeasons += parseInt(m[1]);
+            }
+          }
+
+          // Procurar por intervalos finais de capítulos no formato (53~93) ou (53-93)
+          const rangeMatches = [...cleanStatusStr.matchAll(/[-~]\s*(\d+)\b/g)];
+          const maxFromRange = rangeMatches.length > 0 
+            ? Math.max(...rangeMatches.map(m => parseInt(m[1]))) 
+            : 0;
+            
+          // Procurar por menções isoladas de "c.93" ou "ch.93"
+          const chMentionMatches = [...cleanStatusStr.matchAll(/\b(?:c|ch|chapter|cap)\.?\s*(\d+)\b/gi)];
+          const maxFromMentions = chMentionMatches.length > 0 
+            ? Math.max(...chMentionMatches.map(m => parseInt(m[1]))) 
+            : 0;
+
+          const candidateMax = Math.max(totalFromSummary, sumFromSeasons, maxFromRange, maxFromMentions);
+          console.log(`[Plano B] Cálculo para "${cand.record?.title}" -> Sumário: ${totalFromSummary}, Temporadas: ${sumFromSeasons}, Intervalo: ${maxFromRange}, Menção: ${maxFromMentions} | Max: ${candidateMax}`);
+          
+          if (candidateMax > overallMax) {
+            overallMax = candidateMax;
+          }
         }
       }
+
+      if (overallMax > 0) {
+        console.log(`[Plano B] Sucesso para "${title}": Encontrados ${overallMax} capítulos no total.`);
+        return overallMax;
+      }
+
       return null;
     } catch (error) {
       console.error('[Plano B] Erro:', error);
@@ -37,7 +138,7 @@ export class MangaService {
   }
 
   // Função para sincronizar o capítulo mais recente com a DB
-  async syncLatestChapter(anilistId: number): Promise<{ latest: number | null, error?: string }> {
+  async syncLatestChapter(anilistId: number): Promise<{ latest: number | null, error?: string, source?: string }> {
     const manga = await this.searchAniListById(anilistId);
     if (!manga) return { latest: null };
     const title = manga.title.english || manga.title.romaji;
@@ -46,26 +147,31 @@ export class MangaService {
     const mdResult = await this.getLatestChapterFromMangaDex(anilistId, title);
     let latest = mdResult.chapter;
     let errorMsg = mdResult.error;
+    let source = 'MangaDex';
     
     if (!latest) {
       console.log(`[Sync] MangaDex falhou para "${title}". A tentar Baka-Updates...`);
-      latest = await this.getLatestChapterFromBakaUpdates(title);
+      latest = await this.getLatestChapterFromBakaUpdates(title, manga);
       if (latest) {
         errorMsg = undefined; // Encontrado no plano B
+        source = 'Baka-Updates';
       }
     }
 
     if (latest) {
-      // Gravar na DB se encontrámos um valor
-      await this.prisma.manga.update({
-        where: { id: anilistId },
-        data: { numCapitulosTotal: latest }
-      }).catch(() => {
-        console.log(`[Sync] Manga com ID ${anilistId} não existe na DB local para atualizar.`);
-      });
+      // Verificar se existe na DB local antes de atualizar
+      const existe = await this.prisma.manga.findUnique({ where: { id: anilistId } });
+      if (existe) {
+        await this.prisma.manga.update({
+          where: { id: anilistId },
+          data: { numCapitulosTotal: latest }
+        });
+      } else {
+        console.log(`[Sync] Manga "${title}" (ID ${anilistId}) é um item externo não guardado na DB local. Progresso obtido: ${latest} (${source})`);
+      }
     }
 
-    return { latest, error: errorMsg };
+    return { latest, error: errorMsg, source };
   }
 
   // Função "Detetive" para o MangaDex (Plano A)

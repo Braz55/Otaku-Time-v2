@@ -16,8 +16,8 @@ export class MangaController {
   @UseGuards(JwtAuthGuard)
   @Get('latest-chapter/:anilistId')
   async getLatestChapter(@Param('anilistId') id: string) {
-    const latest = await this.mangaService.syncLatestChapter(+id);
-    return { latest };
+    const result = await this.mangaService.syncLatestChapter(+id);
+    return result;
   }
 
   @UseGuards(JwtAuthGuard)

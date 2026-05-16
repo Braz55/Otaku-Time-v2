@@ -35,7 +35,7 @@ export class AnimeService {
     try {
       const response = await fetch('https://graphql.anilist.co', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({ query, variables }),
       });
       const result = await response.json() as any;
@@ -173,6 +173,7 @@ export class AnimeService {
       ano: item.anime.ano,
       prioridade: item.prioridade,
       linksExternos: item.anime.linksExternos,
+      linksPersonalizados: item.linksPersonalizados,
       proximoEpisodio: item.anime.proximoEpisodio,
       proximoEpisodioData: item.anime.proximoEpisodioData
     }));
@@ -196,6 +197,7 @@ export class AnimeService {
       ano: item.anime.ano,
       prioridade: item.prioridade,
       linksExternos: item.anime.linksExternos,
+      linksPersonalizados: item.linksPersonalizados,
       proximoEpisodio: item.anime.proximoEpisodio,
       proximoEpisodioData: item.anime.proximoEpisodioData
     };
@@ -225,7 +227,7 @@ export class AnimeService {
     const query = `query ($g: String) { Page(perPage: 24) { media(genre: $g, type: ANIME, sort: POPULARITY_DESC) { id title { english romaji } coverImage { large } genres } } }`;
     const variables = { g: genre };
     try {
-      const response = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query, variables }) });
+      const response = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ query, variables }) });
       const result = await response.json() as any;
       return result?.data?.Page?.media || [];
     } catch (error) {

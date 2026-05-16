@@ -1,44 +1,174 @@
-# 🌸 OtakuTime v2 - Premium Discovery & AI Companion
+# Otaku Time Pro
 
-OtakuTime v2 é uma plataforma de descoberta e acompanhamento de animes e mangas, elevada por inteligência artificial local para proporcionar uma experiência de "Sommelier" personalizada.
+O teu gestor inteligente de Anime & Manga, alimentado por Inteligência Artificial.
 
-## ✨ Funcionalidades Premium
+Otaku Time é uma plataforma Fullstack concebida para entusiastas que procuram mais do que uma simples lista. É um ecossistema que organiza, converte fusos horários e utiliza LLMs (Large Language Models) para monitorizar lançamentos, especialmente de obras underground onde a informação é escassa.
 
-- **🤖 Companion de IA (Ollama + Llama 3.1):** Um assistente inteligente que conhece a tua biblioteca e sugere obras com base no teu gosto pessoal.
-- **⚡ Streaming de Respostas:** Interface de chat fluida com respostas em tempo real via Server-Sent Events (SSE).
-- **📝 Auto-Nomeação de Sessões:** Organização inteligente de conversas com títulos gerados por IA.
-- **🧭 Discovery Contextual (Varinha Mágica):** Filtra e descobre conteúdos por género ou semelhança com a tua lista atual.
-- **🔗 Links Oficiais Integrados:** Acesso direto a plataformas como Lezhin, Tappytoon, MangaPlus e Crunchyroll.
-- **📅 Calendário de Lançamentos:** Acompanha quando saem os novos episódios dos animes que estás a ver.
-- **📊 Ranking Pessoal:** Define a tua prioridade de visualização com um sistema de ranking real (#1, #2, etc.).
 
-## 🛠️ Stack Tecnológica
+## Diferenciais do Projeto
+IA-Powered Tracking: Integração com o modelo Llama para extração e limpeza de metadados de transmissões JST (Japan Standard Time).
 
-- **Backend:** NestJS, Prisma (SQLite), Ollama (Llama 3.1 8B).
-- **Frontend:** React, Tailwind CSS, Lucide Icons.
-- **APIs:** AniList GraphQL API.
+Smart Timezone Conversion: Converte automaticamente as estreias japonesas para o horário local (Portugal/Brasil), garantindo que nunca perdes um episódio.
 
-## 🚀 Como Correr
+Gestão de Prioridades: Sistema de ordenação personalizado para mangas, resolvendo as limitações das plataformas tradicionais.
 
-1. **Backend:**
-   ```bash
-   $ npm install
-   $ npx prisma db push
-   $ npm run start:dev
-   ```
+Arquitetura Moderna: Desenvolvido com uma separação clara entre Backend (NestJS), Frontend (Next.js) e um Microserviço de IA (Python).
 
-2. **Frontend:**
-   ```bash
-   $ cd otaku-ui
-   $ npm install
-   $ npm run dev
-   ```
 
-3. **IA (Ollama):**
-   Certifica-te de que o Ollama está a correr com o modelo `llama3.1`.
+## Arquitetura do Sistema
+graph LR
+    A[Frontend Next.js] -- API Requests --> B[Backend NestJS]
+    B -- Data Sync --> C[(PostgreSQL)]
+    B -- Prompting --> D[AI Microservice - Llama]
+    D -- Parsing --> E[Jikan API]
 
-## 📜 Histórico de Versões
-Consulta o ficheiro [history.md](./history.md) para ver a evolução detalhada do projeto.
+## Tecnologias Utilizadas
+###  Back end
+NestJS: Framework Node.js progressiva para construção de aplicações eficientes.
 
----
-*Desenvolvido com ❤️ para a comunidade Otaku.*
+TypeScript: Superset de JavaScript que adiciona tipagem estática.
+
+Prisma ORM: Para gestão de base de dados e consultas seguras.
+### IA & Data
+Python: Engine para processamento de linguagem natural.
+
+Ollama/Llama 3: Modelo de linguagem local para automação de horários.
+
+Jikan API: Wrapper oficial da base de dados MyAnimeList.
+
+## objetivo de desenvolvimento 
+Este projeto foi criado para elevar o nível de acompanhamento de mídia otaku, migrando de uma lógica de scripts simples para uma aplicação escalável e profissional, focada na experiência do utilizador e na precisão de dados.
+
+## Diagramas de classes
+:::mermaid
+classDiagram
+    class User {
+        +Int id
+        +String nome
+        +String email
+        +String password
+        +List~UserAnime~ animes
+        +List~UserManga~ mangas
+        +List~ChatSession~ sessions
+    }
+
+    class Anime {
+        +Int id
+        +String titulo
+        +String statusLancamento
+        +String descricao
+        +String generos
+        +String capaUrl
+        +Int numEpisodiosTotal
+        +Int proximoEpisodio
+        +DateTime proximoEpisodioData
+        +DateTime dataLancamento
+        +String temporada
+        +Int ano
+        +String linksExternos
+    }
+
+    class Manga {
+        +Int id
+        +String titulo
+        +String statusLancamento
+        +Float numCapitulosTotal
+        +String capaUrl
+        +String generos
+        +String autor
+        +String descricao
+        +DateTime proximoCapituloData
+        +Float proximoCapituloNumero
+        +String linksExternos
+    }
+
+    class UserAnime {
+        +Int id
+        +Int epAtual
+        +TrackingStatus status
+        +Int prioridade
+        +String linksPersonalizados
+    }
+
+    class UserManga {
+        +Int id
+        +Float capAtual
+        +TrackingStatus status
+        +Int prioridade
+        +String linksPersonalizados
+    }
+
+    class ChatSession {
+        +Int id
+        +String titulo
+        +DateTime createdAt
+        +DateTime updatedAt
+    }
+
+    class ChatMessage {
+        +Int id
+        +String role
+        +String content
+        +DateTime createdAt
+    }
+
+    User "1" -- "*" UserAnime : possui
+    User "1" -- "*" UserManga : possui
+    User "1" -- "*" ChatSession : possui
+    Anime "1" -- "*" UserAnime : associado
+    Manga "1" -- "*" UserManga : associado
+    ChatSession "1" -- "*" ChatMessage : contém
+:::
+
+## guia das pastas
+### gerir pastas 
+na pasta priasma é onde ocorre as dependencias das tabelas
+
+### modulos
+manga/
+├── dto/                    # (Data Transfer Objects) Define as regras do que o utilizador envia
+│   ├── create-manga.dto.ts # "Para criar um manga, preciso obrigatoriamente do título"
+│   └── update-manga.dto.ts # "Para atualizar, o título é opcional"
+├── entities/               # A classe que representa o Manga no código
+│   └── manga.entity.ts
+├── manga.controller.ts     # As ROTAS (Onde o utilizador "bate" com o pedido)
+├── manga.module.ts         # O "Cimento" que liga tudo isto
+└── manga.service.ts        # A LÓGICA (Onde o código decide o que fazer)
+
+## passo a passo de construcao
+
+1. criar o ambiente : npx @nestjs/cli new .
+2. instalar o prima : npm install @prisma/client@6 prisma@6 --save-dev
+3. iniciar o prisma : npx prisma init --datasource-provider sqlite
+4. criar as tabelas : npx prisma db push
+5. gerar os modulos das tabelas usando rest api e Y (substituir pelo nome da tabela): npx @nestjs/cli generate resource manga --no-spec
+6. criar a ponte entre as tabelas e a bas e de dados: 6.1 npx @nestjs/cli generate module prisma         
+6.2npx @nestjs/cli generate service prisma
+7. correr o server: npm run start:dev
+
+## 🧠 Motor de Recomendação (IA) - Roadmap
+
+A funcionalidade principal do Otaku-Time-v2 será um sistema de recomendação inteligente utilizando LLMs (ex: Llama 3 / Open WebUI).
+
+### Objetivos:
+* **Filtro de Histórico:** O LLM terá acesso aos dados do SQLite (via NestJS) para saber o que já foi lido/visto, evitando recomendações repetidas.
+* **Busca Semântica e Narrativa:** Interface para selecionar géneros, tipos de narrativa (ex: "sistemas de magia complexos", "protagonistas cinzentos") e tom da obra.
+* **RAG (Retrieval-Augmented Generation):** O sistema deverá ser capaz de pesquisar na internet por obras recentes ou menos conhecidas que se alinhem com os filtros escolhidos.
+* **Contexto Dinâmico:** O chat de recomendação deve funcionar como um "expert" que conhece o gosto do utilizador e justifica o porquê de cada sugestão.
+
+## comandos uteis
+* npx prisma studio -- para ver a base de dados
+* npm run dev -- poe a correr a interface
+* npx prisma db push -- refaz a db
+
+
+## 🗺️ O Mapa do Teu Projeto (O que temos até agora)
+Para o teu sistema de Mangas e IA funcionar, só precisas destas 4 peças a falar umas com as outras:
+
+A Base de Dados (dev.db): É o ficheiro onde tudo fica guardado.
+
+O Prisma (schema.prisma): É o tradutor. Ele traduz o que escreves em TypeScript para a base de dados.
+
+O DTO (O "Contrato"): É a regra que diz: "Para criar um utilizador, preciso de Nome, Email e Password".
+
+O Service (user.service.ts): É o motor que recebe o DTO e diz ao Prisma: "Guarda isto!".

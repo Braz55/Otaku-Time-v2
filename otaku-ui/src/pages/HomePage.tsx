@@ -44,7 +44,12 @@ const HomePage = () => {
   const [showEpList, setShowEpList] = useState(false);
   
   const [latestChapter, setLatestChapter] = useState<number | null>(null);
+  const [latestChapterError, setLatestChapterError] = useState<string | null>(null);
   const [loadingLatest, setLoadingLatest] = useState(false);
+  
+  const [showAddLink, setShowAddLink] = useState(false);
+  const [newLinkSite, setNewLinkSite] = useState('');
+  const [newLinkUrl, setNewLinkUrl] = useState('');
 
   const getHeaders = () => ({
     'Content-Type': 'application/json',
@@ -55,10 +60,14 @@ const HomePage = () => {
     if (categoria !== 'manga') return;
     setLoadingLatest(true);
     setLatestChapter(null);
+    setLatestChapterError(null);
     try {
       const res = await fetch(`http://localhost:3001/manga/latest-chapter/${anilistId}`, { headers: getHeaders() });
       const data = await res.json();
-      if (data && data.latest) setLatestChapter(data.latest);
+      if (data) {
+        if (data.latest) setLatestChapter(data.latest);
+        if (data.error) setLatestChapterError(data.error);
+      }
     } catch (err) {
       console.error('Erro ao carregar cap mais recente:', err);
     } finally {
@@ -182,6 +191,11 @@ const HomePage = () => {
       const response = await fetch(url, { headers: getHeaders() });
       const data = await response.json();
       
+      if (!data) {
+        alert('Não foi possível carregar os detalhes. Tenta novamente mais tarde.');
+        return;
+      }
+      
       if (isExternal && data) {
         const normalized = {
           id: data.id,
@@ -277,6 +291,17 @@ const HomePage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const adicionarLinkPessoal = async () => {
+    if (!newLinkSite || !newLinkUrl || selectedItem.isExternal) return;
+    const novosLinks = selectedItem.linksPersonalizados ? JSON.parse(selectedItem.linksPersonalizados) : [];
+    novosLinks.push({ site: newLinkSite, url: newLinkUrl, language: 'PT', type: 'Custom' });
+    const jsonStr = JSON.stringify(novosLinks);
+    await atualizarCampo('linksPersonalizados', jsonStr);
+    setNewLinkSite('');
+    setNewLinkUrl('');
+    setShowAddLink(false);
   };
 
   useEffect(() => {
@@ -471,10 +496,15 @@ const HomePage = () => {
                               <Sparkles className="w-4 h-4 text-pink-400" />
                               <span className="text-[10px] font-black text-pink-400 uppercase tracking-widest">Último Cap no MangaDex: {latestChapter}</span>
                             </div>
+                          ) : latestChapterError ? (
+                            <div className="flex items-center gap-2 px-4 py-1.5 bg-red-500/10 rounded-full border border-red-500/30">
+                              <Info className="w-4 h-4 text-red-500" />
+                              <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">{latestChapterError}</span>
+                            </div>
                           ) : (
                             <div className="flex items-center gap-2 px-4 py-1.5 bg-gray-800/50 rounded-full border border-gray-700">
                               <Info className="w-4 h-4 text-gray-600" />
-                              <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Sem info no MangaDex</span>
+                              <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Sem info nas fontes</span>
                             </div>
                           )}
                         </div>
@@ -500,30 +530,60 @@ const HomePage = () => {
                         {selectedItem.descricao || "Sem descrição disponível."}
                       </p>
                     </div>
-                    {selectedItem.linksExternos && (
-                      <div className="space-y-6 pt-10 border-t border-gray-800/50">
-                        <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                          <span className="w-1.5 h-6 bg-pink-500 rounded-full"></span>
-                          Onde Assistir / Ler
-                        </h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {JSON.parse(selectedItem.linksExternos).map((link: any, index: number) => (
-                            <a key={index} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-5 bg-gray-800/20 hover:bg-purple-600/10 border border-gray-800 hover:border-purple-500/50 rounded-[24px] transition-all group shadow-lg">
-                              <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-purple-600/10 flex items-center justify-center text-purple-400 group-hover:bg-purple-600 group-hover:text-white transition-all">
-                                  <ExternalLinkIcon className="w-5 h-5" />
+                    
+                    {(() => {
+                      const linksOficiais = selectedItem.linksExternos ? JSON.parse(selectedItem.linksExternos).map((l: any) => ({ ...l, tipo: 'Oficial' })) : [];
+                      const linksPessoais = selectedItem.linksPersonalizados ? JSON.parse(selectedItem.linksPersonalizados).map((l: any) => ({ ...l, tipo: 'Pessoal' })) : [];
+                      const todosLinks = [...linksOficiais, ...linksPessoais];
+                      
+                      return (todosLinks.length > 0 || (!selectedItem.isExternal)) && (
+                        <div className="space-y-6 pt-10 border-t border-gray-800/50">
+                          <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-2xl font-bold flex items-center gap-3">
+                              <span className="w-1.5 h-6 bg-pink-500 rounded-full"></span>
+                              Onde Assistir / Ler
+                            </h3>
+                            {!selectedItem.isExternal && (
+                              <button onClick={() => setShowAddLink(!showAddLink)} className="flex items-center gap-2 px-4 py-2 bg-pink-600/10 text-pink-400 hover:bg-pink-600 hover:text-white rounded-xl font-bold transition-all text-xs border border-pink-500/20">
+                                <Plus className="w-4 h-4" /> ADICIONAR LINK
+                              </button>
+                            )}
+                          </div>
+                          
+                          {showAddLink && !selectedItem.isExternal && (
+                            <div className="flex flex-col sm:flex-row gap-3 p-4 bg-pink-900/10 border border-pink-500/30 rounded-2xl mb-4 animate-in slide-in-from-top-4">
+                              <input type="text" placeholder="Nome (Ex: Tsuki Mangas)" value={newLinkSite} onChange={e => setNewLinkSite(e.target.value)} className="flex-1 bg-black/30 px-4 py-2.5 rounded-xl border border-gray-700 outline-none focus:border-pink-500 transition-all text-sm" />
+                              <input type="url" placeholder="URL Completo (https://...)" value={newLinkUrl} onChange={e => setNewLinkUrl(e.target.value)} className="flex-[2] bg-black/30 px-4 py-2.5 rounded-xl border border-gray-700 outline-none focus:border-pink-500 transition-all text-sm" />
+                              <button onClick={adicionarLinkPessoal} disabled={!newLinkSite || !newLinkUrl} className="px-6 py-2.5 bg-pink-600 hover:bg-pink-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-xl font-bold transition-all text-sm shadow-lg shadow-pink-900/20">SALVAR</button>
+                            </div>
+                          )}
+                          
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {todosLinks.map((link: any, index: number) => (
+                              <a key={index} href={link.url} target="_blank" rel="noopener noreferrer" className={`flex items-center justify-between p-5 bg-gray-800/20 border hover:border-purple-500/50 rounded-[24px] transition-all group shadow-lg ${link.tipo === 'Pessoal' ? 'border-pink-500/30 hover:bg-pink-600/10' : 'border-gray-800 hover:bg-purple-600/10'}`}>
+                                <div className="flex items-center gap-4">
+                                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${link.tipo === 'Pessoal' ? 'bg-pink-600/10 text-pink-400 group-hover:bg-pink-600 group-hover:text-white' : 'bg-purple-600/10 text-purple-400 group-hover:bg-purple-600 group-hover:text-white'}`}>
+                                    <ExternalLinkIcon className="w-5 h-5" />
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-black text-gray-200 uppercase tracking-wide flex items-center gap-2">
+                                      {link.site}
+                                      {link.tipo === 'Pessoal' && <span className="px-2 py-0.5 bg-pink-500/20 text-pink-400 text-[10px] rounded-full border border-pink-500/30">PESSOAL</span>}
+                                      {link.tipo === 'Oficial' && <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 text-[10px] rounded-full border border-purple-500/30">OFICIAL</span>}
+                                    </p>
+                                    <p className="text-xs text-gray-500 font-bold uppercase">{link.language || 'Geral'}</p>
+                                  </div>
                                 </div>
-                                <div>
-                                  <p className="text-sm font-black text-gray-200 uppercase tracking-wide">{link.site}</p>
-                                  <p className="text-xs text-gray-500 font-bold uppercase">{link.language || 'Geral'}</p>
-                                </div>
-                              </div>
-                              <ChevronRight className="w-5 h-5 text-gray-600 group-hover:text-purple-400 transition-all group-hover:translate-x-1" />
-                            </a>
-                          ))}
+                                <ChevronRight className={`w-5 h-5 transition-all group-hover:translate-x-1 ${link.tipo === 'Pessoal' ? 'text-gray-600 group-hover:text-pink-400' : 'text-gray-600 group-hover:text-purple-400'}`} />
+                              </a>
+                            ))}
+                            {todosLinks.length === 0 && (
+                              <p className="text-gray-500 italic text-sm col-span-2">Nenhum link disponível. Adiciona um acima!</p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 py-10 border-t border-gray-800/50">
                       <div className="bg-gray-800/30 p-6 rounded-3xl border border-gray-700/50 flex flex-col items-center justify-center text-center">
                         <p className="text-gray-500 text-[10px] uppercase font-black tracking-widest mb-2">Status</p>

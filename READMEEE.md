@@ -62,6 +62,10 @@ classDiagram
         +Int numEpisodiosTotal
         +Int proximoEpisodio
         +DateTime proximoEpisodioData
+        +DateTime dataLancamento
+        +String temporada
+        +Int ano
+        +String linksExternos
     }
 
     class Manga {
@@ -75,6 +79,7 @@ classDiagram
         +String descricao
         +DateTime proximoCapituloData
         +Float proximoCapituloNumero
+        +String linksExternos
     }
 
     class UserAnime {
@@ -82,6 +87,7 @@ classDiagram
         +Int epAtual
         +TrackingStatus status
         +Int prioridade
+        +String linksPersonalizados
     }
 
     class UserManga {
@@ -89,6 +95,7 @@ classDiagram
         +Float capAtual
         +TrackingStatus status
         +Int prioridade
+        +String linksPersonalizados
     }
 
     class ChatSession {

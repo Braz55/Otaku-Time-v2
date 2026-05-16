@@ -49,6 +49,7 @@ model UserAnime {
   epAtual    Int            @default(0)
   status     TrackingStatus @default(PLANNED)
   prioridade Int            @default(5)
+  linksPersonalizados String?
   userId     Int
   animeId    Int
   user       User           @relation(fields: [userId], references: [id])
@@ -77,6 +78,7 @@ model UserManga {
   capAtual   Float          @default(0)
   status     TrackingStatus @default(PLANNED)
   prioridade Int            @default(5)
+  linksPersonalizados String?
   userId     Int
   mangaId    Int
   user       User           @relation(fields: [userId], references: [id])

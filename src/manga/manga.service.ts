@@ -37,16 +37,22 @@ export class MangaService {
   }
 
   // Função para sincronizar o capítulo mais recente com a DB
-  async syncLatestChapter(anilistId: number): Promise<number | null> {
+  async syncLatestChapter(anilistId: number): Promise<{ latest: number | null, error?: string }> {
     const manga = await this.searchAniListById(anilistId);
-    if (!manga) return null;
+    if (!manga) return { latest: null };
     const title = manga.title.english || manga.title.romaji;
 
     // Tentar Planos
-    let latest = await this.getLatestChapterFromMangaDex(anilistId, title);
+    const mdResult = await this.getLatestChapterFromMangaDex(anilistId, title);
+    let latest = mdResult.chapter;
+    let errorMsg = mdResult.error;
+    
     if (!latest) {
       console.log(`[Sync] MangaDex falhou para "${title}". A tentar Baka-Updates...`);
       latest = await this.getLatestChapterFromBakaUpdates(title);
+      if (latest) {
+        errorMsg = undefined; // Encontrado no plano B
+      }
     }
 
     if (latest) {
@@ -59,32 +65,53 @@ export class MangaService {
       });
     }
 
-    return latest;
+    return { latest, error: errorMsg };
   }
 
   // Função "Detetive" para o MangaDex (Plano A)
-  async getLatestChapterFromMangaDex(anilistId: number, title: string): Promise<number | null> {
+  async getLatestChapterFromMangaDex(anilistId: number, title: string): Promise<{ chapter: number | null, error?: string }> {
     try {
       const mdUrl = `https://api.mangadex.org/manga?title=${encodeURIComponent(title)}&limit=5&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&contentRating[]=pornographic`;
-      const response = await fetch(mdUrl);
+      const response = await fetch(mdUrl, {
+        headers: { 'User-Agent': 'OtakuTimeBot/1.0' }
+      });
+      
+      if (!response.ok) {
+        console.error(`[MangaDex] HTTP Error: ${response.status}`);
+        if (response.status === 503 || response.status === 502 || response.status === 504) {
+          return { chapter: null, error: `Servidores do MangaDex Offline (Erro ${response.status})` };
+        }
+        return { chapter: null, error: `MangaDex falhou (Erro ${response.status})` };
+      }
+      
       const data = await response.json() as any;
 
-      if (!data.data || data.data.length === 0) return null;
+      if (!data.data || data.data.length === 0) return { chapter: null };
 
-      const match = data.data.find(m => m.attributes.links?.al == anilistId.toString());
+      const match = data.data.find((m: any) => m.attributes.links?.al == anilistId.toString());
 
       if (match) {
-        const feedRes = await fetch(`https://api.mangadex.org/manga/${match.id}/feed?limit=1&order[chapter]=desc&translatedLanguage[]=en`);
+        const feedRes = await fetch(`https://api.mangadex.org/manga/${match.id}/feed?limit=1&order[chapter]=desc&translatedLanguage[]=en`, {
+          headers: { 'User-Agent': 'OtakuTimeBot/1.0' }
+        });
+        
+        if (!feedRes.ok) {
+          if (feedRes.status === 503 || feedRes.status === 502 || feedRes.status === 504) {
+            return { chapter: null, error: `Servidores do MangaDex Offline (Erro ${feedRes.status})` };
+          }
+          return { chapter: null, error: `MangaDex falhou (Erro ${feedRes.status})` };
+        }
+        
         const feedData = await feedRes.json() as any;
         
         if (feedData.data && feedData.data[0]) {
-          return parseFloat(feedData.data[0].attributes.chapter);
+          return { chapter: parseFloat(feedData.data[0].attributes.chapter) };
         }
       }
-      return null;
+      return { chapter: null };
     } catch (error) {
       console.error('Erro ao consultar MangaDex:', error);
-      return null;
+      return { chapter: null, error: 'Erro de ligação ao MangaDex' };
     }
   }
 
@@ -109,7 +136,7 @@ export class MangaService {
     try {
       const response = await fetch('https://graphql.anilist.co', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({ query, variables: { s: nomeManga } }),
       });
       const result = await response.json() as any;
@@ -136,7 +163,7 @@ export class MangaService {
     try {
       const response = await fetch('https://graphql.anilist.co', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({ query, variables: { id } }),
       });
       const result = await response.json() as any;
@@ -164,7 +191,7 @@ export class MangaService {
     try {
       const response = await fetch('https://graphql.anilist.co', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({ query, variables: { s: nome } })
       });
       const data = await response.json() as any;
@@ -192,7 +219,7 @@ export class MangaService {
     try {
       const response = await fetch('https://graphql.anilist.co', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({ query, variables: { genre } })
       });
       const data = await response.json() as any;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useMedia } from '../context/MediaContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Header from './Header';
 
 interface LayoutProps {
@@ -8,32 +8,105 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { categoria, setCategoria, setIsShowingFavorites, triggerHome } = useMedia();
+  const { categoria, setCategoria, isShowingFavorites, setIsShowingFavorites, isSearchOpen, setIsSearchOpen, triggerHome } = useMedia();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleShowFavorites = () => {
     setIsShowingFavorites(true);
-    navigate('/'); // Sempre volta para a home para mostrar a biblioteca
+    setIsSearchOpen(false);
+    if (location.pathname !== '/') navigate('/');
+  };
+
+  const handleOpenSearch = () => {
+    setIsSearchOpen(true);
+    setIsShowingFavorites(false);
+    if (location.pathname !== '/') navigate('/');
   };
 
   const handleShowDashboard = () => {
     triggerHome();
-    navigate('/');
+    if (location.pathname !== '/') navigate('/');
   };
 
   return (
-    <div className="min-h-screen bg-[#0f1014] text-gray-200">
-      <Header 
-        categoria={categoria} 
-        setCategoria={(cat) => {
-          setCategoria(cat);
-        }} 
-        onShowFavorites={handleShowFavorites}
-        onShowDashboard={handleShowDashboard}
-      />
-      <main>
-        {children}
-      </main>
+    <div className="min-h-screen bg-background text-on-background selection:bg-primary selection:text-on-primary font-body-md flex">
+      {/* SideNavBar Anchor */}
+      <aside className="hidden lg:flex flex-col h-screen fixed left-0 top-0 p-6 space-y-8 w-64 bg-surface-container-low border-r border-white/5 shadow-xl z-50">
+        <div className="flex items-center gap-3 px-2 cursor-pointer" onClick={handleShowDashboard}>
+          <span className="text-headline-lg font-display-lg bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent font-black tracking-tight">Otaku-Time</span>
+        </div>
+        <nav className="flex-1 space-y-2">
+          <button onClick={handleShowDashboard} className={`flex items-center gap-4 px-4 py-3 w-full rounded-2xl font-bold transition-all duration-300 ease-in-out ${location.pathname === '/' && !isShowingFavorites && !isSearchOpen ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30 scale-105' : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}>
+            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>home</span>
+            <span className="font-label-md text-label-md">Home</span>
+          </button>
+          <button onClick={handleOpenSearch} className={`flex items-center gap-4 px-4 py-3 w-full rounded-2xl font-bold transition-all duration-300 ease-in-out ${isSearchOpen ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30 scale-105' : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}>
+            <span className="material-symbols-outlined">search</span>
+            <span className="font-label-md text-label-md">Search</span>
+          </button>
+          <button onClick={handleShowFavorites} className={`flex items-center gap-4 px-4 py-3 w-full rounded-2xl font-bold transition-all duration-300 ease-in-out ${location.pathname === '/' && isShowingFavorites && !isSearchOpen ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30 scale-105' : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}>
+            <span className="material-symbols-outlined">video_library</span>
+            <span className="font-label-md text-label-md">Library</span>
+          </button>
+          <button onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/calendar'); }} className={`flex items-center gap-4 px-4 py-3 w-full rounded-2xl font-bold transition-all duration-300 ease-in-out ${location.pathname === '/calendar' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30 scale-105' : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}>
+            <span className="material-symbols-outlined">calendar_today</span>
+            <span className="font-label-md text-label-md">Calendar</span>
+          </button>
+          <button onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/chat'); }} className={`flex items-center gap-4 px-4 py-3 w-full rounded-2xl font-bold transition-all duration-300 ease-in-out ${location.pathname === '/chat' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30 scale-105' : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}>
+            <span className="material-symbols-outlined">forum</span>
+            <span className="font-label-md text-label-md">Otaku AI</span>
+          </button>
+        </nav>
+        <div className="pt-6 border-t border-white/5">
+          <div className="flex items-center gap-3 px-2">
+            <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container overflow-hidden">
+              <span className="material-symbols-outlined">person</span>
+            </div>
+            <div>
+              <p className="font-label-md text-label-md text-on-surface">Enthusiast</p>
+              <p className="text-xs text-on-surface-variant">Pro Member</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Canvas */}
+      <div className="flex-1 lg:ml-64 min-h-screen pb-24 lg:pb-12 flex flex-col">
+        <Header 
+          categoria={categoria} 
+          setCategoria={setCategoria} 
+          onShowFavorites={handleShowFavorites}
+          onShowDashboard={handleShowDashboard}
+        />
+        <main className="flex-1">
+          {children}
+        </main>
+      </div>
+
+      {/* BottomNavBar Anchor (Mobile Only) */}
+      <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center py-2 px-margin-mobile bg-surface-container/90 backdrop-blur-2xl border-t border-white/10 pb-safe lg:hidden rounded-t-xl shadow-[0_-10px_40px_rgba(0,0,0,0.4)]">
+        <button onClick={handleShowDashboard} className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${location.pathname === '/' && !isShowingFavorites && !isSearchOpen ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30' : 'text-on-surface-variant hover:text-white transition-all'}`}>
+          <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>home</span>
+          <span className="font-label-sm text-label-sm">Home</span>
+        </button>
+        <button onClick={handleOpenSearch} className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${isSearchOpen ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30' : 'text-on-surface-variant hover:text-white transition-all'}`}>
+          <span className="material-symbols-outlined">search</span>
+          <span className="font-label-sm text-label-sm">Search</span>
+        </button>
+        <button onClick={handleShowFavorites} className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${location.pathname === '/' && isShowingFavorites && !isSearchOpen ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30' : 'text-on-surface-variant hover:text-white transition-all'}`}>
+          <span className="material-symbols-outlined">video_library</span>
+          <span className="font-label-sm text-label-sm">Library</span>
+        </button>
+        <button onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/calendar'); }} className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${location.pathname === '/calendar' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30' : 'text-on-surface-variant hover:text-white transition-all'}`}>
+          <span className="material-symbols-outlined">calendar_today</span>
+          <span className="font-label-sm text-label-sm">Calendar</span>
+        </button>
+        <button onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/chat'); }} className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${location.pathname === '/chat' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30' : 'text-on-surface-variant hover:text-white transition-all'}`}>
+          <span className="material-symbols-outlined">smart_toy</span>
+          <span className="font-label-sm text-label-sm">Otaku AI</span>
+        </button>
+      </nav>
     </div>
   );
 };

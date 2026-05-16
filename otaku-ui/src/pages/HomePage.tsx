@@ -1,18 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMedia } from '../context/MediaContext';
-import { Search, Calendar as CalendarIcon, Sparkles, Loader2, ChevronLeft, ChevronRight, ExternalLink as ExternalLinkIcon, Plus, Trash2, PlusCircle, MinusCircle, Star, Clock, CheckCircle2, PauseCircle, XCircle, PlayCircle, List, Info } from 'lucide-react';
-import MediaCard from '../components/MediaCard';
+import { Loader2 } from 'lucide-react';
 
-// Interfaces
-interface AniListItem {
-  id: number;
-  title: { english: string; romaji: string; };
-  coverImage: { large: string; };
-  status: string;
-  genres?: string[];
-}
+
 
 const GENRES = [
   "Action", "Adventure", "Comedy", "Drama", "Fantasy", 
@@ -21,17 +12,16 @@ const GENRES = [
 ];
 
 const TRACKING_STATUS_OPTIONS = [
-  { value: 'WATCHING', animeLabel: 'A Ver', mangaLabel: 'A Ler', icon: PlayCircle, color: 'text-green-400', bg: 'bg-green-400/10' },
-  { value: 'PLANNED', animeLabel: 'Ver mais tarde', mangaLabel: 'Ler mais tarde', icon: Clock, color: 'text-blue-400', bg: 'bg-blue-400/10' },
-  { value: 'COMPLETED', animeLabel: 'Visto', mangaLabel: 'Lido', icon: CheckCircle2, color: 'text-purple-400', bg: 'bg-purple-400/10' },
-  { value: 'PAUSED', animeLabel: 'Em Pausa', mangaLabel: 'Em Pausa', icon: PauseCircle, color: 'text-yellow-400', bg: 'bg-yellow-400/10' },
-  { value: 'DROPPED', animeLabel: 'Desistiu', mangaLabel: 'Desistiu', icon: XCircle, color: 'text-red-400', bg: 'bg-red-400/10' },
+  { value: 'WATCHING', animeLabel: 'A Ver', mangaLabel: 'A Ler' },
+  { value: 'PLANNED', animeLabel: 'Ver mais tarde', mangaLabel: 'Ler mais tarde' },
+  { value: 'COMPLETED', animeLabel: 'Visto', mangaLabel: 'Lido' },
+  { value: 'PAUSED', animeLabel: 'Em Pausa', mangaLabel: 'Em Pausa' },
+  { value: 'DROPPED', animeLabel: 'Desistiu', mangaLabel: 'Desistiu' },
 ];
 
 const HomePage = () => {
   const { user, token } = useAuth();
-  const { categoria, setCategoria, isShowingFavorites, setIsShowingFavorites, triggerHome, homeTrigger } = useMedia();
-  const navigate = useNavigate();
+  const { categoria, isShowingFavorites, setIsShowingFavorites, isSearchOpen, homeTrigger } = useMedia();
   const [termoPesquisa, setTermoPesquisa] = useState('');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [resultadosPesquisa, setResultadosPesquisa] = useState<any[]>([]);
@@ -310,208 +300,286 @@ const HomePage = () => {
   }, [categoria, homeTrigger]);
 
   useEffect(() => {
-    if (isShowingFavorites) {
+    if (!isSearchOpen) {
       setTermoPesquisa('');
       setSelectedGenre(null);
       setResultadosPesquisa([]);
     }
+  }, [isSearchOpen]);
+
+  useEffect(() => {
     setView('home');
     setSelectedItem(null);
-  }, [isShowingFavorites]);
+  }, [isShowingFavorites, isSearchOpen]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
       {view === 'home' ? (
-          <div className="space-y-12">
-            <section className="flex flex-col items-center gap-8">
-              <div className="flex gap-3">
-                <button onClick={() => navigate('/calendar')} className="flex items-center gap-2 px-6 py-3 bg-purple-600/20 hover:bg-purple-600 text-purple-400 hover:text-white rounded-xl font-bold transition-all border border-purple-500/20 active:scale-95 text-sm">
-                  <CalendarIcon className="w-4 h-4" />
-                  Calendário
-                </button>
-                <button onClick={() => navigate('/chat')} className="flex items-center gap-2 px-6 py-3 bg-[#1a1c23] hover:bg-gray-800 text-gray-400 rounded-xl font-bold transition-all border border-gray-800 active:scale-95 text-sm">
-                  <Sparkles className="w-4 h-4 text-yellow-500" />
-                  Otaku Chat
-                </button>
-              </div>
-
-              <div className="w-full max-w-3xl flex flex-col gap-6">
-                <div className="flex gap-3 p-2 bg-[#1a1c23] rounded-3xl border border-gray-800 shadow-2xl focus-within:border-purple-500/50 transition-all">
-                  <div className="relative flex-1 flex items-center">
-                    <Search className="absolute left-4 w-5 h-5 text-gray-500" />
-                    <input 
-                      type="text" 
-                      placeholder={`Pesquisar ${categoria}s...`}
-                      className="w-full bg-transparent pl-12 pr-4 py-3 outline-none text-lg"
-                      value={termoPesquisa}
-                      onChange={(e) => setTermoPesquisa(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { setSelectedGenre(null); pesquisar(); } }}
-                    />
+        <div className="w-full">
+          {/* Search Section */}
+          {isSearchOpen && (
+            <>
+              <section className="relative hero-gradient pt-16 pb-20 px-4 md:px-10 text-center overflow-hidden animate-in slide-in-from-top-4 duration-500">
+                <div className="max-w-3xl mx-auto space-y-8 relative z-10">
+                  <div className="space-y-4">
+                    <h2 className="font-display-lg text-display-lg leading-tight text-4xl md:text-5xl">
+                      Pesquisa os teus <span className={categoria === 'anime' ? 'text-primary' : 'text-secondary'}>{categoria === 'anime' ? 'Animes' : 'Mangás'}</span> favoritos
+                    </h2>
+                    <p className="text-on-surface-variant font-body-lg text-body-lg max-w-xl mx-auto">
+                      Explora a nossa base de dados para encontrares novos títulos.
+                    </p>
                   </div>
-                  <button onClick={() => { setSelectedGenre(null); pesquisar(); }} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white px-10 py-3 rounded-2xl font-black transition-all">
-                    PESQUISAR
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-4 overflow-x-auto pb-4 no-scrollbar -mx-4 px-4 mask-fade-edges">
-                  {GENRES.map((g) => (
-                    <button key={g} onClick={() => pesquisarPorGenero(g)} className={`whitespace-nowrap px-6 py-2.5 rounded-full text-xs font-bold transition-all border ${selectedGenre === g ? 'bg-purple-600 border-purple-400 text-white shadow-[0_0_20px_rgba(147,51,234,0.3)]' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20'} backdrop-blur-sm`}>
-                      {g}
-                    </button>
-                  ))}
-                </div>
+              <div className={`glass-panel p-2 rounded-3xl flex items-center shadow-2xl group focus-within:ring-2 ${categoria === 'anime' ? 'ring-primary/50' : 'ring-secondary/50'} transition-all`}>
+                <span className="material-symbols-outlined px-4 text-on-surface-variant group-focus-within:text-white" style={{ fontVariationSettings: "'FILL' 0" }}>search</span>
+                <input 
+                  className="bg-transparent border-none focus:ring-0 w-full py-4 text-on-surface font-body-md text-body-md placeholder:text-outline-variant outline-none" 
+                  placeholder={`Search for ${categoria} titles...`} 
+                  type="text"
+                  value={termoPesquisa}
+                  onChange={(e) => setTermoPesquisa(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { setSelectedGenre(null); pesquisar(); } }}
+                />
+                <button 
+                  onClick={() => { setSelectedGenre(null); pesquisar(); }} 
+                  className={`${categoria === 'anime' ? 'bg-primary-container text-on-primary-container' : 'bg-secondary-container text-on-secondary-container'} px-8 py-3 rounded-2xl font-bold hover:scale-105 active:scale-95 transition-all`}
+                >
+                  Search
+                </button>
               </div>
-            </section>
+              <div className="flex flex-wrap justify-center gap-3">
+                {GENRES.map((g) => (
+                  <span 
+                    key={g} 
+                    onClick={() => pesquisarPorGenero(g)} 
+                    className={`px-4 py-1.5 rounded-full border text-xs font-medium transition-all cursor-pointer ${selectedGenre === g ? (categoria === 'anime' ? 'bg-primary border-primary text-on-primary' : 'bg-secondary border-secondary text-on-secondary') : 'bg-surface-variant/50 border-white/5 hover:bg-white/10 hover:border-white/20'}`}
+                  >
+                    {g}
+                  </span>
+                ))}
+                  </div>
+                </div>
+              </section>
+            </>
+          )}
 
-            <section className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-              {isShowingFavorites ? (
-                <>
-                  <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-2xl font-bold flex items-center gap-3">
-                      <span className="w-2 h-8 rounded-full bg-pink-500"></span>
+          {/* Content Sections */}
+          <div className="px-4 md:px-10 space-y-16 mt-8 pb-10">
+            {/* Dashboard Queue */}
+            {(!isShowingFavorites && !isSearchOpen) && (
+              <section className="space-y-12">
+                <div className="text-center py-12 hero-gradient rounded-[40px] border border-white/10 shadow-2xl p-8 mb-12 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-transparent blur-3xl"></div>
+                  <h2 className="text-5xl md:text-7xl font-black bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent tracking-tight mb-4 relative z-10">
+                    Otaku-Time
+                  </h2>
+                  <p className="text-on-surface-variant text-lg max-w-xl mx-auto relative z-10 font-medium">
+                    O teu portal premium de acompanhamento de Animes e Mangás.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>play_circle</span>
+                    <h3 className="font-headline-lg text-headline-lg text-2xl font-bold">Fila de Prioridades</h3>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Anime Column */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span> Continuar a ver
+                    </h4>
+                    {animesDashboard.length > 0 ? animesDashboard.map(item => {
+                      const totalEp = (item.anime?.statusLancamento === 'RELEASING' && item.anime?.proximoEpisodio) ? item.anime.proximoEpisodio - 1 : (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal || '?');
+                      const progressoPercentual = typeof totalEp === 'number' && totalEp > 0 ? ((item.epAtual || 0) / totalEp) * 100 : (((item.epAtual || 0) / ((item.epAtual || 0) + 1)) * 100);
+                      return (
+                        <div key={item.id} className="glass-panel p-4 rounded-3xl flex gap-4 hover:bg-white/5 transition-all group relative overflow-hidden border border-white/5 hover:border-purple-500/30">
+                          <div className="w-24 h-32 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer" onClick={() => abrirDetalhes(item.animeId || item.id, false, 'anime')}>
+                            <img src={item.anime?.capaUrl || item.capaUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
+                          </div>
+                          <div className="flex-1 flex flex-col justify-between py-1">
+                            <div className="cursor-pointer" onClick={() => abrirDetalhes(item.animeId || item.id, false, 'anime')}>
+                              <h5 className="font-bold text-lg line-clamp-1 group-hover:text-purple-400 transition-colors">{item.anime?.titulo || item.titulo}</h5>
+                              <p className="text-sm text-on-surface-variant">Episódio {(item.epAtual || 0) + 1} / {totalEp}</p>
+                            </div>
+                            <div className="space-y-3">
+                              <div className="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden">
+                                <div className="h-full bg-primary shadow-[0_0_10px_rgba(221,184,255,0.5)] transition-all duration-500" style={{ width: `${Math.min(progressoPercentual, 100)}%` }}></div>
+                              </div>
+                              <div className="flex gap-2">
+                                <button onClick={() => marcarComoVisto(item, 'anime')} className="flex-1 py-2 bg-primary/10 border border-primary/20 text-primary text-xs font-bold rounded-xl hover:bg-primary hover:text-on-primary transition-all shadow-sm">Marcar como Visto</button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }) : <p className="text-on-surface-variant text-sm italic">Nenhum anime em progresso...</p>}
+                  </div>
+
+                  {/* Manga Column */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-secondary flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span> Continuar a ler
+                    </h4>
+                    {mangasDashboard.length > 0 ? mangasDashboard.map(item => {
+                      const totalCap = (item.manga?.statusLancamento === 'RELEASING' && item.manga?.proximoCapituloNumero) ? item.manga.proximoCapituloNumero - 1 : (item.manga?.numCapitulosTotal || item.numCapitulosTotal || '?');
+                      const progressoPercentual = typeof totalCap === 'number' && totalCap > 0 ? ((item.capAtual || 0) / totalCap) * 100 : (((item.capAtual || 0) / ((item.capAtual || 0) + 1)) * 100);
+                      return (
+                        <div key={item.id} className="glass-panel p-4 rounded-3xl flex gap-4 hover:bg-white/5 transition-all group relative overflow-hidden border border-white/5 hover:border-pink-500/30">
+                          <div className="w-24 h-32 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer" onClick={() => abrirDetalhes(item.mangaId || item.id, false, 'manga')}>
+                            <img src={item.manga?.capaUrl || item.capaUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
+                          </div>
+                          <div className="flex-1 flex flex-col justify-between py-1">
+                            <div className="cursor-pointer" onClick={() => abrirDetalhes(item.mangaId || item.id, false, 'manga')}>
+                              <h5 className="font-bold text-lg line-clamp-1 group-hover:text-pink-400 transition-colors">{item.manga?.titulo || item.titulo}</h5>
+                              <p className="text-sm text-on-surface-variant">Capítulo {(item.capAtual || 0) + 1} / {totalCap}</p>
+                            </div>
+                            <div className="space-y-3">
+                              <div className="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden">
+                                <div className="h-full bg-secondary shadow-[0_0_10px_rgba(255,176,203,0.5)] transition-all duration-500" style={{ width: `${Math.min(progressoPercentual, 100)}%` }}></div>
+                              </div>
+                              <div className="flex gap-2">
+                                <button onClick={() => marcarComoVisto(item, 'manga')} className="flex-1 py-2 bg-secondary/10 border border-secondary/20 text-secondary text-xs font-bold rounded-xl hover:bg-secondary hover:text-on-secondary transition-all shadow-sm">Marcar como Lido</button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }) : <p className="text-on-surface-variant text-sm italic">Nenhum mangá em progresso...</p>}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* Library Grid */}
+            {(isShowingFavorites && !isSearchOpen) && (
+              <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>video_library</span>
+                    <h3 className="font-headline-lg text-headline-lg text-2xl font-bold">
                       A Minha Lista ({categoria})
-                    </h2>
+                    </h3>
                   </div>
-                  {resultadosDB.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                      {resultadosDB.map((item) => (
-                        <MediaCard 
-                          key={item.id}
-                          titulo={item.anime?.titulo || item.manga?.titulo || item.titulo}
-                          capaUrl={item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl}
-                          generos={item.anime?.generos || item.manga?.generos || item.generos}
-                          ranking={item.prioridade}
-                          progresso={categoria === 'anime' ? `EP ${item.epAtual}` : `CAP ${item.capAtual}`}
-                          onClick={() => abrirDetalhes(item.id, false)}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-20 bg-[#1a1c23]/30 rounded-[40px] border border-dashed border-gray-800">
-                      <p className="text-gray-500 text-lg">Ainda não tens itens na tua lista.</p>
-                    </div>
-                  )}
-                </>
-              ) : (termoPesquisa || selectedGenre) ? (
-                <>
-                  <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-2xl font-bold flex items-center gap-3">
-                      <span className="w-2 h-8 rounded-full bg-purple-500"></span>
-                      Resultados da Pesquisa {selectedGenre && `- ${selectedGenre}`}
-                    </h2>
-                    {loading && <Loader2 className="w-6 h-6 text-purple-500 animate-spin" />}
-                  </div>
-                  {resultadosPesquisa.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                      {resultadosPesquisa.map((item) => (
-                        <MediaCard 
-                          key={item.id}
-                          titulo={item.title.english || item.title.romaji}
-                          capaUrl={item.coverImage.large}
-                          generos={item.genres?.join(', ')}
-                          onClick={() => abrirDetalhes(item.id, true)}
-                        />
-                      ))}
-                    </div>
-                  ) : !loading ? (
-                    <div className="text-center py-20 bg-[#1a1c23]/30 rounded-[40px] border border-dashed border-gray-800">
-                      <p className="text-gray-500 text-lg">Nenhum resultado encontrado.</p>
-                    </div>
-                  ) : null}
-                </>
-              ) : (
-                <div className="grid md:grid-cols-2 gap-12">
-                  <div className="space-y-6">
-                    <h2 className="text-2xl font-black flex items-center gap-3 text-purple-400">
-                      <PlayCircle className="w-6 h-6" />
-                      VER ASSEGUIR
-                    </h2>
-                    <div className="space-y-4">
-                      {animesDashboard.length > 0 ? animesDashboard.map(item => (
-                        <div key={item.id} className="group flex items-center gap-4 bg-[#1a1c23] p-4 rounded-3xl border border-gray-800 hover:border-purple-500/50 transition-all">
-                          <img src={item.anime?.capaUrl || item.capaUrl} className="w-20 h-20 object-cover rounded-2xl cursor-pointer" alt="" onClick={() => abrirDetalhes(item.animeId || item.id, false, 'anime')} />
-                          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => abrirDetalhes(item.animeId || item.id, false, 'anime')}>
-                            <h3 className="font-bold text-gray-200 truncate">{item.anime?.titulo || item.titulo}</h3>
-                            <p className="text-xs text-gray-500 font-black mt-1">EPISÓDIO {(item.epAtual || 0) + 1}</p>
-                            <div className="w-full bg-gray-800 h-1.5 rounded-full mt-2 overflow-hidden">
-                              <div className="bg-purple-500 h-full transition-all duration-500" style={{ width: `${((item.epAtual || 0) / (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal || (item.anime?.proximoEpisodio ? item.anime.proximoEpisodio - 1 : (item.epAtual || 0) + 1))) * 100}%` }}></div>
-                            </div>
-                          </div>
-                          <button onClick={() => marcarComoVisto(item, 'anime')} className="px-6 py-3 bg-purple-600/10 hover:bg-purple-600 text-purple-400 hover:text-white rounded-2xl font-black text-xs transition-all border border-purple-500/20 active:scale-95">VISTO</button>
-                        </div>
-                      )) : <p className="text-gray-600 italic text-sm py-4">Nada para ver de momento...</p>}
-                    </div>
-                  </div>
-                  <div className="space-y-6">
-                    <h2 className="text-2xl font-black flex items-center gap-3 text-pink-400">
-                      <Clock className="w-6 h-6" />
-                      LER ASSEGUIR
-                    </h2>
-                    <div className="space-y-4">
-                      {mangasDashboard.length > 0 ? mangasDashboard.map(item => (
-                        <div key={item.id} className="group flex items-center gap-4 bg-[#1a1c23] p-4 rounded-3xl border border-gray-800 hover:border-pink-500/50 transition-all">
-                          <img src={item.manga?.capaUrl || item.capaUrl} className="w-20 h-20 object-cover rounded-2xl cursor-pointer" alt="" onClick={() => abrirDetalhes(item.mangaId || item.id, false, 'manga')} />
-                          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => abrirDetalhes(item.mangaId || item.id, false, 'manga')}>
-                            <h3 className="font-bold text-gray-200 truncate">{item.manga?.titulo || item.titulo}</h3>
-                            <p className="text-xs text-gray-500 font-black mt-1">CAPÍTULO {(item.capAtual || 0) + 1}</p>
-                            <div className="w-full bg-gray-800 h-1.5 rounded-full mt-2 overflow-hidden">
-                              <div className="bg-pink-500 h-full transition-all duration-500" style={{ width: `${((item.capAtual || 0) / (item.manga?.numCapitulosTotal || item.numCapitulosTotal || (item.manga?.proximoCapituloNumero ? item.manga.proximoCapituloNumero - 1 : (item.capAtual || 0) + 1))) * 100}%` }}></div>
-                            </div>
-                          </div>
-                          <button onClick={() => marcarComoVisto(item, 'manga')} className="px-6 py-3 bg-pink-600/10 hover:bg-pink-600 text-pink-400 hover:text-white rounded-2xl font-black text-xs transition-all border border-pink-500/20 active:scale-95">LIDO</button>
-                        </div>
-                      )) : <p className="text-gray-600 italic text-sm py-4">Nada para ler de momento...</p>}
-                    </div>
-                  </div>
+                  {loading && <Loader2 className="w-6 h-6 text-primary animate-spin" />}
                 </div>
-              )}
-            </section>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
+                  {resultadosDB.length > 0 ? (
+                    resultadosDB.map((item) => (
+                      <div key={item.id} className="group cursor-pointer space-y-3" onClick={() => abrirDetalhes(item.id, false)}>
+                        <div className="relative aspect-[2/3] rounded-3xl overflow-hidden shadow-lg transform transition-all duration-300 group-hover:scale-[1.02] group-hover:-translate-y-1 border border-white/5 group-hover:border-purple-500/50">
+                          <img src={item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl} className="w-full h-full object-cover" alt="" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity"></div>
+                          <div className="absolute bottom-4 left-4 right-4 z-10">
+                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold mb-2 ${categoria === 'anime' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary'}`}>
+                              {categoria.toUpperCase()}
+                            </span>
+                            <p className="font-bold text-sm text-white line-clamp-1">{item.anime?.titulo || item.manga?.titulo || item.titulo}</p>
+                          </div>
+                          <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 text-white z-10 border border-white/10">
+                            <span className="material-symbols-outlined text-[12px] text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> #{item.prioridade || '-'}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="col-span-full text-center text-on-surface-variant py-10 italic">Nenhum item guardado na tua lista.</p>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* Search Results Grid */}
+            {isSearchOpen && (
+              <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                    <h3 className="font-headline-lg text-headline-lg text-2xl font-bold">
+                      Resultados da Pesquisa {selectedGenre ? `- ${selectedGenre}` : ''}
+                    </h3>
+                  </div>
+                  {loading && <Loader2 className="w-6 h-6 text-primary animate-spin" />}
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
+                  {resultadosPesquisa.length > 0 ? (
+                    resultadosPesquisa.map((item) => (
+                      <div key={item.id} className="group cursor-pointer space-y-3" onClick={() => abrirDetalhes(item.id, true)}>
+                        <div className="relative aspect-[2/3] rounded-3xl overflow-hidden shadow-lg transform transition-all duration-300 group-hover:scale-[1.02] group-hover:-translate-y-1 border border-white/5 group-hover:border-pink-500/50">
+                          <img src={item.coverImage.large} className="w-full h-full object-cover" alt="" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity"></div>
+                          <div className="absolute bottom-4 left-4 right-4 z-10">
+                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold mb-2 ${categoria === 'anime' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary'}`}>
+                              {categoria.toUpperCase()}
+                            </span>
+                            <p className="font-bold text-sm text-white line-clamp-1">{item.title.english || item.title.romaji}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : !loading && (
+                    <p className="col-span-full text-center text-on-surface-variant py-10 italic">Nenhum resultado encontrado.</p>
+                  )}
+                </div>
+              </section>
+            )}
           </div>
-        ) : (
+        </div>
+      ) : (
           <div className="animate-in fade-in slide-in-from-left-4 duration-500">
-            <button onClick={() => setView('home')} className="mb-10 flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
-              <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-              Voltar
+            <button onClick={() => setView('home')} className="mb-10 flex items-center gap-2 text-on-surface-variant hover:text-white transition-colors group font-bold">
+              <span className="material-symbols-outlined group-hover:-translate-x-1 transition-transform">arrow_back</span>
+              Back to Home
             </button>
             {selectedItem && (
-              <div className="bg-[#1a1c23] rounded-[40px] overflow-hidden border border-gray-800 shadow-2xl">
+              <div className="glass-panel rounded-3xl overflow-hidden shadow-[0_0_100px_rgba(147,51,234,0.1)]">
                 <div className="relative h-[400px] md:h-[500px]">
-                  <img src={selectedItem.capaUrl} className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-20" alt="" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#1a1c23] via-transparent to-transparent"></div>
-                  <div className="relative h-full flex flex-col md:flex-row items-end p-10 gap-10">
-                    <div className="w-48 md:w-72 aspect-[3/4] rounded-3xl overflow-hidden shadow-2xl border-4 border-gray-800 flex-shrink-0">
+                  <img src={selectedItem.capaUrl} className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-30" alt="" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent"></div>
+                  <div className="relative h-full flex flex-col md:flex-row items-end p-8 md:p-12 gap-8">
+                    <div className="w-48 md:w-64 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border-4 border-background flex-shrink-0">
                       <img src={selectedItem.capaUrl} className="w-full h-full object-cover" alt={selectedItem.titulo} />
                     </div>
                     <div className="flex-1 pb-4">
-                      <h2 className="text-4xl md:text-6xl font-black mb-3 tracking-tight">{selectedItem.titulo}</h2>
+                      <div className="flex items-center gap-3 mb-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider ${categoria === 'anime' ? 'bg-primary/20 text-primary border-primary/30' : 'bg-secondary/20 text-secondary border-secondary/30'}`}>
+                          {categoria}
+                        </span>
+                        <span className="text-on-surface-variant text-sm flex items-center gap-1 font-bold">
+                          <span className="material-symbols-outlined text-sm text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> {selectedItem.isExternal ? 'New' : `#${selectedItem.prioridade}`}
+                        </span>
+                      </div>
+                      <h2 className="font-display-lg text-4xl md:text-5xl font-bold mb-6 tracking-tight text-white">{selectedItem.titulo}</h2>
                       {categoria === 'manga' && (
                         <div className="flex items-center gap-3 mb-6">
                           {loadingLatest ? (
-                            <div className="flex items-center gap-2 px-4 py-1.5 bg-gray-800/50 rounded-full border border-gray-700 animate-pulse">
-                              <Loader2 className="w-4 h-4 text-pink-500 animate-spin" />
-                              <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">A consultar MangaDex...</span>
+                            <div className="flex items-center gap-2 px-4 py-1.5 bg-surface-variant/50 rounded-full border border-white/10 animate-pulse">
+                              <Loader2 className="w-4 h-4 text-secondary animate-spin" />
+                              <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Checking MangaDex...</span>
                             </div>
                           ) : latestChapter ? (
-                            <div className="flex items-center gap-2 px-4 py-1.5 bg-pink-500/20 rounded-full border border-pink-500/30 shadow-[0_0_15px_rgba(236,72,153,0.2)] animate-in zoom-in">
-                              <Sparkles className="w-4 h-4 text-pink-400" />
-                              <span className="text-[10px] font-black text-pink-400 uppercase tracking-widest">Último Cap no MangaDex: {latestChapter}</span>
+                            <div className="flex items-center gap-2 px-4 py-1.5 bg-secondary/20 rounded-full border border-secondary/30 shadow-[0_0_15px_rgba(255,176,203,0.2)] animate-in zoom-in">
+                              <span className="material-symbols-outlined text-[16px] text-secondary">auto_awesome</span>
+                              <span className="text-[10px] font-bold text-secondary uppercase tracking-widest">Latest on MangaDex: {latestChapter}</span>
                             </div>
                           ) : latestChapterError ? (
                             <div className="flex items-center gap-2 px-4 py-1.5 bg-red-500/10 rounded-full border border-red-500/30">
-                              <Info className="w-4 h-4 text-red-500" />
-                              <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">{latestChapterError}</span>
+                              <span className="material-symbols-outlined text-[16px] text-red-500">info</span>
+                              <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">{latestChapterError}</span>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-2 px-4 py-1.5 bg-gray-800/50 rounded-full border border-gray-700">
-                              <Info className="w-4 h-4 text-gray-600" />
-                              <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Sem info nas fontes</span>
+                            <div className="flex items-center gap-2 px-4 py-1.5 bg-surface-variant/50 rounded-full border border-white/10">
+                              <span className="material-symbols-outlined text-[16px] text-on-surface-variant">info</span>
+                              <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">No external info</span>
                             </div>
                           )}
                         </div>
                       )}
                       <div className="flex flex-wrap gap-2">
                         {selectedItem.generos?.split(',').map((g: string) => (
-                          <span key={g} className="px-4 py-1.5 bg-white/10 backdrop-blur-md rounded-full text-xs font-black text-gray-300 border border-white/5 uppercase tracking-wider">
+                          <span key={g} className="px-4 py-1.5 bg-white/5 backdrop-blur-md rounded-full text-xs font-bold text-on-surface border border-white/10 tracking-wider">
                             {g.trim()}
                           </span>
                         ))}
@@ -519,116 +587,121 @@ const HomePage = () => {
                     </div>
                   </div>
                 </div>
-                <div className="p-10 grid md:grid-cols-3 gap-16">
-                  <div className="md:col-span-2 space-y-10">
+                <div className="p-8 md:p-12 grid md:grid-cols-3 gap-12">
+                  <div className="md:col-span-2 space-y-12">
                     <div>
-                      <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                        <span className="w-1.5 h-6 bg-purple-500 rounded-full"></span>
-                        Sinopse
+                      <h3 className="font-headline-lg text-2xl font-bold mb-6 flex items-center gap-3">
+                        <span className={`w-1.5 h-6 rounded-full ${categoria === 'anime' ? 'bg-primary' : 'bg-secondary'}`}></span>
+                        Synopsis
                       </h3>
-                      <p className="text-gray-400 leading-relaxed text-xl font-light">
-                        {selectedItem.descricao || "Sem descrição disponível."}
+                      <p className="text-on-surface-variant leading-relaxed text-lg font-body-lg">
+                        {selectedItem.descricao || "No description available."}
                       </p>
                     </div>
                     
                     {(() => {
-                      const linksOficiais = selectedItem.linksExternos ? JSON.parse(selectedItem.linksExternos).map((l: any) => ({ ...l, tipo: 'Oficial' })) : [];
-                      const linksPessoais = selectedItem.linksPersonalizados ? JSON.parse(selectedItem.linksPersonalizados).map((l: any) => ({ ...l, tipo: 'Pessoal' })) : [];
+                      const linksOficiais = selectedItem.linksExternos ? JSON.parse(selectedItem.linksExternos).map((l: any) => ({ ...l, tipo: 'Official' })) : [];
+                      const linksPessoais = selectedItem.linksPersonalizados ? JSON.parse(selectedItem.linksPersonalizados).map((l: any) => ({ ...l, tipo: 'Custom' })) : [];
                       const todosLinks = [...linksOficiais, ...linksPessoais];
                       
                       return (todosLinks.length > 0 || (!selectedItem.isExternal)) && (
-                        <div className="space-y-6 pt-10 border-t border-gray-800/50">
+                        <div className="space-y-6 pt-10 border-t border-white/5">
                           <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-2xl font-bold flex items-center gap-3">
-                              <span className="w-1.5 h-6 bg-pink-500 rounded-full"></span>
-                              Onde Assistir / Ler
+                            <h3 className="font-headline-lg text-2xl font-bold flex items-center gap-3">
+                              <span className={`w-1.5 h-6 rounded-full ${categoria === 'anime' ? 'bg-primary' : 'bg-secondary'}`}></span>
+                              Where to {categoria === 'anime' ? 'Watch' : 'Read'}
                             </h3>
                             {!selectedItem.isExternal && (
-                              <button onClick={() => setShowAddLink(!showAddLink)} className="flex items-center gap-2 px-4 py-2 bg-pink-600/10 text-pink-400 hover:bg-pink-600 hover:text-white rounded-xl font-bold transition-all text-xs border border-pink-500/20">
-                                <Plus className="w-4 h-4" /> ADICIONAR LINK
+                              <button onClick={() => setShowAddLink(!showAddLink)} className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all text-xs border ${categoria === 'anime' ? 'bg-primary/10 text-primary border-primary/20 hover:bg-primary hover:text-on-primary' : 'bg-secondary/10 text-secondary border-secondary/20 hover:bg-secondary hover:text-on-secondary'}`}>
+                                <span className="material-symbols-outlined text-[16px]">add</span> ADD LINK
                               </button>
                             )}
                           </div>
                           
                           {showAddLink && !selectedItem.isExternal && (
-                            <div className="flex flex-col sm:flex-row gap-3 p-4 bg-pink-900/10 border border-pink-500/30 rounded-2xl mb-4 animate-in slide-in-from-top-4">
-                              <input type="text" placeholder="Nome (Ex: Tsuki Mangas)" value={newLinkSite} onChange={e => setNewLinkSite(e.target.value)} className="flex-1 bg-black/30 px-4 py-2.5 rounded-xl border border-gray-700 outline-none focus:border-pink-500 transition-all text-sm" />
-                              <input type="url" placeholder="URL Completo (https://...)" value={newLinkUrl} onChange={e => setNewLinkUrl(e.target.value)} className="flex-[2] bg-black/30 px-4 py-2.5 rounded-xl border border-gray-700 outline-none focus:border-pink-500 transition-all text-sm" />
-                              <button onClick={adicionarLinkPessoal} disabled={!newLinkSite || !newLinkUrl} className="px-6 py-2.5 bg-pink-600 hover:bg-pink-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-xl font-bold transition-all text-sm shadow-lg shadow-pink-900/20">SALVAR</button>
+                            <div className="flex flex-col sm:flex-row gap-3 p-4 bg-surface-variant/30 border border-white/10 rounded-2xl mb-4 animate-in slide-in-from-top-4">
+                              <input type="text" placeholder="Name (Ex: Crunchyroll)" value={newLinkSite} onChange={e => setNewLinkSite(e.target.value)} className="flex-1 bg-black/30 px-4 py-2.5 rounded-xl border border-white/10 outline-none focus:border-primary transition-all text-sm text-white" />
+                              <input type="url" placeholder="URL (https://...)" value={newLinkUrl} onChange={e => setNewLinkUrl(e.target.value)} className="flex-[2] bg-black/30 px-4 py-2.5 rounded-xl border border-white/10 outline-none focus:border-primary transition-all text-sm text-white" />
+                              <button onClick={adicionarLinkPessoal} disabled={!newLinkSite || !newLinkUrl} className="px-6 py-2.5 bg-primary hover:bg-primary/80 disabled:bg-surface-variant disabled:text-on-surface-variant text-on-primary rounded-xl font-bold transition-all text-sm">SAVE</button>
                             </div>
                           )}
                           
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {todosLinks.map((link: any, index: number) => (
-                              <a key={index} href={link.url} target="_blank" rel="noopener noreferrer" className={`flex items-center justify-between p-5 bg-gray-800/20 border hover:border-purple-500/50 rounded-[24px] transition-all group shadow-lg ${link.tipo === 'Pessoal' ? 'border-pink-500/30 hover:bg-pink-600/10' : 'border-gray-800 hover:bg-purple-600/10'}`}>
+                              <a key={index} href={link.url} target="_blank" rel="noopener noreferrer" className={`flex items-center justify-between p-5 glass-panel hover:bg-white/5 rounded-2xl transition-all group shadow-lg border-transparent hover:border-white/10`}>
                                 <div className="flex items-center gap-4">
-                                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${link.tipo === 'Pessoal' ? 'bg-pink-600/10 text-pink-400 group-hover:bg-pink-600 group-hover:text-white' : 'bg-purple-600/10 text-purple-400 group-hover:bg-purple-600 group-hover:text-white'}`}>
-                                    <ExternalLinkIcon className="w-5 h-5" />
+                                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${link.tipo === 'Custom' ? 'bg-secondary/10 text-secondary group-hover:bg-secondary group-hover:text-on-secondary' : 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-on-primary'}`}>
+                                    <span className="material-symbols-outlined">open_in_new</span>
                                   </div>
                                   <div>
-                                    <p className="text-sm font-black text-gray-200 uppercase tracking-wide flex items-center gap-2">
+                                    <p className="text-sm font-bold text-white uppercase tracking-wide flex items-center gap-2">
                                       {link.site}
-                                      {link.tipo === 'Pessoal' && <span className="px-2 py-0.5 bg-pink-500/20 text-pink-400 text-[10px] rounded-full border border-pink-500/30">PESSOAL</span>}
-                                      {link.tipo === 'Oficial' && <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 text-[10px] rounded-full border border-purple-500/30">OFICIAL</span>}
+                                      {link.tipo === 'Custom' && <span className="px-2 py-0.5 bg-secondary/20 text-secondary text-[10px] rounded-full border border-secondary/30">CUSTOM</span>}
                                     </p>
-                                    <p className="text-xs text-gray-500 font-bold uppercase">{link.language || 'Geral'}</p>
+                                    <p className="text-xs text-on-surface-variant font-bold uppercase">{link.language || 'Global'}</p>
                                   </div>
                                 </div>
-                                <ChevronRight className={`w-5 h-5 transition-all group-hover:translate-x-1 ${link.tipo === 'Pessoal' ? 'text-gray-600 group-hover:text-pink-400' : 'text-gray-600 group-hover:text-purple-400'}`} />
+                                <span className={`material-symbols-outlined transition-all group-hover:translate-x-1 ${link.tipo === 'Custom' ? 'text-on-surface-variant group-hover:text-secondary' : 'text-on-surface-variant group-hover:text-primary'}`}>chevron_right</span>
                               </a>
                             ))}
                             {todosLinks.length === 0 && (
-                              <p className="text-gray-500 italic text-sm col-span-2">Nenhum link disponível. Adiciona um acima!</p>
+                              <p className="text-on-surface-variant italic text-sm col-span-2">No links available. Add one above!</p>
                             )}
                           </div>
                         </div>
                       );
                     })()}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 py-10 border-t border-gray-800/50">
-                      <div className="bg-gray-800/30 p-6 rounded-3xl border border-gray-700/50 flex flex-col items-center justify-center text-center">
-                        <p className="text-gray-500 text-[10px] uppercase font-black tracking-widest mb-2">Status</p>
-                        <p className="font-bold text-xl text-purple-400 uppercase">
-                          {selectedItem.statusLancamento === 'RELEASING' ? 'Em Lançamento' : 
-                           selectedItem.statusLancamento === 'FINISHED' ? 'Finalizado' : 
-                           selectedItem.statusLancamento === 'HIATUS' ? 'Em Hiato' : 
-                           selectedItem.statusLancamento === 'CANCELLED' ? 'Cancelado' : 
-                           selectedItem.statusLancamento || 'Desconhecido'}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 py-10 border-t border-white/5">
+                      <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center">
+                        <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-2">Status</p>
+                        <p className={`font-bold text-xl ${selectedItem.statusLancamento === 'RELEASING' ? 'text-primary' : 'text-on-surface'}`}>
+                          {selectedItem.statusLancamento === 'RELEASING' ? 'Releasing' : 
+                           selectedItem.statusLancamento === 'FINISHED' ? 'Finished' : 
+                           selectedItem.statusLancamento === 'HIATUS' ? 'Hiatus' : 
+                           selectedItem.statusLancamento === 'CANCELLED' ? 'Cancelled' : 
+                           selectedItem.statusLancamento || 'Unknown'}
                         </p>
                       </div>
-                      <div className={`p-6 rounded-3xl border transition-all flex flex-col items-center justify-center text-center ${showEpList ? 'bg-purple-900/10 border-purple-500/50 sm:col-span-3' : 'bg-gray-800/30 border-gray-700/50'}`}>
-                        <p className="text-gray-500 text-[10px] uppercase font-black tracking-widest mb-2">Progresso</p>
+                      <div className={`p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center ${showEpList ? 'bg-primary/10 border border-primary/30 sm:col-span-3' : 'glass-panel'}`}>
+                        <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-2">Progress</p>
                         <div className="flex items-center gap-4 mb-4">
                           {!selectedItem.isExternal && (
-                            <button onClick={() => atualizarProgresso(-1)} className="p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"><MinusCircle className="w-5 h-5" /></button>
+                            <button onClick={() => atualizarProgresso(-1)} className="p-1.5 rounded-lg bg-surface-variant hover:bg-white/10 transition-colors">
+                              <span className="material-symbols-outlined text-[20px]">remove</span>
+                            </button>
                           )}
                           <div className="flex items-center gap-1">
-                            <input type="number" min="0" max={categoria === 'anime' ? selectedItem.numEpisodiosTotal : selectedItem.numCapitulosTotal} value={categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', val); }} className="bg-transparent text-purple-400 font-black text-3xl w-16 text-center outline-none border-b-2 border-purple-500/20 focus:border-purple-500 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                            <span className="text-gray-700 font-black text-2xl mx-1">/</span> 
-                            <span className="text-gray-500 font-black text-2xl">
+                            <input type="number" min="0" max={categoria === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : selectedItem.numEpisodiosTotal) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : selectedItem.numCapitulosTotal)} value={categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${categoria === 'anime' ? 'text-primary' : 'text-secondary'} font-black text-3xl w-16 text-center outline-none border-b-2 border-white/10 focus:border-white/30 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`} />
+                            <span className="text-on-surface-variant font-black text-2xl mx-1">/</span> 
+                            <span className="text-on-surface-variant font-black text-2xl">
                               {categoria === 'anime' 
-                                ? (selectedItem.numEpisodiosTotal || (selectedItem.proximoEpisodio ? `${selectedItem.proximoEpisodio - 1}+` : (selectedItem.statusLancamento === 'RELEASING' ? 'Lançando' : '?')))
-                                : (selectedItem.numCapitulosTotal || (latestChapter ? `${latestChapter}+` : (selectedItem.statusLancamento === 'RELEASING' ? 'Lançando' : '?')))
+                                ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || '?'))
+                                : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (selectedItem.numCapitulosTotal || (latestChapter ? `${latestChapter}` : '?')))
                               }
                             </span>
                           </div>
                           {!selectedItem.isExternal && (
-                            <button onClick={() => atualizarProgresso(1)} className="p-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 transition-all"><PlusCircle className="w-5 h-5" /></button>
+                            <button onClick={() => atualizarProgresso(1)} className={`p-1.5 rounded-lg text-on-primary transition-all ${categoria === 'anime' ? 'bg-primary hover:bg-primary/80' : 'bg-secondary hover:bg-secondary/80'}`}>
+                              <span className="material-symbols-outlined text-[20px]">add</span>
+                            </button>
                           )}
                           {!selectedItem.isExternal && (
-                            <button onClick={() => setShowEpList(!showEpList)} className={`p-1.5 rounded-lg transition-all ${showEpList ? 'bg-purple-500 text-white' : 'bg-gray-800 text-gray-500 hover:text-white'}`}><List className="w-5 h-5" /></button>
+                            <button onClick={() => setShowEpList(!showEpList)} className={`p-1.5 rounded-lg transition-all ${showEpList ? (categoria === 'anime' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary') : 'bg-surface-variant text-on-surface-variant hover:text-white'}`}>
+                              <span className="material-symbols-outlined text-[20px]">list</span>
+                            </button>
                           )}
                         </div>
                         {showEpList && !selectedItem.isExternal && (
-                          <div className="w-full mt-4 border-t border-purple-500/20 pt-6 animate-in slide-in-from-top-4 duration-300">
+                          <div className="w-full mt-4 border-t border-white/10 pt-6 animate-in slide-in-from-top-4 duration-300">
                             <div className="grid grid-cols-6 sm:grid-cols-10 md:grid-cols-12 lg:grid-cols-15 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                               {[...Array(categoria === 'anime' 
-                                ? (selectedItem.numEpisodiosTotal || (selectedItem.proximoEpisodio ? selectedItem.proximoEpisodio - 1 : 0)) 
-                                : (Math.ceil(latestChapter || selectedItem.numCapitulosTotal || 0) || 0)
+                                ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 0)) 
+                                : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (Math.ceil(latestChapter || selectedItem.numCapitulosTotal || 0) || 0))
                               )].map((_, i) => {
                                 const num = i + 1;
                                 const isWatched = num <= (categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual);
                                 return (
-                                  <button key={num} onClick={() => atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', num)} className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all ${isWatched ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' : 'bg-gray-800/50 text-gray-500 hover:bg-gray-700 hover:text-white border border-gray-700'}`}>
+                                  <button key={num} onClick={() => atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', num)} className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all ${isWatched ? (categoria === 'anime' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary') : 'bg-surface-variant/50 text-on-surface-variant hover:bg-surface-variant hover:text-white border border-white/5'}`}>
                                     {num}
                                   </button>
                                 );
@@ -638,9 +711,9 @@ const HomePage = () => {
                         )}
                       </div>
                       {!showEpList && (
-                        <div className="bg-gray-800/30 p-6 rounded-3xl border border-gray-700/50 flex flex-col items-center justify-center text-center">
-                          <p className="text-gray-500 text-[10px] uppercase font-black tracking-widest mb-2">Temporada</p>
-                          <p className="font-bold text-xl text-gray-300">
+                        <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center">
+                          <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-2">Season</p>
+                          <p className="font-bold text-xl text-white">
                             {selectedItem.temporada ? `${selectedItem.temporada} ${selectedItem.ano || ''}` : selectedItem.ano || 'N/A'}
                           </p>
                         </div>
@@ -648,25 +721,36 @@ const HomePage = () => {
                     </div>
                   </div>
                   <div className="space-y-8">
-                    <div className="bg-gray-800/20 p-8 rounded-[32px] border border-gray-700/50 backdrop-blur-md">
-                      <h4 className="text-lg font-bold mb-6 flex items-center gap-2">Ações Rápidas</h4>
+                    <div className="glass-panel p-8 rounded-[32px]">
+                      <h4 className="text-lg font-bold mb-6 flex items-center gap-2">Quick Actions</h4>
                       {selectedItem.isExternal ? (
-                        <button onClick={() => { adicionarAoBanco(selectedItem.titulo); setView('home'); }} className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white py-5 rounded-2xl font-black transition-all flex items-center justify-center gap-3 shadow-lg shadow-green-900/20"><Plus className="w-6 h-6" />ADICIONAR À LISTA</button>
+                        <button onClick={() => { adicionarAoBanco(selectedItem.titulo); setView('home'); }} className="w-full bg-primary hover:bg-primary/80 text-on-primary py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 shadow-lg"><span className="material-symbols-outlined">add</span> ADD TO VAULT</button>
                       ) : (
                         <div className="space-y-6">
                           <div className="space-y-3">
-                            <label className="text-[10px] text-gray-500 uppercase font-black tracking-widest">Estado de Acompanhamento</label>
+                            <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest">Tracking Status</label>
                             <div className="grid grid-cols-1 gap-2">
                               {TRACKING_STATUS_OPTIONS.map((opt) => {
-                                const Icon = opt.icon;
                                 const isSelected = selectedItem.status === opt.value;
                                 return (
-                                  <button key={opt.value} onClick={() => atualizarCampo('status', opt.value)} className={`flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all text-sm font-bold ${isSelected ? `${opt.bg} border-purple-500 ${opt.color}` : 'bg-black/20 border-gray-800 text-gray-500 hover:border-gray-700'}`}><Icon className="w-4 h-4" />{categoria === 'anime' ? opt.animeLabel : opt.mangaLabel}</button>
+                                  <button key={opt.value} onClick={() => atualizarCampo('status', opt.value)} className={`flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all text-sm font-bold ${isSelected ? (categoria === 'anime' ? 'bg-primary/20 border-primary text-primary' : 'bg-secondary/20 border-secondary text-secondary') : 'bg-surface-variant/30 border-white/5 text-on-surface-variant hover:border-white/20'}`}>
+                                    {/* Using Material Symbols instead of Lucide icons */}
+                                    <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                                      {opt.value === 'WATCHING' ? 'play_circle' : 
+                                       opt.value === 'PLANNED' ? 'schedule' : 
+                                       opt.value === 'COMPLETED' ? 'check_circle' : 
+                                       opt.value === 'PAUSED' ? 'pause_circle' : 'cancel'}
+                                    </span>
+                                    {categoria === 'anime' ? opt.animeLabel : opt.mangaLabel}
+                                  </button>
                                 );
                               })}
                             </div>
                           </div>
-                          <button onClick={() => removerDaLista(selectedItem.id)} className="w-full bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 py-4 rounded-2xl font-black transition-all flex items-center justify-center gap-3 text-sm mt-4"><Trash2 className="w-5 h-5" />REMOVER DA LISTA</button>
+                          <button onClick={() => removerDaLista(selectedItem.id)} className="w-full bg-error/10 hover:bg-error text-error hover:text-on-error py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 text-sm mt-4">
+                            <span className="material-symbols-outlined text-[20px]">delete</span>
+                            REMOVE FROM VAULT
+                          </button>
                         </div>
                       )}
                     </div>

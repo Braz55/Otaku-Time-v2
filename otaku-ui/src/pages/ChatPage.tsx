@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useMedia } from '../context/MediaContext';
 import { MessageSquare, Send, Plus, Trash2, Bot, User, Loader2, X, Star, ChevronLeft, Sparkles, Wand2, Bookmark, Search } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import MediaCard from '../components/MediaCard';
 
 interface Message {
@@ -135,6 +134,12 @@ const ChatPage = () => {
       const data = await res.json();
       if (Array.isArray(data)) setUserList(data);
     } catch (err) { console.error(err); }
+  };
+
+  const toggleGenre = (genre: string) => {
+    setSelectedGenres(prev => 
+      prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
+    );
   };
 
   const createNewSession = async () => {

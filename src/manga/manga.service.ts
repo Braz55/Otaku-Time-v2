@@ -5,10 +5,10 @@ import { PrismaService } from '../prisma/prisma.service';
 export class MangaService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // PLANO B: Baka-Updates (MangaUpdates) - Versão Ultra Otimizada (1 Pedido Base + Fallback de Novel)
+  // PLANO B: Baka-Updates (MangaUpdates)
   async getLatestChapterFromBakaUpdates(title: string, mangaObj?: any): Promise<number | null> {
     try {
-      console.log(`[Plano B] A pesquisar "${title}" no Baka-Updates (limit: 1)...`);
+      console.log(`[Plano B] A pesquisar "${title}" no Baka-Updates...`);
       
       const searchRes = await fetch('https://api.mangaupdates.com/v1/series/search', {
         method: 'POST',
@@ -19,109 +19,85 @@ export class MangaService {
 
       if (!searchData.results || searchData.results.length === 0) return null;
       
-      // Limpeza de strings para comparação justa
-      const clean = (s: string) => s ? s.toLowerCase().replace(/[^\w\s]/g, '').trim() : '';
-      const mainTitles = [title, mangaObj?.title?.english, mangaObj?.title?.romaji].filter(Boolean).map(clean);
+      let bestRecord = searchData.results[0].record;
 
-      // 1. Filtrar para excluir adaptações de Novel
-      const nonNovels = searchData.results.filter((r: any) => r.record?.type?.toLowerCase() !== 'novel');
-
-      // 2. Filtrar candidatos legítimos (Correspondência exata, Side Stories/Especiais oficiais, ou pequenas variações de título)
-      const sequelKeywords = ['side story', 'special', 'sequel', 'part', 'season', 'gaiden', 'spinoff', 'spin off', 'extra', 'stories'];
-      
-      const validCandidates = nonNovels.filter((r: any) => {
-        const recTitle = clean(r.record?.title);
-        
-        return mainTitles.some(t => {
-          // Correspondência Exata (ex: "Codename Anastasia")
-          if (recTitle === t) return true;
-          
-          // Suporte a Side Stories / Sequências Oficiais (ex: "Semantic Error Side Story")
-          if (recTitle.startsWith(t)) {
-            const remainder = recTitle.replace(t, '').trim();
-            if (sequelKeywords.some(kw => remainder.includes(kw))) {
-              return true;
-            }
-          }
-
-          // Variações pequenas de título (ex: "Code Name Anastasia" vs "Codename Anastasia")
-          if (recTitle.includes(t) || t.includes(recTitle)) {
-            return Math.abs(recTitle.length - t.length) <= 5;
-          }
-
-          return false;
+      // Se o primeiro resultado for uma Novel, fazer um segundo pedido para apanhar a versão Manga/Manhwa
+      if (bestRecord?.type?.toLowerCase() === 'novel') {
+        console.log(`[Plano B] "${bestRecord.title}" é uma Novel. A procurar a adaptação Manhwa/Manga...`);
+        const fallbackRes = await fetch('https://api.mangaupdates.com/v1/series/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ search: title, limit: 5 })
         });
-      });
-
-      if (validCandidates.length === 0) {
-        console.log(`[Plano B] Nenhuma correspondência de Manhwa/Manga válida encontrada para "${title}".`);
-        return null;
-      }
-
-      console.log(`[Plano B] Candidatos válidos encontrados (${validCandidates.length}):`, validCandidates.map((c: any) => c.record?.title).join(', '));
-
-      let overallMax = 0;
-
-      // Inspecionar os detalhes de todos os candidatos válidos (top 5) para encontrar o maior progresso (incluindo Side Stories)
-      const topCandidates = validCandidates.slice(0, 5);
-      for (const cand of topCandidates) {
-        const seriesId = cand.record.series_id;
-        const detailRes = await fetch(`https://api.mangaupdates.com/v1/series/${seriesId}`);
-        const detailData = await detailRes.json() as any;
-
-        if (detailData?.status) {
-          console.log(`[Plano B] Status bruto para "${cand.record?.title}":`, detailData.status);
-          
-          // Filtramos para excluir qualquer parte que mencione "novel" ou "original work"
-          const rawLines = detailData.status.split(/\n/);
-          const validLines = rawLines.filter((line: string) => !/(?:novel|original|orig\b)/i.test(line));
-
-          // ESTRATÉGIA: Procurar blocos com label explícito (ex: **S1:** 29 Chapters, **Side Story:** 9 Chapters)
-          // Estes blocos são identificados por um label em negrito (**...**) ou texto seguido de ":" antes do número de capítulos.
-          // Regex que captura: qualquer coisa antes de ":" (incluindo labels em negrito) + "X Chapters"
-          const labeledBlockRegex = /\*\*[^*]+\*\*\s*:?\s*(\d+)\s+Chapters|^[^:]+:\s*(\d+)\s+Chapters/im;
-          const allLabeledMatches = [...validLines.flatMap((line: string) => {
-            const m = line.match(/\*\*[^*]+\*\*\s*:?\s*(\d+)\s+Chapters|^[^:]+:\s*(\d+)\s+Chapters/i);
-            if (m) return [parseInt(m[1] || m[2])];
-            return [];
-          })];
-
-          let candidateMax = 0;
-
-          if (allLabeledMatches.length > 0) {
-            // Temos blocos com label explícito -> somar todos (S1 + S2 + S3 + Side Story + Special, etc.)
-            const sumLabeled = allLabeledMatches.reduce((acc, n) => acc + n, 0);
-            console.log(`[Plano B] Blocos rotulados encontrados: [${allLabeledMatches.join(', ')}] -> Soma: ${sumLabeled}`);
-            candidateMax = sumLabeled;
-          } else {
-            // Fallback: não há blocos com label -> procurar o maior número de "X Chapters" simples
-            const cleanStr = validLines.join(' ');
-            const chMatches = [...cleanStr.matchAll(/(\d+)\s+Chapters/gi)];
-            candidateMax = chMatches.length > 0
-              ? Math.max(...chMatches.map(m => parseInt(m[1])))
-              : 0;
-
-            // Também verificar intervalos finais (53~93)
-            const rangeMatches = [...cleanStr.matchAll(/[-~]\s*(\d+)\b/g)];
-            const maxFromRange = rangeMatches.length > 0
-              ? Math.max(...rangeMatches.map(m => parseInt(m[1])))
-              : 0;
-
-            candidateMax = Math.max(candidateMax, maxFromRange);
-            console.log(`[Plano B] Sem blocos rotulados, usando fallback numérico: ${candidateMax}`);
-          }
-
-          console.log(`[Plano B] Max para "${cand.record?.title}": ${candidateMax}`);
-          
-          if (candidateMax > overallMax) {
-            overallMax = candidateMax;
-          }
+        const fallbackData = await fallbackRes.json() as any;
+        if (fallbackData.results) {
+          const nonNovel = fallbackData.results.find((r: any) => r.record?.type?.toLowerCase() !== 'novel');
+          if (nonNovel) bestRecord = nonNovel.record;
         }
       }
 
-      if (overallMax > 0) {
-        console.log(`[Plano B] Sucesso para "${title}": Encontrados ${overallMax} capítulos no total.`);
-        return overallMax;
+      // Verificação de segurança: o título encontrado deve corresponder ao que foi pedido
+      // (evita "Love Jinx" ao pesquisar "Jinx", "Jinx Lover" ao pesquisar "Jinx", etc.)
+      const clean = (s: string) => s ? s.toLowerCase().replace(/[^\w\s]/g, '').trim() : '';
+      const mainTitles = [title, mangaObj?.title?.english, mangaObj?.title?.romaji].filter(Boolean).map(clean);
+      const recTitle = clean(bestRecord.title);
+
+      const isValid = mainTitles.some(t => {
+        if (recTitle === t) return true;
+        // Tolerar pequenas variações (ex: "Code Name Anastasia" vs "Codename Anastasia"), max 5 chars de diferença
+        if (recTitle.includes(t) || t.includes(recTitle)) {
+          return Math.abs(recTitle.length - t.length) <= 5;
+        }
+        return false;
+      });
+
+      if (!isValid) {
+        console.log(`[Plano B] Resultado ignorado: "${bestRecord.title}" não corresponde a "${title}".`);
+        return null;
+      }
+
+      console.log(`[Plano B] Candidato: "${bestRecord.title}" (Tipo: ${bestRecord.type})`);
+
+      const seriesId = bestRecord.series_id;
+      const detailRes = await fetch(`https://api.mangaupdates.com/v1/series/${seriesId}`);
+      const detailData = await detailRes.json() as any;
+
+      if (!detailData?.status) return null;
+
+      console.log(`[Plano B] Status bruto:`, detailData.status);
+
+      // Filtrar linhas que mencionem "novel" ou "original"
+      const rawLines = detailData.status.split(/\n/);
+      const validLines = rawLines.filter((line: string) => !/(?:novel|original|orig\b)/i.test(line));
+
+      // ESTRATÉGIA: Somar todos os blocos com label explícito (ex: **S1:** 29 Chapters, **Side Story:** 9 Chapters)
+      // Isto captura temporadas, side stories, specials e qualquer outra secção rotulada corretamente.
+      const allLabeledMatches = validLines.flatMap((line: string) => {
+        const m = line.match(/\*\*[^*]+\*\*\s*:?\s*(\d+)\s+Chapters?|^[^:]+:\s*(\d+)\s+Chapters?/i);
+        if (m) return [parseInt(m[1] || m[2])];
+        return [];
+      });
+
+      let result = 0;
+
+      if (allLabeledMatches.length > 0) {
+        // Somar todos os blocos rotulados (S1 + S2 + ... + Side Story + Special, etc.)
+        result = allLabeledMatches.reduce((acc, n) => acc + n, 0);
+        console.log(`[Plano B] Blocos rotulados: [${allLabeledMatches.join(', ')}] -> Soma: ${result}`);
+      } else {
+        // Fallback: sem blocos rotulados, usar o maior "X Chapters" encontrado
+        const cleanStr = validLines.join(' ');
+        const chMatches = [...cleanStr.matchAll(/(\d+)\s+Chapters?/gi)];
+        const maxFromCh = chMatches.length > 0 ? Math.max(...chMatches.map(m => parseInt(m[1]))) : 0;
+        const rangeMatches = [...cleanStr.matchAll(/[-~]\s*(\d+)\b/g)];
+        const maxFromRange = rangeMatches.length > 0 ? Math.max(...rangeMatches.map(m => parseInt(m[1]))) : 0;
+        result = Math.max(maxFromCh, maxFromRange);
+        console.log(`[Plano B] Sem blocos rotulados, fallback numérico: ${result}`);
+      }
+
+      if (result > 0) {
+        console.log(`[Plano B] Sucesso para "${title}": ${result} capítulos.`);
+        return result;
       }
 
       return null;

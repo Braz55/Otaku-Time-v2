@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, Query } from '@nestjs/common';
 import { AnimeService } from './anime.service';
 import { UpdateAnimeDto } from './dto/update-anime.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -9,8 +9,8 @@ export class AnimeController {
 
   @UseGuards(JwtAuthGuard)
   @Post('import')
-  importAnime(@Body() body: { nome: string }, @Request() req) {
-    return this.animeService.importFromAniList(body.nome, req.user.userId);
+  importAnime(@Body() body: { nome: string; anilistId?: number }, @Request() req) {
+    return this.animeService.importFromAniList(body.nome, req.user.userId, body.anilistId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -27,14 +27,14 @@ export class AnimeController {
 
   @UseGuards(JwtAuthGuard)
   @Get('search/:nome')
-  async search(@Param('nome') nome: string) {
-    return this.animeService.searchAnimeList(nome);
+  async search(@Param('nome') nome: string, @Query('page') page?: string) {
+    return this.animeService.searchAnimeList(nome, page ? +page : 1);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('genre/:genre')
-  async searchByGenre(@Param('genre') genre: string) {
-    return this.animeService.searchByGenre(genre);
+  async searchByGenre(@Param('genre') genre: string, @Query('page') page?: string) {
+    return this.animeService.searchByGenre(genre, page ? +page : 1);
   }
 
   @UseGuards(JwtAuthGuard)

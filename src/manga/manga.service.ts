@@ -5,8 +5,8 @@ import { PrismaService } from '../prisma/prisma.service';
 export class MangaService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // PLANO B: Baka-Updates (MangaUpdates)
-  async getLatestChapterFromBakaUpdates(title: string, mangaObj?: any): Promise<number | null> {
+  // PLANO A: Baka-Updates (MangaUpdates)
+  async getLatestChapterFromBakaUpdates(title: string, mangaObj?: any): Promise<{ chapter: number | null, breakdown?: { label: string, chapters: number }[] }> {
     try {
       console.log(`[Plano B] A pesquisar "${title}" no Baka-Updates...`);
       
@@ -17,7 +17,7 @@ export class MangaService {
       });
       const searchData = await searchRes.json() as any;
 
-      if (!searchData.results || searchData.results.length === 0) return null;
+      if (!searchData.results || searchData.results.length === 0) return { chapter: null };
       
       let bestRecord = searchData.results[0].record;
 
@@ -37,14 +37,12 @@ export class MangaService {
       }
 
       // Verificação de segurança: o título encontrado deve corresponder ao que foi pedido
-      // (evita "Love Jinx" ao pesquisar "Jinx", "Jinx Lover" ao pesquisar "Jinx", etc.)
       const clean = (s: string) => s ? s.toLowerCase().replace(/[^\w\s]/g, '').trim() : '';
       const mainTitles = [title, mangaObj?.title?.english, mangaObj?.title?.romaji].filter(Boolean).map(clean);
       const recTitle = clean(bestRecord.title);
 
       const isValid = mainTitles.some(t => {
         if (recTitle === t) return true;
-        // Tolerar pequenas variações (ex: "Code Name Anastasia" vs "Codename Anastasia"), max 5 chars de diferença
         if (recTitle.includes(t) || t.includes(recTitle)) {
           return Math.abs(recTitle.length - t.length) <= 5;
         }
@@ -53,7 +51,7 @@ export class MangaService {
 
       if (!isValid) {
         console.log(`[Plano B] Resultado ignorado: "${bestRecord.title}" não corresponde a "${title}".`);
-        return null;
+        return { chapter: null };
       }
 
       console.log(`[Plano B] Candidato: "${bestRecord.title}" (Tipo: ${bestRecord.type})`);
@@ -62,7 +60,7 @@ export class MangaService {
       const detailRes = await fetch(`https://api.mangaupdates.com/v1/series/${seriesId}`);
       const detailData = await detailRes.json() as any;
 
-      if (!detailData?.status) return null;
+      if (!detailData?.status) return { chapter: null };
 
       console.log(`[Plano B] Status bruto:`, detailData.status);
 
@@ -70,20 +68,23 @@ export class MangaService {
       const rawLines = detailData.status.split(/\n/);
       const validLines = rawLines.filter((line: string) => !/(?:novel|original|orig\b)/i.test(line));
 
-      // ESTRATÉGIA: Somar todos os blocos com label explícito (ex: **S1:** 29 Chapters, **Side Story:** 9 Chapters)
-      // Isto captura temporadas, side stories, specials e qualquer outra secção rotulada corretamente.
-      const allLabeledMatches = validLines.flatMap((line: string) => {
-        const m = line.match(/\*\*[^*]+\*\*\s*:?\s*(\d+)\s+Chapters?|^[^:]+:\s*(\d+)\s+Chapters?/i);
-        if (m) return [parseInt(m[1] || m[2])];
-        return [];
-      });
+      // ESTRATÉGIA: Somar todos os blocos com label explícito (ex: **S1:** 29 Chapters, **Side Story: *Tak x Sanho*:** 8 Chapters)
+      const breakdown: { label: string, chapters: number }[] = [];
+      for (const line of validLines) {
+        const m = line.match(/\*\*(.+?)\*\*\s*:?\s*(\d+)\s+Chapters?|^([^:]+):\s*(\d+)\s+Chapters?/i);
+        if (m) {
+          const rawLabel = (m[1] || m[3]).trim();
+          const label = rawLabel.replace(/\*/g, '').replace(/:$/, '').trim();
+          const ch = parseInt(m[2] || m[4]);
+          breakdown.push({ label, chapters: ch });
+        }
+      }
 
       let result = 0;
 
-      if (allLabeledMatches.length > 0) {
-        // Somar todos os blocos rotulados (S1 + S2 + ... + Side Story + Special, etc.)
-        result = allLabeledMatches.reduce((acc, n) => acc + n, 0);
-        console.log(`[Plano B] Blocos rotulados: [${allLabeledMatches.join(', ')}] -> Soma: ${result}`);
+      if (breakdown.length > 0) {
+        result = breakdown.reduce((acc, item) => acc + item.chapters, 0);
+        console.log(`[Plano B] Blocos rotulados:`, breakdown, `-> Soma: ${result}`);
       } else {
         // Fallback: sem blocos rotulados, usar o maior "X Chapters" encontrado
         const cleanStr = validLines.join(' ');
@@ -97,34 +98,57 @@ export class MangaService {
 
       if (result > 0) {
         console.log(`[Plano B] Sucesso para "${title}": ${result} capítulos.`);
-        return result;
+        return { chapter: result, breakdown };
       }
 
-      return null;
+      return { chapter: null };
     } catch (error) {
       console.error('[Plano B] Erro:', error);
-      return null;
+      return { chapter: null };
     }
   }
 
   // Função para sincronizar o capítulo mais recente com a DB
-  async syncLatestChapter(anilistId: number): Promise<{ latest: number | null, error?: string, source?: string }> {
+  async syncLatestChapter(anilistId: number): Promise<{ latest: number | null, error?: string, source?: string, breakdown?: { label: string, chapters: number }[] }> {
     const manga = await this.searchAniListById(anilistId);
     if (!manga) return { latest: null };
     const title = manga.title.english || manga.title.romaji;
 
-    // Tentar Planos
-    const mdResult = await this.getLatestChapterFromMangaDex(anilistId, title);
-    let latest = mdResult.chapter;
-    let errorMsg = mdResult.error;
-    let source = 'MangaDex';
-    
-    if (!latest) {
-      console.log(`[Sync] MangaDex falhou para "${title}". A tentar Baka-Updates...`);
-      latest = await this.getLatestChapterFromBakaUpdates(title, manga);
-      if (latest) {
-        errorMsg = undefined; // Encontrado no plano B
+    let latest: number | null = null;
+    let errorMsg: string | undefined;
+    let source = 'AniList';
+    let breakdown: { label: string, chapters: number }[] = [];
+
+    // Se o manga já está finalizado (FINISHED) e a AniList tem o número total de capítulos, usamos diretamente!
+    if (manga.status === 'FINISHED' && manga.chapters && manga.chapters > 0) {
+      console.log(`[Sync] "${title}" já está finalizado na AniList. Usando o total oficial: ${manga.chapters} capítulos.`);
+      latest = manga.chapters;
+      
+      // Fazer a pesquisa no Baka-Updates para obter a divisória de temporadas/especiais!
+      console.log(`[Sync] A consultar Baka-Updates para obter a divisória de temporadas de "${title}"...`);
+      const bakaRes = await this.getLatestChapterFromBakaUpdates(title, manga);
+      if (bakaRes && bakaRes.breakdown) {
+        breakdown = bakaRes.breakdown;
+      }
+    } else {
+      // PLANO A: Baka-Updates (MangaUpdates) - Principal fonte para Manhwas/Webtoons
+      console.log(`[Sync] A consultar Baka-Updates (Plano A) para "${title}"...`);
+      const bakaRes = await this.getLatestChapterFromBakaUpdates(title, manga);
+      if (bakaRes && bakaRes.chapter) {
+        latest = bakaRes.chapter;
+        breakdown = bakaRes.breakdown || [];
         source = 'Baka-Updates';
+      }
+      
+      if (!latest) {
+        // PLANO B: MangaDex - Fallback
+        console.log(`[Sync] Baka-Updates falhou para "${title}". A tentar MangaDex (Plano B)...`);
+        const mdResult = await this.getLatestChapterFromMangaDex(anilistId, title);
+        latest = mdResult.chapter;
+        errorMsg = mdResult.error;
+        if (latest) {
+          source = 'MangaDex';
+        }
       }
     }
 
@@ -141,7 +165,7 @@ export class MangaService {
       }
     }
 
-    return { latest, error: errorMsg, source };
+    return { latest, error: errorMsg, source, breakdown };
   }
 
   // Função "Detetive" para o MangaDex (Plano A)
@@ -248,10 +272,10 @@ export class MangaService {
   }
 
   // Pesquisa para a lista de resultados (Discovery)
-  async searchMangaList(nome: string) {
+  async searchMangaList(nome: string, page: number = 1) {
     const query = `
-      query ($s: String) {
-        Page(perPage: 15) {
+      query ($s: String, $page: Int) {
+        Page(page: $page, perPage: 24) {
           media(search: $s, type: MANGA, sort: POPULARITY_DESC) {
             id
             title { english romaji }
@@ -268,7 +292,7 @@ export class MangaService {
       const response = await fetch('https://graphql.anilist.co', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ query, variables: { s: nome } })
+        body: JSON.stringify({ query, variables: { s: nome, page } })
       });
       const data = await response.json() as any;
       return data.data?.Page?.media || [];
@@ -276,10 +300,10 @@ export class MangaService {
   }
 
   // Pesquisa por Género
-  async searchByGenre(genre: string) {
+  async searchByGenre(genre: string, page: number = 1) {
     const query = `
-      query ($genre: String) {
-        Page(perPage: 20) {
+      query ($genre: String, $page: Int) {
+        Page(page: $page, perPage: 24) {
           media(genre: $genre, type: MANGA, sort: POPULARITY_DESC) {
             id
             title { english romaji }
@@ -296,7 +320,7 @@ export class MangaService {
       const response = await fetch('https://graphql.anilist.co', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ query, variables: { genre } })
+        body: JSON.stringify({ query, variables: { genre, page } })
       });
       const data = await response.json() as any;
       return data.data?.Page?.media || [];
@@ -304,8 +328,8 @@ export class MangaService {
   }
 
   // Importação simplificada
-  async importFromAniList(nomeManga: string, userId: number) {
-    const aniListData = await this.searchAniListManga(nomeManga);
+  async importFromAniList(nomeManga: string, userId: number, anilistId?: number) {
+    const aniListData = anilistId ? await this.searchAniListById(anilistId) : await this.searchAniListManga(nomeManga);
     if (!aniListData) throw new Error('Manga não encontrado');
 
     const linksJSON = aniListData.externalLinks ? JSON.stringify(aniListData.externalLinks) : null;
@@ -349,7 +373,24 @@ export class MangaService {
   async update(id: number, updateDto: any) {
     const atual = await this.prisma.userManga.findUnique({ where: { id }, include: { manga: true } });
     if (!atual) return null;
+
+    if (updateDto.numCapitulosTotal !== undefined) {
+      const total = updateDto.numCapitulosTotal;
+      const updateData: any = { numCapitulosTotal: total };
+      if (atual.manga.statusLancamento === 'RELEASING') {
+        updateData.proximoCapituloNumero = total + 1;
+        atual.manga.proximoCapituloNumero = total + 1;
+      }
+      await this.prisma.manga.update({
+        where: { id: atual.mangaId },
+        data: updateData
+      });
+      atual.manga.numCapitulosTotal = total;
+    }
+
     let novosDados = { ...updateDto };
+    delete novosDados.numCapitulosTotal;
+
     if (updateDto.capAtual !== undefined) {
       const cap = updateDto.capAtual;
       if (atual.status === 'PLANNED' && cap > 0) novosDados.status = 'WATCHING';
@@ -358,7 +399,8 @@ export class MangaService {
         novosDados.capAtual = atual.manga.numCapitulosTotal;
       }
     }
-    return this.prisma.userManga.update({ where: { id }, data: novosDados, include: { manga: true } });
+    const updated = await this.prisma.userManga.update({ where: { id }, data: novosDados, include: { manga: true } });
+    return { ...updated, titulo: updated.manga.titulo, capaUrl: updated.manga.capaUrl, linksExternos: updated.manga.linksExternos, numCapitulosTotal: updated.manga.numCapitulosTotal, proximoCapituloNumero: updated.manga.proximoCapituloNumero };
   }
 
   async remove(id: number) {

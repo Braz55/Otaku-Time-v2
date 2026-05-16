@@ -86,8 +86,8 @@ export class AnimeService {
   }
 
   // Importa para o Catálogo Global e adiciona à lista do utilizador
-  async importFromAniList(nomeAnime: string, userId: number) {
-    const aniListData = await this.searchAniList(nomeAnime);
+  async importFromAniList(nomeAnime: string, userId: number, anilistId?: number) {
+    const aniListData = anilistId ? await this.searchAniListById(anilistId) : await this.searchAniList(nomeAnime);
     if (!aniListData) throw new Error('Anime não encontrado na AniList');
 
     const topTags = aniListData.tags ? aniListData.tags.slice(0, 5).map((tag: any) => tag.name).join(', ') : '';
@@ -129,10 +129,10 @@ export class AnimeService {
     });
   }
 
-  async searchAnimeList(nomeAnime: string) {
+  async searchAnimeList(nomeAnime: string, page: number = 1) {
     const query = `
-      query ($s: String) {
-        Page(perPage: 10) {
+      query ($s: String, $page: Int) {
+        Page(page: $page, perPage: 24) {
           media(search: $s, type: ANIME, sort: SEARCH_MATCH) {
             id
             title { romaji english }
@@ -142,7 +142,7 @@ export class AnimeService {
         }
       }
     `;
-    const variables = { s: nomeAnime.trim() };
+    const variables = { s: nomeAnime.trim(), page };
     try {
       const response = await fetch('https://graphql.anilist.co', {
         method: 'POST',
@@ -206,7 +206,24 @@ export class AnimeService {
   async update(id: number, updateDto: any) {
     const atual = await this.prisma.userAnime.findUnique({ where: { id }, include: { anime: true } });
     if (!atual) return null;
+
+    if (updateDto.numEpisodiosTotal !== undefined) {
+      const total = updateDto.numEpisodiosTotal;
+      const updateData: any = { numEpisodiosTotal: total };
+      if (atual.anime.statusLancamento === 'RELEASING') {
+        updateData.proximoEpisodio = total + 1;
+        atual.anime.proximoEpisodio = total + 1;
+      }
+      await this.prisma.anime.update({
+        where: { id: atual.animeId },
+        data: updateData
+      });
+      atual.anime.numEpisodiosTotal = total;
+    }
+
     let novosDados = { ...updateDto };
+    delete novosDados.numEpisodiosTotal;
+
     if (updateDto.epAtual !== undefined) {
       const ep = updateDto.epAtual;
       if (atual.status === 'PLANNED' && ep > 0) novosDados.status = 'WATCHING';
@@ -216,16 +233,16 @@ export class AnimeService {
       }
     }
     const updated = await this.prisma.userAnime.update({ where: { id }, data: novosDados, include: { anime: true } });
-    return { ...updated, titulo: updated.anime.titulo, capaUrl: updated.anime.capaUrl, linksExternos: updated.anime.linksExternos };
+    return { ...updated, titulo: updated.anime.titulo, capaUrl: updated.anime.capaUrl, linksExternos: updated.anime.linksExternos, numEpisodiosTotal: updated.anime.numEpisodiosTotal, proximoEpisodio: updated.anime.proximoEpisodio };
   }
 
   async remove(id: number) {
     return this.prisma.userAnime.delete({ where: { id } });
   }
 
-  async searchByGenre(genre: string) {
-    const query = `query ($g: String) { Page(perPage: 24) { media(genre: $g, type: ANIME, sort: POPULARITY_DESC) { id title { english romaji } coverImage { large } genres } } }`;
-    const variables = { g: genre };
+  async searchByGenre(genre: string, page: number = 1) {
+    const query = `query ($g: String, $page: Int) { Page(page: $page, perPage: 24) { media(genre: $g, type: ANIME, sort: POPULARITY_DESC) { id title { english romaji } coverImage { large } genres } } }`;
+    const variables = { g: genre, page };
     try {
       const response = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ query, variables }) });
       const result = await response.json() as any;

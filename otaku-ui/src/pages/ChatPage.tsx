@@ -19,11 +19,11 @@ interface Session {
 }
 
 const GENRES = [
-  "Ação", "Artes Marciais", "Aventura", "BL (Yaoi)", "Comédia", "Culto", "Cyberpunk", "Demónios", "Drama", 
-  "Ecchi", "Escolar", "Espaço", "Fantasia", "GL (Yuri)", "Gore", "Harem", "Histórico", "Horror", "Isekai", 
-  "Josei", "Mahou Shoujo", "Mecha", "Militar", "Mistério", "Music", "Policial", "Psicológico", "Reverse Harem", 
-  "Romance", "Samurai", "Sci-Fi", "Seinen", "Shoujo", "Shounen", "Slice of Life", "Sobrevivência", "Sports", 
-  "Steampunk", "Super Poderes", "Supernatural", "Thriller", "Vampiros", "Zombies"
+  "Action", "Martial Arts", "Adventure", "BL (Yaoi)", "Comedy", "Cult", "Cyberpunk", "Demons", "Drama", 
+  "Ecchi", "School", "Space", "Fantasy", "GL (Yuri)", "Gore", "Harem", "Historical", "Horror", "Isekai", 
+  "Josei", "Mahou Shoujo", "Mecha", "Military", "Mystery", "Music", "Police", "Psychological", "Reverse Harem", 
+  "Romance", "Samurai", "Sci-Fi", "Seinen", "Shoujo", "Shounen", "Slice of Life", "Survival", "Sports", 
+  "Steampunk", "Super Powers", "Supernatural", "Thriller", "Vampires", "Zombies"
 ].sort();
 
 const RecommendationCard = ({ id, token, onOpen }: { id: string, token: string, onOpen: (item: any) => void }) => {
@@ -40,7 +40,7 @@ const RecommendationCard = ({ id, token, onOpen }: { id: string, token: string, 
         if (data && data.id) {
           setItem({
             id: data.id,
-            titulo: data.title?.english || data.title?.romaji || 'Título desconhecido',
+            titulo: data.title?.english || data.title?.romaji || 'Unknown title',
             capaUrl: data.coverImage?.large,
             generos: data.genres?.join(', '),
             descricao: data.description?.replace(/<[^>]*>?/gm, ''),
@@ -51,7 +51,7 @@ const RecommendationCard = ({ id, token, onOpen }: { id: string, token: string, 
           });
         }
       } catch (err) {
-        console.error('Erro ao buscar recomendação:', err);
+        console.error('Error fetching recommendation:', err);
       } finally {
         setLoading(false);
       }
@@ -147,7 +147,7 @@ const ChatPage = () => {
       const res = await fetch('http://localhost:3001/chat/sessions', {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify({ titulo: 'Nova Conversa' })
+        body: JSON.stringify({ titulo: 'New Chat' })
       });
       const newSession = await res.json();
       setSessions([newSession, ...sessions]);
@@ -157,7 +157,7 @@ const ChatPage = () => {
 
   const deleteSession = async (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm('Apagar esta conversa?')) return;
+    if (!confirm('Delete this conversation?')) return;
     try {
       await fetch(`http://localhost:3001/chat/sessions/${id}`, { method: 'DELETE', headers: getHeaders() });
       setSessions(sessions.filter(s => s.id !== id));
@@ -171,8 +171,8 @@ const ChatPage = () => {
 
     let finalPrompt = input.trim();
     const parts = [];
-    if (selectedFromList) parts.push(`Semelhante a "${selectedFromList.titulo}"`);
-    if (selectedGenres.length > 0) parts.push(`Géneros: ${selectedGenres.join(', ')}`);
+    if (selectedFromList) parts.push(`Similar to "${selectedFromList.titulo}"`);
+    if (selectedGenres.length > 0) parts.push(`Genres: ${selectedGenres.join(', ')}`);
     if (parts.length > 0) finalPrompt = `${parts.join(' | ')}${finalPrompt ? '. ' + finalPrompt : ''}`;
 
     const userMsg: Message = { id: Date.now(), role: 'user', content: finalPrompt, createdAt: new Date().toISOString() };
@@ -190,13 +190,12 @@ const ChatPage = () => {
         body: JSON.stringify({ message: finalPrompt })
       });
 
-      if (!response.body) throw new Error('Stream não suportado');
+      if (!response.body) throw new Error('Stream not supported');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let aiContent = '';
       
-      // Cria uma mensagem vazia para a IA que será preenchida
       const aiMsgId = Date.now() + 1;
       setMessages(prev => [...prev, { id: aiMsgId, role: 'assistant', content: '', createdAt: new Date().toISOString() }]);
 
@@ -211,7 +210,7 @@ const ChatPage = () => {
           if (line.startsWith('data: ')) {
             const dataStr = line.replace('data: ', '').trim();
             if (dataStr === '[DONE]') {
-              fetchSessions(); // Atualiza títulos (Auto-nomeação)
+              fetchSessions();
               continue;
             }
             try {
@@ -226,7 +225,7 @@ const ChatPage = () => {
       }
     } catch (err) {
       console.error(err);
-      setMessages(prev => [...prev, { id: Date.now() + 2, role: 'assistant', content: 'Lamentamos, ocorreu um erro na ligação.', createdAt: new Date().toISOString() }]);
+      setMessages(prev => [...prev, { id: Date.now() + 2, role: 'assistant', content: 'Sorry, an error occurred while connecting.', createdAt: new Date().toISOString() }]);
     } finally {
       setLoading(false);
     }
@@ -263,7 +262,7 @@ const ChatPage = () => {
       {selectedItem && (
         <div className="absolute inset-0 z-50 bg-[#0f1014]/95 backdrop-blur-2xl flex flex-col animate-in fade-in zoom-in duration-300">
           <div className="flex items-center justify-between p-6 border-b border-gray-800">
-            <button onClick={() => setSelectedItem(null)} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors font-bold"><ChevronLeft className="w-6 h-6" /> Voltar ao Chat</button>
+            <button onClick={() => setSelectedItem(null)} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors font-bold"><ChevronLeft className="w-6 h-6" /> Back to Chat</button>
             <button onClick={() => setSelectedItem(null)} className="p-2 hover:bg-gray-800 rounded-full transition-colors"><X className="w-6 h-6" /></button>
           </div>
           <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
@@ -284,12 +283,12 @@ const ChatPage = () => {
                     <p className="font-black text-gray-200 uppercase">{selectedItem.statusLancamento}</p>
                   </div>
                   <div className="bg-[#1a1c23] p-4 rounded-3xl border border-gray-800">
-                    <p className="text-xs text-gray-500 font-bold uppercase mb-1">Conteúdo</p>
-                    <p className="font-black text-gray-200 uppercase">{selectedItem.numEpisodiosTotal ? `${selectedItem.numEpisodiosTotal} Episódios` : `${selectedItem.numCapitulosTotal || '?'} Capítulos`}</p>
+                    <p className="text-xs text-gray-500 font-bold uppercase mb-1">Content</p>
+                    <p className="font-black text-gray-200 uppercase">{selectedItem.numEpisodiosTotal ? `${selectedItem.numEpisodiosTotal} Episodes` : `${selectedItem.numCapitulosTotal || '?'} Chapters`}</p>
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <h3 className="text-lg font-black text-white uppercase flex items-center gap-2"><Star className="w-5 h-5 text-yellow-500" /> Sinopse</h3>
+                  <h3 className="text-lg font-black text-white uppercase flex items-center gap-2"><Star className="w-5 h-5 text-yellow-500" /> Synopsis</h3>
                   <p className="text-gray-400 leading-relaxed text-lg">{selectedItem.descricao}</p>
                 </div>
               </div>
@@ -301,7 +300,7 @@ const ChatPage = () => {
       {/* Sidebar */}
       <div className="w-80 border-r border-gray-800 bg-[#16181d]/50 backdrop-blur-xl flex flex-col">
         <div className="p-6">
-          <button onClick={createNewSession} className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-2xl font-bold shadow-lg active:scale-95"><Plus className="w-5 h-5" /> Nova Conversa</button>
+          <button onClick={createNewSession} className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-2xl font-bold shadow-lg active:scale-95"><Plus className="w-5 h-5" /> New Chat</button>
         </div>
         <div className="flex-1 overflow-y-auto px-4 space-y-2 custom-scrollbar">
           {sessions.map(session => (
@@ -346,7 +345,7 @@ const ChatPage = () => {
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-center space-y-6">
               <div className="w-24 h-24 rounded-full bg-gray-800/50 flex items-center justify-center border border-gray-700"><MessageSquare className="w-12 h-12 text-gray-600" /></div>
-              <div><h3 className="text-2xl font-bold text-gray-400">Bem-vindo ao Chat!</h3><p className="text-gray-600 max-w-sm mt-2">Seleciona uma conversa para começares.</p></div>
+              <div><h3 className="text-2xl font-bold text-gray-400">Welcome to Chat!</h3><p className="text-gray-600 max-w-sm mt-2">Select a conversation to begin.</p></div>
             </div>
           )}
         </div>
@@ -360,20 +359,20 @@ const ChatPage = () => {
               <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 border-b border-gray-800 pb-4 gap-4">
                 <div className="flex gap-4">
                   <button onClick={() => setGuidedView('genres')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${guidedView === 'genres' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-500 hover:text-gray-300'}`}>
-                    <Sparkles className="w-4 h-4" /> Géneros
+                    <Sparkles className="w-4 h-4" /> Genres
                   </button>
                   <button onClick={() => setGuidedView('mylist')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${guidedView === 'mylist' ? 'bg-pink-600 text-white' : 'bg-gray-800 text-gray-500 hover:text-gray-300'}`}>
-                    <Bookmark className="w-4 h-4" /> Minha Lista ({categoria})
+                    <Bookmark className="w-4 h-4" /> My Library ({categoria})
                   </button>
                 </div>
                 {guidedView === 'mylist' && (
                   <div className="relative flex-1 max-w-xs">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
-                    <input type="text" placeholder="Procurar na lista..." value={userListSearch} onChange={(e) => setUserListSearch(e.target.value)} className="w-full bg-gray-900 border border-gray-800 rounded-xl pl-10 pr-4 py-2 text-xs outline-none focus:border-pink-500/50 transition-all" />
+                    <input type="text" placeholder="Search library..." value={userListSearch} onChange={(e) => setUserListSearch(e.target.value)} className="w-full bg-gray-900 border border-gray-800 rounded-xl pl-10 pr-4 py-2 text-xs outline-none focus:border-pink-500/50 transition-all" />
                   </div>
                 )}
                 {(selectedGenres.length > 0 || selectedFromList) && (
-                  <button onClick={() => { setSelectedGenres([]); setSelectedFromList(null); }} className="text-[10px] font-bold text-red-400 hover:text-red-300 transition-colors uppercase">Limpar Filtros</button>
+                  <button onClick={() => { setSelectedGenres([]); setSelectedFromList(null); }} className="text-[10px] font-bold text-red-400 hover:text-red-300 transition-colors uppercase">Clear Filters</button>
                 )}
               </div>
 
@@ -396,7 +395,7 @@ const ChatPage = () => {
                         {selectedFromList?.id === item.id && <div className="absolute top-2 right-2 bg-pink-500 text-white p-1 rounded-full"><Star className="w-3 h-3 fill-white" /></div>}
                       </button>
                     )) : (
-                      <p className="col-span-full text-center py-10 text-gray-500 italic">Nada encontrado na tua lista.</p>
+                      <p className="col-span-full text-center py-10 text-gray-500 italic">Nothing found in your library.</p>
                     )}
                   </div>
                 )}
@@ -410,7 +409,7 @@ const ChatPage = () => {
               {(selectedGenres.length > 0 || selectedFromList) && <span className="absolute -top-2 -right-2 w-6 h-6 bg-pink-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-[#0f1014] animate-in zoom-in">{selectedGenres.length + (selectedFromList ? 1 : 0)}</span>}
             </button>
             <form onSubmit={sendMessage} className={`flex-1 flex gap-4 p-2 bg-[#1a1c23]/80 backdrop-blur-xl border rounded-[30px] shadow-2xl transition-all ${activeSession ? 'border-gray-700 focus-within:border-purple-500/50' : 'opacity-50 pointer-events-none border-transparent'}`}>
-              <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder={selectedFromList ? `Como "${selectedFromList.titulo}"...` : "Pergunta ao Sommelier..."} className="flex-1 bg-transparent border-none outline-none px-6 py-4 text-gray-100 placeholder:text-gray-600" />
+              <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder={selectedFromList ? `Like "${selectedFromList.titulo}"...` : "Ask the Sommelier..."} className="flex-1 bg-transparent border-none outline-none px-6 py-4 text-gray-100 placeholder:text-gray-600" />
               <button type="submit" disabled={(!input.trim() && selectedGenres.length === 0 && !selectedFromList) || loading || !activeSession} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-4 rounded-full transition-all shadow-lg active:scale-90 disabled:opacity-50 disabled:active:scale-100">{loading && !messages.find(m => m.role === 'assistant' && !m.content) ? <Loader2 className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6" />}</button>
             </form>
           </div>

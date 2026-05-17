@@ -29,10 +29,10 @@ const LoginPage: React.FC = () => {
         login(data.access_token, data.user);
         navigate('/');
       } else {
-        setError(data.message || 'Erro ao fazer login');
+        setError(data.message || 'Error logging in');
       }
     } catch (err) {
-      setError('Erro ao conectar com o servidor');
+      setError('Error connecting to server');
     } finally {
       setLoading(false);
     }
@@ -49,9 +49,9 @@ const LoginPage: React.FC = () => {
         <div className="bg-[#1a1c23] border border-gray-800 rounded-3xl p-8 shadow-2xl backdrop-blur-xl bg-opacity-80">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent mb-2">
-              Bem-vindo de Volta
+              Welcome Back
             </h1>
-            <p className="text-gray-500">Inicia sessão para continuares a tua jornada</p>
+            <p className="text-gray-500">Sign in to continue your journey</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -71,13 +71,13 @@ const LoginPage: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-[#0f1014] border border-gray-800 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-purple-500 transition-colors"
-                  placeholder="exemplo@email.com"
+                  placeholder="example@email.com"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-400 ml-1">Palavra-passe</label>
+              <label className="text-sm font-medium text-gray-400 ml-1">Password</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                 <input
@@ -101,7 +101,7 @@ const LoginPage: React.FC = () => {
               ) : (
                 <>
                   <LogIn className="w-5 h-5" />
-                  Entrar
+                  Sign In
                 </>
               )}
             </button>
@@ -109,9 +109,9 @@ const LoginPage: React.FC = () => {
 
           <div className="mt-8 text-center">
             <p className="text-gray-500">
-              Ainda não tens conta?{' '}
+              Don't have an account?{' '}
               <Link to="/register" className="text-purple-400 hover:text-purple-300 font-semibold transition-colors">
-                Regista-te aqui
+                Sign up here
               </Link>
             </p>
           </div>

@@ -5,5 +5,6 @@ import { AnimeController } from './anime.controller';
 @Module({
   controllers: [AnimeController],
   providers: [AnimeService],
+  exports: [AnimeService],
 })
 export class AnimeModule {}

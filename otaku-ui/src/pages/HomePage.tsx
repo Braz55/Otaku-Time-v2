@@ -12,11 +12,11 @@ const GENRES = [
 ];
 
 const TRACKING_STATUS_OPTIONS = [
-  { value: 'WATCHING', animeLabel: 'A Ver', mangaLabel: 'A Ler' },
-  { value: 'PLANNED', animeLabel: 'Ver mais tarde', mangaLabel: 'Ler mais tarde' },
-  { value: 'COMPLETED', animeLabel: 'Visto', mangaLabel: 'Lido' },
-  { value: 'PAUSED', animeLabel: 'Em Pausa', mangaLabel: 'Em Pausa' },
-  { value: 'DROPPED', animeLabel: 'Desistiu', mangaLabel: 'Desistiu' },
+  { value: 'WATCHING', animeLabel: 'Watching', mangaLabel: 'Reading' },
+  { value: 'PLANNED', animeLabel: 'Plan to Watch', mangaLabel: 'Plan to Read' },
+  { value: 'COMPLETED', animeLabel: 'Completed', mangaLabel: 'Completed' },
+  { value: 'PAUSED', animeLabel: 'Paused', mangaLabel: 'Paused' },
+  { value: 'DROPPED', animeLabel: 'Dropped', mangaLabel: 'Dropped' },
 ];
 
 const HomePage = () => {
@@ -238,16 +238,16 @@ const HomePage = () => {
       const data = await response.json();
       
       if (!data) {
-        alert('Não foi possível carregar os detalhes. Tenta novamente mais tarde.');
+        alert('Could not load details. Please try again later.');
         return;
       }
       
       if (isExternal && data) {
         const normalized = {
           id: data.id,
-          titulo: data.title?.english || data.title?.romaji || 'Título Desconhecido',
+          titulo: data.title?.english || data.title?.romaji || 'Unknown Title',
           capaUrl: data.coverImage?.large,
-          descricao: data.description ? data.description.replace(/<[^>]*>?/gm, '') : "Sem descrição.",
+          descricao: data.description ? data.description.replace(/<[^>]*>?/gm, '') : "No description available.",
           generos: data.genres ? data.genres.join(', ') : (data.tags ? data.tags.map((t: any) => t.name).join(', ') : ''),
           statusLancamento: data.status,
           numEpisodiosTotal: data.episodes,
@@ -395,7 +395,7 @@ const HomePage = () => {
   const adicionarLinkPessoal = async () => {
     if (!newLinkSite || !newLinkUrl || selectedItem.isExternal) return;
     const novosLinks = selectedItem.linksPersonalizados ? JSON.parse(selectedItem.linksPersonalizados) : [];
-    novosLinks.push({ site: newLinkSite, url: newLinkUrl, language: 'PT', type: 'Custom' });
+    novosLinks.push({ site: newLinkSite, url: newLinkUrl, language: 'EN', type: 'Custom' });
     const jsonStr = JSON.stringify(novosLinks);
     await atualizarCampo('linksPersonalizados', jsonStr);
     setNewLinkSite('');
@@ -435,10 +435,10 @@ const HomePage = () => {
                 <div className="max-w-5xl mx-auto space-y-6 relative z-10">
                   <div className="space-y-3">
                     <h2 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent tracking-tight mb-2 relative z-10">
-                      Pesquisa os teus <span className={categoria === 'anime' ? 'text-primary' : 'text-secondary'}>{categoria === 'anime' ? 'Animes' : 'Mangás'}</span> favoritos
+                      Search your favorite <span className={categoria === 'anime' ? 'text-primary' : 'text-secondary'}>{categoria === 'anime' ? 'Animes' : 'Mangas'}</span>
                     </h2>
                     <p className="text-on-surface-variant text-base max-w-xl mx-auto relative z-10 font-medium">
-                      Explora a nossa base de dados para encontrares novos títulos.
+                      Explore our database to find new titles.
                     </p>
                   </div>
                   <div className={`glass-panel p-2 rounded-2xl flex items-center shadow-xl group focus-within:ring-2 ${categoria === 'anime' ? 'ring-primary/50' : 'ring-secondary/50'} transition-all bg-surface/80 backdrop-blur-xl border border-white/10 max-w-4xl mx-auto`}>
@@ -485,21 +485,21 @@ const HomePage = () => {
                     Otaku-Time
                   </h2>
                   <p className="text-on-surface-variant text-lg max-w-xl mx-auto relative z-10 font-medium">
-                    O teu portal premium de acompanhamento de Animes e Mangás.
+                    Your premium portal for tracking Anime and Manga.
                   </p>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>play_circle</span>
-                    <h3 className="font-headline-lg text-headline-lg text-2xl font-bold">Ver a seguir</h3>
+                    <h3 className="font-headline-lg text-headline-lg text-2xl font-bold">Up Next</h3>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Anime Column */}
                   <div className="space-y-4">
                     <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span> Continuar a ver
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span> Continue Watching
                     </h4>
                     {animesDashboard.length > 0 ? animesDashboard.map(item => {
                       const status = item.anime?.statusLancamento || item.statusLancamento;
@@ -517,26 +517,26 @@ const HomePage = () => {
                           <div className="flex-1 flex flex-col justify-between py-1">
                             <div className="cursor-pointer" onClick={() => abrirDetalhes(item.id, false, 'anime')}>
                               <h5 className="font-bold text-lg line-clamp-1 group-hover:text-purple-400 transition-colors">{item.anime?.titulo || item.titulo}</h5>
-                              <p className="text-sm text-on-surface-variant font-medium">Episódio {epQueVouVer} {numDisponiveis > 0 ? <span className="text-xs text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full ml-1 font-bold">+ {numDisponiveis} disponíveis</span> : ''}</p>
+                              <p className="text-sm text-on-surface-variant font-medium">Episode {epQueVouVer} {numDisponiveis > 0 ? <span className="text-xs text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full ml-1 font-bold">+ {numDisponiveis} available</span> : ''}</p>
                             </div>
                             <div className="space-y-3">
                               <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden border border-white/5 shadow-inner">
                                 <div className="h-full bg-gradient-to-r from-purple-500 to-pink-500 shadow-[0_0_12px_rgba(168,85,247,0.8)] transition-all duration-500" style={{ width: `${item.epAtual > 0 ? Math.max(5, Math.min(progressoPercentual, 100)) : 0}%` }}></div>
                               </div>
                               <div className="flex gap-2">
-                                <button onClick={() => marcarComoVisto(item, 'anime')} className="flex-1 py-2 bg-primary/10 border border-primary/20 text-primary text-xs font-bold rounded-xl hover:bg-primary hover:text-on-primary transition-all shadow-sm">Marcar como Visto</button>
+                                <button onClick={() => marcarComoVisto(item, 'anime')} className="flex-1 py-2 bg-primary/10 border border-primary/20 text-primary text-xs font-bold rounded-xl hover:bg-primary hover:text-on-primary transition-all shadow-sm">Mark as Watched</button>
                               </div>
                             </div>
                           </div>
                         </div>
                       );
-                    }) : <p className="text-on-surface-variant text-sm italic">Nenhum anime em progresso...</p>}
+                    }) : <p className="text-on-surface-variant text-sm italic">No anime in progress...</p>}
                   </div>
 
                   {/* Manga Column */}
                   <div className="space-y-4">
                     <h4 className="text-xs font-bold uppercase tracking-widest text-secondary flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span> Continuar a ler
+                      <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span> Continue Reading
                     </h4>
                     {mangasDashboard.length > 0 ? mangasDashboard.map(item => {
                       const status = item.manga?.statusLancamento || item.statusLancamento;
@@ -554,20 +554,20 @@ const HomePage = () => {
                           <div className="flex-1 flex flex-col justify-between py-1">
                             <div className="cursor-pointer" onClick={() => abrirDetalhes(item.id, false, 'manga')}>
                               <h5 className="font-bold text-lg line-clamp-1 group-hover:text-pink-400 transition-colors">{item.manga?.titulo || item.titulo}</h5>
-                              <p className="text-sm text-on-surface-variant font-medium">Capítulo {capQueVouLer} {numDisponiveis > 0 ? <span className="text-xs text-secondary bg-secondary/10 border border-secondary/20 px-2 py-0.5 rounded-full ml-1 font-bold">+ {numDisponiveis} disponíveis</span> : ''}</p>
+                              <p className="text-sm text-on-surface-variant font-medium">Chapter {capQueVouLer} {numDisponiveis > 0 ? <span className="text-xs text-secondary bg-secondary/10 border border-secondary/20 px-2 py-0.5 rounded-full ml-1 font-bold">+ {numDisponiveis} available</span> : ''}</p>
                             </div>
                             <div className="space-y-3">
                               <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden border border-white/5 shadow-inner">
                                 <div className="h-full bg-gradient-to-r from-pink-500 to-rose-500 shadow-[0_0_12px_rgba(236,72,153,0.8)] transition-all duration-500" style={{ width: `${item.capAtual > 0 ? Math.max(5, Math.min(progressoPercentual, 100)) : 0}%` }}></div>
                               </div>
                               <div className="flex gap-2">
-                                <button onClick={() => marcarComoVisto(item, 'manga')} className="flex-1 py-2 bg-secondary/10 border border-secondary/20 text-secondary text-xs font-bold rounded-xl hover:bg-secondary hover:text-on-secondary transition-all shadow-sm">Marcar como Lido</button>
+                                <button onClick={() => marcarComoVisto(item, 'manga')} className="flex-1 py-2 bg-secondary/10 border border-secondary/20 text-secondary text-xs font-bold rounded-xl hover:bg-secondary hover:text-on-secondary transition-all shadow-sm">Mark as Read</button>
                               </div>
                             </div>
                           </div>
                         </div>
                       );
-                    }) : <p className="text-on-surface-variant text-sm italic">Nenhum mangá em progresso...</p>}
+                    }) : <p className="text-on-surface-variant text-sm italic">No manga in progress...</p>}
                   </div>
                 </div>
               </section>
@@ -591,7 +591,7 @@ const HomePage = () => {
                             if (filtroLancamento !== 'ALL' && statusLancamento !== filtroLancamento) return false;
                             return true;
                           });
-                          return `Mostrando ${filtrados.length} de ${resultadosDB.length} títulos guardados`;
+                          return `Showing ${filtrados.length} of ${resultadosDB.length} saved titles`;
                         })()}
                       </p>
                     </div>
@@ -602,12 +602,12 @@ const HomePage = () => {
                     {/* Status Filter */}
                     <div className="flex items-center gap-1 bg-background/50 p-1 rounded-xl border border-white/5">
                       {[
-                        { id: 'ALL', label: 'Todos' },
-                        { id: 'WATCHING', label: categoria === 'anime' ? 'A Ver' : 'A Ler' },
-                        { id: 'COMPLETED', label: 'Concluído' },
-                        { id: 'PLANNED', label: 'Planeado' },
-                        { id: 'PAUSED', label: 'Pausado' },
-                        { id: 'DROPPED', label: 'Desistido' },
+                        { id: 'ALL', label: 'All' },
+                        { id: 'WATCHING', label: categoria === 'anime' ? 'Watching' : 'Reading' },
+                        { id: 'COMPLETED', label: 'Completed' },
+                        { id: 'PLANNED', label: 'Planned' },
+                        { id: 'PAUSED', label: 'Paused' },
+                        { id: 'DROPPED', label: 'Dropped' },
                       ].map(tab => (
                         <button
                           key={tab.id}
@@ -627,10 +627,10 @@ const HomePage = () => {
                       >
                         <span className="material-symbols-outlined text-sm text-on-surface-variant">sensors</span>
                         <span>
-                          {filtroLancamento === 'ALL' ? 'Lançamento: Todos' :
-                           filtroLancamento === 'RELEASING' ? 'Lançamento: A Lançar' :
-                           filtroLancamento === 'FINISHED' ? 'Lançamento: Concluído' :
-                           filtroLancamento === 'HIATUS' ? 'Lançamento: Em Hiato' : 'Lançamento: Cancelado'}
+                          {filtroLancamento === 'ALL' ? 'Release: All' :
+                           filtroLancamento === 'RELEASING' ? 'Release: Releasing' :
+                           filtroLancamento === 'FINISHED' ? 'Release: Finished' :
+                           filtroLancamento === 'HIATUS' ? 'Release: Hiatus' : 'Release: Cancelled'}
                         </span>
                         <span className="material-symbols-outlined text-sm text-on-surface-variant ml-1">expand_more</span>
                       </button>
@@ -640,11 +640,11 @@ const HomePage = () => {
                           <div className="fixed inset-0 z-40" onClick={() => setShowLancamentoMenu(false)}></div>
                           <div className="absolute top-full mt-2 left-0 w-48 bg-surface/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-200">
                             {[
-                              { id: 'ALL', label: 'Todos' },
-                              { id: 'RELEASING', label: 'A Lançar' },
-                              { id: 'FINISHED', label: 'Concluído' },
-                              { id: 'HIATUS', label: 'Em Hiato' },
-                              { id: 'CANCELLED', label: 'Cancelado' },
+                              { id: 'ALL', label: 'All' },
+                              { id: 'RELEASING', label: 'Releasing' },
+                              { id: 'FINISHED', label: 'Finished' },
+                              { id: 'HIATUS', label: 'Hiatus' },
+                              { id: 'CANCELLED', label: 'Cancelled' },
                             ].map(opt => (
                               <button
                                 key={opt.id}
@@ -670,8 +670,8 @@ const HomePage = () => {
                       >
                         <span className="material-symbols-outlined text-sm text-on-surface-variant">sort</span>
                         <span>
-                          {ordenacao === 'PRIORITY' ? 'Ordenar: Prioridade' :
-                           ordenacao === 'TITLE' ? 'Ordenar: Título (A-Z)' : 'Ordenar: Progresso'}
+                          {ordenacao === 'PRIORITY' ? 'Sort: Priority' :
+                           ordenacao === 'TITLE' ? 'Sort: Title (A-Z)' : 'Sort: Progress'}
                         </span>
                         <span className="material-symbols-outlined text-sm text-on-surface-variant ml-1">expand_more</span>
                       </button>
@@ -681,9 +681,9 @@ const HomePage = () => {
                           <div className="fixed inset-0 z-40" onClick={() => setShowOrdemMenu(false)}></div>
                           <div className="absolute top-full mt-2 left-0 w-48 bg-surface/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-200">
                             {[
-                              { id: 'PRIORITY', label: 'Prioridade' },
-                              { id: 'TITLE', label: 'Título (A-Z)' },
-                              { id: 'PROGRESS', label: 'Progresso' },
+                              { id: 'PRIORITY', label: 'Priority' },
+                              { id: 'TITLE', label: 'Title (A-Z)' },
+                              { id: 'PROGRESS', label: 'Progress' },
                             ].map(opt => (
                               <button
                                 key={opt.id}
@@ -760,10 +760,10 @@ const HomePage = () => {
                                     item.status === 'PLANNED' ? 'bg-blue-400' :
                                     'bg-on-surface-variant'
                                   }`}></span>
-                                  {item.status === 'WATCHING' ? (categoria === 'anime' ? 'A Ver' : 'A Ler') :
-                                   item.status === 'COMPLETED' ? 'Concluído' :
-                                   item.status === 'PAUSED' ? 'Pausado' :
-                                   item.status === 'PLANNED' ? 'Planeado' : 'Na Lista'}
+                                  {item.status === 'WATCHING' ? (categoria === 'anime' ? 'Watching' : 'Reading') :
+                                   item.status === 'COMPLETED' ? 'Completed' :
+                                   item.status === 'PAUSED' ? 'Paused' :
+                                   item.status === 'PLANNED' ? 'Planned' : 'In Library'}
                                 </span>
                               )}
 
@@ -797,7 +797,7 @@ const HomePage = () => {
                                     <div className="flex justify-between items-center text-[11px] font-medium">
                                       <span className="text-on-surface-variant flex items-center gap-1">
                                         <span className="material-symbols-outlined text-[12px]">timelapse</span>
-                                        Progresso
+                                        Progress
                                       </span>
                                       <span className="text-white font-bold">
                                         {atual} / {total}
@@ -819,8 +819,8 @@ const HomePage = () => {
                     ) : (
                       <div className="col-span-full py-16 text-center glass-panel rounded-3xl border border-white/5 space-y-4">
                         <span className="material-symbols-outlined text-5xl text-on-surface-variant">search_off</span>
-                        <p className="text-on-surface font-bold text-lg">Nenhum título encontrado com os filtros ativos.</p>
-                        <p className="text-on-surface-variant text-sm">Tenta alterar ou limpar os filtros no topo da página.</p>
+                        <p className="text-on-surface font-bold text-lg">No titles found with active filters.</p>
+                        <p className="text-on-surface-variant text-sm">Try changing or clearing the filters at the top of the page.</p>
                       </div>
                     );
                   })()}
@@ -835,7 +835,7 @@ const HomePage = () => {
                   <div className="flex items-center gap-3">
                     <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
                     <h3 className="font-headline-lg text-headline-lg text-2xl font-bold">
-                      Resultados da Pesquisa {selectedGenre ? `- ${selectedGenre}` : ''}
+                      Search Results {selectedGenre ? `- ${selectedGenre}` : ''}
                     </h3>
                   </div>
                   {loading && <Loader2 className="w-6 h-6 text-primary animate-spin" />}
@@ -858,7 +858,7 @@ const HomePage = () => {
                       </div>
                     ))
                   ) : !loading && (
-                    <p className="col-span-full text-center text-on-surface-variant py-10 italic">Nenhum resultado encontrado.</p>
+                    <p className="col-span-full text-center text-on-surface-variant py-10 italic">No results found.</p>
                   )}
                 </div>
                 {hasMoreResults && (
@@ -871,12 +871,12 @@ const HomePage = () => {
                       {loadingMore ? (
                         <>
                           <Loader2 className="w-5 h-5 animate-spin" />
-                          A carregar...
+                          Loading...
                         </>
                       ) : (
                         <>
                           <span className="material-symbols-outlined">expand_more</span>
-                          Carregar Mais
+                          Load More
                         </>
                       )}
                     </button>
@@ -928,7 +928,7 @@ const HomePage = () => {
                               <span className="material-symbols-outlined text-[16px] text-red-500">info</span>
                               <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">{latestChapterError}</span>
                               {!selectedItem.isExternal && (
-                                <button onClick={() => { const val = prompt("Introduz o número total de capítulos manualmente:", selectedItem.numCapitulosTotal || ''); if (val !== null) { const num = parseInt(val) || 0; atualizarCampo('numCapitulosTotal', num); } }} className="ml-2 px-2 py-0.5 bg-secondary/20 hover:bg-secondary text-secondary hover:text-on-secondary rounded-full text-[9px] font-bold transition-all border border-secondary/30 flex items-center gap-1" title="Definir total manualmente">
+                                <button onClick={() => { const val = prompt("Enter total number of chapters manually:", selectedItem.numCapitulosTotal || ''); if (val !== null) { const num = parseInt(val) || 0; atualizarCampo('numCapitulosTotal', num); } }} className="ml-2 px-2 py-0.5 bg-secondary/20 hover:bg-secondary text-secondary hover:text-on-secondary rounded-full text-[9px] font-bold transition-all border border-secondary/30 flex items-center gap-1" title="Set total manually">
                                   <span className="material-symbols-outlined text-[10px]">edit</span> ADD MANUAL
                                 </button>
                               )}
@@ -938,7 +938,7 @@ const HomePage = () => {
                               <span className="material-symbols-outlined text-[16px] text-on-surface-variant">info</span>
                               <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">No external info</span>
                               {!selectedItem.isExternal && (
-                                <button onClick={() => { const val = prompt("Introduz o número total de capítulos manualmente:", selectedItem.numCapitulosTotal || ''); if (val !== null) { const num = parseInt(val) || 0; atualizarCampo('numCapitulosTotal', num); } }} className="ml-2 px-2 py-0.5 bg-secondary/20 hover:bg-secondary text-secondary hover:text-on-secondary rounded-full text-[9px] font-bold transition-all border border-secondary/30 flex items-center gap-1" title="Definir total manualmente">
+                                <button onClick={() => { const val = prompt("Enter total number of chapters manually:", selectedItem.numCapitulosTotal || ''); if (val !== null) { const num = parseInt(val) || 0; atualizarCampo('numCapitulosTotal', num); } }} className="ml-2 px-2 py-0.5 bg-secondary/20 hover:bg-secondary text-secondary hover:text-on-secondary rounded-full text-[9px] font-bold transition-all border border-secondary/30 flex items-center gap-1" title="Set total manually">
                                   <span className="material-symbols-outlined text-[10px]">edit</span> ADD MANUAL
                                 </button>
                               )}
@@ -1028,13 +1028,13 @@ const HomePage = () => {
                             {selectedItem.statusLancamento === 'RELEASING' ? 'sensors' : selectedItem.statusLancamento === 'FINISHED' ? 'done_all' : 'info'}
                           </span>
                         </div>
-                        <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">Status de Lançamento</p>
+                        <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">Release Status</p>
                         <p className={`font-bold text-lg ${selectedItem.statusLancamento === 'RELEASING' ? (categoria === 'anime' ? 'text-primary drop-shadow-[0_0_10px_rgba(221,184,255,0.3)]' : 'text-secondary drop-shadow-[0_0_10px_rgba(255,176,203,0.3)]') : 'text-white'}`}>
-                          {selectedItem.statusLancamento === 'RELEASING' ? 'A Lançar' : 
-                           selectedItem.statusLancamento === 'FINISHED' ? 'Concluído' : 
-                           selectedItem.statusLancamento === 'HIATUS' ? 'Em Hiato' : 
-                           selectedItem.statusLancamento === 'CANCELLED' ? 'Cancelado' : 
-                           selectedItem.statusLancamento || 'Desconhecido'}
+                          {selectedItem.statusLancamento === 'RELEASING' ? 'Releasing' : 
+                           selectedItem.statusLancamento === 'FINISHED' ? 'Finished' : 
+                           selectedItem.statusLancamento === 'HIATUS' ? 'Hiatus' : 
+                           selectedItem.statusLancamento === 'CANCELLED' ? 'Cancelled' : 
+                           selectedItem.statusLancamento || 'Unknown'}
                         </p>
                       </div>
 
@@ -1043,7 +1043,7 @@ const HomePage = () => {
                         <div className="w-10 h-10 rounded-2xl bg-surface-variant/30 text-on-surface-variant flex items-center justify-center mb-3">
                           <span className="material-symbols-outlined text-xl">calendar_month</span>
                         </div>
-                        <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">Temporada / Ano</p>
+                        <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">Season / Year</p>
                         <p className="font-bold text-lg text-white capitalize">
                           {selectedItem.temporada ? `${selectedItem.temporada.toLowerCase()} ${selectedItem.ano || ''}` : selectedItem.ano || 'N/A'}
                         </p>
@@ -1055,9 +1055,9 @@ const HomePage = () => {
                           <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-3 ${categoria === 'anime' ? 'bg-primary/10 text-primary shadow-[0_0_15px_rgba(221,184,255,0.2)]' : 'bg-secondary/10 text-secondary shadow-[0_0_15px_rgba(255,176,203,0.2)]'}`}>
                             <span className="material-symbols-outlined text-xl">update</span>
                           </div>
-                          <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">{categoria === 'anime' ? 'Episódios Previstos' : 'Capítulos Previstos'}</p>
+                          <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">{categoria === 'anime' ? 'Planned Episodes' : 'Planned Chapters'}</p>
                           <p className="font-bold text-lg text-white">
-                            {categoria === 'anime' ? (selectedItem.numEpisodiosTotal || 'Sem info oficial') : (selectedItem.numCapitulosTotal || 'Sem info oficial')}
+                            {categoria === 'anime' ? (selectedItem.numEpisodiosTotal || 'No official info') : (selectedItem.numCapitulosTotal || 'No official info')}
                           </p>
                         </div>
                       )}
@@ -1067,7 +1067,7 @@ const HomePage = () => {
                       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pt-6 border-t border-white/5">
                         <h3 className="font-headline-lg text-2xl font-bold mb-6 flex items-center gap-3">
                           <span className="w-1.5 h-6 rounded-full bg-secondary shadow-[0_0_10px_rgba(255,176,203,0.5)]"></span>
-                          Divisão de Temporadas & Especiais
+                          Season & Special Breakdown
                         </h3>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                           {latestBreakdown.map((item: any, idx: number) => (
@@ -1075,7 +1075,7 @@ const HomePage = () => {
                               <span className="text-xs font-bold text-on-surface-variant uppercase tracking-wider group-hover:text-white transition-colors">{item.label}</span>
                               <div className="flex items-baseline gap-1.5 mt-3">
                                 <span className="text-3xl font-display font-bold text-secondary">{item.chapters}</span>
-                                <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Caps</span>
+                                <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Chs</span>
                               </div>
                             </div>
                           ))}
@@ -1116,17 +1116,17 @@ const HomePage = () => {
                             <div className="p-6 rounded-2xl bg-error/10 border border-error/30 animate-in fade-in zoom-in-95 duration-300 space-y-4 shadow-xl">
                               <div className="flex items-center gap-3 text-error">
                                 <span className="material-symbols-outlined text-3xl">warning</span>
-                                <h5 className="font-bold text-base">Confirmar Remoção</h5>
+                                <h5 className="font-bold text-base">Confirm Removal</h5>
                               </div>
                               <p className="text-sm text-on-surface-variant font-medium">
-                                Tens a certeza que queres remover <span className="text-white font-bold">{selectedItem.titulo}</span> da tua biblioteca?
+                                Are you sure you want to remove <span className="text-white font-bold">{selectedItem.titulo}</span> from your library?
                               </p>
                               <div className="flex gap-3 pt-2">
                                 <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-3 bg-surface-variant hover:bg-surface-variant/80 text-on-surface-variant hover:text-white rounded-xl font-bold text-xs transition-all border border-white/10">
-                                  Cancelar
+                                  Cancel
                                 </button>
                                 <button onClick={() => removerDaLista(selectedItem.id)} className="flex-1 py-3 bg-error hover:bg-error/80 text-on-error rounded-xl font-bold text-xs transition-all shadow-[0_0_20px_rgba(239,68,68,0.4)]">
-                                  Sim, Remover
+                                  Yes, Remove
                                 </button>
                               </div>
                             </div>
@@ -1144,7 +1144,7 @@ const HomePage = () => {
                       <div className={`p-8 rounded-[32px] transition-all flex flex-col items-center justify-center text-center border ${showEpList ? (categoria === 'anime' ? 'bg-purple-500/10 border-purple-500/40 shadow-[0_0_40px_rgba(168,85,247,0.15)] backdrop-blur-xl' : 'bg-pink-500/10 border-pink-500/40 shadow-[0_0_40px_rgba(236,72,153,0.15)] backdrop-blur-xl') : `glass-panel ${categoria === 'anime' ? 'hover:border-purple-500/30 hover:bg-purple-500/5 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]' : 'hover:border-pink-500/30 hover:bg-pink-500/5 hover:shadow-[0_0_20px_rgba(236,72,153,0.1)]'}`}`}>
                         <div className="flex items-center gap-2 mb-1">
                           <span className="material-symbols-outlined text-on-surface-variant text-sm">timelapse</span>
-                          <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest">O Meu Progresso</p>
+                          <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest">My Progress</p>
                         </div>
                         
                         <div className="flex items-baseline gap-2 mb-6 mt-3 justify-center">
@@ -1160,15 +1160,15 @@ const HomePage = () => {
 
                         {/* Quick Action Buttons */}
                         <div className="flex items-center justify-center gap-3 w-full flex-wrap mb-2">
-                          <button onClick={() => atualizarProgresso(-1)} title="Subtrair 1" className={`w-10 h-10 rounded-xl bg-surface-variant/40 hover:bg-surface-variant border border-white/5 hover:border-white/20 text-on-surface-variant hover:text-white transition-all flex items-center justify-center shadow-sm active:scale-95`}>
+                          <button onClick={() => atualizarProgresso(-1)} title="Subtract 1" className={`w-10 h-10 rounded-xl bg-surface-variant/40 hover:bg-surface-variant border border-white/5 hover:border-white/20 text-on-surface-variant hover:text-white transition-all flex items-center justify-center shadow-sm active:scale-95`}>
                             <span className="material-symbols-outlined text-lg">remove</span>
                           </button>
-                          <button onClick={() => atualizarProgresso(1)} title="Adicionar 1" className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center shadow-md active:scale-95 font-bold ${categoria === 'anime' ? 'bg-primary hover:bg-primary/80 text-on-primary shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'bg-secondary hover:bg-secondary/80 text-on-secondary shadow-[0_0_15px_rgba(236,72,153,0.3)]'}`}>
+                          <button onClick={() => atualizarProgresso(1)} title="Add 1" className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center shadow-md active:scale-95 font-bold ${categoria === 'anime' ? 'bg-primary hover:bg-primary/80 text-on-primary shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'bg-secondary hover:bg-secondary/80 text-on-secondary shadow-[0_0_15px_rgba(236,72,153,0.3)]'}`}>
                             <span className="material-symbols-outlined text-lg">add</span>
                           </button>
                           <button onClick={() => setShowEpList(!showEpList)} className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 text-xs font-bold border active:scale-95 ${showEpList ? (categoria === 'anime' ? 'bg-primary/20 border-primary text-primary shadow-[0_0_15px_rgba(168,85,247,0.2)]' : 'bg-secondary/20 border-secondary text-secondary shadow-[0_0_15px_rgba(236,72,153,0.2)]') : 'bg-surface-variant/30 border-white/5 text-on-surface-variant hover:border-white/20 hover:text-white'}`}>
                             <span className="material-symbols-outlined text-base">grid_view</span>
-                            {showEpList ? 'Fechar Grelha' : 'Abrir Grelha'}
+                            {showEpList ? 'Close Grid' : 'Open Grid'}
                           </button>
                         </div>
 

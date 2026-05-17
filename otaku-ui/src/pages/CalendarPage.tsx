@@ -4,7 +4,7 @@ import { useMedia } from '../context/MediaContext';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Calendar as CalendarIcon, Clock, ExternalLink } from 'lucide-react';
 import { format, isSameDay, startOfToday, addDays, eachDayOfInterval } from 'date-fns';
-import { pt } from 'date-fns/locale';
+import { enUS } from 'date-fns/locale';
 
 interface AiringAnime {
   id: number;
@@ -49,7 +49,7 @@ const CalendarPage = () => {
 
       setItems([...airingAnime, ...airingManga]);
     } catch (error) {
-      console.error("Erro ao carregar calendário:", error);
+      console.error("Error loading calendar:", error);
     } finally {
       setLoading(false);
     }
@@ -72,7 +72,7 @@ const CalendarPage = () => {
             className="mb-6 flex items-center gap-2 text-gray-400 hover:text-white transition-colors group"
           >
             <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-            Voltar para a Home
+            Back to Home
           </button>
           
           <div className="flex items-center gap-4">
@@ -81,9 +81,9 @@ const CalendarPage = () => {
             </div>
             <div>
               <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
-                Calendário de Lançamentos
+                Release Calendar
               </h1>
-              <p className="text-gray-500 mt-1">Acompanha os próximos episódios e capítulos da tua lista</p>
+              <p className="text-gray-500 mt-1">Track upcoming episodes and chapters from your library</p>
             </div>
           </div>
         </header>
@@ -103,13 +103,13 @@ const CalendarPage = () => {
                 }`}
               >
                 <span className="text-xs uppercase font-bold tracking-widest mb-1">
-                  {format(day, 'EEE', { locale: pt })}
+                  {format(day, 'EEE', { locale: enUS })}
                 </span>
                 <span className="text-2xl font-bold">
                   {format(day, 'd')}
                 </span>
                 <span className="text-[10px] uppercase font-medium mt-1">
-                  {format(day, 'MMMM', { locale: pt })}
+                  {format(day, 'MMMM', { locale: enUS })}
                 </span>
               </button>
             );
@@ -119,13 +119,13 @@ const CalendarPage = () => {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="text-gray-500">A verificar transmissões...</p>
+            <p className="text-gray-500">Checking broadcast schedules...</p>
           </div>
         ) : (
           <div className="space-y-6">
             <h2 className="text-xl font-semibold flex items-center gap-3">
               <span className="w-1.5 h-6 bg-purple-500 rounded-full"></span>
-              Lançamentos de {isSameDay(selectedDate, startOfToday()) ? 'Hoje' : format(selectedDate, "EEEE, d 'de' MMMM", { locale: pt })}
+              Releases for {isSameDay(selectedDate, startOfToday()) ? 'Today' : format(selectedDate, "EEEE, MMMM d", { locale: enUS })}
             </h2>
 
             {itemsOnSelectedDay.length > 0 ? (
@@ -147,13 +147,13 @@ const CalendarPage = () => {
                           <h3 className="text-xl font-bold group-hover:text-purple-400 transition-colors">{item.titulo}</h3>
                         </div>
                         <span className={`${item.type === 'anime' ? 'bg-purple-600/10 text-purple-400 border-purple-500/20' : 'bg-pink-600/10 text-pink-400 border-pink-500/20'} px-3 py-1 rounded-full text-xs font-bold border`}>
-                          {item.type === 'anime' ? 'EP' : 'CAP'} {item.displayNum}
+                          {item.type === 'anime' ? 'EP' : 'CH'} {item.displayNum}
                         </span>
                       </div>
                       <div className="flex items-center gap-6 text-gray-500 text-sm">
                         <div className="flex items-center gap-2">
                           <Clock className="w-4 h-4" />
-                          <span>Transmissão às {format(new Date(item.displayDate), 'HH:mm')}</span>
+                          <span>Broadcast at {format(new Date(item.displayDate), 'HH:mm')}</span>
                         </div>
                       </div>
                     </div>
@@ -168,8 +168,8 @@ const CalendarPage = () => {
                 <div className="bg-gray-800/50 inline-flex p-6 rounded-full mb-6">
                   <Clock className="w-10 h-10 text-gray-600" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-400">Nenhum lançamento previsto para este dia</h3>
-                <p className="text-gray-600 mt-2">Os animes da tua lista não têm episódios agendados para esta data.</p>
+                <h3 className="text-xl font-semibold text-gray-400">No releases scheduled for this day</h3>
+                <p className="text-gray-600 mt-2">No items in your library have episodes or chapters scheduled for this date.</p>
               </div>
             )}
           </div>

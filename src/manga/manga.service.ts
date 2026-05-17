@@ -5,10 +5,10 @@ import { PrismaService } from '../prisma/prisma.service';
 export class MangaService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // PLANO A: Baka-Updates (MangaUpdates)
+  // PLAN A: Baka-Updates (MangaUpdates)
   async getLatestChapterFromBakaUpdates(title: string, mangaObj?: any): Promise<{ chapter: number | null, breakdown?: { label: string, chapters: number }[] }> {
     try {
-      console.log(`[Plano B] A pesquisar "${title}" no Baka-Updates...`);
+      console.log(`[Plan A] Searching "${title}" on Baka-Updates...`);
       
       const searchRes = await fetch('https://api.mangaupdates.com/v1/series/search', {
         method: 'POST',
@@ -23,7 +23,7 @@ export class MangaService {
 
       // Se o primeiro resultado for uma Novel, fazer um segundo pedido para apanhar a versão Manga/Manhwa
       if (bestRecord?.type?.toLowerCase() === 'novel') {
-        console.log(`[Plano B] "${bestRecord.title}" é uma Novel. A procurar a adaptação Manhwa/Manga...`);
+        console.log(`[Plan A] "${bestRecord.title}" is a Novel. Searching for Manhwa/Manga adaptation...`);
         const fallbackRes = await fetch('https://api.mangaupdates.com/v1/series/search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -50,11 +50,11 @@ export class MangaService {
       });
 
       if (!isValid) {
-        console.log(`[Plano B] Resultado ignorado: "${bestRecord.title}" não corresponde a "${title}".`);
+        console.log(`[Plan A] Ignored result: "${bestRecord.title}" does not match "${title}".`);
         return { chapter: null };
       }
 
-      console.log(`[Plano B] Candidato: "${bestRecord.title}" (Tipo: ${bestRecord.type})`);
+      console.log(`[Plan A] Candidate: "${bestRecord.title}" (Type: ${bestRecord.type})`);
 
       const seriesId = bestRecord.series_id;
       const detailRes = await fetch(`https://api.mangaupdates.com/v1/series/${seriesId}`);
@@ -62,7 +62,7 @@ export class MangaService {
 
       if (!detailData?.status) return { chapter: null };
 
-      console.log(`[Plano B] Status bruto:`, detailData.status);
+      console.log(`[Plan A] Raw status:`, detailData.status);
 
       // Filtrar linhas que mencionem "novel" ou "original"
       const rawLines = detailData.status.split(/\n/);
@@ -84,7 +84,7 @@ export class MangaService {
 
       if (breakdown.length > 0) {
         result = breakdown.reduce((acc, item) => acc + item.chapters, 0);
-        console.log(`[Plano B] Blocos rotulados:`, breakdown, `-> Soma: ${result}`);
+        console.log(`[Plan A] Labeled blocks:`, breakdown, `-> Sum: ${result}`);
       } else {
         // Fallback: sem blocos rotulados, usar o maior "X Chapters" encontrado
         const cleanStr = validLines.join(' ');
@@ -93,17 +93,21 @@ export class MangaService {
         const rangeMatches = [...cleanStr.matchAll(/[-~]\s*(\d+)\b/g)];
         const maxFromRange = rangeMatches.length > 0 ? Math.max(...rangeMatches.map(m => parseInt(m[1]))) : 0;
         result = Math.max(maxFromCh, maxFromRange);
-        console.log(`[Plano B] Sem blocos rotulados, fallback numérico: ${result}`);
+        if (result === 0) {
+          console.log(`[Plan A] Status text mentions Volumes or is inconclusive (returned 0).`);
+        } else {
+          console.log(`[Plan A] No labeled blocks, numeric fallback: ${result}`);
+        }
       }
 
       if (result > 0) {
-        console.log(`[Plano B] Sucesso para "${title}": ${result} capítulos.`);
+        console.log(`[Plan A] Success for "${title}": ${result} chapters.`);
         return { chapter: result, breakdown };
       }
 
       return { chapter: null };
     } catch (error) {
-      console.error('[Plano B] Erro:', error);
+      console.error('[Plan A] Error:', error);
       return { chapter: null };
     }
   }
@@ -121,18 +125,18 @@ export class MangaService {
 
     // Se o manga já está finalizado (FINISHED) e a AniList tem o número total de capítulos, usamos diretamente!
     if (manga.status === 'FINISHED' && manga.chapters && manga.chapters > 0) {
-      console.log(`[Sync] "${title}" já está finalizado na AniList. Usando o total oficial: ${manga.chapters} capítulos.`);
+      console.log(`[Sync] "${title}" is already FINISHED on AniList. Using official total: ${manga.chapters} chapters.`);
       latest = manga.chapters;
       
       // Fazer a pesquisa no Baka-Updates para obter a divisória de temporadas/especiais!
-      console.log(`[Sync] A consultar Baka-Updates para obter a divisória de temporadas de "${title}"...`);
+      console.log(`[Sync] Consulting Baka-Updates for season breakdown of "${title}"...`);
       const bakaRes = await this.getLatestChapterFromBakaUpdates(title, manga);
       if (bakaRes && bakaRes.breakdown) {
         breakdown = bakaRes.breakdown;
       }
     } else {
-      // PLANO A: Baka-Updates (MangaUpdates) - Principal fonte para Manhwas/Webtoons
-      console.log(`[Sync] A consultar Baka-Updates (Plano A) para "${title}"...`);
+      // PLAN A: Baka-Updates (MangaUpdates) - Primary source for Manhwas/Webtoons
+      console.log(`[Sync] Consulting Baka-Updates (Plan A) for "${title}"...`);
       const bakaRes = await this.getLatestChapterFromBakaUpdates(title, manga);
       if (bakaRes && bakaRes.chapter) {
         latest = bakaRes.chapter;
@@ -141,9 +145,9 @@ export class MangaService {
       }
       
       if (!latest) {
-        // PLANO B: MangaDex - Fallback
-        console.log(`[Sync] Baka-Updates falhou para "${title}". A tentar MangaDex (Plano B)...`);
-        const mdResult = await this.getLatestChapterFromMangaDex(anilistId, title);
+        // PLAN B: MangaDex - Fallback
+        console.log(`[Sync] Baka-Updates did not provide a valid chapter count for "${title}" (returned 0). Switching to MangaDex (Plan B)...`);
+        const mdResult = await this.getLatestChapterFromMangaDex(anilistId, title, manga);
         latest = mdResult.chapter;
         errorMsg = mdResult.error;
         if (latest) {
@@ -161,57 +165,117 @@ export class MangaService {
           data: { numCapitulosTotal: latest }
         });
       } else {
-        console.log(`[Sync] Manga "${title}" (ID ${anilistId}) é um item externo não guardado na DB local. Progresso obtido: ${latest} (${source})`);
+        console.log(`[Sync] Manga "${title}" (ID ${anilistId}) is an external item not saved in local DB. Progress obtained: ${latest} (${source})`);
       }
     }
 
     return { latest, error: errorMsg, source, breakdown };
   }
 
-  // Função "Detetive" para o MangaDex (Plano A)
-  async getLatestChapterFromMangaDex(anilistId: number, title: string): Promise<{ chapter: number | null, error?: string }> {
+  // Detective function for MangaDex (Plan B)
+  async getLatestChapterFromMangaDex(anilistId: number, title: string, mangaObj?: any): Promise<{ chapter: number | null, error?: string }> {
     try {
-      const mdUrl = `https://api.mangadex.org/manga?title=${encodeURIComponent(title)}&limit=5&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&contentRating[]=pornographic`;
+      console.log(`[Plan B] Searching "${title}" on MangaDex (AniList ID: ${anilistId})...`);
+      const mdUrl = `https://api.mangadex.org/manga?title=${encodeURIComponent(title)}&limit=10&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&contentRating[]=pornographic`;
       const response = await fetch(mdUrl, {
         headers: { 'User-Agent': 'OtakuTimeBot/1.0' }
       });
       
       if (!response.ok) {
-        console.error(`[MangaDex] HTTP Error: ${response.status}`);
+        console.error(`[Plan B] MangaDex HTTP Error: ${response.status}`);
         if (response.status === 503 || response.status === 502 || response.status === 504) {
-          return { chapter: null, error: `Servidores do MangaDex Offline (Erro ${response.status})` };
+          return { chapter: null, error: `MangaDex servers offline (Error ${response.status})` };
         }
-        return { chapter: null, error: `MangaDex falhou (Erro ${response.status})` };
+        return { chapter: null, error: `MangaDex failed (Error ${response.status})` };
       }
       
       const data = await response.json() as any;
 
-      if (!data.data || data.data.length === 0) return { chapter: null };
+      if (!data.data || data.data.length === 0) {
+        console.log(`[Plan B] No results found on MangaDex for "${title}".`);
+        return { chapter: null };
+      }
 
-      const match = data.data.find((m: any) => m.attributes.links?.al == anilistId.toString());
+      console.log(`[Plan B] MangaDex returned ${data.data.length} candidates. Checking AniList ID (${anilistId}) or Title match...`);
+
+      let match = data.data.find((m: any) => m.attributes.links?.al == anilistId.toString());
 
       if (match) {
-        const feedRes = await fetch(`https://api.mangadex.org/manga/${match.id}/feed?limit=1&order[chapter]=desc&translatedLanguage[]=en`, {
+        console.log(`[Plan B] Found exact AniList ID match on MangaDex: "${match.attributes.title?.en || match.attributes.title?.['ja-ro'] || match.attributes.title?.ja || 'Unknown'}" (ID: ${match.id})`);
+      } else {
+        console.log(`[Plan B] No direct AniList ID match found in links. Attempting title fallback match...`);
+        const clean = (s: string) => s ? s.toLowerCase().replace(/[^\w\s]/g, '').trim() : '';
+        const mainTitles = [title, mangaObj?.title?.english, mangaObj?.title?.romaji].filter(Boolean).map(clean);
+        
+        match = data.data.find((m: any) => {
+          const mdTitles = [
+            m.attributes.title?.en,
+            m.attributes.title?.['ja-ro'],
+            m.attributes.title?.ja,
+            ...(m.attributes.altTitles || []).map((t: any) => Object.values(t)[0])
+          ].filter(Boolean).map(t => clean(t as string));
+          
+          return mainTitles.some(mt => mdTitles.some(mdt => mdt === mt || (mdt.includes(mt) && Math.abs(mdt.length - mt.length) <= 5)));
+        });
+
+        if (match) {
+          console.log(`[Plan B] Found title fallback match on MangaDex: "${match.attributes.title?.en || match.attributes.title?.['ja-ro'] || match.attributes.title?.ja || 'Unknown'}" (ID: ${match.id})`);
+        } else {
+          console.log(`[Plan B] All candidates rejected: No AniList ID or Title match for "${title}".`);
+        }
+      }
+
+      if (match) {
+        console.log(`[Plan B] Fetching latest chapter feed and metadata for MangaDex ID: ${match.id}...`);
+        
+        let metaLastChapter = 0;
+        if (match.attributes?.lastChapter) {
+          const parsed = parseFloat(match.attributes.lastChapter);
+          if (!isNaN(parsed) && parsed > 0) {
+            metaLastChapter = parsed;
+            console.log(`[Plan B] Found official lastChapter attribute in MangaDex metadata: ${metaLastChapter}`);
+          }
+        }
+
+        const feedRes = await fetch(`https://api.mangadex.org/manga/${match.id}/feed?limit=10&order[chapter]=desc`, {
           headers: { 'User-Agent': 'OtakuTimeBot/1.0' }
         });
         
         if (!feedRes.ok) {
+          console.error(`[Plan B] MangaDex feed HTTP Error: ${feedRes.status}`);
           if (feedRes.status === 503 || feedRes.status === 502 || feedRes.status === 504) {
-            return { chapter: null, error: `Servidores do MangaDex Offline (Erro ${feedRes.status})` };
+            return { chapter: metaLastChapter > 0 ? metaLastChapter : null, error: `MangaDex servers offline (Error ${feedRes.status})` };
           }
-          return { chapter: null, error: `MangaDex falhou (Erro ${feedRes.status})` };
+          return { chapter: metaLastChapter > 0 ? metaLastChapter : null, error: `MangaDex failed (Error ${feedRes.status})` };
         }
         
         const feedData = await feedRes.json() as any;
-        
-        if (feedData.data && feedData.data[0]) {
-          return { chapter: parseFloat(feedData.data[0].attributes.chapter) };
+        let feedMaxChapter = 0;
+
+        if (feedData.data && feedData.data.length > 0) {
+          const chapters = feedData.data
+            .map((item: any) => parseFloat(item.attributes.chapter))
+            .filter((ch: any) => !isNaN(ch) && ch > 0);
+            
+          if (chapters.length > 0) {
+            feedMaxChapter = Math.max(...chapters);
+            console.log(`[Plan B] Found max chapter in MangaDex feed (across all languages): ${feedMaxChapter}`);
+          }
+        }
+
+        const finalChapter = Math.max(metaLastChapter, feedMaxChapter);
+
+        if (finalChapter > 0) {
+          console.log(`[Plan B] Success for "${title}": Chapter ${finalChapter} found on MangaDex.`);
+          return { chapter: finalChapter };
+        } else {
+          console.log(`[Plan B] MangaDex returned no valid chapter number in metadata or feed for "${title}".`);
         }
       }
       return { chapter: null };
     } catch (error) {
-      console.error('Erro ao consultar MangaDex:', error);
-      return { chapter: null, error: 'Erro de ligação ao MangaDex' };
+      console.error('[Plan B] Error consulting MangaDex:', error);
+      return { chapter: null, error: 'Error connecting to MangaDex' };
     }
   }
 
@@ -330,7 +394,7 @@ export class MangaService {
   // Importação simplificada
   async importFromAniList(nomeManga: string, userId: number, anilistId?: number) {
     const aniListData = anilistId ? await this.searchAniListById(anilistId) : await this.searchAniListManga(nomeManga);
-    if (!aniListData) throw new Error('Manga não encontrado');
+    if (!aniListData) throw new Error('Manga not found');
 
     const linksJSON = aniListData.externalLinks ? JSON.stringify(aniListData.externalLinks) : null;
     

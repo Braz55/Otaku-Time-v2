@@ -264,4 +264,29 @@ export class AnimeService {
       return [];
     }
   }
+
+  async syncLatestEpisode(anilistId: number) {
+    const aniListData = await this.searchAniListById(anilistId);
+    if (!aniListData) return { latest: null };
+
+    let latest = aniListData.episodes || null;
+    if (aniListData.status === 'RELEASING' && aniListData.nextAiringEpisode) {
+      latest = aniListData.nextAiringEpisode.episode - 1;
+    }
+
+    if (latest !== null) {
+      const existe = await this.prisma.anime.findUnique({ where: { id: anilistId } });
+      if (existe) {
+        await this.prisma.anime.update({
+          where: { id: anilistId },
+          data: { 
+            numEpisodiosTotal: aniListData.episodes,
+            proximoEpisodio: aniListData.nextAiringEpisode?.episode,
+            proximoEpisodioData: aniListData.nextAiringEpisode ? new Date(aniListData.nextAiringEpisode.airingAt * 1000) : null
+          }
+        });
+      }
+    }
+    return { latest, source: 'AniList' };
+  }
 }

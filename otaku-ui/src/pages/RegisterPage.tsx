@@ -30,10 +30,10 @@ const RegisterPage: React.FC = () => {
         login(data.access_token, data.user);
         navigate('/');
       } else {
-        setError(data.message || 'Erro ao criar conta');
+        setError(data.message || 'Error creating account');
       }
     } catch (err) {
-      setError('Erro ao conectar com o servidor');
+      setError('Error connecting to server');
     } finally {
       setLoading(false);
     }
@@ -50,9 +50,9 @@ const RegisterPage: React.FC = () => {
         <div className="bg-[#1a1c23] border border-gray-800 rounded-3xl p-8 shadow-2xl backdrop-blur-xl bg-opacity-80">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent mb-2">
-              Cria a tua Conta
+              Create your Account
             </h1>
-            <p className="text-gray-500">Junta-te à maior comunidade de entusiastas</p>
+            <p className="text-gray-500">Join the ultimate community of enthusiasts</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -63,7 +63,7 @@ const RegisterPage: React.FC = () => {
             )}
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-400 ml-1">Nome</label>
+              <label className="text-sm font-medium text-gray-400 ml-1">Name</label>
               <div className="relative">
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                 <input
@@ -72,7 +72,7 @@ const RegisterPage: React.FC = () => {
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
                   className="w-full bg-[#0f1014] border border-gray-800 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-purple-500 transition-colors"
-                  placeholder="O teu nome"
+                  placeholder="Your name"
                 />
               </div>
             </div>
@@ -87,13 +87,13 @@ const RegisterPage: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-[#0f1014] border border-gray-800 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-purple-500 transition-colors"
-                  placeholder="exemplo@email.com"
+                  placeholder="example@email.com"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-400 ml-1">Palavra-passe</label>
+              <label className="text-sm font-medium text-gray-400 ml-1">Password</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                 <input
@@ -117,7 +117,7 @@ const RegisterPage: React.FC = () => {
               ) : (
                 <>
                   <UserPlus className="w-5 h-5" />
-                  Criar Conta
+                  Create Account
                 </>
               )}
             </button>
@@ -125,9 +125,9 @@ const RegisterPage: React.FC = () => {
 
           <div className="mt-8 text-center">
             <p className="text-gray-500">
-              Já tens conta?{' '}
+              Already have an account?{' '}
               <Link to="/login" className="text-pink-400 hover:text-pink-300 font-semibold transition-colors">
-                Inicia sessão aqui
+                Sign in here
               </Link>
             </p>
           </div>

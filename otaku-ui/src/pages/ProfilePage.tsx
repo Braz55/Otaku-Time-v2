@@ -16,9 +16,30 @@ const ProfilePage = () => {
   const [localMangaCount, setLocalMangaCount] = useState(0);
   
   // Sync Settings State
-  const [syncMode, setSyncMode] = useState<'wifi' | 'usb' | 'cloud'>('wifi');
-  const [customIp, setCustomIp] = useState('192.168.1.50');
-  const [cloudUrl, setCloudUrl] = useState('https://otakutime-api.onrender.com');
+  const [syncMode, setSyncModeState] = useState<'wifi' | 'usb' | 'cloud'>(() => {
+    return (localStorage.getItem('otaku_sync_mode') as any) || 'usb';
+  });
+  const [customIp, setCustomIpState] = useState(() => {
+    return localStorage.getItem('otaku_custom_ip') || '192.168.1.50';
+  });
+  const [cloudUrl, setCloudUrlState] = useState(() => {
+    return localStorage.getItem('otaku_cloud_url') || 'https://otakutime-api.onrender.com';
+  });
+
+  const setSyncMode = (mode: 'wifi' | 'usb' | 'cloud') => {
+    setSyncModeState(mode);
+    localStorage.setItem('otaku_sync_mode', mode);
+  };
+
+  const setCustomIp = (ip: string) => {
+    setCustomIpState(ip);
+    localStorage.setItem('otaku_custom_ip', ip);
+  };
+
+  const setCloudUrl = (url: string) => {
+    setCloudUrlState(url);
+    localStorage.setItem('otaku_cloud_url', url);
+  };
   
   // Two-way Sync Execution State
   const [isSyncing, setIsSyncing] = useState(false);
@@ -26,6 +47,62 @@ const ProfilePage = () => {
   const [syncStatusText, setSyncStatusText] = useState('');
   const [syncResult, setSyncResult] = useState<'success' | 'error' | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(localStorage.getItem('otaku_last_db_sync'));
+
+  // AutoSync Releases State (Animes & Mangas)
+  const [syncStatus, setSyncStatus] = useState<{ isSyncing: boolean; total: number; current: number; currentItemTitle: string }>({
+    isSyncing: false,
+    total: 0,
+    current: 0,
+    currentItemTitle: ''
+  });
+
+  const getTargetBaseUrl = () => {
+    if (syncMode === 'wifi') {
+      return `http://${customIp}:3001`;
+    } else if (syncMode === 'cloud') {
+      return cloudUrl;
+    } else if (syncMode === 'usb') {
+      return 'http://localhost:3001';
+    }
+    return API_BASE_URL;
+  };
+
+  const checkSyncStatus = async () => {
+    try {
+      const baseUrl = getTargetBaseUrl();
+      const res = await customFetch(`${baseUrl}/sync/status`);
+      if (res.ok) {
+        const data = await res.json();
+        setSyncStatus(data);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    checkSyncStatus();
+    const interval = setInterval(checkSyncStatus, 5000);
+    return () => clearInterval(interval);
+  }, [syncMode, customIp, cloudUrl]);
+
+  const [releaseSyncError, setReleaseSyncError] = useState<string | null>(null);
+
+  const triggerManualReleaseSync = async () => {
+    setReleaseSyncError(null);
+    try {
+      const baseUrl = getTargetBaseUrl();
+      const res = await customFetch(`${baseUrl}/sync/start`, { method: 'POST' });
+      if (!res.ok) {
+        await res.json().catch(() => ({}));
+        setReleaseSyncError(`Falha ao ligar ao servidor (${baseUrl}). Verifique se o IP está correto ou se o comando 'adb reverse tcp:3001 tcp:3001' está ativo no PC.`);
+        return;
+      }
+      checkSyncStatus();
+    } catch (err: any) {
+      setReleaseSyncError(`Erro de conexão: ${err.message || 'Servidor indisponível'}`);
+    }
+  };
 
   useEffect(() => {
     const loadCounts = async () => {
@@ -359,6 +436,96 @@ const ProfilePage = () => {
                     <div>
                       <p className="font-bold text-sm text-white">Synchronization Failed</p>
                       <p className="text-xs text-red-300 mt-0.5">Could not reach the server. Please check your IP address or USB connection.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* AutoSync Releases Card (Animes & Mangas) */}
+            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-purple-500/10 via-pink-500/5 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+              
+              <div className="flex items-center justify-between flex-wrap gap-4 relative z-10">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-pink-500/10 border border-pink-500/30 rounded-2xl text-pink-400 shadow-inner">
+                    <RefreshCw className={`w-6 h-6 ${syncStatus.isSyncing ? 'animate-spin text-pink-400' : ''}`} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                      <span>AutoSync Releases (Animes & Mangas)</span>
+                      {syncStatus.isSyncing && (
+                        <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-pink-500/20 border border-pink-500/40 text-[10px] font-black text-pink-300 animate-pulse">
+                          <span className="w-1.5 h-1.5 rounded-full bg-pink-400 animate-ping"></span> ACTIVE
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-xs text-on-surface-variant mt-0.5 max-w-xl">
+                      Automatically queries external APIs (AniList, MangaDex, Baka-Updates) to fetch the latest published episode and chapter numbers for all your Releasing titles.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-4 border-t border-white/5 relative z-10">
+                <button
+                  onClick={triggerManualReleaseSync}
+                  disabled={syncStatus.isSyncing}
+                  className={`w-full py-4 rounded-2xl font-black text-base transition-all flex items-center justify-center gap-3 shadow-xl ${syncStatus.isSyncing ? 'bg-pink-500/20 border border-pink-500/30 text-pink-300 cursor-not-allowed shadow-[0_0_25px_rgba(236,72,153,0.2)]' : 'bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 hover:opacity-90 text-white shadow-pink-500/20 hover:shadow-pink-500/40 hover:scale-[1.01] active:scale-[0.99]'}`}
+                >
+                  {syncStatus.isSyncing ? (
+                    <>
+                      <RefreshCw className="w-5 h-5 animate-spin text-pink-400" />
+                      <span>AUTOSYNC IN PROGRESS ({syncStatus.current}/{syncStatus.total})</span>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-5 h-5" />
+                      <span>START RELEASE AUTOSYNC NOW</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Expanding Details Panel */}
+                {syncStatus.isSyncing && (
+                  <div className="p-6 rounded-2xl bg-black/40 border border-pink-500/30 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500 shadow-2xl backdrop-blur-xl">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="text-pink-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-pink-500 animate-ping"></span> Live Background Progress
+                      </span>
+                      <span className="text-white bg-pink-500/20 px-2.5 py-1 rounded-lg border border-pink-500/30 font-mono">
+                        {syncStatus.current} / {syncStatus.total} Completed
+                      </span>
+                    </div>
+
+                    <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden border border-white/5 p-0.5 shadow-inner">
+                      <div 
+                        className="h-full bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 rounded-full transition-all duration-500 shadow-[0_0_15px_rgba(236,72,153,0.8)]" 
+                        style={{ width: `${syncStatus.total > 0 ? (syncStatus.current / syncStatus.total) * 100 : 0}%` }}
+                      ></div>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-surface-variant/40 border border-white/5 flex items-center gap-3 text-sm">
+                      <div className="w-8 h-8 rounded-lg bg-pink-500/20 border border-pink-500/30 flex items-center justify-center text-pink-400 flex-shrink-0 shadow-md">
+                        <span className="material-symbols-outlined text-base animate-spin">sync</span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Currently Updating Media</p>
+                        <p className="font-black text-white text-base truncate mt-0.5">
+                          {syncStatus.currentItemTitle || 'Initializing external API connections...'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Connection Error Alert */}
+                {releaseSyncError && (
+                  <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3 text-red-400 animate-in fade-in zoom-in-95 duration-300 shadow-lg">
+                    <AlertCircle className="w-6 h-6 flex-shrink-0" />
+                    <div>
+                      <p className="font-bold text-sm text-white">Falha na Ligação ao Backend</p>
+                      <p className="text-xs text-red-300 mt-0.5">{releaseSyncError}</p>
                     </div>
                   </div>
                 )}

@@ -57,6 +57,15 @@ async function fetchAniListGraphQL(query: string, variables: any) {
 
 // Helper para buscar detalhes da AniList por ID
 async function getAniListMediaById(id: number, type: 'ANIME' | 'MANGA') {
+  const animeFields = `
+    episodes
+    season
+    seasonYear
+    nextAiringEpisode { airingAt episode }
+  `;
+  const mangaFields = `
+    chapters
+  `;
   const query = `
     query ($id: Int) {
       Media(id: $id, type: ${type}) {
@@ -67,12 +76,8 @@ async function getAniListMediaById(id: number, type: 'ANIME' | 'MANGA') {
         description
         genres
         tags { name }
-        episodes
-        chapters
-        season
-        seasonYear
         externalLinks { url site type language }
-        nextAiringEpisode { airingAt episode }
+        ${type === 'ANIME' ? animeFields : mangaFields}
       }
     }
   `;
@@ -82,6 +87,15 @@ async function getAniListMediaById(id: number, type: 'ANIME' | 'MANGA') {
 
 // Helper para buscar detalhes da AniList por Nome
 async function getAniListMediaByName(search: string, type: 'ANIME' | 'MANGA') {
+  const animeFields = `
+    episodes
+    season
+    seasonYear
+    nextAiringEpisode { airingAt episode }
+  `;
+  const mangaFields = `
+    chapters
+  `;
   const query = `
     query ($s: String) {
       Page(perPage: 1) {
@@ -93,12 +107,8 @@ async function getAniListMediaByName(search: string, type: 'ANIME' | 'MANGA') {
           description
           genres
           tags { name }
-          episodes
-          chapters
-          season
-          seasonYear
           externalLinks { url site type language }
-          nextAiringEpisode { airingAt episode }
+          ${type === 'ANIME' ? animeFields : mangaFields}
         }
       }
     }
@@ -287,13 +297,141 @@ async function getLatestChapterFromMangaDex_Android(anilistId: number, title: st
   }
 }
 
+// Helper para fazer chamadas HTTP nativas retornando um objeto Response padrão
+async function nativeFetchResponse(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  if (Capacitor.isNativePlatform()) {
+    const url = typeof input === 'string' ? input : input.toString();
+    const method = (init?.method || 'GET').toUpperCase();
+    const headers: any = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      ...init?.headers
+    };
+    const options: any = { url, method, headers };
+    if (init?.body) {
+      options.data = typeof init.body === 'string' ? JSON.parse(init.body) : init.body;
+    }
+    try {
+      let res: any;
+      if (method === 'POST') {
+        res = await CapacitorHttp.post(options);
+      } else if (method === 'GET') {
+        res = await CapacitorHttp.get(options);
+      } else {
+        res = await CapacitorHttp.request({ ...options, method });
+      }
+
+      const resStr = typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
+      return new Response(resStr, {
+        status: res.status,
+        headers: new Headers(res.headers as any)
+      });
+    } catch (err: any) {
+      console.error('CapacitorHttp Request Error:', err);
+      return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    }
+  } else {
+    return fetch(input, init);
+  }
+}
+
+// ==========================================
+// STANDALONE ANDROID AUTOSYNC RELEASES WORKER
+// ==========================================
+let standaloneSyncState = {
+  isSyncing: false,
+  total: 0,
+  current: 0,
+  currentItemTitle: ''
+};
+
+async function runStandaloneAndroidSync() {
+  if (standaloneSyncState.isSyncing) return;
+  
+  try {
+    standaloneSyncState.isSyncing = true;
+    standaloneSyncState.current = 0;
+    standaloneSyncState.currentItemTitle = 'Carregando itens locais em lançamento...';
+
+    const animes = await localDb.animes.filter(a => a.statusLancamento === 'RELEASING').toArray();
+    const mangas = await localDb.mangas.filter(m => m.statusLancamento === 'RELEASING').toArray();
+
+    standaloneSyncState.total = animes.length + mangas.length;
+    console.log(`[Android Standalone AutoSync] Found ${animes.length} Animes and ${mangas.length} Mangas in RELEASING status.`);
+
+    // 1. Processar Animes
+    for (const anime of animes) {
+      standaloneSyncState.currentItemTitle = anime.titulo;
+      console.log(`[Android Standalone AutoSync] Checking Anime: "${anime.titulo}"...`);
+      try {
+        const aniData = await getAniListMediaById(anime.animeId, 'ANIME');
+        if (aniData) {
+          let nextEp = aniData.nextAiringEpisode?.episode;
+          let totalEps = aniData.episodes;
+          let epDisponivel = nextEp ? nextEp - 1 : totalEps;
+          if (epDisponivel && epDisponivel > (anime.numEpisodiosTotal || 0) && anime.id !== undefined) {
+            await localDb.animes.update(anime.id, { numEpisodiosTotal: epDisponivel });
+            console.log(`[Android Standalone AutoSync] Updated Anime "${anime.titulo}" to ${epDisponivel} episodes.`);
+          }
+        }
+      } catch (e) {
+        console.error(`Error syncing anime ${anime.titulo}:`, e);
+      }
+      standaloneSyncState.current++;
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
+    // 2. Processar Mangas
+    for (const manga of mangas) {
+      standaloneSyncState.currentItemTitle = manga.titulo;
+      console.log(`[Android Standalone AutoSync] Checking Manga: "${manga.titulo}"...`);
+      try {
+        // Verificar AniList
+        let capAtualizado = 0;
+        const aniData = await getAniListMediaById(manga.mangaId, 'MANGA');
+        if (aniData && aniData.chapters) {
+          capAtualizado = aniData.chapters;
+        }
+        // Verificar MangaDex como fallback/complemento
+        if (!capAtualizado) {
+          const dexData = await getLatestChapterFromMangaDex_Android(manga.mangaId, manga.titulo, manga);
+          if (dexData && dexData.chapter) {
+            capAtualizado = dexData.chapter;
+          }
+        }
+
+        if (capAtualizado && capAtualizado > (manga.proximoCapituloNumero || manga.numCapitulosTotal || 0) && manga.id !== undefined) {
+          await localDb.mangas.update(manga.id, { 
+            proximoCapituloNumero: capAtualizado,
+            numCapitulosTotal: capAtualizado 
+          });
+          console.log(`[Android Standalone AutoSync] Updated Manga "${manga.titulo}" to ${capAtualizado} chapters.`);
+        }
+      } catch (e) {
+        console.error(`Error syncing manga ${manga.titulo}:`, e);
+      }
+      standaloneSyncState.current++;
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
+    console.log('[Android Standalone AutoSync] Completed successfully!');
+  } catch (err) {
+    console.error('[Android Standalone AutoSync] Fatal Error:', err);
+  } finally {
+    standaloneSyncState.isSyncing = false;
+    standaloneSyncState.currentItemTitle = '';
+    standaloneSyncState.current = 0;
+    standaloneSyncState.total = 0;
+  }
+}
+
 // Função customFetch principal que interceta todos os pedidos quando no Android
 export async function customFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const urlStr = typeof input === 'string' ? input : input.toString();
 
-  // Se não for um pedido para a nossa API, se não estiver no Android, ou se for rota de sincronização bidirecional, faz o fetch normal
+  // Se não for um pedido para a nossa API, se não estiver no Android, ou se for rota de sincronização bidirecional, faz o fetch nativo
   if (!urlStr.startsWith(API_BASE_URL) || !Capacitor.isNativePlatform() || urlStr.includes('/sync/twoway')) {
-    return fetch(input, init);
+    return nativeFetchResponse(input, init);
   }
 
   const method = (init?.method || 'GET').toUpperCase();
@@ -306,6 +444,18 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
   const userId = currentUser.id;
 
   try {
+    // ==========================================
+    // SYNC ROUTES (STANDALONE ANDROID AUTOSYNC)
+    // ==========================================
+    if (path === '/sync/status' && method === 'GET') {
+      return createJsonResponse(standaloneSyncState);
+    }
+
+    if (path === '/sync/start' && method === 'POST') {
+      runStandaloneAndroidSync();
+      return createJsonResponse({ success: true, message: 'Standalone Android AutoSync started' });
+    }
+
     // ==========================================
     // AUTH ROUTES
     // ==========================================
@@ -611,16 +761,11 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
     // ==========================================
     // SYNC ROUTES
     // ==========================================
-    if (path === '/sync/status' && method === 'GET') {
-      return createJsonResponse({ isSyncing: false, total: 0, current: 0, currentItemTitle: '' });
-    }
-
-    if (path === '/sync/start' && method === 'POST') {
-      return createJsonResponse({ success: true });
-    }
+    // As rotas de sincronização (/sync/status, /sync/start, /sync/twoway) não são intercetadas
+    // para permitir a comunicação real com o backend NestJS.
 
     // Fallback
-    return fetch(input, init);
+    return nativeFetchResponse(input, init);
   } catch (err) {
     console.error('CustomFetch Interceptor Error:', err);
     return new Response(JSON.stringify({ message: 'Local DB Error' }), { status: 500 });

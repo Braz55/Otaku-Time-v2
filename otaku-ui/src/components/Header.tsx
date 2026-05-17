@@ -1,9 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { API_BASE_URL } from '../config';
 import { Capacitor } from '@capacitor/core';
-import { customFetch } from '../services/apiBridge';
 
 interface HeaderProps {
   categoria: 'anime' | 'manga';
@@ -15,46 +13,13 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
   const { logout } = useAuth();
   const navigate = useNavigate();
-  const [syncStatus, setSyncStatus] = useState<{ isSyncing: boolean; total: number; current: number; currentItemTitle: string }>({
-    isSyncing: false,
-    total: 0,
-    current: 0,
-    currentItemTitle: ''
-  });
-
-  const checkSyncStatus = async () => {
-    try {
-      const res = await customFetch(`${API_BASE_URL}/sync/status`);
-      if (res.ok) {
-        const data = await res.json();
-        setSyncStatus(data);
-      }
-    } catch {
-      // ignore
-    }
-  };
-
-  useEffect(() => {
-    checkSyncStatus();
-    const interval = setInterval(checkSyncStatus, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const triggerManualSync = async () => {
-    try {
-      await customFetch(`${API_BASE_URL}/sync/start`, { method: 'POST' });
-      checkSyncStatus();
-    } catch {
-      // ignore
-    }
-  };
 
   return (
     <>
       {Capacitor.isNativePlatform() ? (
         <header className="sticky top-0 z-40 w-full flex flex-col shadow-2xl border-b border-white/10 bg-background">
-          {/* Barra de Cima */}
-          <div className="w-full hero-gradient px-4 py-3 flex justify-between items-center border-b border-white/5 bg-surface/40 backdrop-blur-xl">
+          {/* Barra de Cima com pt-10 para evitar colisão com a barra de notificações do Android */}
+          <div className="w-full hero-gradient px-4 pt-10 pb-3 flex justify-between items-center border-b border-white/5 bg-surface/40 backdrop-blur-xl">
             <h1 className="font-display-lg text-2xl bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent tracking-tight font-black cursor-pointer" onClick={() => navigate('/')}>
               Otaku-Time
             </h1>
@@ -63,46 +28,22 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
             </div>
           </div>
           
-          {/* Barra de Baixo */}
-          <div className="w-full bg-surface/80 backdrop-blur-lg px-4 py-2.5 flex justify-between items-center">
-            <div className="flex gap-2 bg-surface-variant/50 p-1 rounded-full border border-white/5 shadow-inner">
+          {/* Barra de Baixo - Segmented Control Centrado e Estendido */}
+          <div className="w-full bg-surface/80 backdrop-blur-lg px-4 py-2.5 flex justify-center items-center">
+            <div className="w-full max-w-sm flex gap-1 bg-surface-variant/60 p-1.5 rounded-full border border-white/10 shadow-inner">
               <button 
                 onClick={() => setCategoria('anime')}
-                className={`font-label-sm text-label-sm px-4 py-1.5 rounded-full transition-all duration-300 ${categoria === 'anime' ? 'bg-primary text-on-primary font-bold shadow-lg shadow-primary/40 border border-primary/50 scale-105' : 'text-on-surface-variant hover:bg-white/5'}`}
+                className={`flex-1 py-2 rounded-full font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${categoria === 'anime' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30 scale-[1.02]' : 'text-on-surface-variant hover:text-white'}`}
               >
-                Anime
+                <span className="material-symbols-outlined text-base">live_tv</span>
+                <span>Anime</span>
               </button>
               <button 
                 onClick={() => setCategoria('manga')}
-                className={`font-label-sm text-label-sm px-4 py-1.5 rounded-full transition-all duration-300 ${categoria === 'manga' ? 'bg-secondary text-on-secondary font-bold shadow-lg shadow-secondary/40 border border-secondary/50 scale-105' : 'text-on-surface-variant hover:bg-white/5'}`}
+                className={`flex-1 py-2 rounded-full font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${categoria === 'manga' ? 'bg-gradient-to-r from-pink-600 to-red-600 text-white shadow-lg shadow-pink-500/30 scale-[1.02]' : 'text-on-surface-variant hover:text-white'}`}
               >
-                Manga
-              </button>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                {syncStatus.isSyncing ? (
-                  <div className="flex items-center gap-1.5 px-3 py-1 bg-primary/20 border border-primary/30 rounded-full animate-pulse shadow-lg shadow-primary/20">
-                    <span className="material-symbols-outlined text-primary animate-spin text-sm">sync</span>
-                    <span className="text-[10px] font-bold text-primary">
-                      {syncStatus.current}/{syncStatus.total}
-                    </span>
-                  </div>
-                ) : (
-                  <button 
-                    onClick={triggerManualSync}
-                    className="flex items-center gap-1 px-3 py-1 bg-surface-variant hover:bg-white/10 text-on-surface-variant hover:text-white rounded-full transition-all border border-white/5 text-xs font-bold shadow-sm"
-                    title="Force Background Sync Now"
-                  >
-                    <span className="material-symbols-outlined text-sm">sync</span>
-                    <span>Sync</span>
-                  </button>
-                )}
-              </div>
-              <button className="p-2 text-on-surface-variant hover:bg-white/5 rounded-full transition-colors relative bg-surface-variant/30 border border-white/5">
-                <span className="material-symbols-outlined text-lg">notifications</span>
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+                <span className="material-symbols-outlined text-base">menu_book</span>
+                <span>Manga</span>
               </button>
             </div>
           </div>
@@ -129,36 +70,6 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* AutoSync Indicator & Trigger */}
-            <div className="flex items-center gap-2">
-              {syncStatus.isSyncing ? (
-                <div className="flex items-center gap-2 px-3 py-1 bg-primary/20 border border-primary/30 rounded-full animate-pulse shadow-lg shadow-primary/20">
-                  <span className="material-symbols-outlined text-primary animate-spin text-sm">sync</span>
-                  <span className="text-xs font-bold text-primary">
-                    Updating Releases ({syncStatus.current}/{syncStatus.total})
-                  </span>
-                  {syncStatus.currentItemTitle && (
-                    <span className="hidden lg:inline text-[10px] text-on-surface-variant max-w-[120px] truncate">
-                      {syncStatus.currentItemTitle}
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <button 
-                  onClick={triggerManualSync}
-                  className="flex items-center gap-1.5 px-3 py-1 bg-surface-variant hover:bg-white/10 text-on-surface-variant hover:text-white rounded-full transition-all border border-white/5 text-xs font-bold"
-                  title="Force Background Sync Now"
-                >
-                  <span className="material-symbols-outlined text-sm">sync</span>
-                  <span className="hidden sm:inline">AutoSync</span>
-                </button>
-              )}
-            </div>
-
-            <button className="p-2 text-on-surface-variant hover:bg-white/5 rounded-full transition-colors relative">
-              <span className="material-symbols-outlined">notifications</span>
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full"></span>
-            </button>
             <button onClick={logout} className="p-2 text-on-surface-variant hover:text-red-400 hover:bg-white/5 rounded-full transition-colors" title="Logout">
               <span className="material-symbols-outlined">logout</span>
             </button>

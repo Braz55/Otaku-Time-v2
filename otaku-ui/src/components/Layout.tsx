@@ -85,7 +85,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </div>
 
       {/* BottomNavBar Anchor (Mobile Only) */}
-      <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center py-2 px-margin-mobile bg-surface-container/90 backdrop-blur-2xl border-t border-white/10 pb-safe lg:hidden rounded-t-xl shadow-[0_-10px_40px_rgba(0,0,0,0.4)]">
+      <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center pt-3 pb-8 sm:pb-6 px-margin-mobile bg-surface-container/90 backdrop-blur-2xl border-t border-white/10 lg:hidden rounded-t-xl shadow-[0_-10px_40px_rgba(0,0,0,0.4)]">
         <button onClick={handleShowDashboard} className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${location.pathname === '/' && !isShowingFavorites && !isSearchOpen ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30' : 'text-on-surface-variant hover:text-white transition-all'}`}>
           <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>home</span>
           <span className="font-label-sm text-label-sm">Home</span>

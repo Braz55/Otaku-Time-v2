@@ -1152,6 +1152,26 @@ const HomePage = () => {
                           )}
                         </div>
 
+                        {/* Season Breakdown (Baka-Updates / MangaDex) */}
+                        {categoria === 'manga' && latestBreakdown && latestBreakdown.length > 0 && (
+                          <div className="p-4 rounded-2xl glass-panel border border-white/5 space-y-2.5 my-3 animate-in fade-in">
+                            <div className="flex items-center gap-1.5 mb-1 justify-center">
+                              <span className="material-symbols-outlined text-secondary text-sm">format_list_bulleted</span>
+                              <p className="text-secondary text-[10px] uppercase font-bold tracking-widest">Season Breakdown</p>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {latestBreakdown.map((b: any, idx: number) => (
+                                <div key={idx} className="flex items-center justify-between p-2.5 bg-surface-variant/30 rounded-xl border border-white/5 shadow-sm">
+                                  <span className="text-xs font-bold text-white truncate pr-2">{b.label}</span>
+                                  <span className="px-2.5 py-1 bg-secondary/20 text-secondary text-xs font-black rounded-lg border border-secondary/30 flex-shrink-0 shadow-[0_0_10px_rgba(255,176,203,0.2)]">
+                                    {b.chapters} Chs
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Release Status & Season */}
                         <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/5">
                           <div className="glass-panel p-3.5 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">
@@ -1348,6 +1368,26 @@ const HomePage = () => {
                           {selectedItem.descricao || "No description available."}
                         </p>
                       </div>
+
+                      {/* Season Breakdown Web */}
+                      {categoria === 'manga' && latestBreakdown && latestBreakdown.length > 0 && (
+                        <div className="space-y-6 pt-8 border-t border-white/5 animate-in fade-in">
+                          <h3 className="font-headline-lg text-2xl font-bold flex items-center gap-3">
+                            <span className="w-1.5 h-6 rounded-full bg-secondary shadow-[0_0_10px_rgba(255,176,203,0.5)]"></span>
+                            Season Breakdown
+                          </h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                            {latestBreakdown.map((b: any, idx: number) => (
+                              <div key={idx} className="flex items-center justify-between p-5 glass-panel hover:bg-white/5 rounded-2xl transition-all border border-pink-500/30 hover:border-pink-500/50 shadow-lg group">
+                                <span className="text-sm font-bold text-white truncate pr-2 group-hover:text-pink-200 transition-colors">{b.label}</span>
+                                <span className="px-3 py-1.5 bg-secondary/20 text-secondary text-sm font-black rounded-xl border border-secondary/30 flex-shrink-0 shadow-[0_0_15px_rgba(255,176,203,0.2)]">
+                                  {b.chapters} Chs
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       
                       {(() => {
                         const linksOficiais = selectedItem.linksExternos ? JSON.parse(selectedItem.linksExternos).map((l: any) => ({ ...l, tipo: 'Official' })) : [];

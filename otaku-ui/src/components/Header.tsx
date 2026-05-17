@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE_URL } from '../config';
 
 interface HeaderProps {
   categoria: 'anime' | 'manga';
@@ -21,7 +22,7 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
 
   const checkSyncStatus = async () => {
     try {
-      const res = await fetch('http://localhost:3001/sync/status');
+      const res = await fetch(`${API_BASE_URL}/sync/status`);
       if (res.ok) {
         const data = await res.json();
         setSyncStatus(data);
@@ -39,7 +40,7 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
 
   const triggerManualSync = async () => {
     try {
-      await fetch('http://localhost:3001/sync/start', { method: 'POST' });
+      await fetch(`${API_BASE_URL}/sync/start`, { method: 'POST' });
       checkSyncStatus();
     } catch {
       // ignore

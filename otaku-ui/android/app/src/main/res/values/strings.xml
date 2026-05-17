@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">OtakuTime</string>
+    <string name="title_activity_main">OtakuTime</string>
+    <string name="package_name">com.otakutime.app</string>
+    <string name="custom_url_scheme">com.otakutime.app</string>
+</resources>

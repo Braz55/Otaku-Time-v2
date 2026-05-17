@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { UserPlus, Mail, Lock, User, Loader2 } from 'lucide-react';
 
+import { API_BASE_URL } from '../config';
+
 const RegisterPage: React.FC = () => {
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
@@ -18,7 +20,7 @@ const RegisterPage: React.FC = () => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:3001/auth/register', {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nome, email, password }),
@@ -32,8 +34,9 @@ const RegisterPage: React.FC = () => {
       } else {
         setError(data.message || 'Error creating account');
       }
-    } catch (err) {
-      setError('Error connecting to server');
+    } catch (err: any) {
+      console.error("Register fetch error:", err);
+      setError(`Connection Error: ${err.message || err} (URL: ${API_BASE_URL})`);
     } finally {
       setLoading(false);
     }

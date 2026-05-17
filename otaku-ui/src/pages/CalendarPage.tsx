@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Calendar as CalendarIcon, Clock, ExternalLink } from 'lucide-react';
 import { format, isSameDay, startOfToday, addDays, eachDayOfInterval } from 'date-fns';
 import { enUS } from 'date-fns/locale';
+import { API_BASE_URL } from '../config';
 
 interface AiringAnime {
   id: number;
@@ -32,8 +33,8 @@ const CalendarPage = () => {
     setLoading(true);
     try {
       const [animeRes, mangaRes] = await Promise.all([
-        fetch('http://localhost:3001/anime', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('http://localhost:3001/manga', { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch(`${API_BASE_URL}/anime`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API_BASE_URL}/manga`, { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
       
       const animeData = await animeRes.json();

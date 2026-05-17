@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useMedia } from '../context/MediaContext';
 import { Loader2 } from 'lucide-react';
+import { Capacitor, registerPlugin } from '@capacitor/core';
+import { API_BASE_URL } from '../config';
 
-
+const MangaWebView = registerPlugin<any>('MangaWebView');
 
 const GENRES = [
   "Action", "Adventure", "Comedy", "Drama", "Fantasy", 
@@ -66,7 +68,7 @@ const HomePage = () => {
     setLatestChapterError(null);
     setLatestBreakdown([]);
     try {
-      const res = await fetch(`http://localhost:3001/manga/latest-chapter/${anilistId}`, { headers: getHeaders() });
+      const res = await fetch(`${API_BASE_URL}/manga/latest-chapter/${anilistId}`, { headers: getHeaders() });
       const data = await res.json();
       if (data) {
         if (data.latest) setLatestChapter(data.latest);
@@ -90,7 +92,7 @@ const HomePage = () => {
       setLoadingMore(true);
     }
     setIsShowingFavorites(false);
-    const url = `http://localhost:3001/${categoria}/search/${encodeURIComponent(termoPesquisa)}?page=${page}`;
+    const url = `${API_BASE_URL}/${categoria}/search/${encodeURIComponent(termoPesquisa)}?page=${page}`;
     
     try {
       const response = await fetch(url, { headers: getHeaders() });
@@ -112,7 +114,7 @@ const HomePage = () => {
   };
 
   const adicionarAoBanco = async (titulo: string, anilistId?: number) => {
-    const url = `http://localhost:3001/${categoria}/import`;
+    const url = `${API_BASE_URL}/${categoria}/import`;
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -135,7 +137,7 @@ const HomePage = () => {
 
   const consultarMinhaLista = async () => {
     setLoading(true);
-    const url = `http://localhost:3001/${categoria}`;
+    const url = `${API_BASE_URL}/${categoria}`;
     try {
       const response = await fetch(url, { headers: getHeaders() });
       const data = await response.json();
@@ -158,8 +160,8 @@ const HomePage = () => {
     setLoading(true);
     try {
       const [animeRes, mangaRes] = await Promise.all([
-        fetch('http://localhost:3001/anime', { headers: getHeaders() }),
-        fetch('http://localhost:3001/manga', { headers: getHeaders() })
+        fetch(`${API_BASE_URL}/anime`, { headers: getHeaders() }),
+        fetch(`${API_BASE_URL}/manga`, { headers: getHeaders() })
       ]);
       
       const animes = await animeRes.json();
@@ -195,7 +197,7 @@ const HomePage = () => {
   const marcarComoVisto = async (item: any, type: 'anime' | 'manga') => {
     const campo = type === 'anime' ? 'epAtual' : 'capAtual';
     const novoValor = (item[campo] || 0) + 1;
-    const url = `http://localhost:3001/${type}/${item.id}`;
+    const url = `${API_BASE_URL}/${type}/${item.id}`;
     
     try {
       const response = await fetch(url, {
@@ -230,8 +232,8 @@ const HomePage = () => {
     }
 
     const url = isExternal 
-      ? `http://localhost:3001/${targetType}/anilist/${id}`
-      : `http://localhost:3001/${targetType}/${id}`;
+      ? `${API_BASE_URL}/${targetType}/anilist/${id}`
+      : `${API_BASE_URL}/${targetType}/${id}`;
     
     try {
       const response = await fetch(url, { headers: getHeaders() });
@@ -277,9 +279,22 @@ const HomePage = () => {
     }
   };
 
+  const abrirLink = async (url: string, title: string) => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await MangaWebView.open({ url, title });
+      } catch (e) {
+        console.error("Failed to open MangaWebView", e);
+        window.open(url, '_blank');
+      }
+    } else {
+      window.open(url, '_blank');
+    }
+  };
+
   const removerDaLista = async (id: number) => {
     const targetId = selectedItem?.dbId || id;
-    const url = `http://localhost:3001/${categoria}/${targetId}`;
+    const url = `${API_BASE_URL}/${categoria}/${targetId}`;
     try {
       const response = await fetch(url, { method: 'DELETE', headers: getHeaders() });
       if (response.ok) {
@@ -326,7 +341,7 @@ const HomePage = () => {
       }
     }
     setSelectedItem((prev: any) => ({ ...prev, ...optimisticUpdates }));
-    const url = `http://localhost:3001/${categoria}/${targetId}`;
+    const url = `${API_BASE_URL}/${categoria}/${targetId}`;
     try {
       const response = await fetch(url, {
         method: 'PATCH',
@@ -363,7 +378,7 @@ const HomePage = () => {
     }
     setIsShowingFavorites(false);
     
-    const url = `http://localhost:3001/${categoria}/genre/${encodeURIComponent(genero)}?page=${page}`;
+    const url = `${API_BASE_URL}/${categoria}/genre/${encodeURIComponent(genero)}?page=${page}`;
     try {
       const response = await fetch(url, { headers: getHeaders() });
       const data = await response.json();
@@ -1023,7 +1038,7 @@ const HomePage = () => {
                           
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {todosLinks.map((link: any, index: number) => (
-                              <a key={index} href={link.url} target="_blank" rel="noopener noreferrer" className={`flex items-center justify-between p-5 glass-panel hover:bg-white/5 rounded-2xl transition-all group shadow-lg border ${categoria === 'anime' ? 'border-white/5 hover:border-purple-500/40 hover:shadow-[0_0_20px_rgba(168,85,247,0.15)]' : 'border-white/5 hover:border-pink-500/40 hover:shadow-[0_0_20px_rgba(236,72,153,0.15)]'}`}>
+                              <button key={index} onClick={() => abrirLink(link.url, selectedItem.titulo)} className={`w-full text-left flex items-center justify-between p-5 glass-panel hover:bg-white/5 rounded-2xl transition-all group shadow-lg border ${categoria === 'anime' ? 'border-white/5 hover:border-purple-500/40 hover:shadow-[0_0_20px_rgba(168,85,247,0.15)]' : 'border-white/5 hover:border-pink-500/40 hover:shadow-[0_0_20px_rgba(236,72,153,0.15)]'}`}>
                                 <div className="flex items-center gap-4">
                                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${link.tipo === 'Custom' ? 'bg-secondary/10 text-secondary group-hover:bg-secondary group-hover:text-on-secondary shadow-[0_0_10px_rgba(255,176,203,0.2)]' : 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-on-primary shadow-[0_0_10px_rgba(221,184,255,0.2)]'}`}>
                                     <span className="material-symbols-outlined">open_in_new</span>
@@ -1037,7 +1052,7 @@ const HomePage = () => {
                                   </div>
                                 </div>
                                 <span className={`material-symbols-outlined transition-all group-hover:translate-x-1 ${link.tipo === 'Custom' ? 'text-on-surface-variant group-hover:text-secondary' : 'text-on-surface-variant group-hover:text-primary'}`}>chevron_right</span>
-                              </a>
+                              </button>
                             ))}
                             {todosLinks.length === 0 && (
                               <p className="text-on-surface-variant italic text-sm col-span-2">No links available. Add one above!</p>

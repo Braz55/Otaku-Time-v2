@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LogIn, Mail, Lock, Loader2 } from 'lucide-react';
 
+import { API_BASE_URL } from '../config';
+
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,7 +19,7 @@ const LoginPage: React.FC = () => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:3001/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -31,8 +33,9 @@ const LoginPage: React.FC = () => {
       } else {
         setError(data.message || 'Error logging in');
       }
-    } catch (err) {
-      setError('Error connecting to server');
+    } catch (err: any) {
+      console.error("Login fetch error:", err);
+      setError(`Connection Error: ${err.message || err} (URL: ${API_BASE_URL})`);
     } finally {
       setLoading(false);
     }

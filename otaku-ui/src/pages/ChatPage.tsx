@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useMedia } from '../context/MediaContext';
 import { MessageSquare, Send, Plus, Trash2, Bot, User, Loader2, X, Star, ChevronLeft, Sparkles, Wand2, Bookmark, Search } from 'lucide-react';
 import MediaCard from '../components/MediaCard';
+import { API_BASE_URL } from '../config';
 
 interface Message {
   id: number;
@@ -33,7 +34,7 @@ const RecommendationCard = ({ id, token, onOpen }: { id: string, token: string, 
   useEffect(() => {
     const fetchItem = async () => {
       try {
-        const res = await fetch(`http://localhost:3001/anime/anilist/${id}`, {
+        const res = await fetch(`${API_BASE_URL}/anime/anilist/${id}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
@@ -114,7 +115,7 @@ const ChatPage = () => {
 
   const fetchSessions = async () => {
     try {
-      const res = await fetch('http://localhost:3001/chat/sessions', { headers: getHeaders() });
+      const res = await fetch(`${API_BASE_URL}/chat/sessions`, { headers: getHeaders() });
       const data = await res.json();
       if (Array.isArray(data)) setSessions(data);
     } catch (err) { console.error(err); }
@@ -122,7 +123,7 @@ const ChatPage = () => {
 
   const fetchMessages = async (sessionId: number) => {
     try {
-      const res = await fetch(`http://localhost:3001/chat/sessions/${sessionId}/messages`, { headers: getHeaders() });
+      const res = await fetch(`${API_BASE_URL}/chat/sessions/${sessionId}/messages`, { headers: getHeaders() });
       const data = await res.json();
       if (Array.isArray(data)) setMessages(data);
     } catch (err) { console.error(err); }
@@ -130,7 +131,7 @@ const ChatPage = () => {
 
   const fetchUserList = async () => {
     try {
-      const res = await fetch(`http://localhost:3001/${categoria}`, { headers: getHeaders() });
+      const res = await fetch(`${API_BASE_URL}/${categoria}`, { headers: getHeaders() });
       const data = await res.json();
       if (Array.isArray(data)) setUserList(data);
     } catch (err) { console.error(err); }
@@ -144,7 +145,7 @@ const ChatPage = () => {
 
   const createNewSession = async () => {
     try {
-      const res = await fetch('http://localhost:3001/chat/sessions', {
+      const res = await fetch(`${API_BASE_URL}/chat/sessions`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({ titulo: 'New Chat' })
@@ -159,7 +160,7 @@ const ChatPage = () => {
     e.stopPropagation();
     if (!confirm('Delete this conversation?')) return;
     try {
-      await fetch(`http://localhost:3001/chat/sessions/${id}`, { method: 'DELETE', headers: getHeaders() });
+      await fetch(`${API_BASE_URL}/chat/sessions/${id}`, { method: 'DELETE', headers: getHeaders() });
       setSessions(sessions.filter(s => s.id !== id));
       if (activeSession === id) setActiveSession(null);
     } catch (err) { console.error(err); }
@@ -184,7 +185,7 @@ const ChatPage = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`http://localhost:3001/chat/sessions/${activeSession}/messages`, {
+      const response = await fetch(`${API_BASE_URL}/chat/sessions/${activeSession}/messages`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({ message: finalPrompt })

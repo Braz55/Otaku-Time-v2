@@ -575,8 +575,8 @@ const HomePage = () => {
 
             {/* Library Grid */}
             {(isShowingFavorites && !isSearchOpen) && (
-              <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <div className="flex flex-col space-y-6 border-b border-white/10 pb-6">
+              <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 relative z-50">
+                <div className="flex flex-col space-y-6 border-b border-white/10 pb-6 relative z-50">
                   <div className="flex items-center gap-4">
                     <span className="material-symbols-outlined text-primary text-4xl md:text-5xl" style={{ fontVariationSettings: "'FILL' 1" }}>video_library</span>
                     <div>
@@ -598,7 +598,7 @@ const HomePage = () => {
                   </div>
 
                   {/* Filters & Sorting Controls */}
-                  <div className="flex flex-wrap items-center gap-3 bg-surface-variant/20 p-2 rounded-2xl border border-white/5 backdrop-blur-md w-fit">
+                  <div className="flex flex-wrap items-center gap-3 bg-surface-variant/20 p-2 rounded-2xl border border-white/5 backdrop-blur-md w-fit relative z-50">
                     {/* Status Filter */}
                     <div className="flex items-center gap-1 bg-background/50 p-1 rounded-xl border border-white/5">
                       {[
@@ -620,7 +620,7 @@ const HomePage = () => {
                     </div>
 
                     {/* Release Status Custom Dropdown */}
-                    <div className="relative">
+                    <div className="relative z-50">
                       <button
                         onClick={() => { setShowLancamentoMenu(!showLancamentoMenu); setShowOrdemMenu(false); }}
                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-background/50 hover:bg-white/5 border border-white/5 text-xs font-bold text-white transition-all shadow-sm"
@@ -638,7 +638,7 @@ const HomePage = () => {
                       {showLancamentoMenu && (
                         <>
                           <div className="fixed inset-0 z-40" onClick={() => setShowLancamentoMenu(false)}></div>
-                          <div className="absolute top-full mt-2 left-0 w-48 bg-surface/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-200">
+                          <div className="absolute top-full mt-2 left-0 w-48 bg-slate-950 border border-slate-800 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.95)] p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-200">
                             {[
                               { id: 'ALL', label: 'All' },
                               { id: 'RELEASING', label: 'Releasing' },
@@ -649,7 +649,7 @@ const HomePage = () => {
                               <button
                                 key={opt.id}
                                 onClick={() => { setFiltroLancamento(opt.id); setShowLancamentoMenu(false); }}
-                                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${filtroLancamento === opt.id ? (categoria === 'anime' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-sm' : 'bg-pink-500/20 text-pink-300 border border-pink-500/30 shadow-sm') : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}
+                                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${filtroLancamento === opt.id ? (categoria === 'anime' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-sm' : 'bg-pink-500/20 text-pink-300 border border-pink-500/30 shadow-sm') : 'text-on-surface-variant hover:text-white hover:bg-slate-900/50'}`}
                               >
                                 <span>{opt.label}</span>
                                 {filtroLancamento === opt.id && (
@@ -663,7 +663,7 @@ const HomePage = () => {
                     </div>
 
                     {/* Sorting Custom Dropdown */}
-                    <div className="relative">
+                    <div className="relative z-50">
                       <button
                         onClick={() => { setShowOrdemMenu(!showOrdemMenu); setShowLancamentoMenu(false); }}
                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-background/50 hover:bg-white/5 border border-white/5 text-xs font-bold text-white transition-all shadow-sm"
@@ -671,7 +671,8 @@ const HomePage = () => {
                         <span className="material-symbols-outlined text-sm text-on-surface-variant">sort</span>
                         <span>
                           {ordenacao === 'PRIORITY' ? 'Sort: Priority' :
-                           ordenacao === 'TITLE' ? 'Sort: Title (A-Z)' : 'Sort: Progress'}
+                           ordenacao === 'TITLE' ? 'Sort: Title (A-Z)' :
+                           ordenacao === 'PROGRESS_DESC' ? 'Sort: Progress (Most Behind)' : 'Sort: Progress (Closest to Caught Up)'}
                         </span>
                         <span className="material-symbols-outlined text-sm text-on-surface-variant ml-1">expand_more</span>
                       </button>
@@ -679,16 +680,17 @@ const HomePage = () => {
                       {showOrdemMenu && (
                         <>
                           <div className="fixed inset-0 z-40" onClick={() => setShowOrdemMenu(false)}></div>
-                          <div className="absolute top-full mt-2 left-0 w-48 bg-surface/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-200">
+                          <div className="absolute top-full mt-2 left-0 w-48 bg-slate-950 border border-slate-800 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.95)] p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-200">
                             {[
                               { id: 'PRIORITY', label: 'Priority' },
                               { id: 'TITLE', label: 'Title (A-Z)' },
-                              { id: 'PROGRESS', label: 'Progress' },
+                              { id: 'PROGRESS_DESC', label: 'Progress (Most Behind)' },
+                              { id: 'PROGRESS_ASC', label: 'Progress (Closest)' },
                             ].map(opt => (
                               <button
                                 key={opt.id}
                                 onClick={() => { setOrdenacao(opt.id); setShowOrdemMenu(false); }}
-                                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${ordenacao === opt.id ? (categoria === 'anime' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-sm' : 'bg-pink-500/20 text-pink-300 border border-pink-500/30 shadow-sm') : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}
+                                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${ordenacao === opt.id ? (categoria === 'anime' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-sm' : 'bg-pink-500/20 text-pink-300 border border-pink-500/30 shadow-sm') : 'text-on-surface-variant hover:text-white hover:bg-slate-900/50'}`}
                               >
                                 <span>{opt.label}</span>
                                 {ordenacao === opt.id && (
@@ -705,7 +707,7 @@ const HomePage = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6 pt-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6 pt-4 relative z-10">
                   {(() => {
                     const filtrados = resultadosDB.filter(item => {
                       if (filtroStatus !== 'ALL' && item.status !== filtroStatus) return false;
@@ -721,16 +723,22 @@ const HomePage = () => {
                         const tB = (b.anime?.titulo || b.manga?.titulo || b.titulo || '').toLowerCase();
                         return tA.localeCompare(tB);
                       }
-                      if (ordenacao === 'PROGRESS') {
+                      if (ordenacao === 'PROGRESS_DESC' || ordenacao === 'PROGRESS_ASC') {
                         const atualA = a.epAtual || a.capAtual || 0;
-                        const totalA = a.anime?.numEpisodiosTotal || a.manga?.numCapitulosTotal || a.numEpisodiosTotal || a.numCapitulosTotal || 1;
-                        const progA = atualA / totalA;
+                        const statusLancA = a.anime?.statusLancamento || a.manga?.statusLancamento || a.statusLancamento;
+                        const proxA = a.anime?.proximoEpisodio || a.manga?.proximoCapituloNumero;
+                        const totalA = a.anime?.numEpisodiosTotal || a.manga?.numCapitulosTotal || a.numEpisodiosTotal || a.numCapitulosTotal || atualA;
+                        const dispA = (statusLancA === 'RELEASING' && proxA) ? proxA - 1 : Math.max(atualA, totalA);
+                        const faltamA = Math.max(0, dispA - atualA);
 
                         const atualB = b.epAtual || b.capAtual || 0;
-                        const totalB = b.anime?.numEpisodiosTotal || b.manga?.numCapitulosTotal || b.numEpisodiosTotal || b.numCapitulosTotal || 1;
-                        const progB = atualB / totalB;
+                        const statusLancB = b.anime?.statusLancamento || b.manga?.statusLancamento || b.statusLancamento;
+                        const proxB = b.anime?.proximoEpisodio || b.manga?.proximoCapituloNumero;
+                        const totalB = b.anime?.numEpisodiosTotal || b.manga?.numCapitulosTotal || b.numEpisodiosTotal || b.numCapitulosTotal || atualB;
+                        const dispB = (statusLancB === 'RELEASING' && proxB) ? proxB - 1 : Math.max(atualB, totalB);
+                        const faltamB = Math.max(0, dispB - atualB);
 
-                        return progB - progA;
+                        return ordenacao === 'PROGRESS_DESC' ? faltamB - faltamA : faltamA - faltamB;
                       }
                       return 0;
                     });
@@ -769,8 +777,20 @@ const HomePage = () => {
 
                               {/* Priority / Score Badge */}
                               {item.prioridade && (
-                                <span className="bg-black/50 backdrop-blur-md px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1 text-white border border-white/10 shadow-lg">
-                                  <span className="material-symbols-outlined text-[12px] text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> #{item.prioridade}
+                                <span className={`backdrop-blur-md px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1 border shadow-lg ${
+                                  item.prioridade === 1 ? 'bg-amber-500/20 border-amber-500/50 text-amber-400' :
+                                  item.prioridade === 2 ? 'bg-amber-400/20 border-amber-400/50 text-amber-300' :
+                                  item.prioridade === 3 ? 'bg-yellow-400/20 border-yellow-400/50 text-yellow-200' :
+                                  item.prioridade === 4 ? 'bg-yellow-200/20 border-yellow-200/50 text-yellow-100' :
+                                  'bg-yellow-100/10 border-yellow-100/30 text-yellow-50'
+                                }`}>
+                                  <span className={`material-symbols-outlined text-[12px] ${
+                                    item.prioridade === 1 ? 'text-amber-500' :
+                                    item.prioridade === 2 ? 'text-amber-400' :
+                                    item.prioridade === 3 ? 'text-yellow-400' :
+                                    item.prioridade === 4 ? 'text-yellow-200' :
+                                    'text-yellow-100'
+                                  }`} style={{ fontVariationSettings: "'FILL' 1" }}>star</span> #{item.prioridade}
                                 </span>
                               )}
                             </div>
@@ -906,8 +926,14 @@ const HomePage = () => {
                         <span className={`px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider ${categoria === 'anime' ? 'bg-primary/20 text-primary border-primary/30 shadow-[0_0_10px_rgba(221,184,255,0.2)]' : 'bg-secondary/20 text-secondary border-secondary/30 shadow-[0_0_10px_rgba(255,176,203,0.2)]'}`}>
                           {categoria}
                         </span>
-                        <span className="text-on-surface-variant text-sm flex items-center gap-1 font-bold">
-                          <span className="material-symbols-outlined text-sm text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> {selectedItem.isExternal ? 'New' : `#${selectedItem.prioridade}`}
+                        <span className={`text-sm flex items-center gap-1 font-bold ${
+                          selectedItem.prioridade === 1 ? 'text-amber-500' :
+                          selectedItem.prioridade === 2 ? 'text-amber-400' :
+                          selectedItem.prioridade === 3 ? 'text-yellow-400' :
+                          selectedItem.prioridade === 4 ? 'text-yellow-200' :
+                          'text-yellow-100'
+                        }`}>
+                          <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> {selectedItem.isExternal ? 'New' : `#${selectedItem.prioridade}`}
                         </span>
                       </div>
                       <h2 className={`font-display-lg text-4xl md:text-5xl font-bold mb-6 tracking-tight bg-gradient-to-r ${categoria === 'anime' ? 'from-white via-purple-200 to-purple-400' : 'from-white via-pink-200 to-pink-400'} bg-clip-text text-transparent`}>{selectedItem.titulo}</h2>
@@ -1107,6 +1133,40 @@ const HomePage = () => {
                                        opt.value === 'PAUSED' ? 'pause_circle' : 'cancel'}
                                     </span>
                                     {categoria === 'anime' ? opt.animeLabel : opt.mangaLabel}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Priority Selector */}
+                          <div className="space-y-3 pt-2 border-t border-white/5">
+                            <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-xs text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                              Priority Level (1 = Highest)
+                            </label>
+                            <div className="grid grid-cols-5 gap-2">
+                              {[
+                                { num: 1, label: 'P1', desc: 'Highest', colorClass: 'bg-amber-500/20 border-amber-500 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)]' },
+                                { num: 2, label: 'P2', desc: 'High', colorClass: 'bg-amber-400/20 border-amber-400 text-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)]' },
+                                { num: 3, label: 'P3', desc: 'Medium', colorClass: 'bg-yellow-400/20 border-yellow-400 text-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.3)]' },
+                                { num: 4, label: 'P4', desc: 'Low', colorClass: 'bg-yellow-200/20 border-yellow-200 text-yellow-200 shadow-[0_0_15px_rgba(254,240,138,0.2)]' },
+                                { num: 5, label: 'P5', desc: 'Normal', colorClass: 'bg-yellow-100/10 border-yellow-100/50 text-yellow-100' },
+                              ].map(p => {
+                                const isSel = selectedItem.prioridade === p.num;
+                                return (
+                                  <button
+                                    key={p.num}
+                                    onClick={() => atualizarCampo('prioridade', p.num)}
+                                    className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border transition-all group active:scale-95 ${
+                                      isSel 
+                                        ? `${p.colorClass} scale-105 font-black`
+                                        : 'bg-surface-variant/30 border-white/5 text-on-surface-variant hover:bg-white/5 hover:border-white/20 hover:text-white'
+                                    }`}
+                                    title={`Priority #${p.num} (${p.desc})`}
+                                  >
+                                    <span className="text-sm font-bold">#{p.num}</span>
+                                    <span className="text-[9px] opacity-80 font-semibold mt-0.5 tracking-tighter">{p.desc}</span>
                                   </button>
                                 );
                               })}

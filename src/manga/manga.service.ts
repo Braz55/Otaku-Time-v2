@@ -391,9 +391,22 @@ export class MangaService {
     let novosDados = { ...updateDto };
     delete novosDados.numCapitulosTotal;
 
+    if (updateDto.status === 'COMPLETED') {
+      const totalDisponivel = (atual.manga.statusLancamento === 'RELEASING' && atual.manga.proximoCapituloNumero) 
+        ? atual.manga.proximoCapituloNumero - 1 
+        : (atual.manga.numCapitulosTotal || atual.capAtual);
+      novosDados.capAtual = totalDisponivel;
+    }
+
     if (updateDto.capAtual !== undefined) {
       const cap = updateDto.capAtual;
+      const totalDisponivel = (atual.manga.statusLancamento === 'RELEASING' && atual.manga.proximoCapituloNumero) 
+        ? atual.manga.proximoCapituloNumero - 1 
+        : atual.manga.numCapitulosTotal;
+
       if (atual.status === 'PLANNED' && cap > 0) novosDados.status = 'WATCHING';
+      if (atual.status === 'COMPLETED' && totalDisponivel && cap < totalDisponivel) novosDados.status = 'WATCHING';
+
       if (atual.manga.statusLancamento !== 'RELEASING' && atual.manga.numCapitulosTotal && cap >= atual.manga.numCapitulosTotal) {
         novosDados.status = 'COMPLETED';
         novosDados.capAtual = atual.manga.numCapitulosTotal;

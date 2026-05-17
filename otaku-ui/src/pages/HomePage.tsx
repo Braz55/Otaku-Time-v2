@@ -47,6 +47,12 @@ const HomePage = () => {
   const [newLinkSite, setNewLinkSite] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
 
+  const [filtroStatus, setFiltroStatus] = useState<string>('ALL');
+  const [filtroLancamento, setFiltroLancamento] = useState<string>('ALL');
+  const [ordenacao, setOrdenacao] = useState<string>('PRIORITY');
+  const [showLancamentoMenu, setShowLancamentoMenu] = useState(false);
+  const [showOrdemMenu, setShowOrdemMenu] = useState(false);
+
   const getHeaders = () => ({
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${token}`
@@ -294,13 +300,38 @@ const HomePage = () => {
   const atualizarCampo = async (campo: string, valor: any) => {
     if (!selectedItem || selectedItem.isExternal) return;
     const targetId = selectedItem.dbId || selectedItem.id;
-    setSelectedItem((prev: any) => ({ ...prev, [campo]: valor }));
+    let optimisticUpdates: any = { [campo]: valor };
+    if (campo === 'status' && valor === 'COMPLETED') {
+      const prop = categoria === 'anime' ? 'epAtual' : 'capAtual';
+      const statusLanc = selectedItem.statusLancamento;
+      const prox = categoria === 'anime' ? selectedItem.proximoEpisodio : selectedItem.proximoCapituloNumero;
+      const total = categoria === 'anime' ? selectedItem.numEpisodiosTotal : selectedItem.numCapitulosTotal;
+      const maxDisponivel = (statusLanc === 'RELEASING' && prox) ? prox - 1 : (total || selectedItem[prop]);
+      optimisticUpdates[prop] = maxDisponivel;
+    }
+    if (campo === 'epAtual' || campo === 'capAtual') {
+      const statusLanc = selectedItem.statusLancamento;
+      const prox = categoria === 'anime' ? selectedItem.proximoEpisodio : selectedItem.proximoCapituloNumero;
+      const total = categoria === 'anime' ? selectedItem.numEpisodiosTotal : selectedItem.numCapitulosTotal;
+      const maxDisponivel = (statusLanc === 'RELEASING' && prox) ? prox - 1 : total;
+
+      if (selectedItem.status === 'PLANNED' && valor > 0) {
+        optimisticUpdates.status = 'WATCHING';
+      }
+      if (selectedItem.status === 'COMPLETED' && maxDisponivel && valor < maxDisponivel) {
+        optimisticUpdates.status = 'WATCHING';
+      }
+      if (statusLanc !== 'RELEASING' && total && valor >= total) {
+        optimisticUpdates.status = 'COMPLETED';
+      }
+    }
+    setSelectedItem((prev: any) => ({ ...prev, ...optimisticUpdates }));
     const url = `http://localhost:3001/${categoria}/${targetId}`;
     try {
       const response = await fetch(url, {
         method: 'PATCH',
         headers: getHeaders(),
-        body: JSON.stringify({ [campo]: valor })
+        body: JSON.stringify(optimisticUpdates)
       });
       if (response.ok) {
         const data = await response.json();
@@ -545,38 +576,254 @@ const HomePage = () => {
             {/* Library Grid */}
             {(isShowingFavorites && !isSearchOpen) && (
               <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>video_library</span>
-                    <h3 className="font-headline-lg text-headline-lg text-2xl font-bold">
-                      A Minha Lista ({categoria})
-                    </h3>
+                <div className="flex flex-col space-y-6 border-b border-white/10 pb-6">
+                  <div className="flex items-center gap-4">
+                    <span className="material-symbols-outlined text-primary text-4xl md:text-5xl" style={{ fontVariationSettings: "'FILL' 1" }}>video_library</span>
+                    <div>
+                      <h2 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent tracking-tight capitalize mb-1">
+                        Library ({categoria})
+                      </h2>
+                      <p className="text-base text-on-surface-variant font-medium">
+                        {(() => {
+                          const filtrados = resultadosDB.filter(item => {
+                            if (filtroStatus !== 'ALL' && item.status !== filtroStatus) return false;
+                            const statusLancamento = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
+                            if (filtroLancamento !== 'ALL' && statusLancamento !== filtroLancamento) return false;
+                            return true;
+                          });
+                          return `Mostrando ${filtrados.length} de ${resultadosDB.length} títulos guardados`;
+                        })()}
+                      </p>
+                    </div>
                   </div>
-                  {loading && <Loader2 className="w-6 h-6 text-primary animate-spin" />}
+
+                  {/* Filters & Sorting Controls */}
+                  <div className="flex flex-wrap items-center gap-3 bg-surface-variant/20 p-2 rounded-2xl border border-white/5 backdrop-blur-md w-fit">
+                    {/* Status Filter */}
+                    <div className="flex items-center gap-1 bg-background/50 p-1 rounded-xl border border-white/5">
+                      {[
+                        { id: 'ALL', label: 'Todos' },
+                        { id: 'WATCHING', label: categoria === 'anime' ? 'A Ver' : 'A Ler' },
+                        { id: 'COMPLETED', label: 'Concluído' },
+                        { id: 'PLANNED', label: 'Planeado' },
+                        { id: 'PAUSED', label: 'Pausado' },
+                        { id: 'DROPPED', label: 'Desistido' },
+                      ].map(tab => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setFiltroStatus(tab.id)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${filtroStatus === tab.id ? (categoria === 'anime' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-[0_0_15px_rgba(168,85,247,0.2)]' : 'bg-pink-500/20 text-pink-300 border border-pink-500/40 shadow-[0_0_15px_rgba(236,72,153,0.2)]') : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Release Status Custom Dropdown */}
+                    <div className="relative">
+                      <button
+                        onClick={() => { setShowLancamentoMenu(!showLancamentoMenu); setShowOrdemMenu(false); }}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-background/50 hover:bg-white/5 border border-white/5 text-xs font-bold text-white transition-all shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-sm text-on-surface-variant">sensors</span>
+                        <span>
+                          {filtroLancamento === 'ALL' ? 'Lançamento: Todos' :
+                           filtroLancamento === 'RELEASING' ? 'Lançamento: A Lançar' :
+                           filtroLancamento === 'FINISHED' ? 'Lançamento: Concluído' :
+                           filtroLancamento === 'HIATUS' ? 'Lançamento: Em Hiato' : 'Lançamento: Cancelado'}
+                        </span>
+                        <span className="material-symbols-outlined text-sm text-on-surface-variant ml-1">expand_more</span>
+                      </button>
+
+                      {showLancamentoMenu && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setShowLancamentoMenu(false)}></div>
+                          <div className="absolute top-full mt-2 left-0 w-48 bg-surface/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-200">
+                            {[
+                              { id: 'ALL', label: 'Todos' },
+                              { id: 'RELEASING', label: 'A Lançar' },
+                              { id: 'FINISHED', label: 'Concluído' },
+                              { id: 'HIATUS', label: 'Em Hiato' },
+                              { id: 'CANCELLED', label: 'Cancelado' },
+                            ].map(opt => (
+                              <button
+                                key={opt.id}
+                                onClick={() => { setFiltroLancamento(opt.id); setShowLancamentoMenu(false); }}
+                                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${filtroLancamento === opt.id ? (categoria === 'anime' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-sm' : 'bg-pink-500/20 text-pink-300 border border-pink-500/30 shadow-sm') : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}
+                              >
+                                <span>{opt.label}</span>
+                                {filtroLancamento === opt.id && (
+                                  <span className="material-symbols-outlined text-sm">check</span>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Sorting Custom Dropdown */}
+                    <div className="relative">
+                      <button
+                        onClick={() => { setShowOrdemMenu(!showOrdemMenu); setShowLancamentoMenu(false); }}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-background/50 hover:bg-white/5 border border-white/5 text-xs font-bold text-white transition-all shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-sm text-on-surface-variant">sort</span>
+                        <span>
+                          {ordenacao === 'PRIORITY' ? 'Ordenar: Prioridade' :
+                           ordenacao === 'TITLE' ? 'Ordenar: Título (A-Z)' : 'Ordenar: Progresso'}
+                        </span>
+                        <span className="material-symbols-outlined text-sm text-on-surface-variant ml-1">expand_more</span>
+                      </button>
+
+                      {showOrdemMenu && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setShowOrdemMenu(false)}></div>
+                          <div className="absolute top-full mt-2 left-0 w-48 bg-surface/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-200">
+                            {[
+                              { id: 'PRIORITY', label: 'Prioridade' },
+                              { id: 'TITLE', label: 'Título (A-Z)' },
+                              { id: 'PROGRESS', label: 'Progresso' },
+                            ].map(opt => (
+                              <button
+                                key={opt.id}
+                                onClick={() => { setOrdenacao(opt.id); setShowOrdemMenu(false); }}
+                                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${ordenacao === opt.id ? (categoria === 'anime' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-sm' : 'bg-pink-500/20 text-pink-300 border border-pink-500/30 shadow-sm') : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}
+                              >
+                                <span>{opt.label}</span>
+                                {ordenacao === opt.id && (
+                                  <span className="material-symbols-outlined text-sm">check</span>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {loading && <Loader2 className="w-5 h-5 text-primary animate-spin ml-2" />}
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
-                  {resultadosDB.length > 0 ? (
-                    resultadosDB.map((item) => (
-                      <div key={item.id} className="group cursor-pointer space-y-3" onClick={() => abrirDetalhes(item.id, false)}>
-                        <div className="relative aspect-[2/3] rounded-3xl overflow-hidden shadow-lg transform transition-all duration-300 group-hover:scale-[1.02] group-hover:-translate-y-1 border border-white/5 group-hover:border-purple-500/50">
-                          <img src={item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl} className="w-full h-full object-cover" alt="" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity"></div>
-                          <div className="absolute bottom-4 left-4 right-4 z-10">
-                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold mb-2 ${categoria === 'anime' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary'}`}>
-                              {categoria.toUpperCase()}
-                            </span>
-                            <p className="font-bold text-sm text-white line-clamp-1">{item.anime?.titulo || item.manga?.titulo || item.titulo}</p>
-                          </div>
-                          <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 text-white z-10 border border-white/10">
-                            <span className="material-symbols-outlined text-[12px] text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> #{item.prioridade || '-'}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6 pt-4">
+                  {(() => {
+                    const filtrados = resultadosDB.filter(item => {
+                      if (filtroStatus !== 'ALL' && item.status !== filtroStatus) return false;
+                      const statusLancamento = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
+                      if (filtroLancamento !== 'ALL' && statusLancamento !== filtroLancamento) return false;
+                      return true;
+                    }).sort((a, b) => {
+                      if (ordenacao === 'PRIORITY') {
+                        return (a.prioridade || 999) - (b.prioridade || 999);
+                      }
+                      if (ordenacao === 'TITLE') {
+                        const tA = (a.anime?.titulo || a.manga?.titulo || a.titulo || '').toLowerCase();
+                        const tB = (b.anime?.titulo || b.manga?.titulo || b.titulo || '').toLowerCase();
+                        return tA.localeCompare(tB);
+                      }
+                      if (ordenacao === 'PROGRESS') {
+                        const atualA = a.epAtual || a.capAtual || 0;
+                        const totalA = a.anime?.numEpisodiosTotal || a.manga?.numCapitulosTotal || a.numEpisodiosTotal || a.numCapitulosTotal || 1;
+                        const progA = atualA / totalA;
+
+                        const atualB = b.epAtual || b.capAtual || 0;
+                        const totalB = b.anime?.numEpisodiosTotal || b.manga?.numCapitulosTotal || b.numEpisodiosTotal || b.numCapitulosTotal || 1;
+                        const progB = atualB / totalB;
+
+                        return progB - progA;
+                      }
+                      return 0;
+                    });
+
+                    return filtrados.length > 0 ? (
+                      filtrados.map((item) => (
+                        <div key={item.id} className="group cursor-pointer" onClick={() => abrirDetalhes(item.id, false, categoria)}>
+                          <div className={`relative aspect-[2/3] rounded-3xl overflow-hidden shadow-xl transform transition-all duration-500 group-hover:scale-[1.03] group-hover:-translate-y-2 border border-white/10 ${categoria === 'anime' ? 'group-hover:border-purple-500/60 group-hover:shadow-[0_0_30px_rgba(168,85,247,0.25)]' : 'group-hover:border-pink-500/60 group-hover:shadow-[0_0_30px_rgba(236,72,153,0.25)]'}`}>
+                            <img src={item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-80 group-hover:opacity-90 transition-opacity"></div>
+                            
+                            {/* Top Badges: Status & Priority */}
+                            <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10 pointer-events-none gap-2">
+                              {/* Tracking Status Badge */}
+                              {item.status && (
+                                <span className={`px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1.5 backdrop-blur-md border shadow-lg ${
+                                  item.status === 'WATCHING' ? (categoria === 'anime' ? 'bg-purple-500/30 border-purple-500/50 text-purple-200' : 'bg-pink-500/30 border-pink-500/50 text-pink-200') :
+                                  item.status === 'COMPLETED' ? 'bg-emerald-500/30 border-emerald-500/50 text-emerald-200' :
+                                  item.status === 'PAUSED' ? 'bg-amber-500/30 border-amber-500/50 text-amber-200' :
+                                  item.status === 'PLANNED' ? 'bg-blue-500/30 border-blue-500/50 text-blue-200' :
+                                  'bg-surface-variant/50 border-white/10 text-on-surface-variant'
+                                }`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${
+                                    item.status === 'WATCHING' ? (categoria === 'anime' ? 'bg-purple-400 animate-pulse shadow-[0_0_8px_rgba(168,85,247,0.8)]' : 'bg-pink-400 animate-pulse shadow-[0_0_8px_rgba(236,72,153,0.8)]') :
+                                    item.status === 'COMPLETED' ? 'bg-emerald-400' :
+                                    item.status === 'PAUSED' ? 'bg-amber-400' :
+                                    item.status === 'PLANNED' ? 'bg-blue-400' :
+                                    'bg-on-surface-variant'
+                                  }`}></span>
+                                  {item.status === 'WATCHING' ? (categoria === 'anime' ? 'A Ver' : 'A Ler') :
+                                   item.status === 'COMPLETED' ? 'Concluído' :
+                                   item.status === 'PAUSED' ? 'Pausado' :
+                                   item.status === 'PLANNED' ? 'Planeado' : 'Na Lista'}
+                                </span>
+                              )}
+
+                              {/* Priority / Score Badge */}
+                              {item.prioridade && (
+                                <span className="bg-black/50 backdrop-blur-md px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1 text-white border border-white/10 shadow-lg">
+                                  <span className="material-symbols-outlined text-[12px] text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> #{item.prioridade}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Bottom Content: Title & Progress Bar */}
+                            <div className="absolute bottom-4 left-4 right-4 z-10 flex flex-col justify-end pointer-events-none">
+                              <span className={`w-fit px-2 py-0.5 rounded-lg text-[9px] font-extrabold tracking-wider mb-1.5 border ${categoria === 'anime' ? 'bg-primary/20 border-primary/30 text-primary' : 'bg-secondary/20 border-secondary/30 text-secondary'}`}>
+                                {categoria.toUpperCase()}
+                              </span>
+                              <p className="font-bold text-sm text-white line-clamp-2 mb-2 group-hover:text-purple-300 transition-colors">
+                                {item.anime?.titulo || item.manga?.titulo || item.titulo}
+                              </p>
+
+                              {/* Progress Info & Bar */}
+                              {(() => {
+                                const atual = categoria === 'anime' ? (item.epAtual || 0) : (item.capAtual || 0);
+                                const status = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
+                                const proxEp = categoria === 'anime' ? (item.anime?.proximoEpisodio || item.proximoEpisodio) : (item.manga?.proximoCapituloNumero || item.proximoCapituloNumero);
+                                const numTotal = categoria === 'anime' ? (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal) : (item.manga?.numCapitulosTotal || item.numCapitulosTotal);
+                                const total = (status === 'RELEASING' && proxEp) ? proxEp - 1 : (numTotal || '?');
+                                const percent = typeof total === 'number' && total > 0 ? (atual / total) * 100 : (atual > 0 ? ((atual / (atual + 1)) * 100) : 0);
+                                return (
+                                  <div className="space-y-1.5 pt-1 border-t border-white/10">
+                                    <div className="flex justify-between items-center text-[11px] font-medium">
+                                      <span className="text-on-surface-variant flex items-center gap-1">
+                                        <span className="material-symbols-outlined text-[12px]">timelapse</span>
+                                        Progresso
+                                      </span>
+                                      <span className="text-white font-bold">
+                                        {atual} / {total}
+                                      </span>
+                                    </div>
+                                    <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden border border-white/5 backdrop-blur-sm">
+                                      <div 
+                                        className={`h-full transition-all duration-500 rounded-full ${categoria === 'anime' ? 'bg-gradient-to-r from-purple-500 to-pink-500 shadow-[0_0_10px_rgba(168,85,247,0.8)]' : 'bg-gradient-to-r from-pink-500 to-rose-500 shadow-[0_0_10px_rgba(236,72,153,0.8)]'}`}
+                                        style={{ width: `${Math.max(atual > 0 ? 3 : 0, Math.min(percent, 100))}%` }}
+                                      ></div>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
                           </div>
                         </div>
+                      ))
+                    ) : (
+                      <div className="col-span-full py-16 text-center glass-panel rounded-3xl border border-white/5 space-y-4">
+                        <span className="material-symbols-outlined text-5xl text-on-surface-variant">search_off</span>
+                        <p className="text-on-surface font-bold text-lg">Nenhum título encontrado com os filtros ativos.</p>
+                        <p className="text-on-surface-variant text-sm">Tenta alterar ou limpar os filtros no topo da página.</p>
                       </div>
-                    ))
-                  ) : (
-                    <p className="col-span-full text-center text-on-surface-variant py-10 italic">Nenhum item guardado na tua lista.</p>
-                  )}
+                    );
+                  })()}
                 </div>
               </section>
             )}
@@ -773,7 +1020,7 @@ const HomePage = () => {
                         </div>
                       );
                     })()}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 py-8 border-t border-white/5">
+                    <div className={`grid grid-cols-1 ${selectedItem.statusLancamento === 'RELEASING' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-6 py-8 border-t border-white/5`}>
                       {/* Status Card */}
                       <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${categoria === 'anime' ? 'hover:border-purple-500/30 hover:bg-purple-500/5 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]' : 'hover:border-pink-500/30 hover:bg-pink-500/5 hover:shadow-[0_0_20px_rgba(236,72,153,0.1)]'}`}>
                         <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-3 ${selectedItem.statusLancamento === 'RELEASING' ? (categoria === 'anime' ? 'bg-primary/10 text-primary shadow-[0_0_15px_rgba(221,184,255,0.2)]' : 'bg-secondary/10 text-secondary shadow-[0_0_15px_rgba(255,176,203,0.2)]') : 'bg-surface-variant/30 text-on-surface-variant'}`}>
@@ -801,6 +1048,19 @@ const HomePage = () => {
                           {selectedItem.temporada ? `${selectedItem.temporada.toLowerCase()} ${selectedItem.ano || ''}` : selectedItem.ano || 'N/A'}
                         </p>
                       </div>
+
+                      {/* Planned Episodes/Chapters Card (Only when Releasing) */}
+                      {selectedItem.statusLancamento === 'RELEASING' && (
+                        <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all animate-in zoom-in-95 duration-300 ${categoria === 'anime' ? 'hover:border-purple-500/30 hover:bg-purple-500/5 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]' : 'hover:border-pink-500/30 hover:bg-pink-500/5 hover:shadow-[0_0_20px_rgba(236,72,153,0.1)]'}`}>
+                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-3 ${categoria === 'anime' ? 'bg-primary/10 text-primary shadow-[0_0_15px_rgba(221,184,255,0.2)]' : 'bg-secondary/10 text-secondary shadow-[0_0_15px_rgba(255,176,203,0.2)]'}`}>
+                            <span className="material-symbols-outlined text-xl">update</span>
+                          </div>
+                          <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">{categoria === 'anime' ? 'Episódios Previstos' : 'Capítulos Previstos'}</p>
+                          <p className="font-bold text-lg text-white">
+                            {categoria === 'anime' ? (selectedItem.numEpisodiosTotal || 'Sem info oficial') : (selectedItem.numCapitulosTotal || 'Sem info oficial')}
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     {categoria === 'manga' && latestBreakdown.length > 0 && (
@@ -888,12 +1148,12 @@ const HomePage = () => {
                         </div>
                         
                         <div className="flex items-baseline gap-2 mb-6 mt-3 justify-center">
-                          <input type="number" min="0" max={categoria === 'anime' ? (selectedItem.numEpisodiosTotal || ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : 9999)) : (selectedItem.numCapitulosTotal || ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter ? parseInt(`${latestChapter}`) || 9999 : 9999)))} value={categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${categoria === 'anime' ? 'text-primary focus:bg-purple-500/10' : 'text-secondary focus:bg-pink-500/10'} font-black text-4xl w-20 text-center outline-none border-b-2 border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} />
+                          <input type="number" min="0" max={categoria === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 9999)) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (selectedItem.numCapitulosTotal || (latestChapter ? parseInt(`${latestChapter}`) || 9999 : 9999)))} value={categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${categoria === 'anime' ? 'text-primary focus:bg-purple-500/10' : 'text-secondary focus:bg-pink-500/10'} font-black text-4xl w-20 text-center outline-none border-b-2 border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} />
                           <span className="text-on-surface-variant font-light text-3xl">/</span> 
                           <span className="text-on-surface-variant font-bold text-3xl">
                             {categoria === 'anime' 
-                              ? (selectedItem.numEpisodiosTotal || ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : '?'))
-                              : (selectedItem.numCapitulosTotal || ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter ? `${latestChapter}` : '?')))
+                              ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || '?'))
+                              : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (selectedItem.numCapitulosTotal || (latestChapter ? `${latestChapter}` : '?')))
                             }
                           </span>
                         </div>
@@ -916,8 +1176,8 @@ const HomePage = () => {
                           <div className="w-full mt-6 border-t border-white/10 pt-6 animate-in slide-in-from-top-4 duration-300">
                             <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-7 lg:grid-cols-8 gap-2 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
                               {[...Array(categoria === 'anime' 
-                                ? (selectedItem.numEpisodiosTotal || ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : 0)) 
-                                : (selectedItem.numCapitulosTotal || ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (Math.ceil(latestChapter || 0) || 0)))
+                                ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 0)) 
+                                : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (selectedItem.numCapitulosTotal || (Math.ceil(latestChapter || 0) || 0)))
                               )].map((_, i) => {
                                 const num = i + 1;
                                 const isWatched = num <= (categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual);

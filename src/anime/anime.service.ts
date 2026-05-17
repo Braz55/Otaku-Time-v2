@@ -224,9 +224,22 @@ export class AnimeService {
     let novosDados = { ...updateDto };
     delete novosDados.numEpisodiosTotal;
 
+    if (updateDto.status === 'COMPLETED') {
+      const totalDisponivel = (atual.anime.statusLancamento === 'RELEASING' && atual.anime.proximoEpisodio) 
+        ? atual.anime.proximoEpisodio - 1 
+        : (atual.anime.numEpisodiosTotal || atual.epAtual);
+      novosDados.epAtual = totalDisponivel;
+    }
+
     if (updateDto.epAtual !== undefined) {
       const ep = updateDto.epAtual;
+      const totalDisponivel = (atual.anime.statusLancamento === 'RELEASING' && atual.anime.proximoEpisodio) 
+        ? atual.anime.proximoEpisodio - 1 
+        : atual.anime.numEpisodiosTotal;
+
       if (atual.status === 'PLANNED' && ep > 0) novosDados.status = 'WATCHING';
+      if (atual.status === 'COMPLETED' && totalDisponivel && ep < totalDisponivel) novosDados.status = 'WATCHING';
+
       if (atual.anime.statusLancamento !== 'RELEASING' && atual.anime.numEpisodiosTotal && ep >= atual.anime.numEpisodiosTotal) {
         novosDados.status = 'COMPLETED';
         novosDados.epAtual = atual.anime.numEpisodiosTotal;

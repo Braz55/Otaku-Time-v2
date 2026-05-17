@@ -1,16 +1,53 @@
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { localDb } from './localDb';
 import { API_BASE_URL } from '../config';
+
+// Helper para fazer chamadas HTTP nativas no Android contornando CORS e bloqueios de WebView
+async function nativeFetchJson(url: string, method = 'GET', body: any = null) {
+  if (Capacitor.isNativePlatform()) {
+    const options: any = {
+      url,
+      headers: { 
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    };
+    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+      options.data = body;
+    }
+    
+    let res: any;
+    if (method === 'POST') {
+      res = await CapacitorHttp.post(options);
+    } else if (method === 'GET') {
+      res = await CapacitorHttp.get(options);
+    } else {
+      res = await CapacitorHttp.request({ ...options, method });
+    }
+
+    if (res.status >= 400) {
+      throw new Error(`HTTP Error ${res.status}: ${typeof res.data === 'string' ? res.data : JSON.stringify(res.data)}`);
+    }
+
+    return typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+  } else {
+    const init: RequestInit = {
+      method,
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }
+    };
+    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+      init.body = JSON.stringify(body);
+    }
+    const res = await fetch(url, init);
+    if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+    return await res.json();
+  }
+}
 
 // Helper para chamadas GraphQL à AniList direto do frontend
 async function fetchAniListGraphQL(query: string, variables: any) {
   try {
-    const res = await fetch('https://graphql.anilist.co', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ query, variables })
-    });
-    const data = await res.json();
+    const data = await nativeFetchJson('https://graphql.anilist.co', 'POST', { query, variables });
     return data;
   } catch (err) {
     console.error('AniList GraphQL Error:', err);
@@ -76,6 +113,178 @@ function createJsonResponse(body: any, status = 200) {
     status,
     headers: { 'Content-Type': 'application/json' }
   });
+}
+
+// Helper para buscar capítulos no Baka-Updates (Plan A) no Android
+async function getLatestChapterFromBakaUpdates_Android(title: string, mangaObj?: any): Promise<{ chapter: number | null, breakdown?: { label: string, chapters: number }[] }> {
+  try {
+    console.log(`[Android Plan A] Searching "${title}" on Baka-Updates...`);
+    const searchData = await nativeFetchJson('https://api.mangaupdates.com/v1/series/search', 'POST', { search: title, limit: 1 });
+
+    if (!searchData.results || searchData.results.length === 0) return { chapter: null };
+    
+    let bestRecord = searchData.results[0].record;
+
+    if (bestRecord?.type?.toLowerCase() === 'novel') {
+      console.log(`[Android Plan A] "${bestRecord.title}" is a Novel. Searching for Manhwa/Manga adaptation...`);
+      const fallbackData = await nativeFetchJson('https://api.mangaupdates.com/v1/series/search', 'POST', { search: title, limit: 5 });
+      if (fallbackData.results) {
+        const nonNovel = fallbackData.results.find((r: any) => r.record?.type?.toLowerCase() !== 'novel');
+        if (nonNovel) bestRecord = nonNovel.record;
+      }
+    }
+
+    const clean = (s: string) => s ? s.toLowerCase().replace(/[^\w\s]/g, '').trim() : '';
+    const mainTitles = [title, mangaObj?.title?.english, mangaObj?.title?.romaji].filter(Boolean).map(clean);
+    const recTitle = clean(bestRecord.title);
+
+    const isValid = mainTitles.some(t => {
+      if (recTitle === t) return true;
+      if (recTitle.includes(t) || t.includes(recTitle)) {
+        return Math.abs(recTitle.length - t.length) <= 5;
+      }
+      return false;
+    });
+
+    if (!isValid) {
+      console.log(`[Android Plan A] Ignored result: "${bestRecord.title}" does not match "${title}".`);
+      return { chapter: null };
+    }
+
+    console.log(`[Android Plan A] Candidate: "${bestRecord.title}" (Type: ${bestRecord.type})`);
+
+    const seriesId = bestRecord.series_id;
+    const detailData = await nativeFetchJson(`https://api.mangaupdates.com/v1/series/${seriesId}`, 'GET');
+
+    if (!detailData?.status) return { chapter: null };
+
+    console.log(`[Android Plan A] Raw status:`, detailData.status);
+
+    const rawLines = detailData.status.split(/\n/);
+    const validLines = rawLines.filter((line: string) => !/(?:novel|original|orig\b)/i.test(line));
+
+    const breakdown: { label: string, chapters: number }[] = [];
+    for (const line of validLines) {
+      const m = line.match(/\*\*(.+?)\*\*\s*:?\s*(\d+)\s+Chapters?|^([^:]+):\s*(\d+)\s+Chapters?/i);
+      if (m) {
+        const rawLabel = (m[1] || m[3]).trim();
+        const label = rawLabel.replace(/\*/g, '').replace(/:$/, '').trim();
+        const ch = parseInt(m[2] || m[4]);
+        breakdown.push({ label, chapters: ch });
+      }
+    }
+
+    let result = 0;
+    if (breakdown.length > 0) {
+      result = breakdown.reduce((acc, item) => acc + item.chapters, 0);
+      console.log(`[Android Plan A] Labeled blocks:`, breakdown, `-> Sum: ${result}`);
+    } else {
+      const cleanStr = validLines.join(' ');
+      const chMatches = [...cleanStr.matchAll(/(\d+)\s+Chapters?/gi)];
+      const maxFromCh = chMatches.length > 0 ? Math.max(...chMatches.map(m => parseInt(m[1]))) : 0;
+      const rangeMatches = [...cleanStr.matchAll(/[-~]\s*(\d+)\b/g)];
+      const maxFromRange = rangeMatches.length > 0 ? Math.max(...rangeMatches.map(m => parseInt(m[1]))) : 0;
+      result = Math.max(maxFromCh, maxFromRange);
+      if (result === 0) {
+        console.log(`[Android Plan A] Status text mentions Volumes or is inconclusive (returned 0).`);
+      } else {
+        console.log(`[Android Plan A] No labeled blocks, numeric fallback: ${result}`);
+      }
+    }
+
+    if (result > 0) {
+      console.log(`[Android Plan A] Success for "${title}": ${result} chapters.`);
+      return { chapter: result, breakdown };
+    }
+
+    return { chapter: null };
+  } catch (error) {
+    console.error('[Android Plan A] Error:', error);
+    return { chapter: null };
+  }
+}
+
+// Helper para buscar capítulos no MangaDex (Plan B) no Android
+async function getLatestChapterFromMangaDex_Android(anilistId: number, title: string, mangaObj?: any): Promise<{ chapter: number | null, error?: string }> {
+  try {
+    console.log(`[Android Plan B] Searching "${title}" on MangaDex (AniList ID: ${anilistId})...`);
+    const mdUrl = `https://api.mangadex.org/manga?title=${encodeURIComponent(title)}&limit=10&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&contentRating[]=pornographic`;
+    const data = await nativeFetchJson(mdUrl, 'GET');
+
+    if (!data.data || data.data.length === 0) {
+      console.log(`[Android Plan B] No results found on MangaDex for "${title}".`);
+      return { chapter: null };
+    }
+
+    console.log(`[Android Plan B] MangaDex returned ${data.data.length} candidates. Checking AniList ID (${anilistId}) or Title match...`);
+
+    let match = data.data.find((m: any) => m.attributes.links?.al == anilistId.toString());
+
+    if (match) {
+      console.log(`[Android Plan B] Found exact AniList ID match on MangaDex: "${match.attributes.title?.en || match.attributes.title?.['ja-ro'] || match.attributes.title?.ja || 'Unknown'}" (ID: ${match.id})`);
+    } else {
+      console.log(`[Android Plan B] No direct AniList ID match found in links. Attempting title fallback match...`);
+      const clean = (s: string) => s ? s.toLowerCase().replace(/[^\w\s]/g, '').trim() : '';
+      const mainTitles = [title, mangaObj?.title?.english, mangaObj?.title?.romaji].filter(Boolean).map(clean);
+      
+      match = data.data.find((m: any) => {
+        const mdTitles = [
+          m.attributes.title?.en,
+          m.attributes.title?.['ja-ro'],
+          m.attributes.title?.ja,
+          ...(m.attributes.altTitles || []).map((t: any) => Object.values(t)[0])
+        ].filter(Boolean).map(t => clean(t as string));
+        
+        return mainTitles.some(mt => mdTitles.some(mdt => mdt === mt || (mdt.includes(mt) && Math.abs(mdt.length - mt.length) <= 5)));
+      });
+
+      if (match) {
+        console.log(`[Android Plan B] Found title fallback match on MangaDex: "${match.attributes.title?.en || match.attributes.title?.['ja-ro'] || match.attributes.title?.ja || 'Unknown'}" (ID: ${match.id})`);
+      } else {
+        console.log(`[Android Plan B] All candidates rejected: No AniList ID or Title match for "${title}".`);
+      }
+    }
+
+    if (match) {
+      console.log(`[Android Plan B] Fetching latest chapter feed and metadata for MangaDex ID: ${match.id}...`);
+      
+      let metaLastChapter = 0;
+      if (match.attributes?.lastChapter) {
+        const parsed = parseFloat(match.attributes.lastChapter);
+        if (!isNaN(parsed) && parsed > 0) {
+          metaLastChapter = parsed;
+          console.log(`[Android Plan B] Found official lastChapter attribute in MangaDex metadata: ${metaLastChapter}`);
+        }
+      }
+
+      const feedData = await nativeFetchJson(`https://api.mangadex.org/manga/${match.id}/feed?limit=10&order[chapter]=desc`, 'GET');
+      let feedMaxChapter = 0;
+
+      if (feedData.data && feedData.data.length > 0) {
+        const chapters = feedData.data
+          .map((item: any) => parseFloat(item.attributes.chapter))
+          .filter((ch: any) => !isNaN(ch) && ch > 0);
+          
+        if (chapters.length > 0) {
+          feedMaxChapter = Math.max(...chapters);
+          console.log(`[Android Plan B] Found max chapter in MangaDex feed (across all languages): ${feedMaxChapter}`);
+        }
+      }
+
+      const finalChapter = Math.max(metaLastChapter, feedMaxChapter);
+
+      if (finalChapter > 0) {
+        console.log(`[Android Plan B] Success for "${title}": Chapter ${finalChapter} found on MangaDex.`);
+        return { chapter: finalChapter };
+      } else {
+        console.log(`[Android Plan B] MangaDex returned no valid chapter number in metadata or feed for "${title}".`);
+      }
+    }
+    return { chapter: null };
+  } catch (error) {
+    console.error('[Android Plan B] Error consulting MangaDex:', error);
+    return { chapter: null, error: 'Error connecting to MangaDex' };
+  }
 }
 
 // Função customFetch principal que interceta todos os pedidos quando no Android
@@ -271,29 +480,72 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
     }
 
     // ==========================================
-    // MANGADEX LATEST CHAPTER (GET)
+    // MANGADEX / BAKA-UPDATES LATEST CHAPTER (GET)
     // ==========================================
     if (path.startsWith('/manga/latest-chapter/') && method === 'GET') {
       const anilistId = parseInt(path.split('/latest-chapter/')[1]);
-      const media = await getAniListMediaById(anilistId, 'MANGA');
-      let latest = media?.chapters || null;
+      console.log(`[Android API Bridge] Intercepting /manga/latest-chapter/${anilistId}`);
       
-      // Tentar buscar do MangaDex diretamente via fetch no frontend
-      try {
-        const title = media?.title?.english || media?.title?.romaji || '';
-        if (title) {
-          const mdRes = await fetch(`https://api.mangadex.org/manga?title=${encodeURIComponent(title)}&limit=5`);
-          const mdData = await mdRes.json();
-          const match = mdData?.data?.[0];
-          if (match?.attributes?.lastChapter) {
-            const ch = parseFloat(match.attributes.lastChapter);
-            if (!isNaN(ch) && ch > (latest || 0)) latest = ch;
+      const media = await getAniListMediaById(anilistId, 'MANGA');
+      if (!media) {
+        console.log(`[Android API Bridge] Media not found on AniList for ID ${anilistId}`);
+        return createJsonResponse({ latest: null, error: 'Manga not found on AniList' }, 404);
+      }
+
+      const title = media.title?.english || media.title?.romaji || media.title?.native || '';
+      console.log(`[Android API Bridge] Target Title: "${title}", Status: ${media.status}, AniList Chapters: ${media.chapters}`);
+
+      let latest: number | null = null;
+      let errorMsg: string | undefined;
+      let source = 'AniList';
+      let breakdown: { label: string, chapters: number }[] = [];
+
+      if (media.status === 'FINISHED' && media.chapters && media.chapters > 0) {
+        console.log(`[Android API Bridge] "${title}" is already FINISHED on AniList. Using official total: ${media.chapters} chapters.`);
+        latest = media.chapters;
+        
+        console.log(`[Android API Bridge] Consulting Baka-Updates for season breakdown of "${title}"...`);
+        const bakaRes = await getLatestChapterFromBakaUpdates_Android(title, media);
+        if (bakaRes && bakaRes.breakdown) {
+          breakdown = bakaRes.breakdown;
+        }
+      } else {
+        console.log(`[Android API Bridge] Consulting Baka-Updates (Plan A) for "${title}"...`);
+        const bakaRes = await getLatestChapterFromBakaUpdates_Android(title, media);
+        if (bakaRes && bakaRes.chapter) {
+          latest = bakaRes.chapter;
+          breakdown = bakaRes.breakdown || [];
+          source = 'Baka-Updates';
+        }
+        
+        if (!latest) {
+          console.log(`[Android API Bridge] Baka-Updates did not provide a valid chapter count for "${title}". Switching to MangaDex (Plan B)...`);
+          const mdResult = await getLatestChapterFromMangaDex_Android(anilistId, title, media);
+          latest = mdResult.chapter;
+          errorMsg = mdResult.error;
+          if (latest) {
+            source = 'MangaDex';
           }
         }
-      } catch {
-        // ignore
       }
-      return createJsonResponse({ latest, source: latest === media?.chapters ? 'AniList' : 'MangaDex' });
+
+      if (latest) {
+        // Atualizar na base de dados local do Dexie se existir
+        try {
+          const existe = await localDb.mangas.where('mangaId').equals(anilistId).first();
+          if (existe && existe.id !== undefined) {
+            await localDb.mangas.update(existe.id, { numCapitulosTotal: latest });
+            console.log(`[Android API Bridge] Updated localDb manga ${existe.id} with numCapitulosTotal: ${latest}`);
+          } else {
+            console.log(`[Android API Bridge] Manga "${title}" (ID ${anilistId}) is an external item not saved in localDb. Progress obtained: ${latest} (${source})`);
+          }
+        } catch (dbErr) {
+          console.error('[Android API Bridge] Error updating localDb:', dbErr);
+        }
+      }
+
+      console.log(`[Android API Bridge] Returning result for "${title}": latest=${latest}, source=${source}, error=${errorMsg || 'none'}, breakdown=${breakdown.length} items`);
+      return createJsonResponse({ latest, error: errorMsg, source, breakdown });
     }
 
     // ==========================================

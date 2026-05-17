@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { UserPlus, Mail, Lock, User, Loader2 } from 'lucide-react';
 
 import { API_BASE_URL } from '../config';
+import { customFetch } from '../services/apiBridge';
 
 const RegisterPage: React.FC = () => {
   const [nome, setNome] = useState('');
@@ -20,7 +21,7 @@ const RegisterPage: React.FC = () => {
     setError('');
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      const response = await customFetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nome, email, password }),

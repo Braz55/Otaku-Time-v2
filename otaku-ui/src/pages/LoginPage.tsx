@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { LogIn, Mail, Lock, Loader2 } from 'lucide-react';
 
 import { API_BASE_URL } from '../config';
+import { customFetch } from '../services/apiBridge';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -19,7 +20,7 @@ const LoginPage: React.FC = () => {
     setError('');
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const response = await customFetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

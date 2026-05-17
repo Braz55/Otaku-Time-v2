@@ -90,4 +90,190 @@ export class SyncService {
       currentItemTitle: this.currentItemTitle
     };
   }
+
+  async handleTwoWaySync(body: any) {
+    this.logger.log(`Received Two-Way Sync request from ${body.deviceInfo}. Merging databases...`);
+    const { clientAnimes, clientMangas } = body;
+    
+    const userId = 1;
+
+    try {
+      // 1. Process Animes from Mobile -> PC
+      if (clientAnimes && clientAnimes.length > 0) {
+        for (const localAnime of clientAnimes) {
+          await this.prisma.anime.upsert({
+            where: { id: localAnime.animeId },
+            update: {
+              titulo: localAnime.titulo,
+              statusLancamento: localAnime.statusLancamento,
+              capaUrl: localAnime.capaUrl,
+              generos: localAnime.generos,
+              descricao: localAnime.descricao,
+              numEpisodiosTotal: localAnime.numEpisodiosTotal,
+              temporada: localAnime.temporada,
+              ano: localAnime.ano,
+              linksExternos: localAnime.linksExternos,
+              proximoEpisodio: localAnime.proximoEpisodio,
+              proximoEpisodioData: localAnime.proximoEpisodioData ? new Date(localAnime.proximoEpisodioData) : null
+            },
+            create: {
+              id: localAnime.animeId,
+              titulo: localAnime.titulo,
+              statusLancamento: localAnime.statusLancamento,
+              capaUrl: localAnime.capaUrl,
+              generos: localAnime.generos,
+              descricao: localAnime.descricao,
+              numEpisodiosTotal: localAnime.numEpisodiosTotal,
+              temporada: localAnime.temporada,
+              ano: localAnime.ano,
+              linksExternos: localAnime.linksExternos,
+              proximoEpisodio: localAnime.proximoEpisodio,
+              proximoEpisodioData: localAnime.proximoEpisodioData ? new Date(localAnime.proximoEpisodioData) : null
+            }
+          });
+
+          const existingUserAnime = await this.prisma.userAnime.findUnique({
+            where: { userId_animeId: { userId, animeId: localAnime.animeId } }
+          });
+
+          const newEpAtual = existingUserAnime ? Math.max(existingUserAnime.epAtual, localAnime.epAtual) : localAnime.epAtual;
+
+          await this.prisma.userAnime.upsert({
+            where: { userId_animeId: { userId, animeId: localAnime.animeId } },
+            update: {
+              epAtual: newEpAtual,
+              status: localAnime.status,
+              prioridade: localAnime.prioridade || 5,
+              linksPersonalizados: localAnime.linksPersonalizados
+            },
+            create: {
+              userId,
+              animeId: localAnime.animeId,
+              epAtual: localAnime.epAtual,
+              status: localAnime.status,
+              prioridade: localAnime.prioridade || 5,
+              linksPersonalizados: localAnime.linksPersonalizados
+            }
+          });
+        }
+      }
+
+      // 2. Process Mangas from Mobile -> PC
+      if (clientMangas && clientMangas.length > 0) {
+        for (const localManga of clientMangas) {
+          await this.prisma.manga.upsert({
+            where: { id: localManga.mangaId },
+            update: {
+              titulo: localManga.titulo,
+              statusLancamento: localManga.statusLancamento,
+              capaUrl: localManga.capaUrl,
+              generos: localManga.generos,
+              descricao: localManga.descricao,
+              numCapitulosTotal: localManga.numCapitulosTotal,
+              linksExternos: localManga.linksExternos,
+              proximoCapituloNumero: localManga.proximoCapituloNumero,
+              proximoCapituloData: localManga.proximoCapituloData ? new Date(localManga.proximoCapituloData) : null
+            },
+            create: {
+              id: localManga.mangaId,
+              titulo: localManga.titulo,
+              statusLancamento: localManga.statusLancamento,
+              capaUrl: localManga.capaUrl,
+              generos: localManga.generos,
+              descricao: localManga.descricao,
+              numCapitulosTotal: localManga.numCapitulosTotal,
+              linksExternos: localManga.linksExternos,
+              proximoCapituloNumero: localManga.proximoCapituloNumero,
+              proximoCapituloData: localManga.proximoCapituloData ? new Date(localManga.proximoCapituloData) : null
+            }
+          });
+
+          const existingUserManga = await this.prisma.userManga.findUnique({
+            where: { userId_mangaId: { userId, mangaId: localManga.mangaId } }
+          });
+
+          const newCapAtual = existingUserManga ? Math.max(existingUserManga.capAtual, localManga.capAtual) : localManga.capAtual;
+
+          await this.prisma.userManga.upsert({
+            where: { userId_mangaId: { userId, mangaId: localManga.mangaId } },
+            update: {
+              capAtual: newCapAtual,
+              status: localManga.status,
+              prioridade: localManga.prioridade || 5,
+              linksPersonalizados: localManga.linksPersonalizados
+            },
+            create: {
+              userId,
+              mangaId: localManga.mangaId,
+              capAtual: localManga.capAtual,
+              status: localManga.status,
+              prioridade: localManga.prioridade || 5,
+              linksPersonalizados: localManga.linksPersonalizados
+            }
+          });
+        }
+      }
+
+      // 3. Fetch combined database from PC to send back to Mobile
+      const serverUserAnimes = await this.prisma.userAnime.findMany({
+        where: { userId },
+        include: { anime: true }
+      });
+      const serverUserMangas = await this.prisma.userManga.findMany({
+        where: { userId },
+        include: { manga: true }
+      });
+
+      const mergedAnimes = serverUserAnimes.map(ua => ({
+        id: ua.animeId,
+        userId: ua.userId,
+        animeId: ua.animeId,
+        titulo: ua.anime.titulo,
+        statusLancamento: ua.anime.statusLancamento || '',
+        capaUrl: ua.anime.capaUrl || '',
+        generos: ua.anime.generos || '',
+        descricao: ua.anime.descricao || '',
+        status: ua.status,
+        epAtual: ua.epAtual,
+        numEpisodiosTotal: ua.anime.numEpisodiosTotal,
+        temporada: ua.anime.temporada,
+        ano: ua.anime.ano,
+        prioridade: ua.prioridade,
+        linksExternos: ua.anime.linksExternos,
+        linksPersonalizados: ua.linksPersonalizados,
+        proximoEpisodio: ua.anime.proximoEpisodio,
+        proximoEpisodioData: ua.anime.proximoEpisodioData ? ua.anime.proximoEpisodioData.toISOString() : null,
+      }));
+
+      const mergedMangas = serverUserMangas.map(um => ({
+        id: um.mangaId,
+        userId: um.userId,
+        mangaId: um.mangaId,
+        titulo: um.manga.titulo,
+        statusLancamento: um.manga.statusLancamento || '',
+        capaUrl: um.manga.capaUrl || '',
+        generos: um.manga.generos || '',
+        descricao: um.manga.descricao || '',
+        status: um.status,
+        capAtual: um.capAtual,
+        numCapitulosTotal: um.manga.numCapitulosTotal,
+        prioridade: um.prioridade,
+        linksExternos: um.manga.linksExternos,
+        linksPersonalizados: um.linksPersonalizados,
+        proximoCapituloNumero: um.manga.proximoCapituloNumero,
+        proximoCapituloData: um.manga.proximoCapituloData ? um.manga.proximoCapituloData.toISOString() : null,
+      }));
+
+      this.logger.log(`Two-Way Sync complete! Returning ${mergedAnimes.length} Animes and ${mergedMangas.length} Mangas.`);
+
+      return {
+        success: true,
+        animes: mergedAnimes,
+        mangas: mergedMangas
+      };
+    } catch (err) {
+      this.logger.error('Error during two-way sync:', err);
+      return { success: false, error: err.message };
+    }
+  }
 }

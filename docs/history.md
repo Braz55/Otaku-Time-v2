@@ -122,11 +122,20 @@ Iniciámos a implementação do assistente virtual inteligente do OtakuTime, uti
 
 ## 3. Próximos Passos (UI/UX)
 *   **Interface de Chat:** Criação da página de chat no React com suporte a histórico de mensagens e design "Premium".
-*   **Streaming de Respostas:** (Opcional) Implementação de streaming para que as letras apareçam em tempo real.#   R o a d m a p :   C h a t b o t   P r o g r e s s 
- -   D a t a b a s e   p e r s i s t e n c e   e n a b l e d 
- -   C o n t e x t u a l   m e m o r y   a d d e d 
- -   I n t e r a c t i v e   c a r d s   i n f r a s t r u c t u r e   r e a d y 
- 
- # #   T o - D o   N e x t 
- 1 .   D e b u g   A I   f o r m a t t i n g 
- 2 .   A d d   W e b   S e a r c h 
+*   **Streaming de Respostas:** Implementação de streaming para que as letras apareçam em tempo real.
+
+# 📱 Atualização: Otimização Mobile (Android) & Sincronização Bidirecional
+
+Finalizámos a experiência móvel no Android e preparámos toda a infraestrutura para sincronização de dados entre plataformas (PC e Telemóvel).
+
+## 1. Otimizações Exclusivas Mobile (Capacitor)
+*   **Limpeza de Interface:** Remoção da barra de filtros por género na pesquisa da versão Android para maximizar a área útil de ecrã, mantendo a versão Web/PC intocada via `Capacitor.isNativePlatform()`.
+*   **Calendário Responsivo:** Refatoração do seletor de datas no Calendário para um formato compacto adaptado a ecrãs móveis, eliminando problemas de transbordamento horizontal.
+
+## 2. Página de Perfil & Definições (/profile)
+*   **Centro de Controlo Premium:** Nova página com design de nível profissional, estatísticas de armazenamento local (Dexie DB) em tempo real e gestão de conta.
+*   **Seleção de Modo de Ligação:** Suporte a múltiplos modos de sincronização com o PC: **Wi-Fi (Rede Local)**, **Cabo USB (ADB Reverse)** e **Cloud Server**.
+
+## 3. Motor de Sincronização Bidirecional (Backend NestJS)
+*   **Endpoint de Sincronização:** Criação da rota `POST /sync/twoway` no `SyncController`.
+*   **Fusão Inteligente (Merge):** O `SyncService` analisa os itens offline enviados pelo telemóvel, utiliza operações de `upsert` no Prisma para atualizar o catálogo global e o progresso do utilizador sem duplicação de dados, e devolve a base de dados perfeitamente combinada para atualizar o armazenamento local do telemóvel.

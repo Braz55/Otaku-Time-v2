@@ -172,3 +172,11 @@ O Prisma (schema.prisma): É o tradutor. Ele traduz o que escreves em TypeScript
 O DTO (O "Contrato"): É a regra que diz: "Para criar um utilizador, preciso de Nome, Email e Password".
 
 O Service (user.service.ts): É o motor que recebe o DTO e diz ao Prisma: "Guarda isto!".
+
+## 📱 Ecossistema Mobile & Sincronização Bidirecional (Two-Way Sync)
+O projeto conta agora com suporte completo a dispositivos Android via **Capacitor** e uma infraestrutura robusta de sincronização de dados:
+
+* **Offline-First (Dexie DB):** O telemóvel guarda animes e mangas localmente via IndexedDB, permitindo navegação, pesquisa e gestão de biblioteca sem ligação à internet.
+* **Otimização de Interface Mobile:** Através de `Capacitor.isNativePlatform()`, a interface adapta-se dinamicamente, removendo elementos visuais redundantes (ex: barra de filtros por género) e ajustando componentes complexos (ex: Calendário) para ecrãs móveis, mantendo a versão de PC intocada.
+* **Página de Perfil & Definições (`/profile`):** Centro de controlo com estatísticas de armazenamento local em tempo real e seleção de modos de ligação (**Wi-Fi Local**, **Cabo USB/ADB** ou **Cloud**).
+* **Motor de Fusão Inteligente (NestJS):** O endpoint `POST /sync/twoway` recebe os dados locais do telemóvel, executa operações de `upsert` na base de dados Prisma do servidor para combinar alterações de ambas as partes sem perda de progresso, e devolve a base de dados unificada para atualizar o telemóvel.

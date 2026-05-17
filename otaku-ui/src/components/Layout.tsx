@@ -59,12 +59,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </button>
         </nav>
         <div className="pt-6 border-t border-white/5">
-          <div className="flex items-center gap-3 px-2">
-            <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container overflow-hidden">
+          <div className="flex items-center gap-3 px-2 cursor-pointer group" onClick={() => navigate('/profile')}>
+            <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container overflow-hidden group-hover:scale-105 transition-transform shadow-md">
               <span className="material-symbols-outlined">person</span>
             </div>
             <div>
-              <p className="font-label-md text-label-md text-on-surface">Enthusiast</p>
+              <p className="font-label-md text-label-md text-on-surface group-hover:text-primary transition-colors">Enthusiast</p>
               <p className="text-xs text-on-surface-variant">Pro Member</p>
             </div>
           </div>

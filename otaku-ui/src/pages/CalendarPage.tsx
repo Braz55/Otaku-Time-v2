@@ -6,6 +6,8 @@ import { ChevronLeft, Calendar as CalendarIcon, Clock, ExternalLink } from 'luci
 import { format, isSameDay, startOfToday, addDays, eachDayOfInterval } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 import { API_BASE_URL } from '../config';
+import { customFetch } from '../services/apiBridge';
+import { Capacitor } from '@capacitor/core';
 
 interface AiringAnime {
   id: number;
@@ -33,8 +35,8 @@ const CalendarPage = () => {
     setLoading(true);
     try {
       const [animeRes, mangaRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/anime`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`${API_BASE_URL}/manga`, { headers: { 'Authorization': `Bearer ${token}` } })
+        customFetch(`${API_BASE_URL}/anime`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        customFetch(`${API_BASE_URL}/manga`, { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
       
       const animeData = await animeRes.json();
@@ -65,51 +67,70 @@ const CalendarPage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-[#0f1014] text-gray-200 p-6 font-sans">
+    <div className="min-h-screen bg-[#0f1014] text-gray-200 p-3 sm:p-6 font-sans">
       <div className="max-w-6xl mx-auto">
-        <header className="mb-10">
+        <header className="mb-6 sm:mb-10">
           <button 
             onClick={() => navigate('/')}
-            className="mb-6 flex items-center gap-2 text-gray-400 hover:text-white transition-colors group"
+            className="mb-4 sm:mb-6 flex items-center gap-2 text-gray-400 hover:text-white transition-colors group text-sm sm:text-base font-bold"
           >
             <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
             Back to Home
           </button>
           
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-purple-600/20 rounded-2xl border border-purple-500/20">
-              <CalendarIcon className="w-8 h-8 text-purple-400" />
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="p-2 sm:p-3 bg-purple-600/20 rounded-xl sm:rounded-2xl border border-purple-500/20 flex-shrink-0">
+              <CalendarIcon className="w-6 h-6 sm:w-8 sm:h-8 text-purple-400" />
             </div>
-            <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent truncate">
                 Release Calendar
               </h1>
-              <p className="text-gray-500 mt-1">Track upcoming episodes and chapters from your library</p>
+              <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1 truncate">Track upcoming episodes and chapters from your library</p>
             </div>
           </div>
         </header>
 
         {/* Date Selector */}
-        <div className="flex gap-4 mb-12 overflow-x-auto pb-4 scrollbar-hide">
+        <div className="flex gap-1.5 sm:gap-4 mb-6 sm:mb-12 overflow-x-auto pb-2 sm:pb-4 scrollbar-hide w-full max-w-full px-1">
           {days.map((day) => {
             const isSelected = isSameDay(day, selectedDate);
-            return (
+            return Capacitor.isNativePlatform() ? (
+              /* VERSÃO ANDROID NATIVA: Botões mais compactos para caberem perfeitamente no ecrã mobile sem expandir limites */
               <button
                 key={day.toString()}
                 onClick={() => setSelectedDate(day)}
-                className={`flex-shrink-0 flex flex-col items-center justify-center w-24 h-28 rounded-2xl border transition-all ${
+                className={`flex-shrink-0 flex flex-col items-center justify-center w-11 h-14 rounded-xl border transition-all ${
+                  isSelected 
+                    ? 'bg-purple-600 border-purple-400 text-white shadow-md shadow-purple-900/30 scale-105' 
+                    : 'bg-[#1a1c23] border-gray-800 text-gray-500 hover:border-gray-600'
+                }`}
+              >
+                <span className="text-[9px] uppercase font-bold tracking-tight mb-0.5">
+                  {format(day, 'EEE', { locale: enUS })}
+                </span>
+                <span className="text-base font-bold">
+                  {format(day, 'd')}
+                </span>
+              </button>
+            ) : (
+              /* VERSÃO WEB PC: Layout original intocado */
+              <button
+                key={day.toString()}
+                onClick={() => setSelectedDate(day)}
+                className={`flex-shrink-0 flex flex-col items-center justify-center w-16 sm:w-24 h-20 sm:h-28 rounded-xl sm:rounded-2xl border transition-all ${
                   isSelected 
                     ? 'bg-purple-600 border-purple-400 text-white shadow-lg shadow-purple-900/30 scale-105' 
                     : 'bg-[#1a1c23] border-gray-800 text-gray-500 hover:border-gray-600'
                 }`}
               >
-                <span className="text-xs uppercase font-bold tracking-widest mb-1">
+                <span className="text-[10px] sm:text-xs uppercase font-bold tracking-widest mb-0.5 sm:mb-1">
                   {format(day, 'EEE', { locale: enUS })}
                 </span>
-                <span className="text-2xl font-bold">
+                <span className="text-lg sm:text-2xl font-bold">
                   {format(day, 'd')}
                 </span>
-                <span className="text-[10px] uppercase font-medium mt-1">
+                <span className="text-[9px] sm:text-[10px] uppercase font-medium mt-0.5 sm:mt-1">
                   {format(day, 'MMMM', { locale: enUS })}
                 </span>
               </button>
@@ -124,42 +145,42 @@ const CalendarPage = () => {
           </div>
         ) : (
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold flex items-center gap-3">
-              <span className="w-1.5 h-6 bg-purple-500 rounded-full"></span>
+            <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-3 px-1 sm:px-0">
+              <span className="w-1.5 h-5 sm:h-6 bg-purple-500 rounded-full"></span>
               Releases for {isSameDay(selectedDate, startOfToday()) ? 'Today' : format(selectedDate, "EEEE, MMMM d", { locale: enUS })}
             </h2>
 
             {itemsOnSelectedDay.length > 0 ? (
-              <div className="grid gap-4">
+              <div className="grid gap-3 sm:gap-4">
                 {itemsOnSelectedDay.map((item: any) => (
                   <div 
                     key={`${item.type}-${item.id}`}
-                    className="bg-[#1a1c23] border border-gray-800 rounded-2xl p-4 flex items-center gap-6 hover:border-purple-500/30 transition-all group"
+                    className="bg-[#1a1c23] border border-gray-800 rounded-xl sm:rounded-2xl p-3 sm:p-4 flex items-center gap-4 sm:gap-6 hover:border-purple-500/30 transition-all group"
                   >
-                    <div className="w-20 h-28 rounded-xl overflow-hidden flex-shrink-0">
+                    <div className="w-16 sm:w-20 h-24 sm:h-28 rounded-lg sm:rounded-xl overflow-hidden flex-shrink-0">
                       <img src={item.capaUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={item.titulo} />
                     </div>
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-md mb-1 inline-block ${item.type === 'anime' ? 'bg-purple-500/20 text-purple-400' : 'bg-pink-500/20 text-pink-400'}`}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start mb-1 sm:mb-2 gap-2">
+                        <div className="min-w-0">
+                          <span className={`text-[9px] sm:text-[10px] uppercase font-bold px-2 py-0.5 rounded-md mb-1 inline-block ${item.type === 'anime' ? 'bg-purple-500/20 text-purple-400' : 'bg-pink-500/20 text-pink-400'}`}>
                             {item.type}
                           </span>
-                          <h3 className="text-xl font-bold group-hover:text-purple-400 transition-colors">{item.titulo}</h3>
+                          <h3 className="text-base sm:text-xl font-bold group-hover:text-purple-400 transition-colors truncate">{item.titulo}</h3>
                         </div>
-                        <span className={`${item.type === 'anime' ? 'bg-purple-600/10 text-purple-400 border-purple-500/20' : 'bg-pink-600/10 text-pink-400 border-pink-500/20'} px-3 py-1 rounded-full text-xs font-bold border`}>
+                        <span className={`${item.type === 'anime' ? 'bg-purple-600/10 text-purple-400 border-purple-500/20' : 'bg-pink-600/10 text-pink-400 border-pink-500/20'} px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold border flex-shrink-0`}>
                           {item.type === 'anime' ? 'EP' : 'CH'} {item.displayNum}
                         </span>
                       </div>
-                      <div className="flex items-center gap-6 text-gray-500 text-sm">
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4" />
+                      <div className="flex items-center gap-4 text-gray-500 text-xs sm:text-sm">
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                          <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                           <span>Broadcast at {format(new Date(item.displayDate), 'HH:mm')}</span>
                         </div>
                       </div>
                     </div>
-                    <button className="p-3 bg-gray-800 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity">
-                      <ExternalLink className="w-5 h-5" />
+                    <button className="p-2 sm:p-3 bg-gray-800 rounded-lg sm:rounded-xl opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
+                      <ExternalLink className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                   </div>
                 ))}

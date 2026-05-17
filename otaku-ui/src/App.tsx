@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import CalendarPage from './pages/CalendarPage';
 import ChatPage from './pages/ChatPage';
+import ProfilePage from './pages/ProfilePage';
 import Layout from './components/Layout';
 
 // Protected Route Component
@@ -38,6 +39,14 @@ function App() {
           element={
             <ProtectedRoute>
               <ChatPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/profile" 
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
             </ProtectedRoute>
           } 
         />

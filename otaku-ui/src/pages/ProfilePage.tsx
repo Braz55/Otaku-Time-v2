@@ -356,19 +356,19 @@ const ProfilePage = () => {
                         className="flex-1 bg-surface px-4 py-3 rounded-xl border border-white/10 text-white font-mono text-sm focus:border-purple-500 outline-none transition-all"
                       />
                     </div>
-                    <p className="text-xs text-on-surface-variant">Check your PC terminal with <code className="bg-white/10 px-1.5 py-0.5 rounded text-white">ipconfig</code> to get your IPv4 address.</p>
+                    <p className="text-xs text-on-surface-variant">Enter your PC's local IP address on your home Wi-Fi network.</p>
                   </div>
                 )}
 
                 {syncMode === 'usb' && (
                   <div className="space-y-2 animate-in fade-in duration-300">
                     <label className="text-xs font-bold text-purple-400 uppercase tracking-widest flex items-center gap-1.5">
-                      <Usb className="w-3.5 h-3.5" /> USB Bridge Active
+                      <Usb className="w-3.5 h-3.5" /> USB Cable Connection
                     </label>
                     <div className="p-4 rounded-xl bg-surface border border-white/10 text-sm text-gray-300 font-mono">
                       http://localhost:3001
                     </div>
-                    <p className="text-xs text-on-surface-variant">Ensure you ran <code className="bg-white/10 px-1.5 py-0.5 rounded text-white">adb reverse tcp:3001 tcp:3001</code> in your PC terminal.</p>
+                    <p className="text-xs text-on-surface-variant">Connected directly via USB cable bridge.</p>
                   </div>
                 )}
 

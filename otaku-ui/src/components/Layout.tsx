@@ -34,6 +34,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* SideNavBar Anchor */}
       <aside className="hidden lg:flex flex-col h-screen fixed left-0 top-0 p-6 space-y-8 w-64 bg-surface-container-low border-r border-white/5 shadow-xl z-50">
         <div className="flex items-center gap-3 px-2 cursor-pointer" onClick={handleShowDashboard}>
+          <img src="/logo.png" className="w-9 h-9 rounded-xl shadow-lg border border-white/10 object-cover" alt="Logo" />
           <span className="text-headline-lg font-display-lg bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent font-black tracking-tight">Otaku-Time</span>
         </div>
         <nav className="flex-1 space-y-2">
@@ -79,7 +80,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           onShowFavorites={handleShowFavorites}
           onShowDashboard={handleShowDashboard}
         />
-        <main className="flex-1">
+        <main className="flex-1 relative z-0">
           {children}
         </main>
       </div>

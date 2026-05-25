@@ -545,7 +545,20 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
         newItem.proximoEpisodio = aniListData.nextAiringEpisode?.episode;
         newItem.proximoEpisodioData = aniListData.nextAiringEpisode ? new Date(aniListData.nextAiringEpisode.airingAt * 1000).toISOString() : null;
       } else {
-        newItem.numCapitulosTotal = aniListData.chapters;
+        let totalCaps = aniListData.chapters;
+        if (!totalCaps) {
+          const titleToSearch = aniListData.title.english || aniListData.title.romaji || aniListData.title.native;
+          const bakaRes = await getLatestChapterFromBakaUpdates_Android(titleToSearch, aniListData);
+          if (bakaRes && bakaRes.chapter) {
+            totalCaps = bakaRes.chapter;
+          } else {
+            const mdRes = await getLatestChapterFromMangaDex_Android(mediaId, titleToSearch, aniListData);
+            if (mdRes && mdRes.chapter) {
+              totalCaps = mdRes.chapter;
+            }
+          }
+        }
+        newItem.numCapitulosTotal = totalCaps;
       }
 
       const newId = await table.add(newItem);

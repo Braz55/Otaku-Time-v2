@@ -8,6 +8,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.webkit.CookieManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -31,13 +32,13 @@ public class MangaWebViewPlugin extends Plugin {
     private Dialog dialog;
     private WebView webView;
 
-    // Lista nativa de palavras-chave/redes de anúncios para bloquear instantaneamente
+    // Lista nativa de domínios de anúncios exatos (evitando palavras genéricas como 'ads' ou 'track' que bloqueiam pastas de imagens como /uploads/)
     private static final String[] AD_HOSTS = {
         "googleads", "doubleclick", "googlesyndication", "adservice", "adsystem",
         "popads", "popunder", "taboola", "outbrain", "exoclick", "propellerads",
         "adsterra", "yllix", "hilltopads", "infolinks", "revenuehits", "betano",
-        "bwin", "betclic", "casino", "1xbet", "apostas", "gamble", "track", "analytics",
-        "ads", "banner", "popup", "sponsor"
+        "bwin", "betclic", "casino", "1xbet", "apostas", "gamble", "googletagmanager",
+        "mgid.com", "adcash.com", "onclickmega", "poptab.net"
     };
 
     @PluginMethod
@@ -49,10 +50,9 @@ public class MangaWebViewPlugin extends Plugin {
             call.reject("URL is required");
             return;
         }
-
         getActivity().runOnUiThread(() -> {
-            Context context = getContext();
-            dialog = new Dialog(context, android.R.style.Theme_NoTitleBar);
+            Context context = getActivity(); // Usa o contexto da Activity para evitar WindowManager$BadTokenException
+            dialog = new Dialog(context, android.R.style.Theme_DeviceDefault_Light_NoActionBar_Fullscreen);
             dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
 
             // Layout Principal (Vertical)
@@ -115,6 +115,17 @@ public class MangaWebViewPlugin extends Plugin {
             settings.setJavaScriptEnabled(true);
             settings.setDomStorageEnabled(true);
             settings.setDatabaseEnabled(true);
+            settings.setAllowFileAccess(true);
+            settings.setAllowContentAccess(true);
+            settings.setLoadsImagesAutomatically(true);
+            settings.setBlockNetworkImage(false);
+            settings.setBlockNetworkLoads(false);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+                CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
+            }
+            settings.setUserAgentString("Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
             settings.setSupportZoom(true);
             settings.setBuiltInZoomControls(true);
             settings.setDisplayZoomControls(false);
@@ -150,7 +161,9 @@ public class MangaWebViewPlugin extends Plugin {
             if (window != null) {
                 window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
                 window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-                window.setStatusBarColor(Color.parseColor("#111827"));
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    window.setStatusBarColor(Color.parseColor("#111827"));
+                }
             }
 
             dialog.show();

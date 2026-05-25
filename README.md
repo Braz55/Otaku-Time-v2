@@ -1,46 +1,90 @@
-# Otaku Time Pro
+# 🤖 Otaku Time Pro (v2.0)
 
-O teu gestor inteligente de Anime & Manga, alimentado por Inteligência Artificial.
+O teu gestor inteligente de Anime & Manga, alimentado por Inteligência Artificial (LLM Local) e com arquitetura robusta Offline-First para desktop e telemóvel.
 
-Otaku Time é uma plataforma Fullstack concebida para entusiastas que procuram mais do que uma simples lista. É um ecossistema que organiza, converte fusos horários e utiliza LLMs (Large Language Models) para monitorizar lançamentos, especialmente de obras underground onde a informação é escassa.
+O **Otaku Time Pro** é um ecossistema Fullstack concebido para entusiastas que procuram organizar as suas bibliotecas de anime e manga, visualizar calendários de lançamentos com fuso horário local e interagir com um assistente virtual especialista que conhece os seus gostos em tempo real.
 
+---
 
-## Diferenciais do Projeto
-IA-Powered Tracking: Integração com o modelo Llama para extração e limpeza de metadados de transmissões JST (Japan Standard Time).
+## 🚀 Principais Diferenciais e Funcionalidades
 
-Smart Timezone Conversion: Converte automaticamente as estreias japonesas para o horário local (Portugal/Brasil), garantindo que nunca perdes um episódio.
+### 📱 1. Ecossistema Mobile & Offline-First (Android via Capacitor)
+* **Offline-First (Dexie DB):** O telemóvel guarda o teu progresso de animes, mangas e chats localmente via **IndexedDB (Dexie DB)**, permitindo navegação, pesquisa e gestão de biblioteca mesmo sem qualquer ligação à internet.
+* **Layout Responsivo Adaptativo:** Através de `Capacitor.isNativePlatform()`, o frontend deteta se está num dispositivo móvel e ajusta a UI dinamicamente (ocultando filtros redundantes, adaptando o calendário para ecrãs menores e otimizando a barra de pesquisa), mantendo a versão desktop intocada.
 
-Gestão de Prioridades: Sistema de ordenação personalizado para mangas, resolvendo as limitações das plataformas tradicionais.
+### 🔄 2. Sincronização Bidirecional Inteligente (Two-Way Sync)
+* **Fusão Sem Perdas:** O endpoint `/sync/twoway` no servidor NestJS recebe os dados do telemóvel e executa uma lógica inteligente de `upsert` na base de dados SQLite através do Prisma, comparando o progresso mais recente (ex: maior número de episódios/capítulos lidos) e fundindo as duas bases de dados numa versão unificada que atualiza o dispositivo móvel.
+* **Múltiplos Modos de Ligação:** Centro de controlo configurável na página de perfil (`/profile`) com estatísticas de armazenamento local em tempo real e suporte para ligação via **Wi-Fi (Rede Local)**, **Cabo USB (ADB Reverse)** ou **Cloud Server**.
 
-Arquitetura Moderna: Desenvolvido com uma separação clara entre Backend (NestJS), Frontend (Next.js) e um Microserviço de IA (Python).
+### 🧠 3. Assistente de IA Local (Otaku Bot)
+* **Integração Direta com Ollama:** O assistente de recomendações foi integrado diretamente no backend NestJS (removendo a necessidade de um microserviço Python externo) e consome localmente o modelo **Llama 3.1 8B**.
+* **Recomendações Contextuais:** O bot conhece o fuso horário e a lista pessoal do utilizador, sugerindo novas obras que não estejam na sua biblioteca. Usa a API do AniList por baixo para validação semântica e devolve referências formatadas em `[REC:ID]`.
+* **Streaming SSE:** Respostas em tempo real com efeito de digitação fluida.
+* **Auto-Nomeação de Sessões:** O LLM analisa a primeira mensagem da conversa e renomeia automaticamente a sessão com um título criativo em português de 3 palavras.
 
+### 📚 4. Rastreio Inteligente de Mangas (Smart Chapter Sync)
+Resolve as limitações e inconsistências das APIs tradicionais com um sistema de rastreio de capítulos em três planos:
+* **Plan A (Baka-Updates):** Consulta o MangaUpdates para obter a contagem exata e detalhada de capítulos e divisórias de temporadas/especiais (essencial para Webtoons/Manhwas).
+* **Plan B (MangaDex):** Fallback robusto que realiza a pesquisa por ID AniList ou por título aproximado para obter a contagem mais recente do feed.
+* **Plan C (AniList):** Utilização da contagem de capítulos nativa da AniList para obras já finalizadas.
 
-## Arquitetura do Sistema
-graph LR
-    A[Frontend Next.js] -- API Requests --> B[Backend NestJS]
-    B -- Data Sync --> C[(PostgreSQL)]
-    B -- Prompting --> D[AI Microservice - Llama]
-    D -- Parsing --> E[Jikan API]
+### 📅 5. Calendário Pessoal Dinâmico
+* **Filtro Focado:** Exibe os lançamentos agendados para os próximos 7 dias.
+* **Inteligência de Lançamento:** Mapeia apenas as obras que constam na tua lista sob o estado `RELEASING`.
+* **Fusos Horários Corretos:** Extrai o timestamp de lançamento da API AniList e converte-o automaticamente do horário do Japão (JST) para o teu fuso horário local.
 
-## Tecnologias Utilizadas
-###  Back end
-NestJS: Framework Node.js progressiva para construção de aplicações eficientes.
+### 📊 6. Dashboard de Acompanhamento Premium (To-Watch/Read)
+* **Vista Dual-Column:** Separadores dedicados para "VER ASSEGUIR" (Animes) e "LER ASSEGUIR" (Mangas).
+* **Optimistic UI:** Atualiza o progresso visualmente no frontend de forma imediata ao clicar nos botões rápidos "Visto" ou "Lido", processando a sincronização com o servidor em segundo plano.
+* **Progressão Inteligente:**
+  * **Auto-Start:** Mudar o progresso de `0` para `1` altera o estado automaticamente para `WATCHING`.
+  * **Auto-Complete:** Ao atingir o último capítulo/episódio disponível, o estado é atualizado automaticamente para `COMPLETED`.
 
-TypeScript: Superset de JavaScript que adiciona tipagem estática.
+---
 
-Prisma ORM: Para gestão de base de dados e consultas seguras.
-### IA & Data
-Python: Engine para processamento de linguagem natural.
+## 🛠️ Arquitetura do Sistema
 
-Ollama/Llama 3: Modelo de linguagem local para automação de horários.
+```mermaid
+graph TD
+    subgraph Cliente [Frontend & App Móvel]
+        A[Interface React + Tailwind] <-->|Offline Cache| B[(Dexie DB - IndexedDB)]
+        A -->|Empacotamento Mobile| C[Capacitor - Android App]
+    end
+    
+    subgraph Servidor [Backend Server]
+        D[Servidor NestJS] <-->|Prisma ORM| E[(SQLite - dev.db)]
+        D <-->|LLM Local: API Generate| F[Ollama - Llama 3.1 8B]
+    end
 
-Jikan API: Wrapper oficial da base de dados MyAnimeList.
+    subgraph APIs [APIs & Fontes Externas]
+        G[AniList GraphQL API]
+        H[Baka-Updates API]
+        I[MangaDex API]
+    end
 
-## objetivo de desenvolvimento 
-Este projeto foi criado para elevar o nível de acompanhamento de mídia otaku, migrando de uma lógica de scripts simples para uma aplicação escalável e profissional, focada na experiência do utilizador e na precisão de dados.
+    A <-->|REST API / SSE Streaming / Two-Way Sync| D
+    D -->|Metadados & Lançamentos| G
+    D -->|Capítulos & Temporadas| H
+    D -->|Fallback de Capítulos| I
+```
 
-## Diagramas de classes
-:::mermaid
+### Tecnologias Utilizadas
+
+| Camada | Tecnologia | Descrição |
+| :--- | :--- | :--- |
+| **Backend** | NestJS (v11) | Framework progressivo em Node.js com TypeScript |
+| **BD & ORM** | Prisma + SQLite | Banco de dados leve e portátil com migrações simples |
+| **Frontend** | React + Vite + TailwindCSS | Interface veloz, responsiva e com estilização moderna |
+| **Offline-First** | Dexie DB | Wrapper do IndexedDB para armazenamento no telemóvel |
+| **Mobile** | Capacitor | Empacotamento híbrido de alto desempenho para Android |
+| **IA Engine** | Ollama / Llama 3.1 | Motor local para geração de texto e processamento de linguagem natural |
+| **Data Sources** | AniList / MangaUpdates / MangaDex | APIs integradas de catálogo, agenda e capítulos de manga |
+
+---
+
+## 📐 Diagrama de Classes (Base de Dados)
+
+```mermaid
 classDiagram
     class User {
         +Int id
@@ -118,65 +162,105 @@ classDiagram
     Anime "1" -- "*" UserAnime : associado
     Manga "1" -- "*" UserManga : associado
     ChatSession "1" -- "*" ChatMessage : contém
-:::
+```
 
-## guia das pastas
-### gerir pastas 
-na pasta priasma é onde ocorre as dependencias das tabelas
+---
 
-### modulos
-manga/
-├── dto/                    # (Data Transfer Objects) Define as regras do que o utilizador envia
-│   ├── create-manga.dto.ts # "Para criar um manga, preciso obrigatoriamente do título"
-│   └── update-manga.dto.ts # "Para atualizar, o título é opcional"
-├── entities/               # A classe que representa o Manga no código
-│   └── manga.entity.ts
-├── manga.controller.ts     # As ROTAS (Onde o utilizador "bate" com o pedido)
-├── manga.module.ts         # O "Cimento" que liga tudo isto
-└── manga.service.ts        # A LÓGICA (Onde o código decide o que fazer)
+## 📂 Guia de Pastas
 
-## passo a passo de construcao
+```bash
+Otaku-Time-v2/
+├── prisma/                  # Configuração do SQLite e Schema de tabelas do Prisma
+│   └── schema.prisma        # Modelo relacional principal
+├── src/                     # Backend NestJS
+│   ├── anime/               # Módulo de importação e sincronização com AniList
+│   ├── manga/               # Módulo de integração (Baka-Updates, MangaDex, AniList)
+│   ├── chat/                # Serviço de IA local (Ollama + Llama 3.1)
+│   ├── sync/                # Endpoint de Sincronização Bidirecional (/sync/twoway)
+│   └── user/ & auth/        # Gestão de utilizadores e autenticação JWT
+├── otaku-ui/                # Frontend React + Vite + Capacitor
+│   ├── android/             # Projeto nativo gerado pelo Capacitor para Android Studio
+│   ├── src/                 
+│   │   ├── pages/           # Dashboard (Home), Biblioteca, Chat, Calendário e Perfil
+│   │   ├── services/        
+│   │   │   ├── apiBridge.ts # Comunicação dinâmica entre servidor/telemóvel e offline
+│   │   │   └── localDb.ts   # Esquema do banco de dados local móvel (Dexie DB)
+│   │   └── context/         # Estados globais de navegação e biblioteca
+│   └── capacitor.config.ts  # Configuração de portas e builds do Capacitor
+```
 
-1. criar o ambiente : npx @nestjs/cli new .
-2. instalar o prima : npm install @prisma/client@6 prisma@6 --save-dev
-3. iniciar o prisma : npx prisma init --datasource-provider sqlite
-4. criar as tabelas : npx prisma db push
-5. gerar os modulos das tabelas usando rest api e Y (substituir pelo nome da tabela): npx @nestjs/cli generate resource manga --no-spec
-6. criar a ponte entre as tabelas e a bas e de dados: 6.1 npx @nestjs/cli generate module prisma         
-6.2npx @nestjs/cli generate service prisma
-7. correr o server: npm run start:dev
+---
 
-## 🧠 Motor de Recomendação (IA) - Roadmap
+## 🛠️ Passo a Passo de Configuração
 
-A funcionalidade principal do Otaku-Time-v2 será um sistema de recomendação inteligente utilizando LLMs (ex: Llama 3 / Open WebUI).
+### Requisitos Prévios
+* **Node.js** (v18 ou superior)
+* **Ollama** configurado com o modelo `llama3.1` (a correr em `http://localhost:11434`)
+* **Android Studio** (apenas para builds e deploys móveis com Capacitor)
 
-### Objetivos:
-* **Filtro de Histórico:** O LLM terá acesso aos dados do SQLite (via NestJS) para saber o que já foi lido/visto, evitando recomendações repetidas.
-* **Busca Semântica e Narrativa:** Interface para selecionar géneros, tipos de narrativa (ex: "sistemas de magia complexos", "protagonistas cinzentos") e tom da obra.
-* **RAG (Retrieval-Augmented Generation):** O sistema deverá ser capaz de pesquisar na internet por obras recentes ou menos conhecidas que se alinhem com os filtros escolhidos.
-* **Contexto Dinâmico:** O chat de recomendação deve funcionar como um "expert" que conhece o gosto do utilizador e justifica o porquê de cada sugestão.
+### 1. Configurar o Servidor (Backend)
+Na pasta raiz do projeto:
 
-## comandos uteis
-* npx prisma studio -- para ver a base de dados
-* npm run dev -- poe a correr a interface
-* npx prisma db push -- refaz a db
+1. Instalar as dependências:
+   ```bash
+   npm install
+   ```
+2. Garantir que o ficheiro `.env` está na raiz com o caminho correto do SQLite:
+   ```env
+   DATABASE_URL="file:./prisma/dev.db"
+   ```
+3. Inicializar e aplicar o esquema na base de dados:
+   ```bash
+   npx prisma db push
+   ```
+4. Arrancar o servidor backend (corre em `http://localhost:3001`):
+   ```bash
+   npm run start:dev
+   ```
 
+### 2. Configurar o Cliente (Frontend React)
+Navegar para a pasta `otaku-ui`:
 
-## 🗺️ O Mapa do Teu Projeto (O que temos até agora)
-Para o teu sistema de Mangas e IA funcionar, só precisas destas 4 peças a falar umas com as outras:
+1. Instalar as dependências:
+   ```bash
+   cd otaku-ui
+   npm install
+   ```
+2. Iniciar o servidor de desenvolvimento Vite (corre em `http://localhost:5173`):
+   ```bash
+   npm run dev
+   ```
 
-A Base de Dados (dev.db): É o ficheiro onde tudo fica guardado.
+### 3. Configurar a Aplicação Móvel (Android/Capacitor)
+Para compilar e correr a app móvel diretamente no telemóvel/emulador:
 
-O Prisma (schema.prisma): É o tradutor. Ele traduz o que escreves em TypeScript para a base de dados.
+1. Construir os estáticos do React:
+   ```bash
+   npm run build
+   ```
+2. Sincronizar os ficheiros compilados com a pasta nativa de Android:
+   ```bash
+   npx cap sync
+   ```
+3. Abrir o projeto no Android Studio para emular ou criar o ficheiro APK:
+   ```bash
+   npx cap open android
+   ```
+   *Nota: Se estiver a depurar via cabo USB no telemóvel físico, utilize o comando `adb reverse tcp:3001 tcp:3001` para que a aplicação móvel consiga aceder ao servidor backend a correr na sua máquina local.*
 
-O DTO (O "Contrato"): É a regra que diz: "Para criar um utilizador, preciso de Nome, Email e Password".
+---
 
-O Service (user.service.ts): É o motor que recebe o DTO e diz ao Prisma: "Guarda isto!".
+## 💡 Comandos Úteis
 
-## 📱 Ecossistema Mobile & Sincronização Bidirecional (Two-Way Sync)
-O projeto conta agora com suporte completo a dispositivos Android via **Capacitor** e uma infraestrutura robusta de sincronização de dados:
-
-* **Offline-First (Dexie DB):** O telemóvel guarda animes e mangas localmente via IndexedDB, permitindo navegação, pesquisa e gestão de biblioteca sem ligação à internet.
-* **Otimização de Interface Mobile:** Através de `Capacitor.isNativePlatform()`, a interface adapta-se dinamicamente, removendo elementos visuais redundantes (ex: barra de filtros por género) e ajustando componentes complexos (ex: Calendário) para ecrãs móveis, mantendo a versão de PC intocada.
-* **Página de Perfil & Definições (`/profile`):** Centro de controlo com estatísticas de armazenamento local em tempo real e seleção de modos de ligação (**Wi-Fi Local**, **Cabo USB/ADB** ou **Cloud**).
-* **Motor de Fusão Inteligente (NestJS):** O endpoint `POST /sync/twoway` recebe os dados locais do telemóvel, executa operações de `upsert` na base de dados Prisma do servidor para combinar alterações de ambas as partes sem perda de progresso, e devolve a base de dados unificada para atualizar o telemóvel.
+* **Ver a Base de Dados (Interface Visual):**
+  ```bash
+  npx prisma studio
+  ```
+* **Forçar Re-sincronização do SQLite:**
+  ```bash
+  npx prisma db push
+  ```
+* **Arrancar o Ollama com o modelo correto:**
+  ```bash
+  ollama run llama3.1
+  ```

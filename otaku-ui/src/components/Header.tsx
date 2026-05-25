@@ -17,12 +17,15 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
   return (
     <>
       {Capacitor.isNativePlatform() ? (
-        <header className="sticky top-0 z-40 w-full flex flex-col shadow-2xl border-b border-white/10 bg-background">
+        <header className="sticky top-0 z-50 w-full flex flex-col shadow-2xl border-b border-white/10 bg-background">
           {/* Barra de Cima com pt-10 para evitar colisão com a barra de notificações do Android */}
           <div className="w-full hero-gradient px-4 pt-10 pb-3 flex justify-between items-center border-b border-white/5 bg-surface/40 backdrop-blur-xl">
-            <h1 className="font-display-lg text-2xl bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent tracking-tight font-black cursor-pointer" onClick={() => navigate('/')}>
-              Otaku-Time
-            </h1>
+            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigate('/')}>
+              <img src="/logo.png" className="w-8 h-8 rounded-xl shadow-lg border border-white/10 object-cover" alt="Logo" />
+              <h1 className="font-display-lg text-2xl bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent tracking-tight font-black">
+                Otaku-Time
+              </h1>
+            </div>
             <div className="w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary overflow-hidden cursor-pointer shadow-md shadow-primary/10 hover:scale-105 transition-transform" title="Perfil & Definições" onClick={() => navigate('/profile')}>
               <span className="material-symbols-outlined text-lg">person</span>
             </div>
@@ -49,10 +52,13 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
           </div>
         </header>
       ) : (
-        <header className="sticky top-0 z-40 w-full h-16 bg-surface/60 backdrop-blur-lg border-b border-white/10 shadow-2xl flex justify-between items-center px-4 md:px-margin-desktop gap-2">
-          <h1 className="hidden sm:block lg:hidden font-display-md text-display-md bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent tracking-tight font-black cursor-pointer" onClick={() => navigate('/')}>
-            Otaku-Time
-          </h1>
+        <header className="sticky top-0 z-50 w-full h-16 bg-surface/60 backdrop-blur-lg border-b border-white/10 shadow-2xl flex justify-between items-center px-4 md:px-margin-desktop gap-2">
+          <div className="hidden sm:flex lg:hidden items-center gap-2.5 cursor-pointer" onClick={() => navigate('/')}>
+            <img src="/logo.png" className="w-8 h-8 rounded-xl shadow-lg border border-white/10 object-cover" alt="Logo" />
+            <h1 className="font-display-md text-display-md bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent tracking-tight font-black">
+              Otaku-Time
+            </h1>
+          </div>
           
           <div className="flex gap-1 md:gap-8 bg-surface-variant/40 md:bg-transparent p-1 md:p-0 rounded-full border border-white/5 md:border-none">
             <button 

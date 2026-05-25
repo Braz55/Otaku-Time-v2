@@ -53,6 +53,9 @@ const RegisterPage: React.FC = () => {
       <div className="w-full max-w-md animate-slide-up">
         <div className="bg-[#1a1c23] border border-gray-800 rounded-3xl p-8 shadow-2xl backdrop-blur-xl bg-opacity-80">
           <div className="text-center mb-8">
+            <div className="flex justify-center mb-6">
+              <img src="/logo.png" className="w-24 h-24 rounded-3xl shadow-2xl border border-white/10 object-cover" alt="Logo" />
+            </div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent mb-2">
               Create your Account
             </h1>

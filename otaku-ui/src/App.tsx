@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
@@ -7,7 +8,34 @@ import CalendarPage from './pages/CalendarPage';
 import ChatPage from './pages/ChatPage';
 import ProfilePage from './pages/ProfilePage';
 import Layout from './components/Layout';
-import DebugConsole from './components/DebugConsole';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
+
+// Listener para o botão físico / gesto de voltar no Android
+const AndroidBackButtonListener = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const subscription = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+      if (location.pathname === '/') {
+        CapacitorApp.exitApp();
+      } else if (canGoBack) {
+        navigate(-1);
+      } else {
+        navigate('/');
+      }
+    });
+
+    return () => {
+      subscription.then(sub => sub.remove());
+    };
+  }, [location, navigate]);
+
+  return null;
+};
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -18,6 +46,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 function App() {
   return (
     <Router>
+      <AndroidBackButtonListener />
       <Routes>
         <Route 
           path="/" 
@@ -55,7 +84,6 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
-      <DebugConsole />
     </Router>
   );
 }

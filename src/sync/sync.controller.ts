@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post } from '@nestjs/common';
 import { SyncService } from './sync.service';
 
 @Controller('sync')
@@ -16,9 +16,5 @@ export class SyncController {
     this.syncService.runAutoSync();
     return { message: 'Background sync started successfully' };
   }
-
-  @Post('twoway')
-  async handleTwoWaySync(@Body() body: any) {
-    return this.syncService.handleTwoWaySync(body);
-  }
 }
+

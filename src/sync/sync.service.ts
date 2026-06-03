@@ -91,130 +91,165 @@ export class SyncService {
     };
   }
 
-  async handleTwoWaySync(body: any) {
-    this.logger.log(`Received Two-Way Sync request from ${body.deviceInfo}. Merging databases...`);
-    const { clientAnimes, clientMangas } = body;
-    
-    const userId = 1;
+  async handleTwoWaySync(body: any, userId: number) {
+    this.logger.log(`Received Two-Way Sync request for user ID ${userId}. Merging databases...`);
+    const { mangasAlterados } = body;
 
     try {
-      // 1. Process Animes from Mobile -> PC
-      if (clientAnimes && clientAnimes.length > 0) {
-        for (const localAnime of clientAnimes) {
-          await this.prisma.anime.upsert({
-            where: { id: localAnime.animeId },
-            update: {
-              titulo: localAnime.titulo,
-              statusLancamento: localAnime.statusLancamento,
-              capaUrl: localAnime.capaUrl,
-              generos: localAnime.generos,
-              descricao: localAnime.descricao,
-              numEpisodiosTotal: localAnime.numEpisodiosTotal,
-              temporada: localAnime.temporada,
-              ano: localAnime.ano,
-              linksExternos: localAnime.linksExternos,
-              proximoEpisodio: localAnime.proximoEpisodio,
-              proximoEpisodioData: localAnime.proximoEpisodioData ? new Date(localAnime.proximoEpisodioData) : null
-            },
-            create: {
-              id: localAnime.animeId,
-              titulo: localAnime.titulo,
-              statusLancamento: localAnime.statusLancamento,
-              capaUrl: localAnime.capaUrl,
-              generos: localAnime.generos,
-              descricao: localAnime.descricao,
-              numEpisodiosTotal: localAnime.numEpisodiosTotal,
-              temporada: localAnime.temporada,
-              ano: localAnime.ano,
-              linksExternos: localAnime.linksExternos,
-              proximoEpisodio: localAnime.proximoEpisodio,
-              proximoEpisodioData: localAnime.proximoEpisodioData ? new Date(localAnime.proximoEpisodioData) : null
+      // 1. Process Mangas from Mobile -> PC
+      if (mangasAlterados && mangasAlterados.length > 0) {
+        for (const mobileManga of mangasAlterados) {
+          const mangaId = mobileManga.id;
+
+          // Find if user already tracks this manga on the PC
+          const userMangaPC = await this.prisma.userManga.findUnique({
+            where: { userId_mangaId: { userId, mangaId } },
+            include: { manga: true }
+          });
+
+          // 1º CADASTRAR SE NÃO EXISTE
+          if (!userMangaPC) {
+            // Check if the manga exists globally on PC
+            let mangaGlobal = await this.prisma.manga.findUnique({
+              where: { id: mangaId }
+            });
+
+            if (!mangaGlobal) {
+              // Fetch manga details from AniList to hydrate the database
+              try {
+                this.logger.log(`[Sync] Hydrating manga metadata for AniList ID ${mangaId} from AniList API...`);
+                const aniListData = await this.mangaService.searchAniListById(mangaId);
+                if (aniListData) {
+                  const linksJSON = aniListData.externalLinks ? JSON.stringify(aniListData.externalLinks) : null;
+                  let totalCaps = aniListData.chapters;
+                  const title = aniListData.title.english || aniListData.title.romaji || aniListData.title.native;
+
+                  const bakaRes = await this.mangaService.getLatestChapterFromBakaUpdates(title, aniListData);
+                  if (bakaRes && bakaRes.chapter) {
+                    totalCaps = bakaRes.chapter;
+                  } else if (aniListData.status === 'FINISHED' && aniListData.chapters && aniListData.chapters > 0) {
+                    totalCaps = aniListData.chapters;
+                  } else {
+                    const mdRes = await this.mangaService.getLatestChapterFromMangaDex(aniListData.id, title, aniListData);
+                    if (mdRes && mdRes.chapter) {
+                      totalCaps = mdRes.chapter;
+                    }
+                  }
+
+                  if (!totalCaps && aniListData.chapters) {
+                    totalCaps = aniListData.chapters;
+                  }
+
+                  mangaGlobal = await this.prisma.manga.create({
+                    data: {
+                      id: aniListData.id,
+                      titulo: title,
+                      statusLancamento: aniListData.status,
+                      generos: aniListData.genres ? aniListData.genres.join(', ') : '',
+                      descricao: aniListData.description ? aniListData.description.replace(/<[^>]*>?/gm, '') : '',
+                      numCapitulosTotal: totalCaps,
+                      capaUrl: aniListData.coverImage?.large,
+                      linksExternos: linksJSON
+                    }
+                  });
+                }
+              } catch (hydrateError) {
+                this.logger.error(`Failed to hydrate manga ${mangaId}:`, hydrateError);
+              }
             }
-          });
 
-          const existingUserAnime = await this.prisma.userAnime.findUnique({
-            where: { userId_animeId: { userId, animeId: localAnime.animeId } }
-          });
-
-          const newEpAtual = existingUserAnime ? Math.max(existingUserAnime.epAtual, localAnime.epAtual) : localAnime.epAtual;
-
-          await this.prisma.userAnime.upsert({
-            where: { userId_animeId: { userId, animeId: localAnime.animeId } },
-            update: {
-              epAtual: newEpAtual,
-              status: localAnime.status,
-              prioridade: localAnime.prioridade || 5,
-              linksPersonalizados: localAnime.linksPersonalizados
-            },
-            create: {
-              userId,
-              animeId: localAnime.animeId,
-              epAtual: localAnime.epAtual,
-              status: localAnime.status,
-              prioridade: localAnime.prioridade || 5,
-              linksPersonalizados: localAnime.linksPersonalizados
+            // Create global entry fallback if still null
+            if (!mangaGlobal) {
+              mangaGlobal = await this.prisma.manga.upsert({
+                where: { id: mangaId },
+                update: {},
+                create: {
+                  id: mangaId,
+                  titulo: `Manga #${mangaId}`,
+                  statusLancamento: 'UNKNOWN'
+                }
+              });
             }
-          });
+
+            // Create UserManga tracking entry on PC
+            await this.prisma.userManga.create({
+              data: {
+                userId,
+                mangaId,
+                capAtual: mobileManga.capAtual,
+                status: mobileManga.status,
+                prioridade: mobileManga.prioridade || 5
+              }
+            });
+          }
+          // 2º COMPARAR O PROGRESSO (Maior Capítulo Ganha Sempre)
+          else if (mobileManga.capAtual > userMangaPC.capAtual) {
+            await this.prisma.userManga.update({
+              where: { userId_mangaId: { userId, mangaId } },
+              data: {
+                capAtual: mobileManga.capAtual,
+                status: mobileManga.status,
+                prioridade: mobileManga.prioridade || 5
+              }
+            });
+          }
+          else if (mobileManga.capAtual < userMangaPC.capAtual) {
+            // O PC leu mais longe. Não fazemos nada (o telemóvel vai atualizar-se depois).
+          }
+          // 3º SE OS CAPÍTULOS FOREM IGUAIS, RESOLVER PELA TUA HIERARQUIA
+          else {
+            const pc = userMangaPC.status;      // O "1" da tua lógica
+            const mob = mobileManga.status; // O "2" da tua lógica
+
+            // Se forem iguais, não faz nada
+            if (pc === mob) {
+              // Já estão sincronizados, but let's update priority just in case
+              if (userMangaPC.prioridade !== mobileManga.prioridade) {
+                await this.prisma.userManga.update({
+                  where: { userId_mangaId: { userId, mangaId } },
+                  data: { prioridade: mobileManga.prioridade }
+                });
+              }
+            }
+            // Regra 5: 1 planeado; 2 qualquer estado -> 2 ganha
+            else if (pc === 'PLANNED') {
+              await this.prisma.userManga.update({
+                where: { userId_mangaId: { userId, mangaId } },
+                data: {
+                  status: mob,
+                  prioridade: mobileManga.prioridade || 5
+                }
+              });
+            }
+            // Regra 1, 2 e 3: 1 a ver; 2 concluído/dropado/pausado -> 2 ganha
+            else if (pc === 'WATCHING' && (mob === 'COMPLETED' || mob === 'DROPPED' || mob === 'PAUSED')) {
+              await this.prisma.userManga.update({
+                where: { userId_mangaId: { userId, mangaId } },
+                data: {
+                  status: mob,
+                  prioridade: mobileManga.prioridade || 5
+                }
+              });
+            }
+            // Regra 4: 1 pausado; 2 a ver -> 2 ganha (O telemóvel despausou a obra!)
+            else if (pc === 'PAUSED' && mob === 'WATCHING') {
+              await this.prisma.userManga.update({
+                where: { userId_mangaId: { userId, mangaId } },
+                data: {
+                  status: mob,
+                  prioridade: mobileManga.prioridade || 5
+                }
+              });
+            }
+            // Qualquer outra combinação (ex: PC está Completed e Telemóvel envia Watching)
+            else {
+              // O PC mantém-se porque o estado atual do PC tem mais "força" na hierarquia
+            }
+          }
         }
       }
 
-      // 2. Process Mangas from Mobile -> PC
-      if (clientMangas && clientMangas.length > 0) {
-        for (const localManga of clientMangas) {
-          await this.prisma.manga.upsert({
-            where: { id: localManga.mangaId },
-            update: {
-              titulo: localManga.titulo,
-              statusLancamento: localManga.statusLancamento,
-              capaUrl: localManga.capaUrl,
-              generos: localManga.generos,
-              descricao: localManga.descricao,
-              numCapitulosTotal: localManga.numCapitulosTotal,
-              linksExternos: localManga.linksExternos,
-              proximoCapituloNumero: localManga.proximoCapituloNumero,
-              proximoCapituloData: localManga.proximoCapituloData ? new Date(localManga.proximoCapituloData) : null
-            },
-            create: {
-              id: localManga.mangaId,
-              titulo: localManga.titulo,
-              statusLancamento: localManga.statusLancamento,
-              capaUrl: localManga.capaUrl,
-              generos: localManga.generos,
-              descricao: localManga.descricao,
-              numCapitulosTotal: localManga.numCapitulosTotal,
-              linksExternos: localManga.linksExternos,
-              proximoCapituloNumero: localManga.proximoCapituloNumero,
-              proximoCapituloData: localManga.proximoCapituloData ? new Date(localManga.proximoCapituloData) : null
-            }
-          });
-
-          const existingUserManga = await this.prisma.userManga.findUnique({
-            where: { userId_mangaId: { userId, mangaId: localManga.mangaId } }
-          });
-
-          const newCapAtual = existingUserManga ? Math.max(existingUserManga.capAtual, localManga.capAtual) : localManga.capAtual;
-
-          await this.prisma.userManga.upsert({
-            where: { userId_mangaId: { userId, mangaId: localManga.mangaId } },
-            update: {
-              capAtual: newCapAtual,
-              status: localManga.status,
-              prioridade: localManga.prioridade || 5,
-              linksPersonalizados: localManga.linksPersonalizados
-            },
-            create: {
-              userId,
-              mangaId: localManga.mangaId,
-              capAtual: localManga.capAtual,
-              status: localManga.status,
-              prioridade: localManga.prioridade || 5,
-              linksPersonalizados: localManga.linksPersonalizados
-            }
-          });
-        }
-      }
-
-      // 3. Fetch combined database from PC to send back to Mobile
+      // Fetch combined database from PC to send back to Mobile
       const serverUserAnimes = await this.prisma.userAnime.findMany({
         where: { userId },
         include: { anime: true }
@@ -277,3 +312,4 @@ export class SyncService {
     }
   }
 }
+

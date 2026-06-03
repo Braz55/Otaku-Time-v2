@@ -429,13 +429,19 @@ async function runStandaloneAndroidSync() {
 export async function customFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const urlStr = typeof input === 'string' ? input : input.toString();
 
-  // Se não for um pedido para a nossa API, se não estiver no Android, ou se for rota de sincronização bidirecional, faz o fetch nativo
-  if (!urlStr.startsWith(API_BASE_URL) || !Capacitor.isNativePlatform() || urlStr.includes('/sync/twoway')) {
+  let path = '';
+  try {
+    path = new URL(urlStr).pathname;
+  } catch (e) {
+    path = urlStr.replace(API_BASE_URL, '').split('?')[0];
+  }
+
+  // Se não estiver no Android, faz o fetch nativo
+  if (!Capacitor.isNativePlatform()) {
     return nativeFetchResponse(input, init);
   }
 
   const method = (init?.method || 'GET').toUpperCase();
-  const path = urlStr.replace(API_BASE_URL, '').split('?')[0];
   const queryParams = new URLSearchParams(urlStr.split('?')[1] || '');
 
   // Obter utilizador atual da localStorage (simulado)

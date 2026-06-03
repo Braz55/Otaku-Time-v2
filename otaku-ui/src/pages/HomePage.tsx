@@ -62,13 +62,15 @@ const HomePage = () => {
     'Authorization': `Bearer ${token}`
   });
 
-  const carregarCapituloMaisRecente = async (anilistId: number) => {
+  const carregarCapituloMaisRecente = async (anilistId: number, keepState = false) => {
     if (categoria !== 'manga') return;
     setLoadingLatest(true);
-    setLatestChapter(null);
-    setLatestChapterSource('MangaDex');
-    setLatestChapterError(null);
-    setLatestBreakdown([]);
+    if (!keepState) {
+      setLatestChapter(null);
+      setLatestChapterSource('MangaDex');
+      setLatestChapterError(null);
+      setLatestBreakdown([]);
+    }
     try {
       const res = await customFetch(`${API_BASE_URL}/manga/latest-chapter/${anilistId}`, { headers: getHeaders() });
       const data = await res.json();
@@ -131,6 +133,9 @@ const HomePage = () => {
         
         const itemData = novoItem.manga || novoItem.anime || novoItem;
         setSelectedItem({ ...itemData, ...novoItem, dbId: novoItem.id, isExternal: false });
+        if (categoria === 'manga' && anilistId) {
+          carregarCapituloMaisRecente(anilistId, true);
+        }
       }
     } catch (error) {
       console.error("Erro no POST:", error);
@@ -1109,12 +1114,12 @@ const HomePage = () => {
                           </div>
                           
                           <div className="flex items-baseline gap-2 mb-4 mt-2 justify-center">
-                            <input type="number" min="0" max={categoria === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 9999)) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (selectedItem.numCapitulosTotal || (latestChapter ? parseInt(`${latestChapter}`) || 9999 : 9999)))} value={categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${categoria === 'anime' ? 'text-primary focus:bg-purple-500/10' : 'text-secondary focus:bg-pink-500/10'} font-black text-3xl w-16 text-center outline-none border-b border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} />
+                            <input type="number" min="0" max={categoria === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 9999)) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 9999))} value={categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${categoria === 'anime' ? 'text-primary focus:bg-purple-500/10' : 'text-secondary focus:bg-pink-500/10'} font-black text-3xl w-16 text-center outline-none border-b border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} />
                             <span className="text-on-surface-variant font-light text-2xl">/</span> 
                             <span className="text-on-surface-variant font-bold text-2xl">
                               {categoria === 'anime' 
                                 ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || '?'))
-                                : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (selectedItem.numCapitulosTotal || (latestChapter ? `${latestChapter}` : '?')))
+                                : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || '?'))
                               }
                             </span>
                           </div>
@@ -1137,7 +1142,7 @@ const HomePage = () => {
                               <div className="grid grid-cols-5 sm:grid-cols-6 gap-2 max-h-[240px] overflow-y-auto pr-1 custom-scrollbar">
                                 {[...Array(categoria === 'anime' 
                                   ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 0)) 
-                                  : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (selectedItem.numCapitulosTotal || (Math.ceil(latestChapter || 0) || 0)))
+                                  : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 0))
                                 )].map((_, i) => {
                                   const num = i + 1;
                                   const isWatched = num <= (categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual);
@@ -1483,26 +1488,6 @@ const HomePage = () => {
                           </div>
                         )}
                       </div>
-
-                      {categoria === 'manga' && latestBreakdown.length > 0 && (
-                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pt-6 border-t border-white/5">
-                          <h3 className="font-headline-lg text-2xl font-bold mb-6 flex items-center gap-3">
-                            <span className="w-1.5 h-6 rounded-full bg-secondary shadow-[0_0_10px_rgba(255,176,203,0.5)]"></span>
-                            Season & Special Breakdown
-                          </h3>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                            {latestBreakdown.map((item: any, idx: number) => (
-                              <div key={idx} className="p-5 glass-panel bg-secondary/10 border border-secondary/20 rounded-2xl flex flex-col justify-between shadow-[0_0_20px_rgba(255,176,203,0.05)] hover:border-secondary/40 transition-all group">
-                                <span className="text-xs font-bold text-on-surface-variant uppercase tracking-wider group-hover:text-white transition-colors">{item.label}</span>
-                                <div className="flex items-baseline gap-1.5 mt-3">
-                                  <span className="text-3xl font-display font-bold text-secondary">{item.chapters}</span>
-                                  <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Chs</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
                     <div className="space-y-6">
                       <div className={`glass-panel p-8 rounded-[32px] border ${categoria === 'anime' ? 'border-purple-500/20 shadow-[0_0_50px_rgba(168,85,247,0.08)]' : 'border-pink-500/20 shadow-[0_0_50px_rgba(236,72,153,0.08)]'}`}>
@@ -1603,12 +1588,12 @@ const HomePage = () => {
                           </div>
                           
                           <div className="flex items-baseline gap-2 mb-6 mt-3 justify-center">
-                            <input type="number" min="0" max={categoria === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 9999)) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (selectedItem.numCapitulosTotal || (latestChapter ? parseInt(`${latestChapter}`) || 9999 : 9999)))} value={categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${categoria === 'anime' ? 'text-primary focus:bg-purple-500/10' : 'text-secondary focus:bg-pink-500/10'} font-black text-4xl w-20 text-center outline-none border-b-2 border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} />
+                            <input type="number" min="0" max={categoria === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 9999)) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 9999))} value={categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${categoria === 'anime' ? 'text-primary focus:bg-purple-500/10' : 'text-secondary focus:bg-pink-500/10'} font-black text-4xl w-20 text-center outline-none border-b-2 border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} />
                             <span className="text-on-surface-variant font-light text-3xl">/</span> 
                             <span className="text-on-surface-variant font-bold text-3xl">
                               {categoria === 'anime' 
                                 ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || '?'))
-                                : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (selectedItem.numCapitulosTotal || (latestChapter ? `${latestChapter}` : '?')))
+                                : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || '?'))
                               }
                             </span>
                           </div>
@@ -1632,7 +1617,7 @@ const HomePage = () => {
                               <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-7 lg:grid-cols-8 gap-2 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
                                 {[...Array(categoria === 'anime' 
                                   ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 0)) 
-                                  : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (selectedItem.numCapitulosTotal || (Math.ceil(latestChapter || 0) || 0)))
+                                  : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 0))
                                 )].map((_, i) => {
                                   const num = i + 1;
                                   const isWatched = num <= (categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual);

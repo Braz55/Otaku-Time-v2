@@ -545,18 +545,21 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
         newItem.proximoEpisodio = aniListData.nextAiringEpisode?.episode;
         newItem.proximoEpisodioData = aniListData.nextAiringEpisode ? new Date(aniListData.nextAiringEpisode.airingAt * 1000).toISOString() : null;
       } else {
-        let totalCaps = aniListData.chapters;
-        if (!totalCaps) {
-          const titleToSearch = aniListData.title.english || aniListData.title.romaji || aniListData.title.native;
-          const bakaRes = await getLatestChapterFromBakaUpdates_Android(titleToSearch, aniListData);
-          if (bakaRes && bakaRes.chapter) {
-            totalCaps = bakaRes.chapter;
-          } else {
-            const mdRes = await getLatestChapterFromMangaDex_Android(mediaId, titleToSearch, aniListData);
-            if (mdRes && mdRes.chapter) {
-              totalCaps = mdRes.chapter;
-            }
+        let totalCaps = null;
+        const titleToSearch = aniListData.title.english || aniListData.title.romaji || aniListData.title.native;
+        const bakaRes = await getLatestChapterFromBakaUpdates_Android(titleToSearch, aniListData);
+        if (bakaRes && bakaRes.chapter) {
+          totalCaps = bakaRes.chapter;
+        } else if (aniListData.status === 'FINISHED' && aniListData.chapters && aniListData.chapters > 0) {
+          totalCaps = aniListData.chapters;
+        } else {
+          const mdRes = await getLatestChapterFromMangaDex_Android(mediaId, titleToSearch, aniListData);
+          if (mdRes && mdRes.chapter) {
+            totalCaps = mdRes.chapter;
           }
+        }
+        if (!totalCaps) {
+          totalCaps = aniListData.chapters;
         }
         newItem.numCapitulosTotal = totalCaps;
       }
@@ -663,26 +666,24 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
       let source = 'AniList';
       let breakdown: { label: string, chapters: number }[] = [];
 
-      if (media.status === 'FINISHED' && media.chapters && media.chapters > 0) {
-        console.log(`[Android API Bridge] "${title}" is already FINISHED on AniList. Using official total: ${media.chapters} chapters.`);
-        latest = media.chapters;
-        
-        console.log(`[Android API Bridge] Consulting Baka-Updates for season breakdown of "${title}"...`);
-        const bakaRes = await getLatestChapterFromBakaUpdates_Android(title, media);
-        if (bakaRes && bakaRes.breakdown) {
-          breakdown = bakaRes.breakdown;
-        }
-      } else {
-        console.log(`[Android API Bridge] Consulting Baka-Updates (Plan A) for "${title}"...`);
-        const bakaRes = await getLatestChapterFromBakaUpdates_Android(title, media);
-        if (bakaRes && bakaRes.chapter) {
-          latest = bakaRes.chapter;
-          breakdown = bakaRes.breakdown || [];
-          source = 'Baka-Updates';
-        }
-        
-        if (!latest) {
-          console.log(`[Android API Bridge] Baka-Updates did not provide a valid chapter count for "${title}". Switching to MangaDex (Plan B)...`);
+      // PLAN A: Baka-Updates (MangaUpdates) - Priority source (regardless of status)
+      console.log(`[Android API Bridge] Consulting Baka-Updates (Plan A) for "${title}"...`);
+      const bakaRes = await getLatestChapterFromBakaUpdates_Android(title, media);
+      if (bakaRes && bakaRes.chapter) {
+        latest = bakaRes.chapter;
+        breakdown = bakaRes.breakdown || [];
+        source = 'Baka-Updates';
+      }
+
+      if (!latest) {
+        // Se não encontrou no Baka-Updates e já está FINISHED na AniList, usa AniList
+        if (media.status === 'FINISHED' && media.chapters && media.chapters > 0) {
+          console.log(`[Android API Bridge] Baka-Updates returned no data. "${title}" is already FINISHED on AniList. Using official total: ${media.chapters} chapters.`);
+          latest = media.chapters;
+          source = 'AniList';
+        } else {
+          // PLAN B: MangaDex - Fallback
+          console.log(`[Android API Bridge] Baka-Updates did not provide a valid chapter count for "${title}" and not finished on AniList. Switching to MangaDex (Plan B)...`);
           const mdResult = await getLatestChapterFromMangaDex_Android(anilistId, title, media);
           latest = mdResult.chapter;
           errorMsg = mdResult.error;

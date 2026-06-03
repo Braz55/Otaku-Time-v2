@@ -123,30 +123,24 @@ export class MangaService {
     let source = 'AniList';
     let breakdown: { label: string, chapters: number }[] = [];
 
-    // Se o manga já está finalizado (FINISHED) e a AniList tem o número total de capítulos, usamos diretamente!
-    if (manga.status === 'FINISHED' && manga.chapters && manga.chapters > 0) {
-      console.log(`[Sync] "${title}" is already FINISHED on AniList. Using official total: ${manga.chapters} chapters.`);
-      latest = manga.chapters;
-      
-      // Fazer a pesquisa no Baka-Updates para obter a divisória de temporadas/especiais!
-      console.log(`[Sync] Consulting Baka-Updates for season breakdown of "${title}"...`);
-      const bakaRes = await this.getLatestChapterFromBakaUpdates(title, manga);
-      if (bakaRes && bakaRes.breakdown) {
-        breakdown = bakaRes.breakdown;
-      }
-    } else {
-      // PLAN A: Baka-Updates (MangaUpdates) - Primary source for Manhwas/Webtoons
-      console.log(`[Sync] Consulting Baka-Updates (Plan A) for "${title}"...`);
-      const bakaRes = await this.getLatestChapterFromBakaUpdates(title, manga);
-      if (bakaRes && bakaRes.chapter) {
-        latest = bakaRes.chapter;
-        breakdown = bakaRes.breakdown || [];
-        source = 'Baka-Updates';
-      }
-      
-      if (!latest) {
+    // PLAN A: Baka-Updates (MangaUpdates) - Priority source (regardless of status)
+    console.log(`[Sync] Consulting Baka-Updates (Plan A) for "${title}"...`);
+    const bakaRes = await this.getLatestChapterFromBakaUpdates(title, manga);
+    if (bakaRes && bakaRes.chapter) {
+      latest = bakaRes.chapter;
+      breakdown = bakaRes.breakdown || [];
+      source = 'Baka-Updates';
+    }
+
+    if (!latest) {
+      // Se não encontrou dados no Baka-Updates e o manga já está finalizado (FINISHED) na AniList com capítulos válidos, usamos AniList
+      if (manga.status === 'FINISHED' && manga.chapters && manga.chapters > 0) {
+        console.log(`[Sync] Baka-Updates returned no data. "${title}" is FINISHED on AniList. Using official total: ${manga.chapters} chapters.`);
+        latest = manga.chapters;
+        source = 'AniList';
+      } else {
         // PLAN B: MangaDex - Fallback
-        console.log(`[Sync] Baka-Updates did not provide a valid chapter count for "${title}" (returned 0). Switching to MangaDex (Plan B)...`);
+        console.log(`[Sync] Baka-Updates did not provide a valid chapter count for "${title}" (returned 0) and not finished on AniList. Switching to MangaDex (Plan B)...`);
         const mdResult = await this.getLatestChapterFromMangaDex(anilistId, title, manga);
         latest = mdResult.chapter;
         errorMsg = mdResult.error;
@@ -398,20 +392,40 @@ export class MangaService {
 
     const linksJSON = aniListData.externalLinks ? JSON.stringify(aniListData.externalLinks) : null;
     
+    let totalCaps = aniListData.chapters;
+    const title = aniListData.title.english || aniListData.title.romaji;
+    console.log(`[Import] Consulting Baka-Updates (Plan A) for "${title}"...`);
+    const bakaRes = await this.getLatestChapterFromBakaUpdates(title, aniListData);
+    if (bakaRes && bakaRes.chapter) {
+      totalCaps = bakaRes.chapter;
+    } else if (aniListData.status === 'FINISHED' && aniListData.chapters && aniListData.chapters > 0) {
+      totalCaps = aniListData.chapters;
+    } else {
+      console.log(`[Import] Consulting MangaDex (Plan B) for "${title}"...`);
+      const mdRes = await this.getLatestChapterFromMangaDex(aniListData.id, title, aniListData);
+      if (mdRes && mdRes.chapter) {
+        totalCaps = mdRes.chapter;
+      }
+    }
+
+    if (!totalCaps && aniListData.chapters) {
+      totalCaps = aniListData.chapters;
+    }
+
     const manga = await this.prisma.manga.upsert({
       where: { id: aniListData.id },
       update: { 
-        numCapitulosTotal: aniListData.chapters, 
+        numCapitulosTotal: totalCaps, 
         capaUrl: aniListData.coverImage.large, 
         linksExternos: linksJSON 
       },
       create: { 
         id: aniListData.id, 
-        titulo: aniListData.title.english || aniListData.title.romaji, 
+        titulo: title, 
         statusLancamento: aniListData.status, 
         generos: aniListData.genres.join(', '), 
         descricao: aniListData.description?.replace(/<[^>]*>?/gm, ''), 
-        numCapitulosTotal: aniListData.chapters, 
+        numCapitulosTotal: totalCaps, 
         capaUrl: aniListData.coverImage.large,
         linksExternos: linksJSON
       },

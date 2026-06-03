@@ -121,15 +121,22 @@ export class SyncService {
                 const aniListData = await this.mangaService.searchAniListById(mangaId);
                 if (aniListData) {
                   const linksJSON = aniListData.externalLinks ? JSON.stringify(aniListData.externalLinks) : null;
-                  let totalCaps = aniListData.chapters;
+                  let totalCaps: number | null = null;
                   const title = aniListData.title.english || aniListData.title.romaji || aniListData.title.native;
 
                   const bakaRes = await this.mangaService.getLatestChapterFromBakaUpdates(title, aniListData);
                   if (bakaRes && bakaRes.chapter) {
                     totalCaps = bakaRes.chapter;
-                  } else if (aniListData.status === 'FINISHED' && aniListData.chapters && aniListData.chapters > 0) {
-                    totalCaps = aniListData.chapters;
-                  } else {
+                  }
+
+                  // Comparison logic: If finished and AniList has higher chapters, choose AniList
+                  if (aniListData.status === 'FINISHED' && aniListData.chapters && aniListData.chapters > 0) {
+                    if (!totalCaps || aniListData.chapters > totalCaps) {
+                      totalCaps = aniListData.chapters;
+                    }
+                  }
+
+                  if (!totalCaps) {
                     const mdRes = await this.mangaService.getLatestChapterFromMangaDex(aniListData.id, title, aniListData);
                     if (mdRes && mdRes.chapter) {
                       totalCaps = mdRes.chapter;

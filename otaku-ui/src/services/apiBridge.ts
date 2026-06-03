@@ -370,7 +370,7 @@ async function runStandaloneAndroidSync() {
           let totalEps = aniData.episodes;
           let epDisponivel = nextEp ? nextEp - 1 : totalEps;
           if (epDisponivel && epDisponivel > (anime.numEpisodiosTotal || 0) && anime.id !== undefined) {
-            await localDb.animes.update(anime.id, { numEpisodiosTotal: epDisponivel });
+            await localDb.animes.update(anime.id, { numEpisodiosTotal: epDisponivel, updatedAt: new Date().toISOString() });
             console.log(`[Android Standalone AutoSync] Updated Anime "${anime.titulo}" to ${epDisponivel} episodes.`);
           }
         }
@@ -403,7 +403,8 @@ async function runStandaloneAndroidSync() {
         if (capAtualizado && capAtualizado > (manga.proximoCapituloNumero || manga.numCapitulosTotal || 0) && manga.id !== undefined) {
           await localDb.mangas.update(manga.id, { 
             proximoCapituloNumero: capAtualizado,
-            numCapitulosTotal: capAtualizado 
+            numCapitulosTotal: capAtualizado,
+            updatedAt: new Date().toISOString()
           });
           console.log(`[Android Standalone AutoSync] Updated Manga "${manga.titulo}" to ${capAtualizado} chapters.`);
         }
@@ -423,6 +424,59 @@ async function runStandaloneAndroidSync() {
     standaloneSyncState.current = 0;
     standaloneSyncState.total = 0;
   }
+}
+
+// Helper para buscar detalhes da AniList por ID com retentativas para evitar Rate Limits (429) no Android
+async function getAniListMediaByIdWithRetry(id: number, type: 'ANIME' | 'MANGA', retries = 3, delayMs = 1500): Promise<any> {
+  const animeFields = `
+    episodes
+    season
+    seasonYear
+    nextAiringEpisode { airingAt episode }
+  `;
+  const mangaFields = `
+    chapters
+  `;
+  const query = `
+    query ($id: Int) {
+      Media(id: $id, type: ${type}) {
+        id
+        title { english romaji native }
+        coverImage { large }
+        status
+        description
+        genres
+        tags { name }
+        externalLinks { url site type language }
+        ${type === 'ANIME' ? animeFields : mangaFields}
+      }
+    }
+  `;
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const result = await nativeFetchJson('https://graphql.anilist.co', 'POST', { query, variables: { id } });
+      if (result && result.data && result.data.Media) {
+        return result.data.Media;
+      }
+      if (result && result.errors) {
+        const isRateLimit = result.errors.some((e: any) => e.message?.includes('429') || e.status === 429);
+        if (isRateLimit) {
+          console.warn(`[Android Restore] AniList Rate Limited (429). Waiting 5000ms before retry (attempt ${attempt}/${retries})...`);
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          continue;
+        }
+      }
+      throw new Error("Invalid response or AniList error");
+    } catch (err: any) {
+      console.warn(`[Android Restore] Error fetching AniList media ${id} (attempt ${attempt}/${retries}):`, err);
+      if (attempt === retries) return null;
+      
+      const waitTime = err.message?.includes('429') ? 5000 : delayMs;
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+  }
+  return null;
 }
 
 // Função customFetch principal que interceta todos os pedidos quando no Android
@@ -516,7 +570,7 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
         for (const item of animes) {
           let metadata: any = null;
           try {
-            metadata = await getAniListMediaById(item.animeId, 'ANIME');
+            metadata = await getAniListMediaByIdWithRetry(item.animeId, 'ANIME');
           } catch (e) {
             console.error(`Failed to fetch metadata for Anime ${item.animeId}`, e);
           }
@@ -536,7 +590,8 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
               epAtual: item.epAtual,
               status: item.status as any,
               prioridade: item.prioridade ?? 5,
-              numEpisodiosTotal: metadata ? metadata.episodes : (item.numEpisodiosTotal || existing.numEpisodiosTotal)
+              numEpisodiosTotal: metadata ? metadata.episodes : existing.numEpisodiosTotal,
+              updatedAt: item.updatedAt || new Date().toISOString()
             });
           } else {
             await localDb.animes.add({
@@ -550,9 +605,14 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
               status: item.status as any,
               epAtual: item.epAtual,
               prioridade: item.prioridade ?? 5,
-              numEpisodiosTotal: metadata ? metadata.episodes : (item.numEpisodiosTotal || null)
+              numEpisodiosTotal: metadata ? metadata.episodes : null,
+              updatedAt: item.updatedAt || new Date().toISOString()
             });
           }
+
+          // Pausa de no mínimo 2 segundos antes de passar para o próximo item
+          // Isto garante que tudo é guardado por ordem na BD sem sobreposições e respeita o rate limiting da API
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
 
@@ -561,7 +621,7 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
         for (const item of mangas) {
           let metadata: any = null;
           try {
-            metadata = await getAniListMediaById(item.mangaId, 'MANGA');
+            metadata = await getAniListMediaByIdWithRetry(item.mangaId, 'MANGA');
           } catch (e) {
             console.error(`Failed to fetch metadata for Manga ${item.mangaId}`, e);
           }
@@ -581,7 +641,8 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
               capAtual: item.capAtual,
               status: item.status as any,
               prioridade: item.prioridade ?? 5,
-              numCapitulosTotal: metadata ? metadata.chapters : (item.numCapitulosTotal || existing.numCapitulosTotal)
+              numCapitulosTotal: metadata ? metadata.chapters : existing.numCapitulosTotal,
+              updatedAt: item.updatedAt || new Date().toISOString()
             });
           } else {
             await localDb.mangas.add({
@@ -595,9 +656,14 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
               status: item.status as any,
               capAtual: item.capAtual,
               prioridade: item.prioridade ?? 5,
-              numCapitulosTotal: metadata ? metadata.chapters : (item.numCapitulosTotal || null)
+              numCapitulosTotal: metadata ? metadata.chapters : null,
+              updatedAt: item.updatedAt || new Date().toISOString()
             });
           }
+
+          // Pausa de no mínimo 2 segundos antes de passar para o próximo item
+          // Isto garante que tudo é guardado por ordem na BD sem sobreposições e respeita o rate limiting da API
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
 
@@ -689,7 +755,8 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
         status: 'PLANNED',
         [isAnime ? 'epAtual' : 'capAtual']: 0,
         prioridade: 5,
-        linksExternos: linksJSON
+        linksExternos: linksJSON,
+        updatedAt: new Date().toISOString()
       };
 
       if (isAnime) {
@@ -699,14 +766,22 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
         newItem.proximoEpisodio = aniListData.nextAiringEpisode?.episode;
         newItem.proximoEpisodioData = aniListData.nextAiringEpisode ? new Date(aniListData.nextAiringEpisode.airingAt * 1000).toISOString() : null;
       } else {
-        let totalCaps = null;
+        let totalCaps: number | null = null;
         const titleToSearch = aniListData.title.english || aniListData.title.romaji || aniListData.title.native;
         const bakaRes = await getLatestChapterFromBakaUpdates_Android(titleToSearch, aniListData);
         if (bakaRes && bakaRes.chapter) {
           totalCaps = bakaRes.chapter;
-        } else if (aniListData.status === 'FINISHED' && aniListData.chapters && aniListData.chapters > 0) {
-          totalCaps = aniListData.chapters;
-        } else {
+        }
+
+        // Comparison logic: If finished and AniList has higher chapters, choose AniList
+        if (aniListData.status === 'FINISHED' && aniListData.chapters && aniListData.chapters > 0) {
+          if (!totalCaps || aniListData.chapters > totalCaps) {
+            console.log(`[Android API Bridge] AniList has more chapters (${aniListData.chapters}) than external source (${totalCaps || 0}). Using AniList chapters.`);
+            totalCaps = aniListData.chapters;
+          }
+        }
+
+        if (!totalCaps) {
           const mdRes = await getLatestChapterFromMangaDex_Android(mediaId, titleToSearch, aniListData);
           if (mdRes && mdRes.chapter) {
             totalCaps = mdRes.chapter;
@@ -788,6 +863,7 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
 
       if (method === 'PATCH') {
         const body = JSON.parse(init?.body as string);
+        body.updatedAt = new Date().toISOString();
         await table.update(id, body);
         const updated = await table.get(id);
         return createJsonResponse({ ...updated, [isAnime ? 'anime' : 'manga']: updated });
@@ -829,21 +905,24 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
         source = 'Baka-Updates';
       }
 
-      if (!latest) {
-        // Se não encontrou no Baka-Updates e já está FINISHED na AniList, usa AniList
-        if (media.status === 'FINISHED' && media.chapters && media.chapters > 0) {
-          console.log(`[Android API Bridge] Baka-Updates returned no data. "${title}" is already FINISHED on AniList. Using official total: ${media.chapters} chapters.`);
+      // Comparison logic: If finished and AniList has a higher chapter count, use AniList.
+      if (media.status === 'FINISHED' && media.chapters && media.chapters > 0) {
+        if (!latest || media.chapters > latest) {
+          console.log(`[Android API Bridge] AniList has more chapters (${media.chapters}) than external source (${latest || 0}). Using AniList chapters.`);
           latest = media.chapters;
           source = 'AniList';
-        } else {
-          // PLAN B: MangaDex - Fallback
-          console.log(`[Android API Bridge] Baka-Updates did not provide a valid chapter count for "${title}" and not finished on AniList. Switching to MangaDex (Plan B)...`);
-          const mdResult = await getLatestChapterFromMangaDex_Android(anilistId, title, media);
-          latest = mdResult.chapter;
-          errorMsg = mdResult.error;
-          if (latest) {
-            source = 'MangaDex';
-          }
+          breakdown = []; // Clear breakdown as we are using AniList total chapters
+        }
+      }
+
+      if (!latest) {
+        // PLAN B: MangaDex - Fallback
+        console.log(`[Android API Bridge] Baka-Updates did not provide a valid chapter count for "${title}" and not finished on AniList. Switching to MangaDex (Plan B)...`);
+        const mdResult = await getLatestChapterFromMangaDex_Android(anilistId, title, media);
+        latest = mdResult.chapter;
+        errorMsg = mdResult.error;
+        if (latest) {
+          source = 'MangaDex';
         }
       }
 
@@ -852,7 +931,7 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
         try {
           const existe = await localDb.mangas.where('mangaId').equals(anilistId).first();
           if (existe && existe.id !== undefined) {
-            await localDb.mangas.update(existe.id, { numCapitulosTotal: latest });
+            await localDb.mangas.update(existe.id, { numCapitulosTotal: latest, updatedAt: new Date().toISOString() });
             console.log(`[Android API Bridge] Updated localDb manga ${existe.id} with numCapitulosTotal: ${latest}`);
           } else {
             console.log(`[Android API Bridge] Manga "${title}" (ID ${anilistId}) is an external item not saved in localDb. Progress obtained: ${latest} (${source})`);

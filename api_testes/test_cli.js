@@ -80,7 +80,7 @@ async function getLatestChapterFromBakaUpdates(title, mangaObj) {
 
     if (!searchData.results || searchData.results.length === 0) {
       console.log(`[Plan A] No results found on Baka-Updates.`);
-      return { chapter: null };
+      return { chapter: null, chapterList: [] };
     }
     
     let bestRecord = searchData.results[0].record;
@@ -100,7 +100,7 @@ async function getLatestChapterFromBakaUpdates(title, mangaObj) {
       }
     }
 
-    // Verificação de segurança: o título encontrado deve corresponder ao que foi pedido
+    // Verificação de segurança
     const clean = (s) => s ? s.toLowerCase().replace(/[^\w\s]/g, '').trim() : '';
     const mainTitles = [title, mangaObj?.title?.english, mangaObj?.title?.romaji].filter(Boolean).map(clean);
     const recTitle = clean(bestRecord.title);
@@ -115,7 +115,7 @@ async function getLatestChapterFromBakaUpdates(title, mangaObj) {
 
     if (!isValid) {
       console.log(`[Plan A] Ignored result: "${bestRecord.title}" does not match "${title}".`);
-      return { chapter: null };
+      return { chapter: null, chapterList: [] };
     }
 
     console.log(`[Plan A] Candidate Found: "${bestRecord.title}" (Type: ${bestRecord.type})`);
@@ -126,7 +126,7 @@ async function getLatestChapterFromBakaUpdates(title, mangaObj) {
 
     if (!detailData?.status) {
       console.log(`[Plan A] Could not retrieve status for series ID ${seriesId}.`);
-      return { chapter: null };
+      return { chapter: null, chapterList: [] };
     }
 
     console.log(`[Plan A] Raw status: "${detailData.status}"`);
@@ -153,29 +153,27 @@ async function getLatestChapterFromBakaUpdates(title, mangaObj) {
       result = breakdown.reduce((acc, item) => acc + item.chapters, 0);
       console.log(`[Plan A] Labeled blocks:`, breakdown, `-> Sum: ${result}`);
     } else {
-      // Fallback: sem blocos rotulados, usar o maior "X Chapters" encontrado
       const cleanStr = validLines.join(' ');
       const chMatches = [...cleanStr.matchAll(/(\d+)\s+Chapters?/gi)];
       const maxFromCh = chMatches.length > 0 ? Math.max(...chMatches.map(m => parseInt(m[1]))) : 0;
       const rangeMatches = [...cleanStr.matchAll(/[-~]\s*(\d+)\b/g)];
       const maxFromRange = rangeMatches.length > 0 ? Math.max(...rangeMatches.map(m => parseInt(m[1]))) : 0;
       result = Math.max(maxFromCh, maxFromRange);
-      if (result === 0) {
-        console.log(`[Plan A] Status text mentions Volumes or is inconclusive (returned 0).`);
-      } else {
-        console.log(`[Plan A] No labeled blocks, numeric fallback: ${result}`);
-      }
     }
 
     if (result > 0) {
       console.log(`[Plan A] Success for "${title}": ${result} chapters.`);
-      return { chapter: result, breakdown };
+      
+      // NOVA LÓGICA: Gerar a lista exata de capítulos [1, 2, 3... result]
+      const chapterList = Array.from({ length: result }, (_, i) => i + 1);
+      
+      return { chapter: result, breakdown, chapterList };
     }
 
-    return { chapter: null };
+    return { chapter: null, chapterList: [] };
   } catch (error) {
     console.error('[Plan A] Error:', error);
-    return { chapter: null };
+    return { chapter: null, chapterList: [] };
   }
 }
 
@@ -286,7 +284,6 @@ async function getLatestChapterFromMangaDex(anilistId, title, mangaObj) {
   }
 }
 
-// Lógica de Sync idêntica à do Otaku Time
 async function runSyncTrace(anilistId) {
   console.log(`\n======================================================`);
   console.log(`[Sync Trace] Starting sync for AniList ID: ${anilistId}`);
@@ -306,32 +303,37 @@ async function runSyncTrace(anilistId) {
   let latest = null;
   let source = 'AniList';
   let breakdown = [];
+  let generatedChapterList = [];
   let errorMsg = null;
 
-  // PLAN A: Baka-Updates (MangaUpdates) - Priority source (regardless of status)
   console.log(`\n[Sync Trace] Launching Plan A: Consulting Baka-Updates...`);
   const bakaRes = await getLatestChapterFromBakaUpdates(title, manga);
   if (bakaRes && bakaRes.chapter) {
     latest = bakaRes.chapter;
     breakdown = bakaRes.breakdown || [];
+    generatedChapterList = bakaRes.chapterList || [];
     source = 'Baka-Updates';
   }
 
-  if (!latest) {
-    // Se não encontrou no Baka-Updates e já está FINISHED na AniList, usa AniList
-    if (manga.status === 'FINISHED' && manga.chapters && manga.chapters > 0) {
-      console.log(`\n[Sync Trace] [Plan C/AniList] Baka-Updates returned no data. "${title}" is already FINISHED on AniList. Using official total: ${manga.chapters} chapters.`);
+  // Comparison logic: If finished and AniList has a higher chapter count, use AniList.
+  if (manga.status === 'FINISHED' && manga.chapters && manga.chapters > 0) {
+    if (!latest || manga.chapters > latest) {
+      console.log(`\n[Sync Trace] [Comparison] AniList has more chapters (${manga.chapters}) than external source (${latest || 0}). Using AniList chapters.`);
       latest = manga.chapters;
+      generatedChapterList = Array.from({ length: latest }, (_, i) => i + 1);
       source = 'AniList';
-    } else {
-      // PLAN B: MangaDex - Fallback
-      console.log(`\n[Sync Trace] Baka-Updates did not provide a valid chapter count and not finished on AniList. Launching Plan B: Switching to MangaDex...`);
-      const mdResult = await getLatestChapterFromMangaDex(anilistId, title, manga);
-      latest = mdResult.chapter;
-      errorMsg = mdResult.error;
-      if (latest) {
-        source = 'MangaDex';
-      }
+      breakdown = []; // Clear breakdown as we are using AniList total chapters
+    }
+  }
+
+  if (!latest) {
+    console.log(`\n[Sync Trace] Baka-Updates did not provide a valid chapter count and not finished on AniList. Launching Plan B: Switching to MangaDex...`);
+    const mdResult = await getLatestChapterFromMangaDex(anilistId, title, manga);
+    latest = mdResult.chapter;
+    errorMsg = mdResult.error;
+    if (latest) {
+      generatedChapterList = Array.from({ length: latest }, (_, i) => i + 1);
+      source = 'MangaDex';
     }
   }
 
@@ -340,10 +342,20 @@ async function runSyncTrace(anilistId) {
   console.log(`  - Target Manga: "${title}" (ID: ${anilistId})`);
   console.log(`  - Chapters Found: ${latest || 'None'}`);
   console.log(`  - Source Used: ${source}`);
+  
   if (breakdown.length > 0) {
     console.log(`  - Breakdown:`);
     breakdown.forEach(b => console.log(`    * ${b.label}: ${b.chapters} chapters`));
   }
+  
+  if (generatedChapterList.length > 0) {
+    // Imprime um resumo da lista de capítulos gerada
+    const listPreview = generatedChapterList.length > 10 
+      ? `[${generatedChapterList.slice(0, 5).join(', ')}, ..., ${generatedChapterList.slice(-5).join(', ')}]`
+      : `[${generatedChapterList.join(', ')}]`;
+    console.log(`  - Chapter List: ${listPreview} (Total: ${generatedChapterList.length} items)`);
+  }
+
   if (errorMsg) {
     console.log(`  - Error Info: ${errorMsg}`);
   }

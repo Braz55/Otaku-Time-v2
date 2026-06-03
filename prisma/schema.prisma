@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 enum TrackingStatus {
@@ -42,6 +42,7 @@ model Anime {
   ano                 Int?
   linksExternos       String?     // JSON string com os links oficiais (MangaPlus, Lezhin, etc.)
   utilizadores        UserAnime[]
+  updatedAt           DateTime    @default(now()) @updatedAt
 }
 
 model UserAnime {
@@ -54,6 +55,7 @@ model UserAnime {
   animeId    Int
   user       User           @relation(fields: [userId], references: [id])
   anime      Anime          @relation(fields: [animeId], references: [id])
+  updatedAt  DateTime       @default(now()) @updatedAt
 
   @@unique([userId, animeId])
 }
@@ -71,6 +73,7 @@ model Manga {
   proximoCapituloNumero Float?    // Número do próximo capítulo
   linksExternos         String?     // JSON string com os links oficiais
   utilizadores          UserManga[]
+  updatedAt             DateTime    @default(now()) @updatedAt
 }
 
 model UserManga {
@@ -83,6 +86,7 @@ model UserManga {
   mangaId    Int
   user       User           @relation(fields: [userId], references: [id])
   manga      Manga          @relation(fields: [mangaId], references: [id])
+  updatedAt  DateTime       @default(now()) @updatedAt
 
   @@unique([userId, mangaId])
 }

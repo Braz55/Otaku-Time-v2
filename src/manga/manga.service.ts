@@ -132,21 +132,24 @@ export class MangaService {
       source = 'Baka-Updates';
     }
 
-    if (!latest) {
-      // Se não encontrou dados no Baka-Updates e o manga já está finalizado (FINISHED) na AniList com capítulos válidos, usamos AniList
-      if (manga.status === 'FINISHED' && manga.chapters && manga.chapters > 0) {
-        console.log(`[Sync] Baka-Updates returned no data. "${title}" is FINISHED on AniList. Using official total: ${manga.chapters} chapters.`);
+    // Comparison logic: If finished and AniList has a higher chapter count, use AniList.
+    if (manga.status === 'FINISHED' && manga.chapters && manga.chapters > 0) {
+      if (!latest || manga.chapters > latest) {
+        console.log(`[Sync] AniList has more chapters (${manga.chapters}) than external source (${latest || 0}). Using AniList chapters.`);
         latest = manga.chapters;
         source = 'AniList';
-      } else {
-        // PLAN B: MangaDex - Fallback
-        console.log(`[Sync] Baka-Updates did not provide a valid chapter count for "${title}" (returned 0) and not finished on AniList. Switching to MangaDex (Plan B)...`);
-        const mdResult = await this.getLatestChapterFromMangaDex(anilistId, title, manga);
-        latest = mdResult.chapter;
-        errorMsg = mdResult.error;
-        if (latest) {
-          source = 'MangaDex';
-        }
+        breakdown = []; // Clear breakdown as we are using AniList total chapters
+      }
+    }
+
+    if (!latest) {
+      // PLAN B: MangaDex - Fallback
+      console.log(`[Sync] Baka-Updates did not provide a valid chapter count for "${title}" (returned 0) and not finished on AniList. Switching to MangaDex (Plan B)...`);
+      const mdResult = await this.getLatestChapterFromMangaDex(anilistId, title, manga);
+      latest = mdResult.chapter;
+      errorMsg = mdResult.error;
+      if (latest) {
+        source = 'MangaDex';
       }
     }
 
@@ -392,15 +395,23 @@ export class MangaService {
 
     const linksJSON = aniListData.externalLinks ? JSON.stringify(aniListData.externalLinks) : null;
     
-    let totalCaps = aniListData.chapters;
+    let totalCaps: number | null = null;
     const title = aniListData.title.english || aniListData.title.romaji;
     console.log(`[Import] Consulting Baka-Updates (Plan A) for "${title}"...`);
     const bakaRes = await this.getLatestChapterFromBakaUpdates(title, aniListData);
     if (bakaRes && bakaRes.chapter) {
       totalCaps = bakaRes.chapter;
-    } else if (aniListData.status === 'FINISHED' && aniListData.chapters && aniListData.chapters > 0) {
-      totalCaps = aniListData.chapters;
-    } else {
+    }
+
+    // Comparison logic: If finished and AniList has higher chapters, choose AniList
+    if (aniListData.status === 'FINISHED' && aniListData.chapters && aniListData.chapters > 0) {
+      if (!totalCaps || aniListData.chapters > totalCaps) {
+        console.log(`[Import] AniList has more chapters (${aniListData.chapters}) than external source (${totalCaps || 0}). Using AniList chapters.`);
+        totalCaps = aniListData.chapters;
+      }
+    }
+
+    if (!totalCaps) {
       console.log(`[Import] Consulting MangaDex (Plan B) for "${title}"...`);
       const mdRes = await this.getLatestChapterFromMangaDex(aniListData.id, title, aniListData);
       if (mdRes && mdRes.chapter) {
@@ -492,6 +503,13 @@ export class MangaService {
     }
     const updated = await this.prisma.userManga.update({ where: { id }, data: novosDados, include: { manga: true } });
     return { ...updated, titulo: updated.manga.titulo, capaUrl: updated.manga.capaUrl, linksExternos: updated.manga.linksExternos, numCapitulosTotal: updated.manga.numCapitulosTotal, proximoCapituloNumero: updated.manga.proximoCapituloNumero };
+  }
+
+  async updateLastModified(id: number, date: Date = new Date()) {
+    return this.prisma.manga.update({
+      where: { id },
+      data: { updatedAt: date }
+    });
   }
 
   async remove(id: number) {

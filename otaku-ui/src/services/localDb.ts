@@ -26,6 +26,7 @@ export interface LocalAnimeItem {
   linksPersonalizados?: string | null;
   proximoEpisodio?: number | null;
   proximoEpisodioData?: string | null;
+  updatedAt?: string;
 }
 
 export interface LocalMangaItem {
@@ -45,6 +46,7 @@ export interface LocalMangaItem {
   linksPersonalizados?: string | null;
   proximoCapituloNumero?: number | null;
   proximoCapituloData?: string | null;
+  updatedAt?: string;
 }
 
 export interface LocalChatSession {

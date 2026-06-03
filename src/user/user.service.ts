@@ -88,6 +88,38 @@ export class UserService {
     };
   }
 
+  async fetchAniListGraphQL(query: string, variables: any, retries = 3, delayMs = 1500): Promise<any> {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const response = await fetch('https://graphql.anilist.co', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ query, variables }),
+        });
+
+        if (response.status === 429) {
+          const retryAfter = response.headers.get('Retry-After');
+          const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 5000;
+          console.warn(`[Backend Restore] AniList Rate Limited (429). Waiting ${waitTime}ms before retry (attempt ${attempt}/${retries})...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        }
+
+        if (!response.ok) {
+          throw new Error(`HTTP Error ${response.status}`);
+        }
+
+        const result = await response.json() as any;
+        return result?.data?.Media || null;
+      } catch (error) {
+        console.warn(`[Backend Restore] Error querying AniList (attempt ${attempt}/${retries}):`, error);
+        if (attempt === retries) return null;
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    }
+    return null;
+  }
+
   async getAniListAnimeById(id: number) {
     const query = `
       query ($id: Int) {
@@ -103,17 +135,7 @@ export class UserService {
         }
       }
     `;
-    try {
-      const response = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ query, variables: { id } }),
-      });
-      const result = await response.json() as any;
-      return result?.data?.Media || null;
-    } catch {
-      return null;
-    }
+    return this.fetchAniListGraphQL(query, { id });
   }
 
   async getAniListMangaById(id: number) {
@@ -131,17 +153,7 @@ export class UserService {
         }
       }
     `;
-    try {
-      const response = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ query, variables: { id } }),
-      });
-      const result = await response.json() as any;
-      return result?.data?.Media || null;
-    } catch {
-      return null;
-    }
+    return this.fetchAniListGraphQL(query, { id });
   }
 
   async restoreBackup(userId: number, backup: any) {
@@ -169,7 +181,7 @@ export class UserService {
             capaUrl: metadata ? metadata.coverImage?.large : undefined,
             generos: generosComTags || undefined,
             descricao: metadata ? descricaoLimpa : undefined,
-            numEpisodiosTotal: metadata ? metadata.episodes : (item.numEpisodiosTotal || undefined),
+            numEpisodiosTotal: metadata ? metadata.episodes : undefined,
           },
           create: {
             id: item.animeId,
@@ -178,7 +190,7 @@ export class UserService {
             capaUrl: metadata ? metadata.coverImage?.large : '',
             generos: generosComTags,
             descricao: descricaoLimpa,
-            numEpisodiosTotal: metadata ? metadata.episodes : (item.numEpisodiosTotal || null)
+            numEpisodiosTotal: metadata ? metadata.episodes : null
           }
         });
 
@@ -198,6 +210,10 @@ export class UserService {
             prioridade: item.prioridade ?? 5
           }
         });
+
+        // Pausa de no mínimo 2 segundos antes de passar para o próximo item
+        // Isto garante que tudo é guardado por ordem na BD sem sobreposições e respeita o rate limiting da API
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
 
@@ -219,7 +235,7 @@ export class UserService {
             capaUrl: metadata ? metadata.coverImage?.large : undefined,
             generos: generosComTags || undefined,
             descricao: metadata ? descricaoLimpa : undefined,
-            numCapitulosTotal: metadata ? metadata.chapters : (item.numCapitulosTotal || undefined),
+            numCapitulosTotal: metadata ? metadata.chapters : undefined,
           },
           create: {
             id: item.mangaId,
@@ -228,7 +244,7 @@ export class UserService {
             capaUrl: metadata ? metadata.coverImage?.large : '',
             generos: generosComTags,
             descricao: descricaoLimpa,
-            numCapitulosTotal: metadata ? metadata.chapters : (item.numCapitulosTotal || null)
+            numCapitulosTotal: metadata ? metadata.chapters : null
           }
         });
 
@@ -248,6 +264,10 @@ export class UserService {
             prioridade: item.prioridade ?? 5
           }
         });
+
+        // Pausa de no mínimo 2 segundos antes de passar para o próximo item
+        // Isto garante que tudo é guardado por ordem na BD sem sobreposições e respeita o rate limiting da API
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
 

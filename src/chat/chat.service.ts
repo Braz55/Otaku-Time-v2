@@ -5,8 +5,8 @@ import { PrismaService } from '../prisma/prisma.service';
 export class ChatService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private readonly ollamaUrl = 'http://localhost:11434/api/generate';
-  private readonly model = 'llama3.1';
+  private readonly ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434/api/generate';
+  private readonly model = process.env.OLLAMA_MODEL || 'llama3.1';
 
   async createSession(userId: number, titulo: string) {
     return this.prisma.chatSession.create({

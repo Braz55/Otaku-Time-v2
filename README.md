@@ -110,6 +110,7 @@ classDiagram
         +String temporada
         +Int ano
         +String linksExternos
+        +DateTime updatedAt
     }
 
     class Manga {
@@ -124,6 +125,7 @@ classDiagram
         +DateTime proximoCapituloData
         +Float proximoCapituloNumero
         +String linksExternos
+        +DateTime updatedAt
     }
 
     class UserAnime {
@@ -132,6 +134,9 @@ classDiagram
         +TrackingStatus status
         +Int prioridade
         +String linksPersonalizados
+        +Int userId
+        +Int animeId
+        +DateTime updatedAt
     }
 
     class UserManga {
@@ -140,6 +145,9 @@ classDiagram
         +TrackingStatus status
         +Int prioridade
         +String linksPersonalizados
+        +Int userId
+        +Int mangaId
+        +DateTime updatedAt
     }
 
     class ChatSession {
@@ -147,6 +155,7 @@ classDiagram
         +String titulo
         +DateTime createdAt
         +DateTime updatedAt
+        +Int userId
     }
 
     class ChatMessage {
@@ -154,6 +163,7 @@ classDiagram
         +String role
         +String content
         +DateTime createdAt
+        +Int sessionId
     }
 
     User "1" --> "*" UserAnime : possui

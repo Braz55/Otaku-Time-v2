@@ -175,7 +175,8 @@ export class AnimeService {
       linksExternos: item.anime.linksExternos,
       linksPersonalizados: item.linksPersonalizados,
       proximoEpisodio: item.anime.proximoEpisodio,
-      proximoEpisodioData: item.anime.proximoEpisodioData
+      proximoEpisodioData: item.anime.proximoEpisodioData,
+      updatedAt: item.updatedAt
     }));
   }
 
@@ -199,7 +200,8 @@ export class AnimeService {
       linksExternos: item.anime.linksExternos,
       linksPersonalizados: item.linksPersonalizados,
       proximoEpisodio: item.anime.proximoEpisodio,
-      proximoEpisodioData: item.anime.proximoEpisodioData
+      proximoEpisodioData: item.anime.proximoEpisodioData,
+      updatedAt: item.updatedAt
     };
   }
 
@@ -247,6 +249,13 @@ export class AnimeService {
     }
     const updated = await this.prisma.userAnime.update({ where: { id }, data: novosDados, include: { anime: true } });
     return { ...updated, titulo: updated.anime.titulo, capaUrl: updated.anime.capaUrl, linksExternos: updated.anime.linksExternos, numEpisodiosTotal: updated.anime.numEpisodiosTotal, proximoEpisodio: updated.anime.proximoEpisodio };
+  }
+
+  async updateLastModified(id: number, date: Date = new Date()) {
+    return this.prisma.anime.update({
+      where: { id },
+      data: { updatedAt: date }
+    });
   }
 
   async remove(id: number) {

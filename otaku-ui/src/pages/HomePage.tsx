@@ -22,6 +22,42 @@ const TRACKING_STATUS_OPTIONS = [
   { value: 'DROPPED', animeLabel: 'Dropped', mangaLabel: 'Dropped' },
 ];
 
+const PRIORITY_OPTIONS = [
+  { num: 1, label: 'P1', desc: 'Highest', colorClass: 'bg-amber-500/20 border-amber-500 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)]', starColor: 'text-amber-500', badgeClass: 'bg-amber-500/20 border-amber-500/50 text-amber-400' },
+  { num: 2, label: 'P2', desc: 'High', colorClass: 'bg-amber-400/20 border-amber-400 text-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)]', starColor: 'text-amber-400', badgeClass: 'bg-amber-400/20 border-amber-400/50 text-amber-300' },
+  { num: 3, label: 'P3', desc: 'Medium-High', colorClass: 'bg-yellow-400/20 border-yellow-400 text-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.3)]', starColor: 'text-yellow-400', badgeClass: 'bg-yellow-400/20 border-yellow-400/50 text-yellow-200' },
+  { num: 4, label: 'P4', desc: 'Medium', colorClass: 'bg-yellow-200/20 border-yellow-200 text-yellow-200 shadow-[0_0_15px_rgba(254,240,138,0.2)]', starColor: 'text-yellow-200', badgeClass: 'bg-yellow-200/20 border-yellow-200/50 text-yellow-100' },
+  { num: 5, label: 'P5', desc: 'Medium-Low', colorClass: 'bg-yellow-100/10 border-yellow-100/50 text-yellow-100', starColor: 'text-yellow-100', badgeClass: 'bg-yellow-100/10 border-yellow-100/30 text-yellow-50' },
+  { num: 6, label: 'P6', desc: 'Low', colorClass: 'bg-blue-500/10 border-blue-500/50 text-blue-300', starColor: 'text-blue-400', badgeClass: 'bg-blue-500/10 border-blue-500/30 text-blue-300' },
+  { num: 7, label: 'P7', desc: 'Very Low', colorClass: 'bg-blue-400/10 border-blue-400/50 text-blue-200', starColor: 'text-blue-300', badgeClass: 'bg-blue-400/10 border-blue-400/30 text-blue-200' },
+  { num: 8, label: 'P8', desc: 'Lower', colorClass: 'bg-slate-400/10 border-slate-400/50 text-slate-300', starColor: 'text-slate-300', badgeClass: 'bg-slate-400/10 border-slate-400/30 text-slate-300' },
+  { num: 9, label: 'P9', desc: 'Lowest', colorClass: 'bg-slate-500/10 border-slate-500/50 text-slate-400', starColor: 'text-slate-400', badgeClass: 'bg-slate-500/10 border-slate-500/30 text-slate-400' },
+  { num: 10, label: 'P10', desc: 'Backlog', colorClass: 'bg-slate-600/10 border-slate-600/50 text-slate-500', starColor: 'text-slate-500', badgeClass: 'bg-slate-600/10 border-slate-600/30 text-slate-500' },
+];
+
+const getPriorityBadgeClass = (priority?: number | null) => {
+  const opt = PRIORITY_OPTIONS.find(o => o.num === priority);
+  return opt ? opt.badgeClass : 'bg-yellow-100/10 border-yellow-100/30 text-yellow-50';
+};
+
+const getPriorityStarColor = (priority?: number | null) => {
+  const opt = PRIORITY_OPTIONS.find(o => o.num === priority);
+  return opt ? opt.starColor : 'text-yellow-100';
+};
+
+const formatLastModified = (item: any) => {
+  const dateStr = item?.updatedAt || item?.anime?.updatedAt || item?.manga?.updatedAt;
+  if (!dateStr) return 'N/A';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 'N/A';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+  } catch {
+    return 'N/A';
+  }
+};
+
 const HomePage = () => {
   const { user, token } = useAuth();
   const { categoria, setCategoria, isShowingFavorites, setIsShowingFavorites, isSearchOpen, homeTrigger } = useMedia();
@@ -830,18 +866,10 @@ const HomePage = () => {
                               {/* Priority / Score Badge */}
                               {item.prioridade && (
                                 <span className={`backdrop-blur-md px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-bold flex items-center gap-0.5 sm:gap-1 border shadow-lg flex-shrink-0 ${
-                                  item.prioridade === 1 ? 'bg-amber-500/20 border-amber-500/50 text-amber-400' :
-                                  item.prioridade === 2 ? 'bg-amber-400/20 border-amber-400/50 text-amber-300' :
-                                  item.prioridade === 3 ? 'bg-yellow-400/20 border-yellow-400/50 text-yellow-200' :
-                                  item.prioridade === 4 ? 'bg-yellow-200/20 border-yellow-200/50 text-yellow-100' :
-                                  'bg-yellow-100/10 border-yellow-100/30 text-yellow-50'
+                                  getPriorityBadgeClass(item.prioridade)
                                 }`}>
                                   <span className={`material-symbols-outlined text-[10px] sm:text-[12px] ${
-                                    item.prioridade === 1 ? 'text-amber-500' :
-                                    item.prioridade === 2 ? 'text-amber-400' :
-                                    item.prioridade === 3 ? 'text-yellow-400' :
-                                    item.prioridade === 4 ? 'text-yellow-200' :
-                                    'text-yellow-100'
+                                    getPriorityStarColor(item.prioridade)
                                   }`} style={{ fontVariationSettings: "'FILL' 1" }}>star</span> #{item.prioridade}
                                 </span>
                               )}
@@ -979,11 +1007,7 @@ const HomePage = () => {
                           {categoria}
                         </span>
                         <span className={`text-xs flex items-center gap-0.5 font-bold ${
-                          selectedItem.prioridade === 1 ? 'text-amber-500' :
-                          selectedItem.prioridade === 2 ? 'text-amber-400' :
-                          selectedItem.prioridade === 3 ? 'text-yellow-400' :
-                          selectedItem.prioridade === 4 ? 'text-yellow-200' :
-                          'text-yellow-100'
+                          getPriorityStarColor(selectedItem.prioridade)
                         }`}>
                           <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> {selectedItem.isExternal ? 'New' : `#${selectedItem.prioridade}`}
                         </span>
@@ -1081,13 +1105,7 @@ const HomePage = () => {
                             Priority Level (1 = Highest)
                           </label>
                           <div className="grid grid-cols-5 gap-1.5">
-                            {[
-                              { num: 1, label: 'P1', desc: 'Highest', colorClass: 'bg-amber-500/20 border-amber-500 text-amber-500' },
-                              { num: 2, label: 'P2', desc: 'High', colorClass: 'bg-amber-400/20 border-amber-400 text-amber-400' },
-                              { num: 3, label: 'P3', desc: 'Medium', colorClass: 'bg-yellow-400/20 border-yellow-400 text-yellow-400' },
-                              { num: 4, label: 'P4', desc: 'Low', colorClass: 'bg-yellow-200/20 border-yellow-200 text-yellow-200' },
-                              { num: 5, label: 'P5', desc: 'Normal', colorClass: 'bg-yellow-100/10 border-yellow-100/50 text-yellow-100' },
-                            ].map(p => {
+                            {PRIORITY_OPTIONS.map(p => {
                               const isSel = selectedItem.prioridade === p.num;
                               return (
                                 <button
@@ -1195,6 +1213,14 @@ const HomePage = () => {
                               {selectedItem.temporada ? `${selectedItem.temporada.toLowerCase()} ${selectedItem.ano || ''}` : selectedItem.ano || 'N/A'}
                             </p>
                           </div>
+                        </div>
+
+                        {/* Last Modified Card */}
+                        <div className="glass-panel p-3.5 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">
+                          <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-0.5">Last Content Update</p>
+                          <p className="font-bold text-sm text-white font-mono">
+                            {formatLastModified(selectedItem)}
+                          </p>
                         </div>
 
                         {/* Remove Button */}
@@ -1307,11 +1333,7 @@ const HomePage = () => {
                             {categoria}
                           </span>
                           <span className={`text-sm flex items-center gap-1 font-bold ${
-                            selectedItem.prioridade === 1 ? 'text-amber-500' :
-                            selectedItem.prioridade === 2 ? 'text-amber-400' :
-                            selectedItem.prioridade === 3 ? 'text-yellow-400' :
-                            selectedItem.prioridade === 4 ? 'text-yellow-200' :
-                            'text-yellow-100'
+                            getPriorityStarColor(selectedItem.prioridade)
                           }`}>
                             <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> {selectedItem.isExternal ? 'New' : `#${selectedItem.prioridade}`}
                           </span>
@@ -1446,7 +1468,7 @@ const HomePage = () => {
                           </div>
                         );
                       })()}
-                      <div className={`grid grid-cols-1 ${selectedItem.statusLancamento === 'RELEASING' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-6 py-8 border-t border-white/5`}>
+                      <div className={`grid grid-cols-1 ${selectedItem.statusLancamento === 'RELEASING' ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-6 py-8 border-t border-white/5`}>
                         {/* Status Card */}
                         <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${categoria === 'anime' ? 'hover:border-purple-500/30 hover:bg-purple-500/5 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]' : 'hover:border-pink-500/30 hover:bg-pink-500/5 hover:shadow-[0_0_20px_rgba(236,72,153,0.1)]'}`}>
                           <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-3 ${selectedItem.statusLancamento === 'RELEASING' ? (categoria === 'anime' ? 'bg-primary/10 text-primary shadow-[0_0_15px_rgba(221,184,255,0.2)]' : 'bg-secondary/10 text-secondary shadow-[0_0_15px_rgba(255,176,203,0.2)]') : 'bg-surface-variant/30 text-on-surface-variant'}`}>
@@ -1487,6 +1509,17 @@ const HomePage = () => {
                             </p>
                           </div>
                         )}
+
+                        {/* Last Modified Card */}
+                        <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${categoria === 'anime' ? 'hover:border-purple-500/30 hover:bg-purple-500/5 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]' : 'hover:border-pink-500/30 hover:bg-pink-500/5 hover:shadow-[0_0_20px_rgba(236,72,153,0.1)]'}`}>
+                          <div className="w-10 h-10 rounded-2xl bg-surface-variant/30 text-on-surface-variant flex items-center justify-center mb-3">
+                            <span className="material-symbols-outlined text-xl">history</span>
+                          </div>
+                          <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">Last Content Update</p>
+                          <p className="font-bold text-lg text-white font-mono">
+                            {formatLastModified(selectedItem)}
+                          </p>
+                        </div>
                       </div>
                     </div>
                     <div className="space-y-6">
@@ -1526,13 +1559,7 @@ const HomePage = () => {
                                 Priority Level (1 = Highest)
                               </label>
                               <div className="grid grid-cols-5 gap-2">
-                                {[
-                                  { num: 1, label: 'P1', desc: 'Highest', colorClass: 'bg-amber-500/20 border-amber-500 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)]' },
-                                  { num: 2, label: 'P2', desc: 'High', colorClass: 'bg-amber-400/20 border-amber-400 text-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)]' },
-                                  { num: 3, label: 'P3', desc: 'Medium', colorClass: 'bg-yellow-400/20 border-yellow-400 text-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.3)]' },
-                                  { num: 4, label: 'P4', desc: 'Low', colorClass: 'bg-yellow-200/20 border-yellow-200 text-yellow-200 shadow-[0_0_15px_rgba(254,240,138,0.2)]' },
-                                  { num: 5, label: 'P5', desc: 'Normal', colorClass: 'bg-yellow-100/10 border-yellow-100/50 text-yellow-100' },
-                                ].map(p => {
+                                {PRIORITY_OPTIONS.map(p => {
                                   const isSel = selectedItem.prioridade === p.num;
                                   return (
                                     <button

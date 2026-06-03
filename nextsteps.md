@@ -1,20 +1,26 @@
 # Próximos passos de implementação/futuras funcionalidades
 
-## Engenharia de Dados & API do MangaUpdates
-Criar o script isolado playground-parser.ts: Um ambiente de testes fechado para escreveres a lógica de tratamento de dados (usando Expressões Regulares/RegEx). O objetivo é pegar no texto bruto da API do MangaUpdates (ex: "Vol.1 Ch.45", "Season 2 Ch.1") e organizá-lo direitinho por temporadas, capítulos e especiais, limpando duplicados antes de injetar isso no NestJS.
+## Passo 1: A Base de Dados na Nuvem (PostgreSQL)
+Abandonar o SQLite (que guarda tudo num ficheiro local) e passar para o PostgreSQL. Como estás a usar o Prisma, a mudança de código é quase nula (só mudas o `provider` no `schema.prisma`).
 
-## Infraestrutura Móvel & Sincronização (Android ↔️ PC)
-Script/Teste Isolado de Conectividade: Resolver o bloqueio de comunicação entre o teu telemóvel Android e o servidor local.
+* **Onde alojar:** Usas o Supabase ou o Neon DB.
+* **Como funciona:** Crias uma conta gratuita e eles dão-te um link de ligação (uma Connection String), algo do género: `postgresql://pedro:password@ep-cold-surf.eu-central-1.aws.neon.tech/otakutime`. Colocas isso no teu ficheiro `.env` (variável `DATABASE_URL`) e já está! A base de dados passa a estar na nuvem.
 
-Configuração de Rede: Descobrir o teu IPv4 local (ipconfig), configurar o CORS no main.ts do NestJS (origin: '*') e abrir a porta 3001 na Firewall do Windows para o telemóvel conseguir descarregar e sincronizar os teus dados via Wi-Fi.
+## Passo 2: O Servidor Backend (NestJS)
+O teu código NestJS precisa de estar a correr num servidor para ouvir os pedidos da tua app.
 
-## Evolução da Base de Dados (Prisma)
-Migração Segura: Atualizar o teu schema.prisma para incluir os campos de links personalizados (customLink) e as novas datas dos capítulos como campos opcionais (?).
+* **Onde alojar:** Usas o Render ([render.com](https://render.com)) ou o Railway ([railway.app](https://railway.app)).
+* **Como funciona:** Ligas a plataforma ao teu repositório do GitHub. O Render vai ler o teu código NestJS e colocar o servidor no ar automaticamente. Ele dá-te um link público e seguro, por exemplo: `https://api-otakutime.onrender.com`.
+* **A Magia:** Sempre que fizeres um `git push` com código novo no GitHub, o Render reconstrói e atualiza o servidor sozinho!
 
-Correr a Migration: Executar o npx prisma migrate dev para atualizar o SQLite no teu telemóvel sem o risco de apagar ou perder os mangás que já tens lá adicionados.
+## Passo 3: O Frontend e a App Android
+Agora que o teu backend e a base de dados estão a viver na internet, o resto é super fácil.
 
-## Sistema de Backup (Portabilidade)
-Exportação Universal em JSON: Criar a rota no NestJS e o botão na interface do Android para gerar um ficheiro .json com a tua lista, estados e progresso, garantindo que os teus dados estão sempre seguros e fáceis de migrar.
+* **No teu site Web:** Podes alojar a parte visual (React) gratuitamente na Vercel ou no Netlify.
+* **Na tua App Android (Capacitor):** Vais ao código onde antes tinhas `http://192.168.1.85:3001` (ou outro IP local) e trocas pela tua nova API online (ex: `https://api-otakutime.onrender.com`).
+* **O Resultado:** Quer estejas no ginásio em Vila Real com 5G, quer estejas num café no Porto, a app fala sempre com a nuvem de forma instantânea. Mudas de telemóvel? É só instalar a app, os dados estão todos seguros na nuvem!
 
-## Dockerização (Fase Final)
-Criação de Contentores: Quando tudo estiver a funcionar a 100%, criar as imagens Docker e o ficheiro docker-compose.yml para isolar o ecossistema Web e o Processador (Backend), preparando o projeto para um futuro deploy na nuvem e deixando o teu portefólio com um nível super profissional para o ISEP.
+---
+
+> [!NOTE]
+> Esta transição do "funciona no meu PC" para "funciona na internet para qualquer pessoa" é o que vai dar um peso gigante ao teu portefólio para as candidaturas de mestrado. É o selo de qualidade de que sabes levar um projeto até ao fim.

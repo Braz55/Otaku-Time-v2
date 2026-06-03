@@ -463,6 +463,154 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
     }
 
     // ==========================================
+    // BACKUP & RESTORE ROUTES
+    // ==========================================
+    if (path === '/user/backup' && method === 'GET') {
+      const animes = await localDb.animes.where('userId').equals(userId).toArray();
+      const mangas = await localDb.mangas.where('userId').equals(userId).toArray();
+
+      const backupAnimes = animes.map((item: any) => ({
+        animeId: item.animeId,
+        titulo: item.titulo,
+        status: item.status,
+        epAtual: item.epAtual,
+        prioridade: item.prioridade ?? 5,
+        numEpisodiosTotal: item.numEpisodiosTotal,
+        tipo: 'anime'
+      }));
+
+      const backupMangas = mangas.map((item: any) => ({
+        mangaId: item.mangaId,
+        titulo: item.titulo,
+        status: item.status,
+        capAtual: item.capAtual,
+        prioridade: item.prioridade ?? 5,
+        numCapitulosTotal: item.numCapitulosTotal,
+        tipo: 'manga'
+      }));
+
+      const backup = {
+        version: 1,
+        backupDate: new Date().toISOString(),
+        exporter: "Otaku-Time-Android",
+        userId,
+        data: {
+          animes: backupAnimes,
+          mangas: backupMangas
+        }
+      };
+
+      return createJsonResponse(backup);
+    }
+
+    if (path === '/user/restore' && method === 'POST') {
+      const backup = JSON.parse(init?.body as string);
+      if (!backup || !backup.data) {
+        return createJsonResponse({ message: 'Backup inválido ou sem dados' }, 400);
+      }
+
+      const { animes, mangas } = backup.data;
+
+      // Restaurar Animes
+      if (Array.isArray(animes)) {
+        for (const item of animes) {
+          let metadata: any = null;
+          try {
+            metadata = await getAniListMediaById(item.animeId, 'ANIME');
+          } catch (e) {
+            console.error(`Failed to fetch metadata for Anime ${item.animeId}`, e);
+          }
+
+          const topTags = metadata?.tags ? metadata.tags.slice(0, 5).map((t: any) => t.name).join(', ') : '';
+          const generosComTags = metadata ? `${metadata.genres ? metadata.genres.join(', ') : ''}, ${topTags}` : '';
+          const descricaoLimpa = metadata?.description ? metadata.description.replace(/<[^>]*>?/gm, '') : "Sem descrição.";
+
+          const existing = await localDb.animes.where('animeId').equals(item.animeId).first();
+          if (existing && existing.id !== undefined) {
+            await localDb.animes.update(existing.id, {
+              titulo: metadata ? (metadata.title.english || metadata.title.romaji || metadata.title.native) : item.titulo,
+              statusLancamento: metadata ? metadata.status : existing.statusLancamento,
+              capaUrl: metadata ? metadata.coverImage?.large : existing.capaUrl,
+              generos: metadata ? generosComTags : existing.generos,
+              descricao: metadata ? descricaoLimpa : existing.descricao,
+              epAtual: item.epAtual,
+              status: item.status as any,
+              prioridade: item.prioridade ?? 5,
+              numEpisodiosTotal: metadata ? metadata.episodes : (item.numEpisodiosTotal || existing.numEpisodiosTotal)
+            });
+          } else {
+            await localDb.animes.add({
+              userId,
+              animeId: item.animeId,
+              titulo: metadata ? (metadata.title.english || metadata.title.romaji || metadata.title.native) : item.titulo,
+              statusLancamento: metadata ? metadata.status : 'UNKNOWN',
+              capaUrl: metadata ? metadata.coverImage?.large : '',
+              generos: generosComTags,
+              descricao: descricaoLimpa,
+              status: item.status as any,
+              epAtual: item.epAtual,
+              prioridade: item.prioridade ?? 5,
+              numEpisodiosTotal: metadata ? metadata.episodes : (item.numEpisodiosTotal || null)
+            });
+          }
+        }
+      }
+
+      // Restaurar Mangas
+      if (Array.isArray(mangas)) {
+        for (const item of mangas) {
+          let metadata: any = null;
+          try {
+            metadata = await getAniListMediaById(item.mangaId, 'MANGA');
+          } catch (e) {
+            console.error(`Failed to fetch metadata for Manga ${item.mangaId}`, e);
+          }
+
+          const topTags = metadata?.tags ? metadata.tags.slice(0, 5).map((t: any) => t.name).join(', ') : '';
+          const generosComTags = metadata ? `${metadata.genres ? metadata.genres.join(', ') : ''}, ${topTags}` : '';
+          const descricaoLimpa = metadata?.description ? metadata.description.replace(/<[^>]*>?/gm, '') : "Sem descrição.";
+
+          const existing = await localDb.mangas.where('mangaId').equals(item.mangaId).first();
+          if (existing && existing.id !== undefined) {
+            await localDb.mangas.update(existing.id, {
+              titulo: metadata ? (metadata.title.english || metadata.title.romaji || metadata.title.native) : item.titulo,
+              statusLancamento: metadata ? metadata.status : existing.statusLancamento,
+              capaUrl: metadata ? metadata.coverImage?.large : existing.capaUrl,
+              generos: metadata ? generosComTags : existing.generos,
+              descricao: metadata ? descricaoLimpa : existing.descricao,
+              capAtual: item.capAtual,
+              status: item.status as any,
+              prioridade: item.prioridade ?? 5,
+              numCapitulosTotal: metadata ? metadata.chapters : (item.numCapitulosTotal || existing.numCapitulosTotal)
+            });
+          } else {
+            await localDb.mangas.add({
+              userId,
+              mangaId: item.mangaId,
+              titulo: metadata ? (metadata.title.english || metadata.title.romaji || metadata.title.native) : item.titulo,
+              statusLancamento: metadata ? metadata.status : 'UNKNOWN',
+              capaUrl: metadata ? metadata.coverImage?.large : '',
+              generos: generosComTags,
+              descricao: descricaoLimpa,
+              status: item.status as any,
+              capAtual: item.capAtual,
+              prioridade: item.prioridade ?? 5,
+              numCapitulosTotal: metadata ? metadata.chapters : (item.numCapitulosTotal || null)
+            });
+          }
+        }
+      }
+
+      return createJsonResponse({ success: true, message: 'Restore completed successfully' });
+    }
+
+    if (path === '/user/library' && method === 'DELETE') {
+      await localDb.animes.where('userId').equals(userId).delete();
+      await localDb.mangas.where('userId').equals(userId).delete();
+      return createJsonResponse({ success: true, message: 'Library cleared successfully' });
+    }
+
+    // ==========================================
     // AUTH ROUTES
     // ==========================================
     if (path === '/auth/login' && method === 'POST') {

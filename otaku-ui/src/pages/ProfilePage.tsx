@@ -1,20 +1,212 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ChevronLeft, Database, RefreshCw, AlertCircle, User, Shield, Smartphone } from 'lucide-react';
+import { ChevronLeft, Database, RefreshCw, AlertCircle, User, Shield, Smartphone, Download, Upload, Copy, Check } from 'lucide-react';
 import { localDb } from '../services/localDb';
 import { API_BASE_URL } from '../config';
 import { Capacitor } from '@capacitor/core';
 import { customFetch } from '../services/apiBridge';
+import { Share } from '@capacitor/share';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 
 
 const ProfilePage = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, token } = useAuth();
   const navigate = useNavigate();
   
   const [activeTab, setActiveTab] = useState<'sync' | 'account'>('sync');
   const [localAnimeCount, setLocalAnimeCount] = useState(0);
   const [localMangaCount, setLocalMangaCount] = useState(0);
+
+  // Backup & Restore State
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [backupText, setBackupText] = useState('');
+  const [showBackupModal, setShowBackupModal] = useState(false);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
+  const [importJsonInput, setImportJsonInput] = useState('');
+  const [cleanRestore, setCleanRestore] = useState(false);
+  const [showWipeConfirm, setShowWipeConfirm] = useState(false);
+  const [isWiping, setIsWiping] = useState(false);
+
+  const getHeaders = () => ({
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  });
+
+  const handleWipeLibrary = async () => {
+    setIsWiping(true);
+    try {
+      const res = await customFetch(`${API_BASE_URL}/user/library`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      if (!res.ok) {
+        throw new Error('Falha ao apagar dados no servidor.');
+      }
+      
+      // Atualizar contagens locais
+      const aCount = await localDb.animes.count();
+      const mCount = await localDb.mangas.count();
+      setLocalAnimeCount(aCount);
+      setLocalMangaCount(mCount);
+      
+      alert('Biblioteca apagada com sucesso!');
+      setShowWipeConfirm(false);
+    } catch (err: any) {
+      alert(`Erro ao apagar biblioteca: ${err.message || err}`);
+    } finally {
+      setIsWiping(false);
+    }
+  };
+
+  const handleExportBackup = async () => {
+    setIsExporting(true);
+    setBackupText('');
+    setCopied(false);
+    try {
+      const res = await customFetch(`${API_BASE_URL}/user/backup`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) {
+        throw new Error(`Erro ao gerar backup: ${res.statusText}`);
+      }
+      const backupData = await res.json();
+      const backupString = JSON.stringify(backupData, null, 2);
+      setBackupText(backupString);
+
+      // Se for Android (Native Platform)
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const fileName = `otaku_time_backup_${new Date().toISOString().split('T')[0]}.json`;
+          
+          // Gravar o ficheiro temporariamente no sistema de ficheiros nativo do Android
+          const writeResult = await Filesystem.writeFile({
+            path: fileName,
+            data: backupString,
+            directory: Directory.Cache,
+            encoding: Encoding.UTF8
+          });
+
+          // Partilhar o ficheiro através do menu de partilha nativo do Android
+          await Share.share({
+            title: 'Backup Otaku-Time',
+            text: 'Ficheiro de cópia de segurança do Otaku-Time.',
+            url: writeResult.uri,
+            dialogTitle: 'Partilhar Cópia de Segurança'
+          });
+        } catch (shareErr: any) {
+          console.error("Erro ao partilhar via Capacitor:", shareErr);
+          // Se falhar a partilha nativa (por ex. cancelada), mostramos o modal para o utilizador copiar
+          setShowBackupModal(true);
+        }
+      } else {
+        // No PC / Web: Download direto
+        const blob = new Blob([backupString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `otaku_time_backup_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        setShowBackupModal(true);
+      }
+    } catch (err: any) {
+      alert(`Erro ao exportar backup: ${err.message || err}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target?.result as string;
+        setImportJsonInput(text);
+      } catch (err) {
+        setImportError('Não foi possível ler o ficheiro selecionado.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleRestoreBackup = async () => {
+    if (!importJsonInput.trim()) {
+      setImportError('Por favor, cole o texto do backup ou selecione um ficheiro JSON.');
+      return;
+    }
+
+    setImportError(null);
+    setImportSuccess(null);
+    setIsImporting(true);
+
+    try {
+      // Validar JSON localmente antes de enviar
+      let parsed;
+      try {
+        parsed = JSON.parse(importJsonInput);
+      } catch {
+        throw new Error('O formato do texto/ficheiro não é um JSON válido.');
+      }
+
+      if (!parsed.data || (!parsed.data.animes && !parsed.data.mangas)) {
+        throw new Error('O backup selecionado não contém dados válidos de animes ou mangás.');
+      }
+
+      // Se for restauro limpo, apagar biblioteca primeiro
+      if (cleanRestore) {
+        const wipeRes = await customFetch(`${API_BASE_URL}/user/library`, {
+          method: 'DELETE',
+          headers: getHeaders()
+        });
+        if (!wipeRes.ok) {
+          throw new Error('Não foi possível apagar os dados existentes para o restauro limpo.');
+        }
+      }
+
+      const res = await customFetch(`${API_BASE_URL}/user/restore`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(parsed)
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || 'Falha ao restaurar dados no servidor.');
+      }
+
+      setImportSuccess('Cópia de segurança restaurada com sucesso! A recarregar biblioteca...');
+      setImportJsonInput('');
+      setCleanRestore(false);
+      
+      // Recarregar os contadores da página e atualizar as listas
+      setTimeout(async () => {
+        try {
+          const aCount = await localDb.animes.count();
+          const mCount = await localDb.mangas.count();
+          setLocalAnimeCount(aCount);
+          setLocalMangaCount(mCount);
+        } catch {}
+        setShowRestoreModal(false);
+        setImportSuccess(null);
+      }, 2500);
+
+    } catch (err: any) {
+      setImportError(err.message || 'Erro inesperado ao restaurar o backup.');
+    } finally {
+      setIsImporting(false);
+    }
+  };
   
   // AutoSync Releases State (Animes & Mangas)
   const [syncStatus, setSyncStatus] = useState<{ isSyncing: boolean; total: number; current: number; currentItemTitle: string }>({
@@ -242,6 +434,66 @@ const ProfilePage = () => {
                 )}
               </div>
             </div>
+
+            {/* Backup & Portability Card */}
+            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden animate-in fade-in duration-500">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-purple-500/10 via-pink-500/5 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+              
+              <div className="flex items-center justify-between flex-wrap gap-4 relative z-10">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-2xl text-purple-400 shadow-inner">
+                    <Database className="w-6 h-6 text-purple-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                      <span>Cópia de Segurança (Backup & Portabilidade)</span>
+                    </h3>
+                    <p className="text-xs text-on-surface-variant mt-0.5 max-w-xl">
+                      Exporte toda a sua biblioteca de Animes e Mangas (títulos, estados de acompanhamento, progresso atual e prioridade) para um ficheiro JSON portátil, facilitando a migração entre o PC e o Android.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-white/5 relative z-10">
+                {/* Export Button */}
+                <button
+                  onClick={handleExportBackup}
+                  disabled={isExporting}
+                  className="py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 shadow-xl bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 hover:opacity-90 text-white shadow-purple-500/20 hover:shadow-purple-500/40 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isExporting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                      <span>A GERAR BACKUP...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 text-white" />
+                      <span>CRIAR CÓPIA DE SEGURANÇA</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Import Button */}
+                <button
+                  onClick={() => setShowRestoreModal(true)}
+                  className="py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 shadow-xl bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5 hover:scale-[1.01] active:scale-[0.99]"
+                >
+                  <Upload className="w-4 h-4 text-purple-400" />
+                  <span>RESTAURAR CÓPIA DE SEGURANÇA</span>
+                </button>
+
+                {/* Wipe Button */}
+                <button
+                  onClick={() => setShowWipeConfirm(true)}
+                  className="sm:col-span-2 py-3.5 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-3 shadow-xl bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-600 hover:text-white hover:border-red-600 hover:scale-[1.01] active:scale-[0.99]"
+                >
+                  <AlertCircle className="w-4 h-4" />
+                  <span>LIMPAR BIBLIOTECA (APAGAR TODOS OS PROGRESSOS)</span>
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -282,6 +534,221 @@ const ProfilePage = () => {
           </div>
         )}
       </div>
+
+      {/* Export Backup Modal */}
+      {showBackupModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="glass-panel w-full max-w-2xl p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-purple-500/15 to-transparent rounded-full blur-2xl"></div>
+            
+            <div className="space-y-2">
+              <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                <Check className="w-6 h-6 text-emerald-400" />
+                <span>Backup Gerado com Sucesso!</span>
+              </h3>
+              <p className="text-xs sm:text-sm text-gray-400">
+                {Capacitor.isNativePlatform() 
+                  ? "O ficheiro foi partilhado através do menu do telemóvel. Em alternativa, pode copiar o código bruto abaixo para guardar como texto."
+                  : "O download do ficheiro JSON iniciou-se automaticamente. Caso queira guardar o código bruto, pode copiá-lo abaixo."}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-gray-400">
+                <span>CÓDIGO DE SEGURANÇA (JSON)</span>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(backupText);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white active:scale-95"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-emerald-400">Copiado!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copiar Código</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              <textarea
+                readOnly
+                value={backupText}
+                className="w-full h-48 font-mono text-xs p-4 rounded-xl bg-black/60 border border-white/5 text-gray-300 focus:outline-none resize-none"
+              />
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowBackupModal(false)}
+                className="px-6 py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 text-white font-bold text-sm transition-all shadow-lg"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Restore Backup Modal */}
+      {showRestoreModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="glass-panel w-full max-w-2xl p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-pink-500/15 to-transparent rounded-full blur-2xl"></div>
+            
+            <div className="space-y-2">
+              <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                <Upload className="w-6 h-6 text-pink-400" />
+                <span>Restaurar Cópia de Segurança</span>
+              </h3>
+              <p className="text-xs sm:text-sm text-gray-400">
+                Selecione um ficheiro de backup JSON do seu dispositivo ou cole o código JSON diretamente no campo de texto abaixo.
+              </p>
+            </div>
+
+            {/* File input selector */}
+            <div className="p-4 rounded-2xl border border-dashed border-white/10 hover:border-white/20 transition-all bg-white/5 flex flex-col items-center justify-center text-center gap-2">
+              <span className="material-symbols-outlined text-gray-400 text-3xl">upload_file</span>
+              <div>
+                <label htmlFor="backup-file" className="cursor-pointer font-bold text-sm text-purple-400 hover:text-purple-300">
+                  Selecione um ficheiro JSON
+                </label>
+                <input 
+                  type="file" 
+                  id="backup-file" 
+                  accept=".json"
+                  onChange={handleImportFile}
+                  className="hidden" 
+                />
+                <p className="text-[10px] text-gray-500 mt-1">Apenas ficheiros com extensão .json válidos</p>
+              </div>
+            </div>
+
+            {/* JSON Textarea paste input */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-400 block">OU COLE O CÓDIGO JSON DIRETAMENTE</label>
+              <textarea
+                placeholder='Cole aqui o conteúdo do seu ficheiro de backup (começando com { "version": 1, ... })'
+                value={importJsonInput}
+                onChange={(e) => setImportJsonInput(e.target.value)}
+                className="w-full h-36 font-mono text-xs p-4 rounded-xl bg-black/60 border border-white/5 text-gray-300 focus:border-pink-500/50 focus:outline-none resize-none placeholder:text-gray-600"
+              />
+            </div>
+
+            {/* Clean Restore Checkbox */}
+            <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-red-500/5 border border-red-500/20 text-red-300">
+              <input
+                type="checkbox"
+                id="clean-restore-checkbox"
+                checked={cleanRestore}
+                onChange={(e) => setCleanRestore(e.target.checked)}
+                className="w-4.5 h-4.5 rounded border-white/10 text-pink-600 focus:ring-pink-500/50 bg-black/40 cursor-pointer"
+              />
+              <label htmlFor="clean-restore-checkbox" className="text-xs font-bold cursor-pointer select-none">
+                Efetuar restauro limpo (APAGAR todos os dados atuais antes de importar)
+              </label>
+            </div>
+
+            {/* Status Alert Messages */}
+            {importError && (
+              <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3 text-red-400 animate-in fade-in duration-300">
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <p className="text-xs font-bold">{importError}</p>
+              </div>
+            )}
+
+            {importSuccess && (
+              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3 text-emerald-400 animate-in fade-in duration-300">
+                <Check className="w-5 h-5 flex-shrink-0 animate-bounce" />
+                <p className="text-xs font-bold">{importSuccess}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 border-t border-white/5 pt-4">
+              <button
+                onClick={() => {
+                  setShowRestoreModal(false);
+                  setImportJsonInput('');
+                  setImportError(null);
+                  setImportSuccess(null);
+                  setCleanRestore(false);
+                }}
+                className="px-6 py-3 rounded-2xl bg-surface-variant/30 text-on-surface-variant hover:text-white font-bold text-sm transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleRestoreBackup}
+                disabled={isImporting || !importJsonInput}
+                className="px-6 py-3 rounded-2xl bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold text-sm transition-all shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isImporting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>A RESTAURAR...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    <span>RESTAURAR PROGRESSO</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Wipe Confirmation Modal */}
+      {showWipeConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="glass-panel w-full max-w-md p-6 sm:p-8 rounded-[32px] border border-red-500/30 space-y-6 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-red-500/15 to-transparent rounded-full blur-2xl"></div>
+            
+            <div className="space-y-2 text-center sm:text-left">
+              <h3 className="text-xl sm:text-2xl font-black text-white flex items-center justify-center sm:justify-start gap-2">
+                <AlertCircle className="w-6 h-6 text-red-500 animate-bounce" />
+                <span>Apagar Biblioteca?</span>
+              </h3>
+              <p className="text-xs sm:text-sm text-gray-400">
+                Esta ação é <span className="text-red-500 font-bold">destrutiva e irreversível</span>. Todos os animes, mangás, episódios/capítulos atuais e prioridades serão removidos da sua conta.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowWipeConfirm(false)}
+                className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-surface-variant/30 text-on-surface-variant hover:text-white font-bold text-sm transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleWipeLibrary}
+                disabled={isWiping}
+                className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2"
+              >
+                {isWiping ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>A APAGAR...</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="w-4 h-4" />
+                    <span>SIM, APAGAR TUDO</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

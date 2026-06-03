@@ -1,8 +1,8 @@
 # 🤖 Otaku Time Pro (v2.0)
 
-O teu gestor inteligente de Anime & Manga, alimentado por Inteligência Artificial (LLM Local) e com arquitetura robusta Offline-First para desktop e telemóvel.
+**O teu tracker inteligente e pessoal de Anime & Manga.**
 
-O **Otaku Time Pro** é um ecossistema Fullstack concebido para entusiastas que procuram organizar as suas bibliotecas de anime e manga, visualizar calendários de lançamentos com fuso horário local e interagir com um assistente virtual especialista que conhece os seus gostos em tempo real.
+O **Otaku Time Pro** é um ecossistema Fullstack Offline-First (desktop e telemóvel) concebido especificamente para **registares, organizares e acompanhares o progresso** de todas as obras (animes e mangas) que estás a seguir ativamente. A plataforma resolve os problemas de acompanhamento ao automatizar fusos horários de lançamentos, cruzar capítulos lançados em diferentes portais e integrar um assistente IA local que reconhece a tua lista de acompanhamento em tempo real para dar sugestões personalizadas.
 
 ---
 
@@ -45,27 +45,27 @@ Resolve as limitações e inconsistências das APIs tradicionais com um sistema 
 ## 🛠️ Arquitetura do Sistema
 
 ```mermaid
-graph TD
-    subgraph Cliente [Frontend & App Móvel]
-        A[Interface React + Tailwind] <-->|Offline Cache| B[(Dexie DB - IndexedDB)]
-        A -->|Empacotamento Mobile| C[Capacitor - Android App]
+flowchart TD
+    subgraph Cliente ["Frontend & App Móvel"]
+        A["Interface React + Tailwind"] ---|"Offline Cache"| B[(Dexie DB - IndexedDB)]
+        A -->|"Empacotamento Mobile"| C["Capacitor - Android App"]
     end
     
-    subgraph Servidor [Backend Server]
-        D[Servidor NestJS] <-->|Prisma ORM| E[(SQLite - dev.db)]
-        D <-->|LLM Local: API Generate| F[Ollama - Llama 3.1 8B]
+    subgraph Servidor ["Backend Server"]
+        D["Servidor NestJS"] ---|"Prisma ORM"| E[(SQLite - dev.db)]
+        D ---|"LLM Local: API Generate"| F["Ollama - Llama 3.1 8B"]
     end
 
-    subgraph APIs [APIs & Fontes Externas]
-        G[AniList GraphQL API]
-        H[Baka-Updates API]
-        I[MangaDex API]
+    subgraph APIs ["APIs & Fontes Externas"]
+        G["AniList GraphQL API"]
+        H["Baka-Updates API"]
+        I["MangaDex API"]
     end
 
-    A <-->|REST API / SSE Streaming / Two-Way Sync| D
-    D -->|Metadados & Lançamentos| G
-    D -->|Capítulos & Temporadas| H
-    D -->|Fallback de Capítulos| I
+    A ---|"REST API / SSE / Two-Way Sync"| D
+    D -->|"Metadados & Lançamentos"| G
+    D -->|"Capítulos & Temporadas"| H
+    D -->|"Fallback de Capítulos"| I
 ```
 
 ### Tecnologias Utilizadas
@@ -91,9 +91,9 @@ classDiagram
         +String nome
         +String email
         +String password
-        +List~UserAnime~ animes
-        +List~UserManga~ mangas
-        +List~ChatSession~ sessions
+        +UserAnime[] animes
+        +UserManga[] mangas
+        +ChatSession[] sessions
     }
 
     class Anime {
@@ -156,12 +156,12 @@ classDiagram
         +DateTime createdAt
     }
 
-    User "1" -- "*" UserAnime : possui
-    User "1" -- "*" UserManga : possui
-    User "1" -- "*" ChatSession : possui
-    Anime "1" -- "*" UserAnime : associado
-    Manga "1" -- "*" UserManga : associado
-    ChatSession "1" -- "*" ChatMessage : contém
+    User "1" --> "*" UserAnime : possui
+    User "1" --> "*" UserManga : possui
+    User "1" --> "*" ChatSession : possui
+    Anime "1" --> "*" UserAnime : associado
+    Manga "1" --> "*" UserManga : associado
+    ChatSession "1" --> "*" ChatMessage : contém
 ```
 
 ---

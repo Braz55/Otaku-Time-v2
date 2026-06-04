@@ -518,7 +518,7 @@ const HomePage = () => {
 
               {/* Caixa com a barra de pesquisa e os filtros */}
               <div className="py-4 sm:py-6 px-2 sm:px-6 md:px-12 hero-gradient rounded-2xl sm:rounded-[32px] border border-white/10 shadow-2xl relative overflow-hidden w-full">
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-transparent blur-3xl"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-secondary/15 via-secondary-light/5 to-transparent blur-3xl"></div>
                 <div className="max-w-5xl mx-auto space-y-3 sm:space-y-5 relative z-10">
                   <div className={`glass-panel p-1 sm:p-1.5 rounded-xl sm:rounded-2xl flex items-center shadow-lg group focus-within:ring-2 ${categoria === 'anime' ? 'ring-primary/50' : 'ring-secondary/50'} transition-all bg-surface/80 backdrop-blur-xl border border-white/10 max-w-4xl mx-auto`}>
                     <span className="material-symbols-outlined px-2 sm:px-4 text-on-surface-variant group-focus-within:text-white text-base sm:text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>search</span>
@@ -580,8 +580,8 @@ const HomePage = () => {
               <section className="space-y-8 sm:space-y-12">
                 {Capacitor.isNativePlatform() ? null : (
                   <div className="text-center py-12 hero-gradient rounded-[40px] border border-white/10 shadow-2xl p-8 mb-12 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-transparent blur-3xl"></div>
-                    <h2 className="text-5xl md:text-7xl font-black text-primary-light tracking-tight mb-4 relative z-10">
+                    <div className="absolute inset-0 bg-gradient-to-r from-secondary/15 via-secondary-light/5 to-transparent blur-3xl"></div>
+                    <h2 className="text-5xl md:text-7xl font-black text-secondary-light tracking-tight mb-4 relative z-10">
                       Otaku-Time
                     </h2>
                     <p className="text-on-surface-variant text-lg max-w-xl mx-auto relative z-10 font-medium">

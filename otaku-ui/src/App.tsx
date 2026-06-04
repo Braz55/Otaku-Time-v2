@@ -10,6 +10,7 @@ import ProfilePage from './pages/ProfilePage';
 import Layout from './components/Layout';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
+import { applyPalette, getCurrentPalette } from './services/paletteService';
 
 // Listener para o botão físico / gesto de voltar no Android
 const AndroidBackButtonListener = () => {
@@ -45,6 +46,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 function App() {
   const { user } = useAuth();
+
+  useEffect(() => {
+    // Aplicar a paleta de cores guardada no localStorage
+    applyPalette(getCurrentPalette());
+  }, []);
 
   useEffect(() => {
     if (user?.theme === 'light') {

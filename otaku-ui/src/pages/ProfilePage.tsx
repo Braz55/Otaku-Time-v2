@@ -11,6 +11,8 @@ import { Share } from '@capacitor/share';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 
 
+import { getCurrentPalette, savePalette } from '../services/paletteService';
+
 const ProfilePage = () => {
   const { user, logout, token, updateUser } = useAuth();
   const { showToast } = useToast();
@@ -18,6 +20,13 @@ const ProfilePage = () => {
   
   const [activeTab, setActiveTab] = useState<'sync' | 'account'>('sync');
   const [isUpdatingPreferences, setIsUpdatingPreferences] = useState(false);
+  const [selectedPalette, setSelectedPalette] = useState(() => getCurrentPalette());
+
+  const handlePaletteChange = (paletteName: string) => {
+    savePalette(paletteName);
+    setSelectedPalette(paletteName);
+    showToast('Paleta de cores atualizada!', 'success');
+  };
 
   // Account Information Edit state
   const [newName, setNewName] = useState(user?.nome || '');
@@ -378,8 +387,8 @@ const ProfilePage = () => {
         </header>
 
         {/* User Card Hero */}
-        <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-purple-500/20 shadow-2xl relative overflow-hidden hero-gradient">
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-transparent blur-3xl"></div>
+        <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-secondary/20 shadow-2xl relative overflow-hidden hero-gradient">
+          <div className="absolute inset-0 bg-gradient-to-r from-secondary/15 via-secondary-light/5 to-transparent blur-3xl"></div>
           <div className="flex flex-col sm:flex-row items-center gap-6 relative z-10 text-center sm:text-left">
             <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-primary p-1 shadow-[0_0_30px_rgba(168,85,247,0.4)] flex-shrink-0">
               <div className="w-full h-full rounded-full bg-surface flex items-center justify-center text-4xl font-black text-white overflow-hidden">
@@ -743,6 +752,27 @@ const ProfilePage = () => {
                     <option value="light" className="bg-[#0f1014]">Claro (Light Mode)</option>
                   </select>
                   <p className="text-[10px] text-gray-500">Escolha de contraste para a interface gráfica.</p>
+                </div>
+
+                {/* Color Palette */}
+                <div className="space-y-2">
+                  <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm text-primary-light">palette</span>
+                    Paleta de Cores (Tema)
+                  </label>
+                  <select 
+                    value={selectedPalette} 
+                    onChange={(e) => handlePaletteChange(e.target.value)}
+                    className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-primary-light outline-none transition-all cursor-pointer"
+                  >
+                    <option value="default" className="bg-[#0f1014]">💜 Roxo Clássico (Padrão)</option>
+                    <option value="shounen" className="bg-[#0f1014]">🟠 Laranja Shounen (Crunchyroll / Naruto)</option>
+                    <option value="akatsuki" className="bg-[#0f1014]">🔴 Vermelho Akatsuki (Imponente)</option>
+                    <option value="mutsu" className="bg-[#0f1014]">🟢 Verde Mutsu (Relaxante Mushi-Shi)</option>
+                    <option value="sololeveling" className="bg-[#0f1014]">🔮 Roxo Solo Leveling (Neon)</option>
+                    <option value="visionario" className="bg-[#0f1014]">🔵 Azul Visionário (AniList)</option>
+                  </select>
+                  <p className="text-[10px] text-gray-500">Mude a paleta cromática dos botões e destaques do ecrã.</p>
                 </div>
 
                 {/* Show Adult Content */}

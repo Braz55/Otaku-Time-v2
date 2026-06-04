@@ -407,12 +407,12 @@ const ProfilePage = () => {
               {/* Storage Quick Stats */}
               <div className="flex flex-wrap justify-center sm:justify-start gap-4 pt-2">
                 <div className="flex items-center gap-2 bg-black/40 px-3.5 py-1.5 rounded-xl border border-white/5">
-                  <Database className="w-4 h-4 text-purple-400" />
-                  <span className="text-xs font-bold text-gray-300">Animes: <span className="text-purple-400 font-black">{localAnimeCount}</span></span>
+                  <Database className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-bold text-gray-300">Animes: <span className="text-primary font-black">{localAnimeCount}</span></span>
                 </div>
                 <div className="flex items-center gap-2 bg-black/40 px-3.5 py-1.5 rounded-xl border border-white/5">
-                  <Database className="w-4 h-4 text-pink-400" />
-                  <span className="text-xs font-bold text-gray-300">Mangas: <span className="text-pink-400 font-black">{localMangaCount}</span></span>
+                  <Database className="w-4 h-4 text-secondary" />
+                  <span className="text-xs font-bold text-gray-300">Mangas: <span className="text-secondary font-black">{localMangaCount}</span></span>
                 </div>
                 <div className="flex items-center gap-2 bg-black/40 px-3.5 py-1.5 rounded-xl border border-white/5">
                   <Smartphone className="w-4 h-4 text-emerald-400" />
@@ -447,7 +447,7 @@ const ProfilePage = () => {
             {/* Connection Mode Selection Card */}
             <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-4 shadow-xl relative overflow-hidden">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-2xl text-purple-400">
+                <div className="p-3 bg-primary/10 border border-primary/30 rounded-2xl text-primary">
                   <Smartphone className="w-6 h-6" />
                 </div>
                 <div>
@@ -460,7 +460,7 @@ const ProfilePage = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 <button
                   onClick={() => handleConnectionModeChange('online')}
-                  className={`p-4 rounded-2xl border text-left transition-all ${connectionMode === 'online' ? 'border-purple-500 bg-purple-500/10 shadow-[0_0_15px_rgba(168,85,247,0.2)]' : 'border-white/10 bg-white/5 hover:bg-white/10'}`}
+                  className={`p-4 rounded-2xl border text-left transition-all ${connectionMode === 'online' ? 'border-purple-500 bg-primary/10 shadow-[0_0_15px_rgba(168,85,247,0.2)]' : 'border-white/10 bg-white/5 hover:bg-white/10'}`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-white text-sm">Modo Online (Nuvem)</span>
@@ -491,8 +491,8 @@ const ProfilePage = () => {
               
               <div className="flex items-center justify-between flex-wrap gap-4 relative z-10">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-pink-500/10 border border-pink-500/30 rounded-2xl text-pink-400 shadow-inner">
-                    <RefreshCw className={`w-6 h-6 ${syncStatus.isSyncing ? 'animate-spin text-pink-400' : ''}`} />
+                  <div className="p-3 bg-pink-500/10 border border-pink-500/30 rounded-2xl text-secondary shadow-inner">
+                    <RefreshCw className={`w-6 h-6 ${syncStatus.isSyncing ? 'animate-spin text-secondary' : ''}`} />
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
@@ -518,7 +518,7 @@ const ProfilePage = () => {
                 >
                   {syncStatus.isSyncing ? (
                     <>
-                      <RefreshCw className="w-5 h-5 animate-spin text-pink-400" />
+                      <RefreshCw className="w-5 h-5 animate-spin text-secondary" />
                       <span>AUTOSYNC IN PROGRESS ({syncStatus.current}/{syncStatus.total})</span>
                     </>
                   ) : (
@@ -533,7 +533,7 @@ const ProfilePage = () => {
                 {syncStatus.isSyncing && (
                   <div className="p-6 rounded-2xl bg-black/40 border border-pink-500/30 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500 shadow-2xl backdrop-blur-xl">
                     <div className="flex items-center justify-between text-xs font-bold">
-                      <span className="text-pink-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <span className="text-secondary uppercase tracking-widest flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-pink-500 animate-ping"></span> Live Background Progress
                       </span>
                       <span className="text-white bg-pink-500/20 px-2.5 py-1 rounded-lg border border-pink-500/30 font-mono">
@@ -549,7 +549,7 @@ const ProfilePage = () => {
                     </div>
 
                     <div className="p-4 rounded-xl bg-surface-variant/40 border border-white/5 flex items-center gap-3 text-sm">
-                      <div className="w-8 h-8 rounded-lg bg-pink-500/20 border border-pink-500/30 flex items-center justify-center text-pink-400 flex-shrink-0 shadow-md">
+                      <div className="w-8 h-8 rounded-lg bg-pink-500/20 border border-pink-500/30 flex items-center justify-center text-secondary flex-shrink-0 shadow-md">
                         <span className="material-symbols-outlined text-base animate-spin">sync</span>
                       </div>
                       <div className="min-w-0 flex-1">
@@ -581,8 +581,8 @@ const ProfilePage = () => {
               
               <div className="flex items-center justify-between flex-wrap gap-4 relative z-10">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-2xl text-purple-400 shadow-inner">
-                    <Database className="w-6 h-6 text-purple-400" />
+                  <div className="p-3 bg-primary/10 border border-primary/30 rounded-2xl text-primary shadow-inner">
+                    <Database className="w-6 h-6 text-primary" />
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
@@ -620,7 +620,7 @@ const ProfilePage = () => {
                   onClick={() => setShowRestoreModal(true)}
                   className="py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 shadow-xl bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5 hover:scale-[1.01] active:scale-[0.99]"
                 >
-                  <Upload className="w-4 h-4 text-purple-400" />
+                  <Upload className="w-4 h-4 text-primary" />
                   <span>RESTAURAR CÓPIA DE SEGURANÇA</span>
                 </button>
 
@@ -642,7 +642,7 @@ const ProfilePage = () => {
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl">
               <h3 className="text-xl font-bold text-white flex items-center gap-3">
-                <User className="w-6 h-6 text-purple-400" />
+                <User className="w-6 h-6 text-primary" />
                 <span>Account Information</span>
               </h3>
               <form onSubmit={handleSaveAccountInfo} className="space-y-6">
@@ -653,7 +653,7 @@ const ProfilePage = () => {
                       type="text" 
                       value={newName} 
                       onChange={(e) => setNewName(e.target.value)} 
-                      className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-purple-500 outline-none transition-all"
+                      className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-primary outline-none transition-all"
                       placeholder="Novo nome de utilizador"
                     />
                   </div>
@@ -667,7 +667,7 @@ const ProfilePage = () => {
                       type="password" 
                       value={newPassword} 
                       onChange={(e) => setNewPassword(e.target.value)} 
-                      className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-purple-500 outline-none transition-all"
+                      className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-primary outline-none transition-all"
                       placeholder="Preencher apenas para alterar"
                     />
                   </div>
@@ -677,13 +677,13 @@ const ProfilePage = () => {
                       type="password" 
                       value={confirmPassword} 
                       onChange={(e) => setConfirmPassword(e.target.value)} 
-                      className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-purple-500 outline-none transition-all"
+                      className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-primary outline-none transition-all"
                       placeholder="Confirmar nova palavra-passe"
                     />
                   </div>
                   <div className="space-y-1 sm:col-span-2">
                     <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Membership Status</label>
-                    <div className="flex items-center gap-3 bg-purple-500/10 p-4 rounded-xl border border-purple-500/30 text-purple-300 font-bold text-sm">
+                    <div className="flex items-center gap-3 bg-primary/10 p-4 rounded-xl border border-primary/30 text-primary-light font-bold text-sm">
                       <Shield className="w-5 h-5" />
                       <span>OtakuTime Pro Member (All premium features unlocked)</span>
                     </div>
@@ -713,7 +713,7 @@ const ProfilePage = () => {
               <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-purple-500/10 via-transparent to-transparent rounded-full blur-2xl pointer-events-none"></div>
               
               <h3 className="text-xl font-bold text-white flex items-center gap-3">
-                <Smartphone className="w-6 h-6 text-pink-400" />
+                <Smartphone className="w-6 h-6 text-secondary" />
                 <span>Preferências do Utilizador</span>
               </h3>
 
@@ -721,14 +721,14 @@ const ProfilePage = () => {
                 {/* Preferred Language */}
                 <div className="space-y-2">
                   <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-sm text-purple-400">language</span>
+                    <span className="material-symbols-outlined text-sm text-primary">language</span>
                     Idioma de Preferência
                   </label>
                   <select 
                     value={user?.preferredLanguage || 'PT'} 
                     disabled={isUpdatingPreferences}
                     onChange={(e) => handleUpdatePreference('preferredLanguage', e.target.value)}
-                    className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-purple-500 outline-none transition-all cursor-pointer"
+                    className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-primary outline-none transition-all cursor-pointer"
                   >
                     <option value="PT" className="bg-[#0f1014]">Português (PT)</option>
                     <option value="EN" className="bg-[#0f1014]">English (EN)</option>
@@ -739,14 +739,14 @@ const ProfilePage = () => {
                 {/* Theme */}
                 <div className="space-y-2">
                   <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-sm text-pink-400">dark_mode</span>
+                    <span className="material-symbols-outlined text-sm text-secondary">dark_mode</span>
                     Tema Visual
                   </label>
                   <select 
                     value={user?.theme || 'dark'} 
                     disabled={isUpdatingPreferences}
                     onChange={(e) => handleUpdatePreference('theme', e.target.value)}
-                    className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-pink-500 outline-none transition-all cursor-pointer"
+                    className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-secondary outline-none transition-all cursor-pointer"
                   >
                     <option value="dark" className="bg-[#0f1014]">Escuro (Dark Mode)</option>
                     <option value="light" className="bg-[#0f1014]">Claro (Light Mode)</option>
@@ -870,7 +870,7 @@ const ProfilePage = () => {
             
             <div className="space-y-2">
               <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                <Upload className="w-6 h-6 text-pink-400" />
+                <Upload className="w-6 h-6 text-secondary" />
                 <span>Restaurar Cópia de Segurança</span>
               </h3>
               <p className="text-xs sm:text-sm text-gray-400">
@@ -882,7 +882,7 @@ const ProfilePage = () => {
             <div className="p-4 rounded-2xl border border-dashed border-white/10 hover:border-white/20 transition-all bg-white/5 flex flex-col items-center justify-center text-center gap-2">
               <span className="material-symbols-outlined text-gray-400 text-3xl">upload_file</span>
               <div>
-                <label htmlFor="backup-file" className="cursor-pointer font-bold text-sm text-purple-400 hover:text-purple-300">
+                <label htmlFor="backup-file" className="cursor-pointer font-bold text-sm text-primary hover:text-primary-light">
                   Selecione um ficheiro JSON
                 </label>
                 <input 
@@ -903,7 +903,7 @@ const ProfilePage = () => {
                 placeholder='Cole aqui o conteúdo do seu ficheiro de backup (começando com { "version": 1, ... })'
                 value={importJsonInput}
                 onChange={(e) => setImportJsonInput(e.target.value)}
-                className="w-full h-36 font-mono text-xs p-4 rounded-xl bg-black/60 border border-white/5 text-gray-300 focus:border-pink-500/50 focus:outline-none resize-none placeholder:text-gray-600"
+                className="w-full h-36 font-mono text-xs p-4 rounded-xl bg-black/60 border border-white/5 text-gray-300 focus:border-secondary/50 focus:outline-none resize-none placeholder:text-gray-600"
               />
             </div>
 

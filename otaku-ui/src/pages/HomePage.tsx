@@ -625,7 +625,7 @@ const HomePage = () => {
                             </div>
                             <div className="space-y-2.5 sm:space-y-3 mt-2">
                               <div className="w-full h-1.5 sm:h-2 bg-white/10 rounded-full overflow-hidden border border-white/5 shadow-inner">
-                                <div className="h-full bg-gradient-to-r from-purple-500 to-pink-500 shadow-[0_0_12px_rgba(168,85,247,0.8)] transition-all duration-500" style={{ width: `${item.epAtual > 0 ? Math.max(5, Math.min(progressoPercentual, 100)) : 0}%` }}></div>
+                                <div className="h-full bg-primary shadow-md transition-all duration-500" style={{ width: `${item.epAtual > 0 ? Math.max(5, Math.min(progressoPercentual, 100)) : 0}%` }}></div>
                               </div>
                               <div className="flex gap-2">
                                 <button 
@@ -675,7 +675,7 @@ const HomePage = () => {
                             </div>
                             <div className="space-y-2.5 sm:space-y-3 mt-2">
                               <div className="w-full h-1.5 sm:h-2 bg-white/10 rounded-full overflow-hidden border border-white/5 shadow-inner">
-                                <div className="h-full bg-gradient-to-r from-pink-500 to-rose-500 shadow-[0_0_12px_rgba(236,72,153,0.8)] transition-all duration-500" style={{ width: `${item.capAtual > 0 ? Math.max(5, Math.min(progressoPercentual, 100)) : 0}%` }}></div>
+                                <div className="h-full bg-secondary shadow-md transition-all duration-500" style={{ width: `${item.capAtual > 0 ? Math.max(5, Math.min(progressoPercentual, 100)) : 0}%` }}></div>
                               </div>
                               <div className="flex gap-2">
                                 <button 
@@ -946,7 +946,7 @@ const HomePage = () => {
                                     </div>
                                     <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden border border-white/5 backdrop-blur-sm">
                                       <div 
-                                        className={`h-full transition-all duration-500 rounded-full ${categoria === 'anime' ? 'bg-gradient-to-r from-purple-500 to-pink-500 shadow-[0_0_10px_rgba(168,85,247,0.8)]' : 'bg-gradient-to-r from-pink-500 to-rose-500 shadow-[0_0_10px_rgba(236,72,153,0.8)]'}`}
+                                        className={`h-full transition-all duration-500 rounded-full ${categoria === 'anime' ? 'bg-primary shadow-md' : 'bg-secondary shadow-md'}`}
                                         style={{ width: `${Math.max(atual > 0 ? 3 : 0, Math.min(percent, 100))}%` }}
                                       ></div>
                                     </div>

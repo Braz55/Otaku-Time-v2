@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useMedia } from '../context/MediaContext';
+import { useToast } from '../context/ToastContext';
 import { Loader2 } from 'lucide-react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { API_BASE_URL } from '../config';
@@ -60,6 +61,7 @@ const formatLastModified = (item: any) => {
 
 const HomePage = () => {
   const { user, token } = useAuth();
+  const { showToast } = useToast();
   const { categoria, setCategoria, isShowingFavorites, setIsShowingFavorites, isSearchOpen, homeTrigger } = useMedia();
   const [termoPesquisa, setTermoPesquisa] = useState('');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
@@ -291,7 +293,7 @@ const HomePage = () => {
       const data = await response.json();
       
       if (!data) {
-        alert('Could not load details. Please try again later.');
+        showToast('Could not load details. Please try again later.', 'error');
         return;
       }
       
@@ -509,7 +511,7 @@ const HomePage = () => {
             <section className="animate-in slide-in-from-top-4 duration-500 mb-8 sm:mb-10 space-y-4 sm:space-y-6">
               {/* Título fora da caixa em linha única */}
               <div className="text-center px-1 sm:px-0 mt-2 sm:mt-0">
-                <h2 className="text-xl sm:text-3xl md:text-4xl font-black bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent tracking-tight truncate">
+                <h2 className="text-xl sm:text-3xl md:text-4xl font-black text-primary-light tracking-tight truncate">
                   Search your favorite <span className={categoria === 'anime' ? 'text-primary' : 'text-secondary'}>{categoria === 'anime' ? 'Animes' : 'Mangas'}</span>
                 </h2>
               </div>
@@ -579,7 +581,7 @@ const HomePage = () => {
                 {Capacitor.isNativePlatform() ? null : (
                   <div className="text-center py-12 hero-gradient rounded-[40px] border border-white/10 shadow-2xl p-8 mb-12 relative overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-transparent blur-3xl"></div>
-                    <h2 className="text-5xl md:text-7xl font-black bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent tracking-tight mb-4 relative z-10">
+                    <h2 className="text-5xl md:text-7xl font-black text-primary-light tracking-tight mb-4 relative z-10">
                       Otaku-Time
                     </h2>
                     <p className="text-on-surface-variant text-lg max-w-xl mx-auto relative z-10 font-medium">
@@ -591,7 +593,7 @@ const HomePage = () => {
                 <div className="flex items-center justify-between px-1 sm:px-0">
                   <div className="flex items-center gap-2 sm:gap-3">
                     <span className="material-symbols-outlined text-primary text-2xl sm:text-3xl animate-pulse drop-shadow-[0_0_12px_rgba(147,51,234,0.6)]" style={{ fontVariationSettings: "'FILL' 1" }}>play_circle</span>
-                    <h3 className="font-display-lg text-2xl sm:text-3xl font-black bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent tracking-tight">Up Next</h3>
+                    <h3 className="font-display-lg text-2xl sm:text-3xl font-black text-primary-light tracking-tight">Up Next</h3>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
@@ -615,7 +617,7 @@ const HomePage = () => {
                           </div>
                           <div className="flex-1 flex flex-col justify-between py-0.5 sm:py-1 min-w-0">
                             <div className="cursor-pointer min-w-0" onClick={() => abrirDetalhes(item.id, false, 'anime')}>
-                              <h5 className="font-bold text-base sm:text-lg line-clamp-1 group-hover:text-purple-400 transition-colors truncate">{item.anime?.titulo || item.titulo}</h5>
+                              <h5 className="font-bold text-base sm:text-lg line-clamp-1 group-hover:text-primary-light transition-colors truncate">{item.anime?.titulo || item.titulo}</h5>
                               <p className="text-xs sm:text-sm text-on-surface-variant font-medium flex items-center gap-1.5 mt-0.5">
                                 <span>Ep {epQueVouVer}</span>
                                 {numDisponiveis > 0 ? <span className="text-[10px] sm:text-xs text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.2 rounded-full font-bold whitespace-nowrap">+{numDisponiveis} avail</span> : ''}
@@ -665,7 +667,7 @@ const HomePage = () => {
                           </div>
                           <div className="flex-1 flex flex-col justify-between py-0.5 sm:py-1 min-w-0">
                             <div className="cursor-pointer min-w-0" onClick={() => abrirDetalhes(item.id, false, 'manga')}>
-                              <h5 className="font-bold text-base sm:text-lg line-clamp-1 group-hover:text-pink-400 transition-colors truncate">{item.manga?.titulo || item.titulo}</h5>
+                              <h5 className="font-bold text-base sm:text-lg line-clamp-1 group-hover:text-secondary-light transition-colors truncate">{item.manga?.titulo || item.titulo}</h5>
                               <p className="text-xs sm:text-sm text-on-surface-variant font-medium flex items-center gap-1.5 mt-0.5">
                                 <span>Ch {capQueVouLer}</span>
                                 {numDisponiveis > 0 ? <span className="text-[10px] sm:text-xs text-secondary bg-secondary/10 border border-secondary/20 px-1.5 py-0.2 rounded-full font-bold whitespace-nowrap">+{numDisponiveis} avail</span> : ''}
@@ -705,7 +707,7 @@ const HomePage = () => {
                   <div className="flex items-center gap-3 sm:gap-4 px-1 sm:px-0">
                     <span className="material-symbols-outlined text-primary text-3xl sm:text-4xl md:text-5xl flex-shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>video_library</span>
                     <div className="min-w-0">
-                      <h2 className="text-2xl sm:text-4xl md:text-5xl font-black bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent tracking-tight capitalize mb-0.5 sm:mb-1 truncate">
+                      <h2 className="text-2xl sm:text-4xl md:text-5xl font-black text-primary-light tracking-tight capitalize mb-0.5 sm:mb-1 truncate">
                         Library ({categoria})
                       </h2>
                       <p className="text-xs sm:text-base text-on-surface-variant font-medium">
@@ -919,7 +921,7 @@ const HomePage = () => {
                               <span className={`w-fit px-2 py-0.5 rounded-lg text-[9px] font-extrabold tracking-wider mb-1.5 border ${categoria === 'anime' ? 'bg-primary/20 border-primary/30 text-primary' : 'bg-secondary/20 border-secondary/30 text-secondary'}`}>
                                 {categoria.toUpperCase()}
                               </span>
-                              <p className="font-bold text-sm text-white line-clamp-2 mb-2 group-hover:text-purple-300 transition-colors">
+                              <p className={`font-bold text-sm text-white line-clamp-2 mb-2 ${categoria === 'anime' ? 'group-hover:text-primary-light' : 'group-hover:text-secondary-light'} transition-colors`}>
                                 {item.anime?.titulo || item.manga?.titulo || item.titulo}
                               </p>
 
@@ -1051,7 +1053,7 @@ const HomePage = () => {
                           <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> {selectedItem.isExternal ? 'New' : `#${selectedItem.prioridade}`}
                         </span>
                       </div>
-                      <h2 className={`text-xl sm:text-2xl font-bold tracking-tight bg-gradient-to-r ${categoria === 'anime' ? 'from-white via-purple-200 to-purple-400' : 'from-white via-pink-200 to-pink-400'} bg-clip-text text-transparent line-clamp-3`}>{selectedItem.titulo}</h2>
+                      <h2 className={`text-xl sm:text-2xl font-bold tracking-tight ${categoria === 'anime' ? 'text-primary-light' : 'text-secondary-light'} line-clamp-3`}>{selectedItem.titulo}</h2>
                       
                       {categoria === 'manga' && (
                         <div className="pt-1">
@@ -1385,7 +1387,7 @@ const HomePage = () => {
                             <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> {selectedItem.isExternal ? 'New' : `#${selectedItem.prioridade}`}
                           </span>
                         </div>
-                        <h2 className={`font-display-lg text-4xl md:text-5xl font-bold mb-6 tracking-tight bg-gradient-to-r ${categoria === 'anime' ? 'from-white via-purple-200 to-purple-400' : 'from-white via-pink-200 to-pink-400'} bg-clip-text text-transparent`}>{selectedItem.titulo}</h2>
+                        <h2 className={`font-display-lg text-4xl md:text-5xl font-bold mb-6 tracking-tight ${categoria === 'anime' ? 'text-primary-light' : 'text-secondary-light'}`}>{selectedItem.titulo}</h2>
                         {categoria === 'manga' && (
                           <div className="flex items-center gap-3 mb-6">
                             {loadingLatest ? (
@@ -1453,7 +1455,7 @@ const HomePage = () => {
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                             {latestBreakdown.map((b: any, idx: number) => (
                               <div key={idx} className="flex items-center justify-between p-5 glass-panel hover:bg-white/5 rounded-2xl transition-all border border-pink-500/30 hover:border-pink-500/50 shadow-lg group">
-                                <span className="text-sm font-bold text-white truncate pr-2 group-hover:text-pink-200 transition-colors">{b.label}</span>
+                                <span className="text-sm font-bold text-white truncate pr-2 group-hover:text-secondary-light transition-colors">{b.label}</span>
                                 <span className="px-3 py-1.5 bg-secondary/20 text-secondary text-sm font-black rounded-xl border border-secondary/30 flex-shrink-0 shadow-[0_0_15px_rgba(255,176,203,0.2)]">
                                   {b.chapters} Chs
                                 </span>

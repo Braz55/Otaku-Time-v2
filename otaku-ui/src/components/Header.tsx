@@ -22,7 +22,7 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
           <div className="w-full hero-gradient px-4 pt-10 pb-3 flex justify-between items-center border-b border-white/5 bg-surface/40 backdrop-blur-xl">
             <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigate('/')}>
               <img src="/logo.png" className="w-8 h-8 rounded-xl shadow-lg border border-white/10 object-cover" alt="Logo" />
-              <h1 className="font-display-lg text-2xl bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent tracking-tight font-black">
+              <h1 className="font-display-lg text-2xl text-primary-light tracking-tight font-black">
                 Otaku-Time
               </h1>
             </div>
@@ -36,14 +36,14 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
             <div className="w-full max-w-sm flex gap-1 bg-surface-variant/60 p-1.5 rounded-full border border-white/10 shadow-inner">
               <button 
                 onClick={() => setCategoria('anime')}
-                className={`flex-1 py-2 rounded-full font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${categoria === 'anime' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30 scale-[1.02]' : 'text-on-surface-variant hover:text-white'}`}
+                className={`flex-1 py-2 rounded-full font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${categoria === 'anime' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-[1.02]' : 'text-on-surface-variant hover:text-white'}`}
               >
                 <span className="material-symbols-outlined text-base">live_tv</span>
                 <span>Anime</span>
               </button>
               <button 
                 onClick={() => setCategoria('manga')}
-                className={`flex-1 py-2 rounded-full font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${categoria === 'manga' ? 'bg-gradient-to-r from-pink-600 to-red-600 text-white shadow-lg shadow-pink-500/30 scale-[1.02]' : 'text-on-surface-variant hover:text-white'}`}
+                className={`flex-1 py-2 rounded-full font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${categoria === 'manga' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-[1.02]' : 'text-on-surface-variant hover:text-white'}`}
               >
                 <span className="material-symbols-outlined text-base">menu_book</span>
                 <span>Manga</span>
@@ -55,7 +55,7 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
         <header className="sticky top-0 z-50 w-full h-16 bg-surface/60 backdrop-blur-lg border-b border-white/10 shadow-2xl flex justify-between items-center px-4 md:px-margin-desktop gap-2">
           <div className="hidden sm:flex lg:hidden items-center gap-2.5 cursor-pointer" onClick={() => navigate('/')}>
             <img src="/logo.png" className="w-8 h-8 rounded-xl shadow-lg border border-white/10 object-cover" alt="Logo" />
-            <h1 className="font-display-md text-display-md bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent tracking-tight font-black">
+            <h1 className="font-display-md text-display-md text-primary-light tracking-tight font-black">
               Otaku-Time
             </h1>
           </div>

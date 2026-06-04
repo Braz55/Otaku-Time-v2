@@ -83,7 +83,7 @@ const CalendarPage = () => {
               <CalendarIcon className="w-6 h-6 sm:w-8 sm:h-8 text-purple-400" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent truncate">
+              <h1 className="text-2xl sm:text-4xl font-bold text-primary-light truncate">
                 Release Calendar
               </h1>
               <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1 truncate">Track upcoming episodes and chapters from your library</p>
@@ -166,7 +166,7 @@ const CalendarPage = () => {
                           <span className={`text-[9px] sm:text-[10px] uppercase font-bold px-2 py-0.5 rounded-md mb-1 inline-block ${item.type === 'anime' ? 'bg-purple-500/20 text-purple-400' : 'bg-pink-500/20 text-pink-400'}`}>
                             {item.type}
                           </span>
-                          <h3 className="text-base sm:text-xl font-bold group-hover:text-purple-400 transition-colors truncate">{item.titulo}</h3>
+                          <h3 className={`text-base sm:text-xl font-bold ${item.type === 'anime' ? 'group-hover:text-primary-light' : 'group-hover:text-secondary-light'} transition-colors truncate`}>{item.titulo}</h3>
                         </div>
                         <span className={`${item.type === 'anime' ? 'bg-purple-600/10 text-purple-400 border-purple-500/20' : 'bg-pink-600/10 text-pink-400 border-pink-500/20'} px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold border flex-shrink-0`}>
                           {item.type === 'anime' ? 'EP' : 'CH'} {item.displayNum}

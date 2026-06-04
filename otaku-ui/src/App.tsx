@@ -44,6 +44,18 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 function App() {
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user?.theme === 'light') {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+    } else {
+      document.documentElement.classList.remove('light');
+      document.documentElement.classList.add('dark');
+    }
+  }, [user?.theme]);
+
   return (
     <Router>
       <AndroidBackButtonListener />

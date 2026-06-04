@@ -4,12 +4,15 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './context/AuthContext'
 import { MediaProvider } from './context/MediaContext'
+import { ToastProvider } from './context/ToastContext'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>
       <MediaProvider>
-        <App />
+        <ToastProvider>
+          <App />
+        </ToastProvider>
       </MediaProvider>
     </AuthProvider>
   </StrictMode>,

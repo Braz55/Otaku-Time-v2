@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { LogIn, Mail, Lock, Loader2 } from 'lucide-react';
 
 import { API_BASE_URL } from '../config';
@@ -12,6 +13,7 @@ const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { login } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
 
   // Network Diagnostics States
@@ -42,20 +44,20 @@ const LoginPage: React.FC = () => {
 
       const dados = await resposta.json();
       setDiagStatus({ success: true, message: `LIGAÇÃO BEM SUCEDIDA! 🎉\nMensagem: ${dados.mensagem}` });
-      alert(`LIGAÇÃO BEM SUCEDIDA! 🎉\nMensagem: ${dados.mensagem}`);
+      showToast(`LIGAÇÃO BEM SUCEDIDA! 🎉`, 'success');
       console.log("Dados recebidos:", dados);
 
     } catch (erro: any) {
       let errMsg = '';
       if (erro.name === 'TimeoutError') {
-        errMsg = "❌ FALHA: O pedido expirou (Timeout).\nCausa provável: A Firewall do Windows está a bloquear a porta ou os dispositivos estão em Wi-Fis diferentes.";
-      } else if (erro.message && (erro.message.includes("Failed to fetch") || erro.message.includes("NetworkError") || erro.message.includes("Failed to execute 'fetch'"))) {
-        errMsg = "❌ FALHA: Erro de Rede ou CORS.\nCausa provável: CORS não está ativo no NestJS ou o IP está errado.";
+        errMsg = "❌ O pedido expirou (Timeout). Verifique a Firewall ou Wi-Fi.";
+      } else if (erro.message && (erro.message.includes("Failed to fetch") || erro.message.includes("NetworkError"))) {
+        errMsg = "❌ Erro de Rede ou CORS. Verifique o IP do PC.";
       } else {
-        errMsg = `❌ ERRO DESCONHECIDO:\n${erro.message || erro}`;
+        errMsg = `❌ Erro: ${erro.message || erro}`;
       }
       setDiagStatus({ success: false, message: errMsg });
-      alert(errMsg);
+      showToast(errMsg, 'error');
       console.error("Erro de conectividade:", erro);
     }
   };
@@ -101,7 +103,7 @@ const LoginPage: React.FC = () => {
             <div className="flex justify-center mb-6">
               <img src="/logo.png" className="w-24 h-24 rounded-3xl shadow-2xl border border-white/10 object-cover" alt="Logo" />
             </div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent mb-2">
+            <h1 className="text-3xl font-bold text-primary-light mb-2">
               Welcome Back
             </h1>
             <p className="text-gray-500">Sign in to continue your journey</p>
@@ -147,7 +149,7 @@ const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-purple-900/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+              className="w-full bg-primary hover:opacity-90 text-on-primary font-bold py-4 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />

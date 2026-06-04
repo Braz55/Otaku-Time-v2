@@ -35,26 +35,26 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <aside className="hidden lg:flex flex-col h-screen fixed left-0 top-0 p-6 space-y-8 w-64 bg-surface-container-low border-r border-white/5 shadow-xl z-50">
         <div className="flex items-center gap-3 px-2 cursor-pointer" onClick={handleShowDashboard}>
           <img src="/logo.png" className="w-9 h-9 rounded-xl shadow-lg border border-white/10 object-cover" alt="Logo" />
-          <span className="text-headline-lg font-display-lg bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent font-black tracking-tight">Otaku-Time</span>
+          <span className="text-headline-lg font-display-lg text-primary-light font-black tracking-tight">Otaku-Time</span>
         </div>
         <nav className="flex-1 space-y-2">
-          <button onClick={handleShowDashboard} className={`flex items-center gap-4 px-4 py-3 w-full rounded-2xl font-bold transition-all duration-300 ease-in-out ${location.pathname === '/' && !isShowingFavorites && !isSearchOpen ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30 scale-105' : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}>
+          <button onClick={handleShowDashboard} className={`flex items-center gap-4 px-4 py-3 w-full rounded-2xl font-bold transition-all duration-300 ease-in-out ${location.pathname === '/' && !isShowingFavorites && !isSearchOpen ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105' : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}>
             <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>home</span>
             <span className="font-label-md text-label-md">Home</span>
           </button>
-          <button onClick={handleOpenSearch} className={`flex items-center gap-4 px-4 py-3 w-full rounded-2xl font-bold transition-all duration-300 ease-in-out ${isSearchOpen ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30 scale-105' : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}>
+          <button onClick={handleOpenSearch} className={`flex items-center gap-4 px-4 py-3 w-full rounded-2xl font-bold transition-all duration-300 ease-in-out ${isSearchOpen ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105' : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}>
             <span className="material-symbols-outlined">search</span>
             <span className="font-label-md text-label-md">Search</span>
           </button>
-          <button onClick={handleShowFavorites} className={`flex items-center gap-4 px-4 py-3 w-full rounded-2xl font-bold transition-all duration-300 ease-in-out ${location.pathname === '/' && isShowingFavorites && !isSearchOpen ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30 scale-105' : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}>
+          <button onClick={handleShowFavorites} className={`flex items-center gap-4 px-4 py-3 w-full rounded-2xl font-bold transition-all duration-300 ease-in-out ${location.pathname === '/' && isShowingFavorites && !isSearchOpen ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105' : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}>
             <span className="material-symbols-outlined">video_library</span>
             <span className="font-label-md text-label-md">Library</span>
           </button>
-          <button onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/calendar'); }} className={`flex items-center gap-4 px-4 py-3 w-full rounded-2xl font-bold transition-all duration-300 ease-in-out ${location.pathname === '/calendar' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30 scale-105' : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}>
+          <button onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/calendar'); }} className={`flex items-center gap-4 px-4 py-3 w-full rounded-2xl font-bold transition-all duration-300 ease-in-out ${location.pathname === '/calendar' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105' : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}>
             <span className="material-symbols-outlined">calendar_today</span>
             <span className="font-label-md text-label-md">Calendar</span>
           </button>
-          <button onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/chat'); }} className={`flex items-center gap-4 px-4 py-3 w-full rounded-2xl font-bold transition-all duration-300 ease-in-out ${location.pathname === '/chat' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30 scale-105' : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}>
+          <button onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/chat'); }} className={`flex items-center gap-4 px-4 py-3 w-full rounded-2xl font-bold transition-all duration-300 ease-in-out ${location.pathname === '/chat' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105' : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}>
             <span className="material-symbols-outlined">forum</span>
             <span className="font-label-md text-label-md">Otaku AI</span>
           </button>
@@ -87,23 +87,23 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       {/* BottomNavBar Anchor (Mobile Only) */}
       <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center pt-3 pb-8 sm:pb-6 px-margin-mobile bg-surface-container/90 backdrop-blur-2xl border-t border-white/10 lg:hidden rounded-t-xl shadow-[0_-10px_40px_rgba(0,0,0,0.4)]">
-        <button onClick={handleShowDashboard} className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${location.pathname === '/' && !isShowingFavorites && !isSearchOpen ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30' : 'text-on-surface-variant hover:text-white transition-all'}`}>
+        <button onClick={handleShowDashboard} className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${location.pathname === '/' && !isShowingFavorites && !isSearchOpen ? 'bg-primary text-on-primary shadow-lg shadow-primary/30' : 'text-on-surface-variant hover:text-white transition-all'}`}>
           <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>home</span>
           <span className="font-label-sm text-label-sm">Home</span>
         </button>
-        <button onClick={handleOpenSearch} className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${isSearchOpen ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30' : 'text-on-surface-variant hover:text-white transition-all'}`}>
+        <button onClick={handleOpenSearch} className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${isSearchOpen ? 'bg-primary text-on-primary shadow-lg shadow-primary/30' : 'text-on-surface-variant hover:text-white transition-all'}`}>
           <span className="material-symbols-outlined">search</span>
           <span className="font-label-sm text-label-sm">Search</span>
         </button>
-        <button onClick={handleShowFavorites} className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${location.pathname === '/' && isShowingFavorites && !isSearchOpen ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30' : 'text-on-surface-variant hover:text-white transition-all'}`}>
+        <button onClick={handleShowFavorites} className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${location.pathname === '/' && isShowingFavorites && !isSearchOpen ? 'bg-primary text-on-primary shadow-lg shadow-primary/30' : 'text-on-surface-variant hover:text-white transition-all'}`}>
           <span className="material-symbols-outlined">video_library</span>
           <span className="font-label-sm text-label-sm">Library</span>
         </button>
-        <button onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/calendar'); }} className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${location.pathname === '/calendar' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30' : 'text-on-surface-variant hover:text-white transition-all'}`}>
+        <button onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/calendar'); }} className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${location.pathname === '/calendar' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30' : 'text-on-surface-variant hover:text-white transition-all'}`}>
           <span className="material-symbols-outlined">calendar_today</span>
           <span className="font-label-sm text-label-sm">Calendar</span>
         </button>
-        <button onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/chat'); }} className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${location.pathname === '/chat' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30' : 'text-on-surface-variant hover:text-white transition-all'}`}>
+        <button onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/chat'); }} className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${location.pathname === '/chat' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30' : 'text-on-surface-variant hover:text-white transition-all'}`}>
           <span className="material-symbols-outlined">smart_toy</span>
           <span className="font-label-sm text-label-sm">Otaku AI</span>
         </button>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { ChevronLeft, Database, RefreshCw, AlertCircle, User, Shield, Smartphone, Download, Upload, Copy, Check } from 'lucide-react';
 import { localDb } from '../services/localDb';
 import { API_BASE_URL } from '../config';
@@ -12,10 +13,67 @@ import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 
 const ProfilePage = () => {
   const { user, logout, token, updateUser } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   
   const [activeTab, setActiveTab] = useState<'sync' | 'account'>('sync');
   const [isUpdatingPreferences, setIsUpdatingPreferences] = useState(false);
+
+  // Account Information Edit state
+  const [newName, setNewName] = useState(user?.nome || '');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSavingAccount, setIsSavingAccount] = useState(false);
+
+  // Sync newName when user object is loaded
+  useEffect(() => {
+    if (user?.nome) {
+      setNewName(user.nome);
+    }
+  }, [user]);
+
+  const handleSaveAccountInfo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    if (newPassword && newPassword !== confirmPassword) {
+      showToast('As palavras-passe não coincidem!', 'warning');
+      return;
+    }
+    setIsSavingAccount(true);
+    try {
+      const updateData: any = {};
+      if (newName && newName !== user?.nome) {
+        updateData.nome = newName;
+      }
+      if (newPassword) {
+        updateData.password = newPassword;
+      }
+
+      if (Object.keys(updateData).length === 0) {
+        showToast('Nenhuma alteração detetada.', 'info');
+        setIsSavingAccount(false);
+        return;
+      }
+
+      const res = await customFetch(`${API_BASE_URL}/user/profile`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify(updateData)
+      });
+      if (res.ok) {
+        updateUser(updateData);
+        setNewPassword('');
+        setConfirmPassword('');
+        showToast('Dados da conta atualizados com sucesso!', 'success');
+      } else {
+        showToast('Falha ao atualizar dados da conta.', 'error');
+      }
+    } catch (err: any) {
+      showToast(`Erro: ${err.message || err}`, 'error');
+    } finally {
+      setIsSavingAccount(false);
+    }
+  };
 
   const handleUpdatePreference = async (field: string, value: any) => {
     if (!token) return;
@@ -29,10 +87,10 @@ const ProfilePage = () => {
       if (res.ok) {
         updateUser({ [field]: value });
       } else {
-        alert('Falha ao atualizar preferência.');
+        showToast('Falha ao atualizar preferência.', 'error');
       }
     } catch (err: any) {
-      alert(`Erro: ${err.message || err}`);
+      showToast(`Erro: ${err.message || err}`, 'error');
     } finally {
       setIsUpdatingPreferences(false);
     }
@@ -86,10 +144,10 @@ const ProfilePage = () => {
       setLocalAnimeCount(aCount);
       setLocalMangaCount(mCount);
       
-      alert('Biblioteca apagada com sucesso!');
+      showToast('Biblioteca apagada com sucesso!', 'success');
       setShowWipeConfirm(false);
     } catch (err: any) {
-      alert(`Erro ao apagar biblioteca: ${err.message || err}`);
+      showToast(`Erro ao apagar biblioteca: ${err.message || err}`, 'error');
     } finally {
       setIsWiping(false);
     }
@@ -150,7 +208,7 @@ const ProfilePage = () => {
         setShowBackupModal(true);
       }
     } catch (err: any) {
-      alert(`Erro ao exportar backup: ${err.message || err}`);
+      showToast(`Erro ao exportar backup: ${err.message || err}`, 'error');
     } finally {
       setIsExporting(false);
     }
@@ -311,7 +369,7 @@ const ProfilePage = () => {
               <span>Back</span>
             </button>
             <div>
-              <h1 className="text-2xl sm:text-4xl font-black bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent tracking-tight">
+              <h1 className="text-2xl sm:text-4xl font-black text-primary-light tracking-tight">
                 Profile & Settings
               </h1>
               <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Manage your account, offline storage, and database synchronization</p>
@@ -323,7 +381,7 @@ const ProfilePage = () => {
         <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-purple-500/20 shadow-2xl relative overflow-hidden hero-gradient">
           <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-transparent blur-3xl"></div>
           <div className="flex flex-col sm:flex-row items-center gap-6 relative z-10 text-center sm:text-left">
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-tr from-purple-600 to-pink-600 p-1 shadow-[0_0_30px_rgba(168,85,247,0.4)] flex-shrink-0">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-primary p-1 shadow-[0_0_30px_rgba(168,85,247,0.4)] flex-shrink-0">
               <div className="w-full h-full rounded-full bg-surface flex items-center justify-center text-4xl font-black text-white overflow-hidden">
                 {user?.nome ? user.nome.charAt(0).toUpperCase() : 'O'}
               </div>
@@ -360,14 +418,14 @@ const ProfilePage = () => {
         <div className="flex gap-3 border-b border-white/10 pb-4">
           <button 
             onClick={() => setActiveTab('sync')} 
-            className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm transition-all ${activeTab === 'sync' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30 scale-105' : 'bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5'}`}
+            className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm transition-all ${activeTab === 'sync' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105' : 'bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5'}`}
           >
             <RefreshCw className="w-4 h-4" />
             <span>Database Synchronization</span>
           </button>
           <button 
             onClick={() => setActiveTab('account')} 
-            className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm transition-all ${activeTab === 'account' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30 scale-105' : 'bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5'}`}
+            className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm transition-all ${activeTab === 'account' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105' : 'bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5'}`}
           >
             <User className="w-4 h-4" />
             <span>Account Details</span>
@@ -447,7 +505,7 @@ const ProfilePage = () => {
                 <button
                   onClick={triggerManualReleaseSync}
                   disabled={syncStatus.isSyncing}
-                  className={`w-full py-4 rounded-2xl font-black text-base transition-all flex items-center justify-center gap-3 shadow-xl ${syncStatus.isSyncing ? 'bg-pink-500/20 border border-pink-500/30 text-pink-300 cursor-not-allowed shadow-[0_0_25px_rgba(236,72,153,0.2)]' : 'bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 hover:opacity-90 text-white shadow-pink-500/20 hover:shadow-pink-500/40 hover:scale-[1.01] active:scale-[0.99]'}`}
+                  className={`w-full py-4 rounded-2xl font-black text-base transition-all flex items-center justify-center gap-3 shadow-xl ${syncStatus.isSyncing ? 'bg-pink-500/20 border border-pink-500/30 text-pink-300 cursor-not-allowed shadow-[0_0_25px_rgba(236,72,153,0.2)]' : 'bg-primary hover:opacity-90 text-on-primary shadow-primary/20 hover:shadow-primary/40 hover:scale-[1.01] active:scale-[0.99]'}`}
                 >
                   {syncStatus.isSyncing ? (
                     <>
@@ -533,7 +591,7 @@ const ProfilePage = () => {
                 <button
                   onClick={handleExportBackup}
                   disabled={isExporting}
-                  className="py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 shadow-xl bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 hover:opacity-90 text-white shadow-purple-500/20 hover:shadow-purple-500/40 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 shadow-xl bg-primary hover:opacity-90 text-on-primary shadow-primary/20 hover:shadow-primary/40 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isExporting ? (
                     <>
@@ -578,31 +636,67 @@ const ProfilePage = () => {
                 <User className="w-6 h-6 text-purple-400" />
                 <span>Account Information</span>
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
-                <div className="space-y-1">
-                  <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Display Name</label>
-                  <p className="text-base font-bold text-white bg-black/30 p-3.5 rounded-xl border border-white/5">{user?.nome || 'Otaku Enthusiast'}</p>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Email Address</label>
-                  <p className="text-base font-bold text-white bg-black/30 p-3.5 rounded-xl border border-white/5">{user?.email || 'enthusiast@otakutime.com'}</p>
-                </div>
-                <div className="space-y-1 sm:col-span-2">
-                  <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Membership Status</label>
-                  <div className="flex items-center gap-3 bg-purple-500/10 p-4 rounded-xl border border-purple-500/30 text-purple-300 font-bold text-sm">
-                    <Shield className="w-5 h-5" />
-                    <span>OtakuTime Pro Member (All premium features unlocked)</span>
+              <form onSubmit={handleSaveAccountInfo} className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
+                  <div className="space-y-2">
+                    <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Display Name</label>
+                    <input 
+                      type="text" 
+                      value={newName} 
+                      onChange={(e) => setNewName(e.target.value)} 
+                      className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-purple-500 outline-none transition-all"
+                      placeholder="Novo nome de utilizador"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Email Address</label>
+                    <p className="text-base font-bold text-gray-500 bg-black/20 p-3 rounded-xl border border-white/5 cursor-not-allowed select-none">{user?.email || 'enthusiast@otakutime.com'}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Nova Palavra-passe</label>
+                    <input 
+                      type="password" 
+                      value={newPassword} 
+                      onChange={(e) => setNewPassword(e.target.value)} 
+                      className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-purple-500 outline-none transition-all"
+                      placeholder="Preencher apenas para alterar"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Confirmar Nova Palavra-passe</label>
+                    <input 
+                      type="password" 
+                      value={confirmPassword} 
+                      onChange={(e) => setConfirmPassword(e.target.value)} 
+                      className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-purple-500 outline-none transition-all"
+                      placeholder="Confirmar nova palavra-passe"
+                    />
+                  </div>
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Membership Status</label>
+                    <div className="flex items-center gap-3 bg-purple-500/10 p-4 rounded-xl border border-purple-500/30 text-purple-300 font-bold text-sm">
+                      <Shield className="w-5 h-5" />
+                      <span>OtakuTime Pro Member (All premium features unlocked)</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="pt-6 border-t border-white/5 flex justify-end">
-                <button 
-                  onClick={logout} 
-                  className="px-6 py-3 rounded-2xl bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white font-bold text-sm transition-all border border-red-500/30 shadow-lg"
-                >
-                  Log Out of Account
-                </button>
-              </div>
+                <div className="pt-6 border-t border-white/5 flex flex-wrap gap-3 justify-end">
+                  <button 
+                    type="button"
+                    onClick={logout} 
+                    className="px-6 py-3 rounded-2xl bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white font-bold text-sm transition-all border border-red-500/30 shadow-lg"
+                  >
+                    Log Out of Account
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={isSavingAccount}
+                    className="px-6 py-3 rounded-2xl bg-primary hover:opacity-90 text-on-primary font-bold text-sm transition-all shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSavingAccount ? 'A guardar...' : 'Guardar Alterações'}
+                  </button>
+                </div>
+              </form>
             </div>
 
             {/* User Preferences Card */}
@@ -656,17 +750,17 @@ const ProfilePage = () => {
                   <div className="space-y-1 flex-1">
                     <label htmlFor="adult-content-checkbox" className="text-sm font-bold text-white cursor-pointer select-none flex items-center gap-1.5">
                       <span className="material-symbols-outlined text-base text-red-400">no_adult_content</span>
-                      Mostrar Conteúdo Adulto (+18)
+                      Filtrar Conteúdos
                     </label>
-                    <p className="text-xs text-gray-400">Permite resultados NSFW/Adultos nas pesquisas da AniList.</p>
+                    <p className="text-xs text-gray-400">Filtra resultados NSFW/Adultos nas pesquisas da AniList.</p>
                   </div>
                   <div className="flex items-center pl-4">
                     <input
                       type="checkbox"
                       id="adult-content-checkbox"
-                      checked={user?.showAdultContent || false}
+                      checked={user?.showAdultContent === false}
                       disabled={isUpdatingPreferences}
-                      onChange={(e) => handleUpdatePreference('showAdultContent', e.target.checked)}
+                      onChange={(e) => handleUpdatePreference('showAdultContent', !e.target.checked)}
                       className="w-5 h-5 rounded border-white/10 text-pink-600 focus:ring-pink-500/50 bg-black/40 cursor-pointer"
                     />
                   </div>
@@ -729,7 +823,7 @@ const ProfilePage = () => {
             <div className="flex justify-end">
               <button
                 onClick={() => setShowBackupModal(false)}
-                className="px-6 py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 text-white font-bold text-sm transition-all shadow-lg"
+                className="px-6 py-3 rounded-2xl bg-primary hover:opacity-90 text-on-primary font-bold text-sm transition-all shadow-lg shadow-primary/20"
               >
                 Fechar
               </button>
@@ -828,7 +922,7 @@ const ProfilePage = () => {
               <button
                 onClick={handleRestoreBackup}
                 disabled={isImporting || !importJsonInput}
-                className="px-6 py-3 rounded-2xl bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold text-sm transition-all shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-3 rounded-2xl bg-primary hover:opacity-90 text-on-primary font-bold text-sm transition-all shadow-lg shadow-primary/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isImporting ? (
                   <>

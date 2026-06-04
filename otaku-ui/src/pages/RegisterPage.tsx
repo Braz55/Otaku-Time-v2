@@ -56,7 +56,7 @@ const RegisterPage: React.FC = () => {
             <div className="flex justify-center mb-6">
               <img src="/logo.png" className="w-24 h-24 rounded-3xl shadow-2xl border border-white/10 object-cover" alt="Logo" />
             </div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent mb-2">
+            <h1 className="text-3xl font-bold text-primary-light mb-2">
               Create your Account
             </h1>
             <p className="text-gray-500">Join the ultimate community of enthusiasts</p>
@@ -117,7 +117,7 @@ const RegisterPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-pink-900/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+              className="w-full bg-primary hover:opacity-90 text-on-primary font-bold py-4 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />

@@ -309,7 +309,7 @@ const ChatPage = () => {
       {/* Sidebar */}
       <div className="w-80 border-r border-gray-800 bg-[#16181d]/50 backdrop-blur-xl flex flex-col">
         <div className="p-6">
-          <button onClick={createNewSession} className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-2xl font-bold shadow-lg active:scale-95"><Plus className="w-5 h-5" /> New Chat</button>
+          <button onClick={createNewSession} className="w-full flex items-center justify-center gap-2 bg-primary text-on-primary py-3 rounded-2xl font-bold shadow-lg shadow-primary/20 active:scale-95"><Plus className="w-5 h-5" /> New Chat</button>
         </div>
         <div className="flex-1 overflow-y-auto px-4 space-y-2 custom-scrollbar">
           {sessions.map(session => (
@@ -325,7 +325,7 @@ const ChatPage = () => {
       <div className="flex-1 flex flex-col relative">
         <div className="h-20 border-b border-gray-800 flex items-center justify-between px-8 bg-[#0f1014]/50 backdrop-blur-md">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center shadow-lg"><Bot className="w-6 h-6 text-white" /></div>
+            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-lg"><Bot className="w-6 h-6 text-on-primary" /></div>
             <div><h2 className="font-bold text-lg">Otaku Bot</h2><p className="text-xs text-green-500 flex items-center gap-1"><span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>Online (Llama 3.1)</p></div>
           </div>
         </div>
@@ -419,7 +419,7 @@ const ChatPage = () => {
             </button>
             <form onSubmit={sendMessage} className={`flex-1 flex gap-4 p-2 bg-[#1a1c23]/80 backdrop-blur-xl border rounded-[30px] shadow-2xl transition-all ${activeSession ? 'border-gray-700 focus-within:border-purple-500/50' : 'opacity-50 pointer-events-none border-transparent'}`}>
               <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder={selectedFromList ? `Like "${selectedFromList.titulo}"...` : "Ask the Sommelier..."} className="flex-1 bg-transparent border-none outline-none px-6 py-4 text-gray-100 placeholder:text-gray-600" />
-              <button type="submit" disabled={(!input.trim() && selectedGenres.length === 0 && !selectedFromList) || loading || !activeSession} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-4 rounded-full transition-all shadow-lg active:scale-90 disabled:opacity-50 disabled:active:scale-100">{loading && !messages.find(m => m.role === 'assistant' && !m.content) ? <Loader2 className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6" />}</button>
+              <button type="submit" disabled={(!input.trim() && selectedGenres.length === 0 && !selectedFromList) || loading || !activeSession} className="bg-primary text-on-primary p-4 rounded-full transition-all shadow-lg shadow-primary/20 active:scale-90 disabled:opacity-50 disabled:active:scale-100">{loading && !messages.find(m => m.role === 'assistant' && !m.content) ? <Loader2 className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6" />}</button>
             </form>
           </div>
         </div>

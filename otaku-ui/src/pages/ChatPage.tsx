@@ -282,7 +282,7 @@ const ChatPage = () => {
                   <h1 className="text-4xl font-black text-white leading-tight">{selectedItem.titulo}</h1>
                   <div className="flex flex-wrap gap-2 mt-4">
                     {selectedItem.generos?.split(',').map((g: string) => (
-                      <span key={g} className="px-4 py-1.5 bg-purple-600/20 text-purple-400 border border-purple-500/30 rounded-xl text-xs font-black uppercase">{g.trim()}</span>
+                      <span key={g} className="px-4 py-1.5 bg-secondary/20 text-secondary border border-secondary/30 rounded-xl text-xs font-black uppercase">{g.trim()}</span>
                     ))}
                   </div>
                 </div>
@@ -313,8 +313,8 @@ const ChatPage = () => {
         </div>
         <div className="flex-1 overflow-y-auto px-4 space-y-2 custom-scrollbar">
           {sessions.map(session => (
-            <div key={session.id} onClick={() => setActiveSession(session.id)} className={`group flex items-center justify-between p-4 rounded-2xl cursor-pointer transition-all border ${activeSession === session.id ? 'bg-purple-600/20 border-purple-500/50 text-white' : 'bg-transparent border-transparent hover:bg-gray-800/50 text-gray-400'}`}>
-              <div className="flex items-center gap-3 truncate"><MessageSquare className={`w-5 h-5 ${activeSession === session.id ? 'text-purple-400' : 'text-gray-600'}`} /><span className="truncate font-medium">{session.titulo}</span></div>
+            <div key={session.id} onClick={() => setActiveSession(session.id)} className={`group flex items-center justify-between p-4 rounded-2xl cursor-pointer transition-all border ${activeSession === session.id ? 'bg-secondary/20 border-secondary/50 text-white' : 'bg-transparent border-transparent hover:bg-gray-800/50 text-gray-400'}`}>
+              <div className="flex items-center gap-3 truncate"><MessageSquare className={`w-5 h-5 ${activeSession === session.id ? 'text-secondary' : 'text-gray-600'}`} /><span className="truncate font-medium">{session.titulo}</span></div>
               <button onClick={(e) => deleteSession(session.id, e)} className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all"><Trash2 className="w-4 h-4" /></button>
             </div>
           ))}
@@ -336,16 +336,16 @@ const ChatPage = () => {
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`flex gap-4 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${msg.role === 'user' ? 'bg-purple-600' : 'bg-pink-600'}`}>{msg.role === 'user' ? <User className="w-6 h-6" /> : <Bot className="w-6 h-6" />}</div>
-                    <div className={`p-5 rounded-3xl shadow-xl border ${msg.role === 'user' ? 'bg-purple-600/10 border-purple-500/20 rounded-tr-none text-gray-100' : 'bg-[#1a1c23] border-gray-800/50 rounded-tl-none text-gray-200'}`}>{renderMessageContent(msg.content)}</div>
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${msg.role === 'user' ? 'bg-secondary' : 'bg-primary'}`}>{msg.role === 'user' ? <User className="w-6 h-6" /> : <Bot className="w-6 h-6" />}</div>
+                    <div className={`p-5 rounded-3xl shadow-xl border ${msg.role === 'user' ? 'bg-secondary/10 border-secondary/20 rounded-tr-none text-gray-100' : 'bg-[#1a1c23] border-gray-800/50 rounded-tl-none text-gray-200'}`}>{renderMessageContent(msg.content)}</div>
                   </div>
                 </div>
               ))}
               {loading && !messages.find(m => m.role === 'assistant' && !m.content) && (
                 <div className="flex justify-start animate-in fade-in slide-in-from-bottom-4">
                   <div className="flex gap-4 max-w-[80%]">
-                    <div className="w-10 h-10 rounded-2xl bg-pink-600 flex items-center justify-center shrink-0 shadow-lg"><Bot className="w-6 h-6 text-white" /></div>
-                    <div className="bg-gray-800/50 border border-gray-700/50 p-5 rounded-3xl rounded-tl-none flex items-center gap-3"><div className="flex gap-1"><span className="w-2 h-2 bg-pink-500 rounded-full animate-bounce"></span><span className="w-2 h-2 bg-pink-500 rounded-full animate-bounce [animation-delay:0.2s]"></span><span className="w-2 h-2 bg-pink-500 rounded-full animate-bounce [animation-delay:0.4s]"></span></div></div>
+                    <div className="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center shrink-0 shadow-lg"><Bot className="w-6 h-6 text-white" /></div>
+                    <div className="bg-gray-800/50 border border-gray-700/50 p-5 rounded-3xl rounded-tl-none flex items-center gap-3"><div className="flex gap-1"><span className="w-2 h-2 bg-primary rounded-full animate-bounce"></span><span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.2s]"></span><span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.4s]"></span></div></div>
                   </div>
                 </div>
               )}
@@ -367,17 +367,17 @@ const ChatPage = () => {
               
               <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 border-b border-gray-800 pb-4 gap-4">
                 <div className="flex gap-4">
-                  <button onClick={() => setGuidedView('genres')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${guidedView === 'genres' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-500 hover:text-gray-300'}`}>
+                  <button onClick={() => setGuidedView('genres')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${guidedView === 'genres' ? 'bg-secondary text-white' : 'bg-gray-800 text-gray-500 hover:text-gray-300'}`}>
                     <Sparkles className="w-4 h-4" /> Genres
                   </button>
-                  <button onClick={() => setGuidedView('mylist')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${guidedView === 'mylist' ? 'bg-pink-600 text-white' : 'bg-gray-800 text-gray-500 hover:text-gray-300'}`}>
+                  <button onClick={() => setGuidedView('mylist')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${guidedView === 'mylist' ? 'bg-primary text-white' : 'bg-gray-800 text-gray-500 hover:text-gray-300'}`}>
                     <Bookmark className="w-4 h-4" /> My Library ({categoria})
                   </button>
                 </div>
                 {guidedView === 'mylist' && (
                   <div className="relative flex-1 max-w-xs">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
-                    <input type="text" placeholder="Search library..." value={userListSearch} onChange={(e) => setUserListSearch(e.target.value)} className="w-full bg-gray-900 border border-gray-800 rounded-xl pl-10 pr-4 py-2 text-xs outline-none focus:border-pink-500/50 transition-all" />
+                    <input type="text" placeholder="Search library..." value={userListSearch} onChange={(e) => setUserListSearch(e.target.value)} className="w-full bg-gray-900 border border-gray-800 rounded-xl pl-10 pr-4 py-2 text-xs outline-none focus:border-primary/50 transition-all" />
                   </div>
                 )}
                 {(selectedGenres.length > 0 || selectedFromList) && (
@@ -389,7 +389,7 @@ const ChatPage = () => {
                 {guidedView === 'genres' ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                     {GENRES.map(genre => (
-                      <button key={genre} onClick={() => toggleGenre(genre)} className={`px-4 py-3 rounded-2xl text-[11px] font-black transition-all border text-left flex items-center gap-2 ${selectedGenres.includes(genre) ? 'bg-purple-600 border-purple-400 text-white shadow-[0_5px_15px_rgba(147,51,234,0.3)]' : 'bg-gray-800/50 border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300'}`}>
+                      <button key={genre} onClick={() => toggleGenre(genre)} className={`px-4 py-3 rounded-2xl text-[11px] font-black transition-all border text-left flex items-center gap-2 ${selectedGenres.includes(genre) ? 'bg-secondary border-secondary text-white shadow-[0_5px_15px_rgba(194,24,91,0.3)]' : 'bg-gray-800/50 border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300'}`}>
                         <div className={`w-1.5 h-1.5 rounded-full ${selectedGenres.includes(genre) ? 'bg-white animate-pulse' : 'bg-gray-600'}`}></div>{genre}
                       </button>
                     ))}
@@ -397,11 +397,11 @@ const ChatPage = () => {
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     {filteredUserList.length > 0 ? filteredUserList.map(item => (
-                      <button key={item.id} onClick={() => setSelectedFromList(selectedFromList?.id === item.id ? null : item)} className={`group relative aspect-[3/4] rounded-2xl overflow-hidden border-2 transition-all ${selectedFromList?.id === item.id ? 'border-pink-500 scale-105 shadow-2xl shadow-pink-500/20' : 'border-gray-800 hover:border-gray-600'}`}>
+                      <button key={item.id} onClick={() => setSelectedFromList(selectedFromList?.id === item.id ? null : item)} className={`group relative aspect-[3/4] rounded-2xl overflow-hidden border-2 transition-all ${selectedFromList?.id === item.id ? 'border-primary scale-105 shadow-2xl shadow-primary/20' : 'border-gray-800 hover:border-gray-600'}`}>
                         <img src={item.capaUrl} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt="" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
                         <div className="absolute bottom-2 left-2 right-2 text-[10px] font-black text-white truncate text-left">{item.titulo}</div>
-                        {selectedFromList?.id === item.id && <div className="absolute top-2 right-2 bg-pink-500 text-white p-1 rounded-full"><Star className="w-3 h-3 fill-white" /></div>}
+                        {selectedFromList?.id === item.id && <div className="absolute top-2 right-2 bg-primary text-white p-1 rounded-full"><Star className="w-3 h-3 fill-white" /></div>}
                       </button>
                     )) : (
                       <p className="col-span-full text-center py-10 text-gray-500 italic">Nothing found in your library.</p>
@@ -413,11 +413,11 @@ const ChatPage = () => {
           )}
 
           <div className="flex items-center gap-4 relative">
-            <button onClick={() => setShowGuidedArea(!showGuidedArea)} className={`p-4 rounded-2xl transition-all shadow-lg active:scale-95 border flex items-center gap-2 ${showGuidedArea ? 'bg-purple-600 border-purple-400 text-white' : 'bg-[#1a1c23] border-gray-800 text-purple-400 hover:text-white hover:bg-purple-600'}`}>
+            <button onClick={() => setShowGuidedArea(!showGuidedArea)} className={`p-4 rounded-2xl transition-all shadow-lg active:scale-95 border flex items-center gap-2 ${showGuidedArea ? 'bg-secondary border-secondary text-white' : 'bg-[#1a1c23] border-gray-800 text-secondary hover:text-white hover:bg-secondary'}`}>
               <Wand2 className="w-6 h-6" />
-              {(selectedGenres.length > 0 || selectedFromList) && <span className="absolute -top-2 -right-2 w-6 h-6 bg-pink-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-[#0f1014] animate-in zoom-in">{selectedGenres.length + (selectedFromList ? 1 : 0)}</span>}
+              {(selectedGenres.length > 0 || selectedFromList) && <span className="absolute -top-2 -right-2 w-6 h-6 bg-primary text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-[#0f1014] animate-in zoom-in">{selectedGenres.length + (selectedFromList ? 1 : 0)}</span>}
             </button>
-            <form onSubmit={sendMessage} className={`flex-1 flex gap-4 p-2 bg-[#1a1c23]/80 backdrop-blur-xl border rounded-[30px] shadow-2xl transition-all ${activeSession ? 'border-gray-700 focus-within:border-purple-500/50' : 'opacity-50 pointer-events-none border-transparent'}`}>
+            <form onSubmit={sendMessage} className={`flex-1 flex gap-4 p-2 bg-[#1a1c23]/80 backdrop-blur-xl border rounded-[30px] shadow-2xl transition-all ${activeSession ? 'border-gray-700 focus-within:border-secondary/50' : 'opacity-50 pointer-events-none border-transparent'}`}>
               <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder={selectedFromList ? `Like "${selectedFromList.titulo}"...` : "Ask the Sommelier..."} className="flex-1 bg-transparent border-none outline-none px-6 py-4 text-gray-100 placeholder:text-gray-600" />
               <button type="submit" disabled={(!input.trim() && selectedGenres.length === 0 && !selectedFromList) || loading || !activeSession} className="bg-primary text-on-primary p-4 rounded-full transition-all shadow-lg shadow-primary/20 active:scale-90 disabled:opacity-50 disabled:active:scale-100">{loading && !messages.find(m => m.role === 'assistant' && !m.content) ? <Loader2 className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6" />}</button>
             </form>

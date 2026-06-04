@@ -42,7 +42,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             success: 'border-emerald-500/30 bg-emerald-950/90 text-emerald-200 shadow-[0_0_20px_rgba(16,185,129,0.2)]',
             error: 'border-rose-500/30 bg-rose-950/90 text-rose-200 shadow-[0_0_20px_rgba(244,63,94,0.2)]',
             warning: 'border-amber-500/30 bg-amber-950/90 text-amber-200 shadow-[0_0_20px_rgba(245,158,11,0.2)]',
-            info: 'border-purple-500/30 bg-purple-950/90 text-purple-200 shadow-[0_0_20px_rgba(168,85,247,0.2)]',
+            info: 'border-secondary/30 bg-secondary/90 text-secondary shadow-[0_0_20px_rgba(194,24,91,0.2)]',
           }[toast.type];
 
           const Icon = {

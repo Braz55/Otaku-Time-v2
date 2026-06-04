@@ -46,8 +46,8 @@ const RegisterPage: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0f1014] p-4">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[20%] -right-[10%] w-[50%] h-[50%] bg-pink-600/10 blur-[120px] rounded-full"></div>
-        <div className="absolute -bottom-[20%] -left-[10%] w-[50%] h-[50%] bg-purple-600/10 blur-[120px] rounded-full"></div>
+        <div className="absolute -top-[20%] -right-[10%] w-[50%] h-[50%] bg-primary/10 blur-[120px] rounded-full"></div>
+        <div className="absolute -bottom-[20%] -left-[10%] w-[50%] h-[50%] bg-secondary/10 blur-[120px] rounded-full"></div>
       </div>
 
       <div className="w-full max-w-md animate-slide-up">
@@ -78,7 +78,7 @@ const RegisterPage: React.FC = () => {
                   required
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
-                  className="w-full bg-[#0f1014] border border-gray-800 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-purple-500 transition-colors"
+                  className="w-full bg-[#0f1014] border border-gray-800 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-secondary transition-colors"
                   placeholder="Your name"
                 />
               </div>
@@ -93,7 +93,7 @@ const RegisterPage: React.FC = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-[#0f1014] border border-gray-800 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-purple-500 transition-colors"
+                  className="w-full bg-[#0f1014] border border-gray-800 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-secondary transition-colors"
                   placeholder="example@email.com"
                 />
               </div>
@@ -108,7 +108,7 @@ const RegisterPage: React.FC = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-[#0f1014] border border-gray-800 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-purple-500 transition-colors"
+                  className="w-full bg-[#0f1014] border border-gray-800 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-secondary transition-colors"
                   placeholder="••••••••"
                 />
               </div>
@@ -133,7 +133,7 @@ const RegisterPage: React.FC = () => {
           <div className="mt-8 text-center">
             <p className="text-gray-500">
               Already have an account?{' '}
-              <Link to="/login" className="text-pink-400 hover:text-pink-300 font-semibold transition-colors">
+              <Link to="/login" className="text-primary hover:text-primary font-semibold transition-colors">
                 Sign in here
               </Link>
             </p>

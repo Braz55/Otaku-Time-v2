@@ -93,8 +93,8 @@ const LoginPage: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0f1014] p-4">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] bg-purple-600/10 blur-[120px] rounded-full"></div>
-        <div className="absolute -bottom-[20%] -right-[10%] w-[50%] h-[50%] bg-pink-600/10 blur-[120px] rounded-full"></div>
+        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] bg-secondary/10 blur-[120px] rounded-full"></div>
+        <div className="absolute -bottom-[20%] -right-[10%] w-[50%] h-[50%] bg-primary/10 blur-[120px] rounded-full"></div>
       </div>
 
       <div className="w-full max-w-md animate-slide-up">
@@ -125,7 +125,7 @@ const LoginPage: React.FC = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-[#0f1014] border border-gray-800 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-purple-500 transition-colors"
+                  className="w-full bg-[#0f1014] border border-gray-800 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-secondary transition-colors"
                   placeholder="example@email.com"
                 />
               </div>
@@ -140,7 +140,7 @@ const LoginPage: React.FC = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-[#0f1014] border border-gray-800 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-purple-500 transition-colors"
+                  className="w-full bg-[#0f1014] border border-gray-800 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-secondary transition-colors"
                   placeholder="••••••••"
                 />
               </div>
@@ -165,7 +165,7 @@ const LoginPage: React.FC = () => {
           <div className="mt-8 text-center">
             <p className="text-gray-500">
               Don't have an account?{' '}
-              <Link to="/register" className="text-purple-400 hover:text-purple-300 font-semibold transition-colors">
+              <Link to="/register" className="text-secondary hover:text-secondary font-semibold transition-colors">
                 Sign up here
               </Link>
             </p>
@@ -175,7 +175,7 @@ const LoginPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setDiagOpen(!diagOpen)}
-              className="text-xs text-gray-500 hover:text-purple-400 transition-colors flex items-center justify-center gap-1 mx-auto"
+              className="text-xs text-gray-500 hover:text-secondary transition-colors flex items-center justify-center gap-1 mx-auto"
             >
               <span>{diagOpen ? '▲ Fechar Diagnóstico de Rede' : '▼ Ferramenta de Diagnóstico de Rede'}</span>
             </button>
@@ -193,7 +193,7 @@ const LoginPage: React.FC = () => {
                       value={diagIp}
                       onChange={(e) => setDiagIp(e.target.value)}
                       placeholder="192.168.1.85"
-                      className="w-full bg-[#1a1c23] border border-gray-850 rounded-lg p-2 text-xs text-gray-300 focus:outline-none focus:border-purple-500"
+                      className="w-full bg-[#1a1c23] border border-gray-850 rounded-lg p-2 text-xs text-gray-300 focus:outline-none focus:border-secondary"
                     />
                   </div>
                   <div className="space-y-1">
@@ -203,7 +203,7 @@ const LoginPage: React.FC = () => {
                       value={diagPort}
                       onChange={(e) => setDiagPort(e.target.value)}
                       placeholder="3001"
-                      className="w-full bg-[#1a1c23] border border-gray-850 rounded-lg p-2 text-xs text-gray-300 focus:outline-none focus:border-purple-500"
+                      className="w-full bg-[#1a1c23] border border-gray-850 rounded-lg p-2 text-xs text-gray-300 focus:outline-none focus:border-secondary"
                     />
                   </div>
                 </div>
@@ -212,7 +212,7 @@ const LoginPage: React.FC = () => {
                   type="button"
                   onClick={testarConectividade}
                   disabled={diagStatus.loading}
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-lg text-xs transition-colors flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
+                  className="w-full bg-secondary hover:bg-secondary text-white font-bold py-2 rounded-lg text-xs transition-colors flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
                 >
                   {diagStatus.loading ? 'A testar...' : '📡 Testar Ligação Wi-Fi'}
                 </button>

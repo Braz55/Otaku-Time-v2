@@ -43,7 +43,7 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
               </button>
               <button 
                 onClick={() => setCategoria('manga')}
-                className={`flex-1 py-2 rounded-full font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${categoria === 'manga' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-[1.02]' : 'text-on-surface-variant hover:text-white'}`}
+                className={`flex-1 py-2 rounded-full font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${categoria === 'manga' ? 'bg-secondary text-on-secondary shadow-lg shadow-secondary/30 scale-[1.02]' : 'text-on-surface-variant hover:text-white'}`}
               >
                 <span className="material-symbols-outlined text-base">menu_book</span>
                 <span>Manga</span>

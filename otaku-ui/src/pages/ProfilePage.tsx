@@ -390,7 +390,7 @@ const ProfilePage = () => {
         <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-secondary/20 shadow-2xl relative overflow-hidden hero-gradient">
           <div className="absolute inset-0 bg-gradient-to-r from-secondary/15 via-secondary-light/5 to-transparent blur-3xl"></div>
           <div className="flex flex-col sm:flex-row items-center gap-6 relative z-10 text-center sm:text-left">
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-primary p-1 shadow-[0_0_30px_rgba(168,85,247,0.4)] flex-shrink-0">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-primary p-1 shadow-[0_0_30px_rgba(194,24,91,0.4)] flex-shrink-0">
               <div className="w-full h-full rounded-full bg-surface flex items-center justify-center text-4xl font-black text-white overflow-hidden">
                 {user?.nome ? user.nome.charAt(0).toUpperCase() : 'O'}
               </div>
@@ -460,11 +460,11 @@ const ProfilePage = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 <button
                   onClick={() => handleConnectionModeChange('online')}
-                  className={`p-4 rounded-2xl border text-left transition-all ${connectionMode === 'online' ? 'border-purple-500 bg-primary/10 shadow-[0_0_15px_rgba(168,85,247,0.2)]' : 'border-white/10 bg-white/5 hover:bg-white/10'}`}
+                  className={`p-4 rounded-2xl border text-left transition-all ${connectionMode === 'online' ? 'border-secondary bg-primary/10 shadow-[0_0_15px_rgba(194,24,91,0.2)]' : 'border-white/10 bg-white/5 hover:bg-white/10'}`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-white text-sm">Modo Online (Nuvem)</span>
-                    <span className={`w-2.5 h-2.5 rounded-full ${connectionMode === 'online' ? 'bg-purple-500 animate-pulse' : 'bg-gray-600'}`}></span>
+                    <span className={`w-2.5 h-2.5 rounded-full ${connectionMode === 'online' ? 'bg-secondary animate-pulse' : 'bg-gray-600'}`}></span>
                   </div>
                   <p className="text-[11px] text-gray-400 mt-2">
                     Liga-se diretamente ao teu Render e ao Neon DB PostgreSQL na nuvem para veres e atualizares os teus dados em tempo real.
@@ -472,11 +472,11 @@ const ProfilePage = () => {
                 </button>
                 <button
                   onClick={() => handleConnectionModeChange('offline')}
-                  className={`p-4 rounded-2xl border text-left transition-all ${connectionMode === 'offline' ? 'border-pink-500 bg-pink-500/10 shadow-[0_0_15px_rgba(236,72,153,0.2)]' : 'border-white/10 bg-white/5 hover:bg-white/10'}`}
+                  className={`p-4 rounded-2xl border text-left transition-all ${connectionMode === 'offline' ? 'border-primary bg-primary/10 shadow-[0_0_15px_rgba(106,27,154,0.2)]' : 'border-white/10 bg-white/5 hover:bg-white/10'}`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-white text-sm">Modo Offline (Local)</span>
-                    <span className={`w-2.5 h-2.5 rounded-full ${connectionMode === 'offline' ? 'bg-pink-500 animate-pulse' : 'bg-gray-600'}`}></span>
+                    <span className={`w-2.5 h-2.5 rounded-full ${connectionMode === 'offline' ? 'bg-primary animate-pulse' : 'bg-gray-600'}`}></span>
                   </div>
                   <p className="text-[11px] text-gray-400 mt-2">
                     Guarda os teus progressos na base de dados IndexedDB (Dexie) local do telemóvel para funcionar sem internet.
@@ -487,19 +487,19 @@ const ProfilePage = () => {
 
             {/* AutoSync Releases Card (Animes & Mangas) */}
             <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-purple-500/10 via-pink-500/5 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-secondary/10 via-primary/5 to-transparent rounded-full blur-3xl pointer-events-none"></div>
               
               <div className="flex items-center justify-between flex-wrap gap-4 relative z-10">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-pink-500/10 border border-pink-500/30 rounded-2xl text-secondary shadow-inner">
+                  <div className="p-3 bg-primary/10 border border-primary/30 rounded-2xl text-secondary shadow-inner">
                     <RefreshCw className={`w-6 h-6 ${syncStatus.isSyncing ? 'animate-spin text-secondary' : ''}`} />
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
                       <span>AutoSync Releases (Animes & Mangas)</span>
                       {syncStatus.isSyncing && (
-                        <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-pink-500/20 border border-pink-500/40 text-[10px] font-black text-pink-300 animate-pulse">
-                          <span className="w-1.5 h-1.5 rounded-full bg-pink-400 animate-ping"></span> ACTIVE
+                        <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/20 border border-primary/40 text-[10px] font-black text-primary animate-pulse">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span> ACTIVE
                         </span>
                       )}
                     </h3>
@@ -514,7 +514,7 @@ const ProfilePage = () => {
                 <button
                   onClick={triggerManualReleaseSync}
                   disabled={syncStatus.isSyncing}
-                  className={`w-full py-4 rounded-2xl font-black text-base transition-all flex items-center justify-center gap-3 shadow-xl ${syncStatus.isSyncing ? 'bg-pink-500/20 border border-pink-500/30 text-pink-300 cursor-not-allowed shadow-[0_0_25px_rgba(236,72,153,0.2)]' : 'bg-primary hover:opacity-90 text-on-primary shadow-primary/20 hover:shadow-primary/40 hover:scale-[1.01] active:scale-[0.99]'}`}
+                  className={`w-full py-4 rounded-2xl font-black text-base transition-all flex items-center justify-center gap-3 shadow-xl ${syncStatus.isSyncing ? 'bg-primary/20 border border-primary/30 text-primary cursor-not-allowed shadow-[0_0_25px_rgba(106,27,154,0.2)]' : 'bg-primary hover:opacity-90 text-on-primary shadow-primary/20 hover:shadow-primary/40 hover:scale-[1.01] active:scale-[0.99]'}`}
                 >
                   {syncStatus.isSyncing ? (
                     <>
@@ -531,25 +531,25 @@ const ProfilePage = () => {
 
                 {/* Expanding Details Panel */}
                 {syncStatus.isSyncing && (
-                  <div className="p-6 rounded-2xl bg-black/40 border border-pink-500/30 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500 shadow-2xl backdrop-blur-xl">
+                  <div className="p-6 rounded-2xl bg-black/40 border border-primary/30 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500 shadow-2xl backdrop-blur-xl">
                     <div className="flex items-center justify-between text-xs font-bold">
                       <span className="text-secondary uppercase tracking-widest flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-pink-500 animate-ping"></span> Live Background Progress
+                        <span className="w-2 h-2 rounded-full bg-primary animate-ping"></span> Live Background Progress
                       </span>
-                      <span className="text-white bg-pink-500/20 px-2.5 py-1 rounded-lg border border-pink-500/30 font-mono">
+                      <span className="text-white bg-primary/20 px-2.5 py-1 rounded-lg border border-primary/30 font-mono">
                         {syncStatus.current} / {syncStatus.total} Completed
                       </span>
                     </div>
 
                     <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden border border-white/5 p-0.5 shadow-inner">
                       <div 
-                        className="h-full bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 rounded-full transition-all duration-500 shadow-[0_0_15px_rgba(236,72,153,0.8)]" 
+                        className="h-full bg-gradient-to-r from-primary via-secondary to-indigo-500 rounded-full transition-all duration-500 shadow-[0_0_15px_rgba(106,27,154,0.8)]" 
                         style={{ width: `${syncStatus.total > 0 ? (syncStatus.current / syncStatus.total) * 100 : 0}%` }}
                       ></div>
                     </div>
 
                     <div className="p-4 rounded-xl bg-surface-variant/40 border border-white/5 flex items-center gap-3 text-sm">
-                      <div className="w-8 h-8 rounded-lg bg-pink-500/20 border border-pink-500/30 flex items-center justify-center text-secondary flex-shrink-0 shadow-md">
+                      <div className="w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center text-secondary flex-shrink-0 shadow-md">
                         <span className="material-symbols-outlined text-base animate-spin">sync</span>
                       </div>
                       <div className="min-w-0 flex-1">
@@ -577,7 +577,7 @@ const ProfilePage = () => {
 
             {/* Backup & Portability Card */}
             <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden animate-in fade-in duration-500">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-purple-500/10 via-pink-500/5 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-secondary/10 via-primary/5 to-transparent rounded-full blur-3xl pointer-events-none"></div>
               
               <div className="flex items-center justify-between flex-wrap gap-4 relative z-10">
                 <div className="flex items-center gap-3">
@@ -710,7 +710,7 @@ const ProfilePage = () => {
 
             {/* User Preferences Card */}
             <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-purple-500/10 via-transparent to-transparent rounded-full blur-2xl pointer-events-none"></div>
+              <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-secondary/10 via-transparent to-transparent rounded-full blur-2xl pointer-events-none"></div>
               
               <h3 className="text-xl font-bold text-white flex items-center gap-3">
                 <Smartphone className="w-6 h-6 text-secondary" />
@@ -791,7 +791,7 @@ const ProfilePage = () => {
                       checked={user?.showAdultContent === false}
                       disabled={isUpdatingPreferences}
                       onChange={(e) => handleUpdatePreference('showAdultContent', !e.target.checked)}
-                      className="w-5 h-5 rounded border-white/10 text-pink-600 focus:ring-pink-500/50 bg-black/40 cursor-pointer"
+                      className="w-5 h-5 rounded border-white/10 text-primary focus:ring-primary/50 bg-black/40 cursor-pointer"
                     />
                   </div>
                 </div>
@@ -805,7 +805,7 @@ const ProfilePage = () => {
       {showBackupModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
           <div className="glass-panel w-full max-w-2xl p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-purple-500/15 to-transparent rounded-full blur-2xl"></div>
+            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-secondary/15 to-transparent rounded-full blur-2xl"></div>
             
             <div className="space-y-2">
               <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
@@ -866,7 +866,7 @@ const ProfilePage = () => {
       {showRestoreModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
           <div className="glass-panel w-full max-w-2xl p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-pink-500/15 to-transparent rounded-full blur-2xl"></div>
+            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-primary/15 to-transparent rounded-full blur-2xl"></div>
             
             <div className="space-y-2">
               <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
@@ -914,7 +914,7 @@ const ProfilePage = () => {
                 id="clean-restore-checkbox"
                 checked={cleanRestore}
                 onChange={(e) => setCleanRestore(e.target.checked)}
-                className="w-4.5 h-4.5 rounded border-white/10 text-pink-600 focus:ring-pink-500/50 bg-black/40 cursor-pointer"
+                className="w-4.5 h-4.5 rounded border-white/10 text-primary focus:ring-primary/50 bg-black/40 cursor-pointer"
               />
               <label htmlFor="clean-restore-checkbox" className="text-xs font-bold cursor-pointer select-none">
                 Efetuar restauro limpo (APAGAR todos os dados atuais antes de importar)

@@ -9,6 +9,49 @@
   --secondary-light: #f48fb1;
   --on-secondary: #ffffff;
   --secondary-container: #a7005e;
+  --background: #121317;
+  --on-background: #e3e2e7;
+  --surface: #121317;
+  --on-surface: #e3e2e7;
+  --surface-container-lowest: #0d0e12;
+  --surface-container-low: #1a1b20;
+  --surface-container: #1f1f24;
+  --surface-container-high: #292a2e;
+  --surface-container-highest: #343439;
+  --surface-variant: #343439;
+  --on-surface-variant: #cfc2d7;
+  --outline: #988ca0;
+  --outline-variant: #4d4354;
+  --glass-bg: rgba(31, 31, 36, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.05);
+  --overlay-soft: rgba(255, 255, 255, 0.05);
+  --overlay-border: rgba(255, 255, 255, 0.10);
+  --field-bg: rgba(0, 0, 0, 0.4);
+  --hard-panel: #1a1c23;
+  --hard-canvas: #0f1014;
+}
+
+:root.light {
+  --background: #f8f6fb;
+  --on-background: #211923;
+  --surface: #fffbff;
+  --on-surface: #211923;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #f7eff8;
+  --surface-container: #f1eaf2;
+  --surface-container-high: #eae3ec;
+  --surface-container-highest: #e3dce5;
+  --surface-variant: #eadfea;
+  --on-surface-variant: #5d5260;
+  --outline: #7f737f;
+  --outline-variant: #d0c3d0;
+  --glass-bg: rgba(255, 255, 255, 0.76);
+  --glass-border: rgba(80, 65, 85, 0.14);
+  --overlay-soft: rgba(42, 28, 48, 0.06);
+  --overlay-border: rgba(42, 28, 48, 0.12);
+  --field-bg: rgba(255, 255, 255, 0.74);
+  --hard-panel: #ffffff;
+  --hard-canvas: #f8f6fb;
 }
 
 @theme {
@@ -20,11 +63,24 @@
   --color-secondary-light: var(--secondary-light);
   --color-on-secondary: var(--on-secondary);
   --color-secondary-container: var(--secondary-container);
+  --color-background: var(--background);
+  --color-on-background: var(--on-background);
+  --color-surface: var(--surface);
+  --color-on-surface: var(--on-surface);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-surface-container-highest: var(--surface-container-highest);
+  --color-surface-variant: var(--surface-variant);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
 }
 
 body {
-  background-color: #121317;
-  color: #e3e2e7;
+  background-color: var(--background);
+  color: var(--on-background);
   font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -38,9 +94,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .glass-panel {
-  background: rgba(31, 31, 36, 0.6);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
 }
 
 .hero-gradient {
@@ -71,6 +127,69 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @layer utilities {
+  .light .bg-\[\#0f1014\],
+  .light .bg-\[\#1a1c23\] {
+    background-color: var(--hard-panel);
+  }
+
+  .light .bg-black\/40,
+  .light .bg-black\/60 {
+    background-color: var(--field-bg);
+  }
+
+  .light .bg-black\/80 {
+    background-color: rgba(33, 25, 35, 0.42);
+  }
+
+  .light .bg-white\/5,
+  .light .hover\:bg-white\/5:hover,
+  .light .hover\:bg-white\/10:hover {
+    background-color: var(--overlay-soft);
+  }
+
+  .light .border-white\/5,
+  .light .border-white\/10,
+  .light .border-white\/20,
+  .light .hover\:border-white\/20:hover {
+    border-color: var(--overlay-border);
+  }
+
+  .light .text-white,
+  .light .hover\:text-white:hover {
+    color: var(--on-surface);
+  }
+
+  .light .text-gray-200,
+  .light .text-gray-300 {
+    color: #342a36;
+  }
+
+  .light .text-gray-400,
+  .light .text-gray-500,
+  .light .text-gray-600 {
+    color: var(--on-surface-variant);
+  }
+
+  .light .border-gray-700,
+  .light .border-gray-700\/50,
+  .light .border-gray-800,
+  .light .border-gray-800\/50 {
+    border-color: var(--outline-variant);
+  }
+
+  .light .bg-gray-800,
+  .light .bg-gray-800\/50,
+  .light .bg-gray-900,
+  .light .hover\:bg-gray-800\/50:hover,
+  .light .hover\:bg-slate-900\/50:hover {
+    background-color: var(--surface-container-high);
+  }
+
+  .light .shadow-2xl,
+  .light .shadow-xl {
+    --tw-shadow-color: rgba(42, 28, 48, 0.16);
+  }
+
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }

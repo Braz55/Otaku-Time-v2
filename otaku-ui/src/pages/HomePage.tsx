@@ -546,7 +546,7 @@ const HomePage = () => {
                         <div className="md:hidden flex justify-center mb-2.5">
                           <button 
                             onClick={() => setShowGenres(!showGenres)}
-                            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full glass-panel border ${showGenres ? (categoria === 'anime' ? 'border-purple-500/50 bg-purple-500/10 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.2)]' : 'border-pink-500/50 bg-pink-500/10 text-pink-300 shadow-[0_0_15px_rgba(236,72,153,0.2)]') : 'border-white/10 bg-surface-variant/40 hover:bg-surface-variant text-on-surface-variant hover:text-white'} text-[11px] font-bold shadow-md backdrop-blur-md transition-all active:scale-95`}
+                            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full glass-panel border ${showGenres ? (categoria === 'anime' ? 'border-secondary/50 bg-secondary/10 text-secondary shadow-[0_0_15px_rgba(194,24,91,0.2)]' : 'border-primary/50 bg-primary/10 text-primary shadow-[0_0_15px_rgba(106,27,154,0.2)]') : 'border-white/10 bg-surface-variant/40 hover:bg-surface-variant text-on-surface-variant hover:text-white'} text-[11px] font-bold shadow-md backdrop-blur-md transition-all active:scale-95`}
                           >
                             <span className="material-symbols-outlined text-xs text-primary">sell</span>
                             <span>{showGenres ? 'Hide Genres' : `🏷️ Filter by Genre (${GENRES.length})`}</span>
@@ -559,7 +559,7 @@ const HomePage = () => {
                             <span 
                               key={g} 
                               onClick={() => { pesquisarPorGenero(g); setShowGenres(false); }} 
-                              className={`px-3 py-1 rounded-lg border text-[10px] sm:text-xs font-bold transition-all cursor-pointer shadow-sm whitespace-nowrap ${selectedGenre === g ? (categoria === 'anime' ? 'bg-primary border-primary text-on-primary shadow-[0_0_12px_rgba(168,85,247,0.4)]' : 'bg-secondary border-secondary text-on-secondary shadow-[0_0_12px_rgba(236,72,153,0.4)]') : 'bg-surface-variant/30 border-white/5 hover:bg-white/10 hover:border-white/20 text-on-surface-variant hover:text-white'}`}
+                              className={`px-3 py-1 rounded-lg border text-[10px] sm:text-xs font-bold transition-all cursor-pointer shadow-sm whitespace-nowrap ${selectedGenre === g ? (categoria === 'anime' ? 'bg-primary border-primary text-on-primary shadow-[0_0_12px_rgba(194,24,91,0.4)]' : 'bg-secondary border-secondary text-on-secondary shadow-[0_0_12px_rgba(106,27,154,0.4)]') : 'bg-surface-variant/30 border-white/5 hover:bg-white/10 hover:border-white/20 text-on-surface-variant hover:text-white'}`}
                             >
                               {g}
                             </span>
@@ -592,7 +592,7 @@ const HomePage = () => {
 
                 <div className="flex items-center justify-between px-1 sm:px-0">
                   <div className="flex items-center gap-2 sm:gap-3">
-                    <span className="material-symbols-outlined text-primary text-2xl sm:text-3xl animate-pulse drop-shadow-[0_0_12px_rgba(147,51,234,0.6)]" style={{ fontVariationSettings: "'FILL' 1" }}>play_circle</span>
+                    <span className="material-symbols-outlined text-primary text-2xl sm:text-3xl animate-pulse drop-shadow-[0_0_12px_rgba(194,24,91,0.6)]" style={{ fontVariationSettings: "'FILL' 1" }}>play_circle</span>
                     <h3 className="font-display-lg text-2xl sm:text-3xl font-black text-primary-light tracking-tight">Up Next</h3>
                   </div>
                 </div>
@@ -611,7 +611,7 @@ const HomePage = () => {
                       const numDisponiveis = typeof totalEp === 'number' ? totalEp - epQueVouVer : 0;
                       const progressoPercentual = typeof totalEp === 'number' && totalEp > 0 ? ((item.epAtual || 0) / totalEp) * 100 : (((item.epAtual || 0) / ((item.epAtual || 0) + 1)) * 100);
                       return (
-                        <div key={item.id} className="glass-panel p-2.5 sm:p-4 rounded-2xl sm:rounded-3xl flex gap-2.5 sm:gap-4 hover:bg-white/5 transition-all group relative overflow-hidden border border-white/5 hover:border-purple-500/30">
+                        <div key={item.id} className="glass-panel p-2.5 sm:p-4 rounded-2xl sm:rounded-3xl flex gap-2.5 sm:gap-4 hover:bg-white/5 transition-all group relative overflow-hidden border border-white/5 hover:border-secondary/30">
                           <div className="w-18 sm:w-24 h-26 sm:h-32 rounded-lg sm:rounded-xl overflow-hidden flex-shrink-0 cursor-pointer" onClick={() => abrirDetalhes(item.id, false, 'anime')}>
                             <img src={item.anime?.capaUrl || item.capaUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
                           </div>
@@ -661,7 +661,7 @@ const HomePage = () => {
                       const numDisponiveis = typeof totalCap === 'number' ? totalCap - capQueVouLer : 0;
                       const progressoPercentual = typeof totalCap === 'number' && totalCap > 0 ? ((item.capAtual || 0) / totalCap) * 100 : (((item.capAtual || 0) / ((item.capAtual || 0) + 1)) * 100);
                       return (
-                        <div key={item.id} className="glass-panel p-2.5 sm:p-4 rounded-2xl sm:rounded-3xl flex gap-2.5 sm:gap-4 hover:bg-white/5 transition-all group relative overflow-hidden border border-white/5 hover:border-pink-500/30">
+                        <div key={item.id} className="glass-panel p-2.5 sm:p-4 rounded-2xl sm:rounded-3xl flex gap-2.5 sm:gap-4 hover:bg-white/5 transition-all group relative overflow-hidden border border-white/5 hover:border-primary/30">
                           <div className="w-18 sm:w-24 h-26 sm:h-32 rounded-lg sm:rounded-xl overflow-hidden flex-shrink-0 cursor-pointer" onClick={() => abrirDetalhes(item.id, false, 'manga')}>
                             <img src={item.manga?.capaUrl || item.capaUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
                           </div>
@@ -739,7 +739,7 @@ const HomePage = () => {
                         <button
                           key={tab.id}
                           onClick={() => setFiltroStatus(tab.id)}
-                          className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg text-[11px] sm:text-xs font-bold transition-all flex-1 sm:flex-initial text-center ${filtroStatus === tab.id ? (categoria === 'anime' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-[0_0_15px_rgba(168,85,247,0.2)]' : 'bg-pink-500/20 text-pink-300 border border-pink-500/40 shadow-[0_0_15px_rgba(236,72,153,0.2)]') : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}
+                          className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg text-[11px] sm:text-xs font-bold transition-all flex-1 sm:flex-initial text-center ${filtroStatus === tab.id ? (categoria === 'anime' ? 'bg-secondary/20 text-secondary border border-secondary/40 shadow-[0_0_15px_rgba(194,24,91,0.2)]' : 'bg-primary/20 text-primary border border-primary/40 shadow-[0_0_15px_rgba(106,27,154,0.2)]') : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}
                         >
                           {tab.label}
                         </button>
@@ -776,7 +776,7 @@ const HomePage = () => {
                               <button
                                 key={opt.id}
                                 onClick={() => { setFiltroLancamento(opt.id); setShowLancamentoMenu(false); }}
-                                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${filtroLancamento === opt.id ? (categoria === 'anime' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-sm' : 'bg-pink-500/20 text-pink-300 border border-pink-500/30 shadow-sm') : 'text-on-surface-variant hover:text-white hover:bg-slate-900/50'}`}
+                                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${filtroLancamento === opt.id ? (categoria === 'anime' ? 'bg-secondary/20 text-secondary border border-secondary/30 shadow-sm' : 'bg-primary/20 text-primary border border-primary/30 shadow-sm') : 'text-on-surface-variant hover:text-white hover:bg-slate-900/50'}`}
                               >
                                 <span>{opt.label}</span>
                                 {filtroLancamento === opt.id && (
@@ -817,7 +817,7 @@ const HomePage = () => {
                               <button
                                 key={opt.id}
                                 onClick={() => { setOrdenacao(opt.id); setShowOrdemMenu(false); }}
-                                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${ordenacao === opt.id ? (categoria === 'anime' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-sm' : 'bg-pink-500/20 text-pink-300 border border-pink-500/30 shadow-sm') : 'text-on-surface-variant hover:text-white hover:bg-slate-900/50'}`}
+                                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${ordenacao === opt.id ? (categoria === 'anime' ? 'bg-secondary/20 text-secondary border border-secondary/30 shadow-sm' : 'bg-primary/20 text-primary border border-primary/30 shadow-sm') : 'text-on-surface-variant hover:text-white hover:bg-slate-900/50'}`}
                               >
                                 <span>{opt.label}</span>
                                 {ordenacao === opt.id && (
@@ -873,7 +873,7 @@ const HomePage = () => {
                     return filtrados.length > 0 ? (
                       filtrados.map((item) => (
                         <div key={item.id} className="group cursor-pointer" onClick={() => abrirDetalhes(item.id, false, categoria)}>
-                          <div className={`relative aspect-[2/3] rounded-3xl overflow-hidden shadow-xl transform transition-all duration-500 group-hover:scale-[1.03] group-hover:-translate-y-2 border border-white/10 ${categoria === 'anime' ? 'group-hover:border-purple-500/60 group-hover:shadow-[0_0_30px_rgba(168,85,247,0.25)]' : 'group-hover:border-pink-500/60 group-hover:shadow-[0_0_30px_rgba(236,72,153,0.25)]'}`}>
+                          <div className={`relative aspect-[2/3] rounded-3xl overflow-hidden shadow-xl transform transition-all duration-500 group-hover:scale-[1.03] group-hover:-translate-y-2 border border-white/10 ${categoria === 'anime' ? 'group-hover:border-secondary/60 group-hover:shadow-[0_0_30px_rgba(194,24,91,0.25)]' : 'group-hover:border-primary/60 group-hover:shadow-[0_0_30px_rgba(106,27,154,0.25)]'}`}>
                             <img src={item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="" />
                             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-80 group-hover:opacity-90 transition-opacity"></div>
                             
@@ -882,14 +882,14 @@ const HomePage = () => {
                               {/* Tracking Status Badge */}
                               {item.status && (
                                 <span className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-bold flex items-center gap-1 sm:gap-1.5 backdrop-blur-md border shadow-lg ${
-                                  item.status === 'WATCHING' ? (categoria === 'anime' ? 'bg-purple-500/30 border-purple-500/50 text-purple-200' : 'bg-pink-500/30 border-pink-500/50 text-pink-200') :
+                                  item.status === 'WATCHING' ? (categoria === 'anime' ? 'bg-secondary/30 border-secondary/50 text-secondary' : 'bg-primary/30 border-primary/50 text-primary') :
                                   item.status === 'COMPLETED' ? 'bg-emerald-500/30 border-emerald-500/50 text-emerald-200' :
                                   item.status === 'PAUSED' ? 'bg-amber-500/30 border-amber-500/50 text-amber-200' :
                                   item.status === 'PLANNED' ? 'bg-blue-500/30 border-blue-500/50 text-blue-200' :
                                   'bg-surface-variant/50 border-white/10 text-on-surface-variant'
                                 }`}>
                                   <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                                    item.status === 'WATCHING' ? (categoria === 'anime' ? 'bg-purple-400 animate-pulse shadow-[0_0_8px_rgba(168,85,247,0.8)]' : 'bg-pink-400 animate-pulse shadow-[0_0_8px_rgba(236,72,153,0.8)]') :
+                                    item.status === 'WATCHING' ? (categoria === 'anime' ? 'bg-secondary animate-pulse shadow-[0_0_8px_rgba(194,24,91,0.8)]' : 'bg-primary animate-pulse shadow-[0_0_8px_rgba(106,27,154,0.8)]') :
                                     item.status === 'COMPLETED' ? 'bg-emerald-400' :
                                     item.status === 'PAUSED' ? 'bg-amber-400' :
                                     item.status === 'PLANNED' ? 'bg-blue-400' :
@@ -986,7 +986,7 @@ const HomePage = () => {
                   {resultadosPesquisa.length > 0 ? (
                     resultadosPesquisa.map((item) => (
                       <div key={item.id} className="group cursor-pointer space-y-3" onClick={() => abrirDetalhes(item.id, true)}>
-                        <div className="relative aspect-[2/3] rounded-3xl overflow-hidden shadow-lg transform transition-all duration-300 group-hover:scale-[1.02] group-hover:-translate-y-1 border border-white/5 group-hover:border-pink-500/50">
+                        <div className="relative aspect-[2/3] rounded-3xl overflow-hidden shadow-lg transform transition-all duration-300 group-hover:scale-[1.02] group-hover:-translate-y-1 border border-white/5 group-hover:border-primary/50">
                           <img src={item.coverImage.large} className="w-full h-full object-cover" alt="" />
                           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity"></div>
                           <div className="absolute bottom-4 left-4 right-4 z-10">
@@ -1007,7 +1007,7 @@ const HomePage = () => {
                     <button 
                       onClick={carregarMais} 
                       disabled={loadingMore} 
-                      className={`px-8 py-3 rounded-2xl font-bold flex items-center gap-3 border transition-all shadow-lg ${categoria === 'anime' ? 'bg-primary/20 hover:bg-primary border-primary/30 text-primary hover:text-on-primary shadow-[0_0_20px_rgba(168,85,247,0.2)]' : 'bg-secondary/20 hover:bg-secondary border-secondary/30 text-secondary hover:text-on-secondary shadow-[0_0_20px_rgba(236,72,153,0.2)]'}`}
+                      className={`px-8 py-3 rounded-2xl font-bold flex items-center gap-3 border transition-all shadow-lg ${categoria === 'anime' ? 'bg-primary/20 hover:bg-primary border-primary/30 text-primary hover:text-on-primary shadow-[0_0_20px_rgba(194,24,91,0.2)]' : 'bg-secondary/20 hover:bg-secondary border-secondary/30 text-secondary hover:text-on-secondary shadow-[0_0_20px_rgba(106,27,154,0.2)]'}`}
                     >
                       {loadingMore ? (
                         <>
@@ -1029,17 +1029,17 @@ const HomePage = () => {
         </div>
       ) : (
           <div className="animate-in fade-in slide-in-from-left-4 duration-500">
-            <button onClick={() => setView('home')} className={`mb-10 flex items-center gap-2 px-5 py-2.5 rounded-full glass-panel border border-white/10 text-on-surface-variant hover:text-white transition-all group font-bold shadow-lg ${categoria === 'anime' ? 'hover:border-purple-500/50 hover:shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'hover:border-pink-500/50 hover:shadow-[0_0_15px_rgba(236,72,153,0.3)]'}`}>
+            <button onClick={() => setView('home')} className={`mb-10 flex items-center gap-2 px-5 py-2.5 rounded-full glass-panel border border-white/10 text-on-surface-variant hover:text-white transition-all group font-bold shadow-lg ${categoria === 'anime' ? 'hover:border-secondary/50 hover:shadow-[0_0_15px_rgba(194,24,91,0.3)]' : 'hover:border-primary/50 hover:shadow-[0_0_15px_rgba(106,27,154,0.3)]'}`}>
               <span className="material-symbols-outlined group-hover:-translate-x-1 transition-transform">arrow_back</span>
               Back to Home
             </button>
             {selectedItem && (
               Capacitor.isNativePlatform() ? (
                 /* VERSÃO ANDROID NATIVA: Ordem Exata Solicitada pelo Utilizador + Margens Otimizadas */
-                <div className={`glass-panel rounded-2xl sm:rounded-3xl overflow-hidden border p-4 sm:p-6 space-y-6 ${categoria === 'anime' ? 'border-purple-500/20 shadow-lg' : 'border-pink-500/20 shadow-lg'}`}>
+                <div className={`glass-panel rounded-2xl sm:rounded-3xl overflow-hidden border p-4 sm:p-6 space-y-6 ${categoria === 'anime' ? 'border-secondary/20 shadow-lg' : 'border-primary/20 shadow-lg'}`}>
                   {/* 1. Capa & Título */}
                   <div className="flex gap-4 items-start">
-                    <div className={`w-28 sm:w-36 aspect-[2/3] rounded-xl overflow-hidden shadow-lg border-2 border-background ring-1 ${categoria === 'anime' ? 'ring-purple-500/50' : 'ring-pink-500/50'} flex-shrink-0`}>
+                    <div className={`w-28 sm:w-36 aspect-[2/3] rounded-xl overflow-hidden shadow-lg border-2 border-background ring-1 ${categoria === 'anime' ? 'ring-secondary/50' : 'ring-primary/50'} flex-shrink-0`}>
                       <img src={selectedItem.capaUrl} className="w-full h-full object-cover" alt={selectedItem.titulo} />
                     </div>
                     <div className="flex-1 min-w-0 space-y-2">
@@ -1096,7 +1096,7 @@ const HomePage = () => {
                   {/* 2. Géneros */}
                   <div className="flex flex-wrap gap-1.5 pt-1 border-t border-white/5">
                     {selectedItem.generos?.split(',').map((g: string) => (
-                      <span key={g} className={`px-3 py-1 bg-white/5 rounded-lg text-[11px] font-bold text-on-surface border tracking-wider ${categoria === 'anime' ? 'border-purple-500/30' : 'border-pink-500/30'}`}>
+                      <span key={g} className={`px-3 py-1 bg-white/5 rounded-lg text-[11px] font-bold text-on-surface border tracking-wider ${categoria === 'anime' ? 'border-secondary/30' : 'border-primary/30'}`}>
                         {g.trim()}
                       </span>
                     ))}
@@ -1122,11 +1122,11 @@ const HomePage = () => {
                             {TRACKING_STATUS_OPTIONS.map((opt) => {
                               const isSelected = selectedItem.status === opt.value;
                               return (
-                                <button key={opt.value} onClick={() => atualizarCampo('status', opt.value)} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all text-xs font-bold relative overflow-hidden group active:scale-95 ${isSelected ? (categoria === 'anime' ? 'bg-purple-500/20 border-purple-500 text-purple-200 shadow-sm' : 'bg-pink-500/20 border-pink-500 text-pink-200 shadow-sm') : 'bg-surface-variant/30 border-white/5 text-on-surface-variant'}`}>
+                                <button key={opt.value} onClick={() => atualizarCampo('status', opt.value)} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all text-xs font-bold relative overflow-hidden group active:scale-95 ${isSelected ? (categoria === 'anime' ? 'bg-secondary/20 border-secondary text-secondary shadow-sm' : 'bg-primary/20 border-primary text-primary shadow-sm') : 'bg-surface-variant/30 border-white/5 text-on-surface-variant'}`}>
                                   {isSelected && (
-                                    <span className={`absolute left-0 top-0 bottom-0 w-1 ${categoria === 'anime' ? 'bg-purple-500' : 'bg-pink-500'}`}></span>
+                                    <span className={`absolute left-0 top-0 bottom-0 w-1 ${categoria === 'anime' ? 'bg-secondary' : 'bg-primary'}`}></span>
                                   )}
-                                  <span className={`material-symbols-outlined text-base ${isSelected ? (categoria === 'anime' ? 'text-purple-400' : 'text-pink-400') : 'text-on-surface-variant'}`} style={{ fontVariationSettings: "'FILL' 1" }}>
+                                  <span className={`material-symbols-outlined text-base ${isSelected ? (categoria === 'anime' ? 'text-secondary' : 'text-primary') : 'text-on-surface-variant'}`} style={{ fontVariationSettings: "'FILL' 1" }}>
                                     {opt.value === 'WATCHING' ? 'play_circle' : 
                                      opt.value === 'PLANNED' ? 'schedule' : 
                                      opt.value === 'COMPLETED' ? 'check_circle' : 
@@ -1166,7 +1166,7 @@ const HomePage = () => {
                         </div>
 
                         {/* My Progress */}
-                        <div className={`p-4 rounded-2xl border ${showEpList ? (categoria === 'anime' ? 'bg-purple-500/10 border-purple-500/40' : 'bg-pink-500/10 border-pink-500/40') : 'glass-panel border-white/5'}`}>
+                        <div className={`p-4 rounded-2xl border ${showEpList ? (categoria === 'anime' ? 'bg-secondary/10 border-secondary/40' : 'bg-primary/10 border-primary/40') : 'glass-panel border-white/5'}`}>
                           <div className="flex items-center gap-1.5 mb-1 justify-center">
                             <span className="material-symbols-outlined text-on-surface-variant text-xs">timelapse</span>
                             <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest">My Progress</p>
@@ -1179,7 +1179,7 @@ const HomePage = () => {
                               </div>
                             ) : (
                               <>
-                                <input type="number" min="0" max={categoria === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 9999)) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 9999))} value={categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${categoria === 'anime' ? 'text-primary focus:bg-purple-500/10' : 'text-secondary focus:bg-pink-500/10'} font-black text-3xl w-16 text-center outline-none border-b border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} />
+                                <input type="number" min="0" max={categoria === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 9999)) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 9999))} value={categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${categoria === 'anime' ? 'text-primary focus:bg-secondary/10' : 'text-secondary focus:bg-primary/10'} font-black text-3xl w-16 text-center outline-none border-b border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} />
                                 <span className="text-on-surface-variant font-light text-2xl">/</span> 
                                 <span className="text-on-surface-variant font-bold text-2xl">
                                   {categoria === 'anime' 
@@ -1368,12 +1368,12 @@ const HomePage = () => {
                 </div>
               ) : (
                 /* VERSÃO WEB INTOCADA (Exatamente o código original) */
-                <div className={`glass-panel rounded-3xl overflow-hidden border ${categoria === 'anime' ? 'border-purple-500/20 shadow-[0_0_100px_rgba(168,85,247,0.15)]' : 'border-pink-500/20 shadow-[0_0_100px_rgba(236,72,153,0.15)]'}`}>
+                <div className={`glass-panel rounded-3xl overflow-hidden border ${categoria === 'anime' ? 'border-secondary/20 shadow-[0_0_100px_rgba(194,24,91,0.15)]' : 'border-primary/20 shadow-[0_0_100px_rgba(106,27,154,0.15)]'}`}>
                   <div className="relative h-[400px] md:h-[500px]">
                     <img src={selectedItem.capaUrl} className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-30" alt="" />
-                    <div className={`absolute inset-0 bg-gradient-to-t from-background via-background/80 to-${categoria === 'anime' ? 'purple' : 'pink'}-900/20`}></div>
+                    <div className={`absolute inset-0 bg-gradient-to-t from-background via-background/80 ${categoria === 'anime' ? 'to-secondary-container/20' : 'to-primary-container/20'}`}></div>
                     <div className="relative h-full flex flex-col md:flex-row items-end p-8 md:p-12 gap-8">
-                      <div className={`w-48 md:w-64 aspect-[2/3] rounded-2xl overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.8)] border-4 border-background ring-2 ${categoria === 'anime' ? 'ring-purple-500/50' : 'ring-pink-500/50'} flex-shrink-0 group`}>
+                      <div className={`w-48 md:w-64 aspect-[2/3] rounded-2xl overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.8)] border-4 border-background ring-2 ${categoria === 'anime' ? 'ring-secondary/50' : 'ring-primary/50'} flex-shrink-0 group`}>
                         <img src={selectedItem.capaUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={selectedItem.titulo} />
                       </div>
                       <div className="flex-1 pb-4">
@@ -1425,7 +1425,7 @@ const HomePage = () => {
                         )}
                         <div className="flex flex-wrap gap-2">
                           {selectedItem.generos?.split(',').map((g: string) => (
-                            <span key={g} className={`px-4 py-1.5 bg-white/5 backdrop-blur-md rounded-full text-xs font-bold text-on-surface border tracking-wider transition-all hover:scale-105 ${categoria === 'anime' ? 'border-purple-500/30 hover:bg-purple-500/20 hover:border-purple-500/60 hover:text-purple-300 shadow-[0_0_10px_rgba(168,85,247,0.1)]' : 'border-pink-500/30 hover:bg-pink-500/20 hover:border-pink-500/60 hover:text-pink-300 shadow-[0_0_10px_rgba(236,72,153,0.1)]'}`}>
+                            <span key={g} className={`px-4 py-1.5 bg-white/5 backdrop-blur-md rounded-full text-xs font-bold text-on-surface border tracking-wider transition-all hover:scale-105 ${categoria === 'anime' ? 'border-secondary/30 hover:bg-secondary/20 hover:border-secondary/60 hover:text-secondary shadow-[0_0_10px_rgba(194,24,91,0.1)]' : 'border-primary/30 hover:bg-primary/20 hover:border-primary/60 hover:text-primary shadow-[0_0_10px_rgba(106,27,154,0.1)]'}`}>
                               {g.trim()}
                             </span>
                           ))}
@@ -1454,7 +1454,7 @@ const HomePage = () => {
                           </h3>
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                             {latestBreakdown.map((b: any, idx: number) => (
-                              <div key={idx} className="flex items-center justify-between p-5 glass-panel hover:bg-white/5 rounded-2xl transition-all border border-pink-500/30 hover:border-pink-500/50 shadow-lg group">
+                              <div key={idx} className="flex items-center justify-between p-5 glass-panel hover:bg-white/5 rounded-2xl transition-all border border-primary/30 hover:border-primary/50 shadow-lg group">
                                 <span className="text-sm font-bold text-white truncate pr-2 group-hover:text-secondary-light transition-colors">{b.label}</span>
                                 <span className="px-3 py-1.5 bg-secondary/20 text-secondary text-sm font-black rounded-xl border border-secondary/30 flex-shrink-0 shadow-[0_0_15px_rgba(255,176,203,0.2)]">
                                   {b.chapters} Chs
@@ -1494,7 +1494,7 @@ const HomePage = () => {
                             
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                               {todosLinks.map((link: any, index: number) => (
-                                <button key={index} onClick={() => abrirLink(link.url, selectedItem.titulo)} className={`w-full text-left flex items-center justify-between p-5 glass-panel hover:bg-white/5 rounded-2xl transition-all group shadow-lg border ${categoria === 'anime' ? 'border-white/5 hover:border-purple-500/40 hover:shadow-[0_0_20px_rgba(168,85,247,0.15)]' : 'border-pink-500/50 hover:border-pink-500/40 hover:shadow-[0_0_20px_rgba(236,72,153,0.15)]'}`}>
+                                <button key={index} onClick={() => abrirLink(link.url, selectedItem.titulo)} className={`w-full text-left flex items-center justify-between p-5 glass-panel hover:bg-white/5 rounded-2xl transition-all group shadow-lg border ${categoria === 'anime' ? 'border-white/5 hover:border-secondary/40 hover:shadow-[0_0_20px_rgba(194,24,91,0.15)]' : 'border-primary/50 hover:border-primary/40 hover:shadow-[0_0_20px_rgba(106,27,154,0.15)]'}`}>
                                   <div className="flex items-center gap-4">
                                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${link.tipo === 'Custom' ? 'bg-secondary/10 text-secondary group-hover:bg-secondary group-hover:text-on-secondary shadow-[0_0_10px_rgba(255,176,203,0.2)]' : 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-on-primary shadow-[0_0_10px_rgba(221,184,255,0.2)]'}`}>
                                       <span className="material-symbols-outlined">open_in_new</span>
@@ -1519,7 +1519,7 @@ const HomePage = () => {
                       })()}
                       <div className={`grid grid-cols-1 ${selectedItem.statusLancamento === 'RELEASING' ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-6 py-8 border-t border-white/5`}>
                         {/* Status Card */}
-                        <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${categoria === 'anime' ? 'hover:border-purple-500/30 hover:bg-purple-500/5 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]' : 'hover:border-pink-500/30 hover:bg-pink-500/5 hover:shadow-[0_0_20px_rgba(236,72,153,0.1)]'}`}>
+                        <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${categoria === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}>
                           <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-3 ${selectedItem.statusLancamento === 'RELEASING' ? (categoria === 'anime' ? 'bg-primary/10 text-primary shadow-[0_0_15px_rgba(221,184,255,0.2)]' : 'bg-secondary/10 text-secondary shadow-[0_0_15px_rgba(255,176,203,0.2)]') : 'bg-surface-variant/30 text-on-surface-variant'}`}>
                             <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
                               {selectedItem.statusLancamento === 'RELEASING' ? 'sensors' : selectedItem.statusLancamento === 'FINISHED' ? 'done_all' : 'info'}
@@ -1536,7 +1536,7 @@ const HomePage = () => {
                         </div>
 
                         {/* Season Card */}
-                        <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${categoria === 'anime' ? 'hover:border-purple-500/30 hover:bg-purple-500/5 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]' : 'hover:border-pink-500/30 hover:bg-pink-500/5 hover:shadow-[0_0_20px_rgba(236,72,153,0.1)]'}`}>
+                        <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${categoria === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}>
                           <div className="w-10 h-10 rounded-2xl bg-surface-variant/30 text-on-surface-variant flex items-center justify-center mb-3">
                             <span className="material-symbols-outlined text-xl">calendar_month</span>
                           </div>
@@ -1548,7 +1548,7 @@ const HomePage = () => {
 
                         {/* Planned Episodes/Chapters Card (Only when Releasing) */}
                         {selectedItem.statusLancamento === 'RELEASING' && (
-                          <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all animate-in zoom-in-95 duration-300 ${categoria === 'anime' ? 'hover:border-purple-500/30 hover:bg-purple-500/5 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]' : 'hover:border-pink-500/30 hover:bg-pink-500/5 hover:shadow-[0_0_20px_rgba(236,72,153,0.1)]'}`}>
+                          <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all animate-in zoom-in-95 duration-300 ${categoria === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}>
                             <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-3 ${categoria === 'anime' ? 'bg-primary/10 text-primary shadow-[0_0_15px_rgba(221,184,255,0.2)]' : 'bg-secondary/10 text-secondary shadow-[0_0_15px_rgba(255,176,203,0.2)]'}`}>
                               <span className="material-symbols-outlined text-xl">update</span>
                             </div>
@@ -1560,7 +1560,7 @@ const HomePage = () => {
                         )}
 
                         {/* Last Modified Card */}
-                        <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${categoria === 'anime' ? 'hover:border-purple-500/30 hover:bg-purple-500/5 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]' : 'hover:border-pink-500/30 hover:bg-pink-500/5 hover:shadow-[0_0_20px_rgba(236,72,153,0.1)]'}`}>
+                        <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${categoria === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}>
                           <div className="w-10 h-10 rounded-2xl bg-surface-variant/30 text-on-surface-variant flex items-center justify-center mb-3">
                             <span className="material-symbols-outlined text-xl">history</span>
                           </div>
@@ -1572,7 +1572,7 @@ const HomePage = () => {
                       </div>
                     </div>
                     <div className="space-y-6">
-                      <div className={`glass-panel p-8 rounded-[32px] border ${categoria === 'anime' ? 'border-purple-500/20 shadow-[0_0_50px_rgba(168,85,247,0.08)]' : 'border-pink-500/20 shadow-[0_0_50px_rgba(236,72,153,0.08)]'}`}>
+                      <div className={`glass-panel p-8 rounded-[32px] border ${categoria === 'anime' ? 'border-secondary/20 shadow-[0_0_50px_rgba(194,24,91,0.08)]' : 'border-primary/20 shadow-[0_0_50px_rgba(106,27,154,0.08)]'}`}>
                         <h4 className="text-lg font-bold mb-6 flex items-center gap-2">Quick Actions</h4>
                         {selectedItem.isExternal ? (
                           <button onClick={() => { adicionarAoBanco(selectedItem.titulo, selectedItem.id); }} className="w-full bg-primary hover:bg-primary/80 text-on-primary py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 shadow-lg"><span className="material-symbols-outlined">add</span> ADD TO LIBRARY</button>
@@ -1584,11 +1584,11 @@ const HomePage = () => {
                                 {TRACKING_STATUS_OPTIONS.map((opt) => {
                                   const isSelected = selectedItem.status === opt.value;
                                   return (
-                                    <button key={opt.value} onClick={() => atualizarCampo('status', opt.value)} className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl border transition-all text-sm font-bold backdrop-blur-md relative overflow-hidden group active:scale-95 ${isSelected ? (categoria === 'anime' ? 'bg-purple-500/20 border-purple-500 text-purple-200 shadow-[0_0_20px_rgba(168,85,247,0.35)] scale-[1.02]' : 'bg-pink-500/20 border-pink-500 text-pink-200 shadow-[0_0_20px_rgba(236,72,153,0.35)] scale-[1.02]') : `bg-surface-variant/30 border-white/5 text-on-surface-variant ${categoria === 'anime' ? 'hover:border-purple-500/30 hover:bg-purple-500/10 hover:text-white hover:shadow-[0_0_15px_rgba(168,85,247,0.15)]' : 'hover:border-pink-500/30 hover:bg-pink-500/10 hover:text-white hover:shadow-[0_0_15px_rgba(236,72,153,0.15)]'}`}`}>
+                                    <button key={opt.value} onClick={() => atualizarCampo('status', opt.value)} className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl border transition-all text-sm font-bold backdrop-blur-md relative overflow-hidden group active:scale-95 ${isSelected ? (categoria === 'anime' ? 'bg-secondary/20 border-secondary text-secondary shadow-[0_0_20px_rgba(194,24,91,0.35)] scale-[1.02]' : 'bg-primary/20 border-primary text-primary shadow-[0_0_20px_rgba(106,27,154,0.35)] scale-[1.02]') : `bg-surface-variant/30 border-white/5 text-on-surface-variant ${categoria === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/10 hover:text-white hover:shadow-[0_0_15px_rgba(194,24,91,0.15)]' : 'hover:border-primary/30 hover:bg-primary/10 hover:text-white hover:shadow-[0_0_15px_rgba(106,27,154,0.15)]'}`}`}>
                                       {isSelected && (
-                                        <span className={`absolute left-0 top-0 bottom-0 w-1.5 ${categoria === 'anime' ? 'bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.8)]' : 'bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.8)]'}`}></span>
+                                        <span className={`absolute left-0 top-0 bottom-0 w-1.5 ${categoria === 'anime' ? 'bg-secondary shadow-[0_0_10px_rgba(194,24,91,0.8)]' : 'bg-primary shadow-[0_0_10px_rgba(106,27,154,0.8)]'}`}></span>
                                       )}
-                                      <span className={`material-symbols-outlined text-[22px] transition-transform group-hover:scale-110 ${isSelected ? (categoria === 'anime' ? 'text-purple-400' : 'text-pink-400') : 'text-on-surface-variant group-hover:text-white'}`} style={{ fontVariationSettings: "'FILL' 1" }}>
+                                      <span className={`material-symbols-outlined text-[22px] transition-transform group-hover:scale-110 ${isSelected ? (categoria === 'anime' ? 'text-secondary' : 'text-primary') : 'text-on-surface-variant group-hover:text-white'}`} style={{ fontVariationSettings: "'FILL' 1" }}>
                                         {opt.value === 'WATCHING' ? 'play_circle' : 
                                          opt.value === 'PLANNED' ? 'schedule' : 
                                          opt.value === 'COMPLETED' ? 'check_circle' : 
@@ -1657,7 +1657,7 @@ const HomePage = () => {
                       </div>
 
                       {!selectedItem.isExternal && (
-                        <div className={`p-8 rounded-[32px] transition-all flex flex-col items-center justify-center text-center border ${showEpList ? (categoria === 'anime' ? 'bg-purple-500/10 border-purple-500/40 shadow-[0_0_40px_rgba(168,85,247,0.15)] backdrop-blur-xl' : 'bg-pink-500/10 border-pink-500/40 shadow-[0_0_40px_rgba(236,72,153,0.15)] backdrop-blur-xl') : `glass-panel ${categoria === 'anime' ? 'hover:border-purple-500/30 hover:bg-purple-500/5 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]' : 'hover:border-pink-500/30 hover:bg-pink-500/5 hover:shadow-[0_0_20px_rgba(236,72,153,0.1)]'}`}`}>
+                        <div className={`p-8 rounded-[32px] transition-all flex flex-col items-center justify-center text-center border ${showEpList ? (categoria === 'anime' ? 'bg-secondary/10 border-secondary/40 shadow-[0_0_40px_rgba(194,24,91,0.15)] backdrop-blur-xl' : 'bg-primary/10 border-primary/40 shadow-[0_0_40px_rgba(106,27,154,0.15)] backdrop-blur-xl') : `glass-panel ${categoria === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}`}>
                           <div className="flex items-center gap-2 mb-1">
                             <span className="material-symbols-outlined text-on-surface-variant text-sm">timelapse</span>
                             <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest">My Progress</p>
@@ -1670,7 +1670,7 @@ const HomePage = () => {
                               </div>
                             ) : (
                               <>
-                                <input type="number" min="0" max={categoria === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 9999)) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 9999))} value={categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${categoria === 'anime' ? 'text-primary focus:bg-purple-500/10' : 'text-secondary focus:bg-pink-500/10'} font-black text-4xl w-20 text-center outline-none border-b-2 border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} />
+                                <input type="number" min="0" max={categoria === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 9999)) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 9999))} value={categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${categoria === 'anime' ? 'text-primary focus:bg-secondary/10' : 'text-secondary focus:bg-primary/10'} font-black text-4xl w-20 text-center outline-none border-b-2 border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} />
                                 <span className="text-on-surface-variant font-light text-3xl">/</span> 
                                 <span className="text-on-surface-variant font-bold text-3xl">
                                   {categoria === 'anime' 
@@ -1687,10 +1687,10 @@ const HomePage = () => {
                             <button onClick={() => atualizarProgresso(-1)} disabled={isSavingDetailsProgress} title="Subtract 1" className={`w-10 h-10 rounded-xl bg-surface-variant/40 hover:bg-surface-variant border border-white/5 hover:border-white/20 text-on-surface-variant hover:text-white transition-all flex items-center justify-center shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}>
                               <span className="material-symbols-outlined text-lg">remove</span>
                             </button>
-                            <button onClick={() => atualizarProgresso(1)} disabled={isSavingDetailsProgress} title="Add 1" className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center shadow-md active:scale-95 font-bold ${categoria === 'anime' ? 'bg-primary hover:bg-primary/80 text-on-primary shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'bg-secondary hover:bg-secondary/80 text-on-secondary shadow-[0_0_15px_rgba(236,72,153,0.3)]'} disabled:opacity-50 disabled:cursor-not-allowed`}>
+                            <button onClick={() => atualizarProgresso(1)} disabled={isSavingDetailsProgress} title="Add 1" className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center shadow-md active:scale-95 font-bold ${categoria === 'anime' ? 'bg-primary hover:bg-primary/80 text-on-primary shadow-[0_0_15px_rgba(194,24,91,0.3)]' : 'bg-secondary hover:bg-secondary/80 text-on-secondary shadow-[0_0_15px_rgba(106,27,154,0.3)]'} disabled:opacity-50 disabled:cursor-not-allowed`}>
                               <span className="material-symbols-outlined text-lg">add</span>
                             </button>
-                            <button onClick={() => setShowEpList(!showEpList)} className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 text-xs font-bold border active:scale-95 ${showEpList ? (categoria === 'anime' ? 'bg-primary/20 border-primary text-primary shadow-[0_0_15px_rgba(168,85,247,0.2)]' : 'bg-secondary/20 border-secondary text-secondary shadow-[0_0_15px_rgba(236,72,153,0.2)]') : 'bg-surface-variant/30 border-white/5 text-on-surface-variant hover:border-white/20 hover:text-white'}`}>
+                            <button onClick={() => setShowEpList(!showEpList)} className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 text-xs font-bold border active:scale-95 ${showEpList ? (categoria === 'anime' ? 'bg-primary/20 border-primary text-primary shadow-[0_0_15px_rgba(194,24,91,0.2)]' : 'bg-secondary/20 border-secondary text-secondary shadow-[0_0_15px_rgba(106,27,154,0.2)]') : 'bg-surface-variant/30 border-white/5 text-on-surface-variant hover:border-white/20 hover:text-white'}`}>
                               <span className="material-symbols-outlined text-base">grid_view</span>
                               {showEpList ? 'Close Grid' : 'Open Grid'}
                             </button>

@@ -106,10 +106,10 @@ const DebugConsole: React.FC = () => {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(true)}
-        style={{ zIndex: 999999, position: 'fixed', bottom: '120px', right: '16px', backgroundColor: '#0f172a', color: '#c084fc', border: '2px solid #a855f7', padding: '12px 20px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'monospace', fontSize: '14px', fontWeight: 'bold', boxShadow: '0 0 25px rgba(168,85,247,0.8)', cursor: 'pointer' }}
+        style={{ zIndex: 999999, position: 'fixed', bottom: '120px', right: '16px', backgroundColor: '#0f172a', color: '#f48fb1', border: '2px solid #c2185b', padding: '12px 20px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'monospace', fontSize: '14px', fontWeight: 'bold', boxShadow: '0 0 25px rgba(194,24,91,0.8)', cursor: 'pointer' }}
         className="hover:scale-105 active:scale-95 transition-all"
       >
-        <span className="material-symbols-outlined text-lg animate-pulse" style={{ color: '#a855f7' }}>terminal</span>
+        <span className="material-symbols-outlined text-lg animate-pulse" style={{ color: '#c2185b' }}>terminal</span>
         <span>Terminal ({logs.length})</span>
       </button>
 
@@ -131,13 +131,13 @@ const DebugConsole: React.FC = () => {
               {/* Filter Tabs & Actions */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ display: 'flex', backgroundColor: '#020617', padding: '4px', borderRadius: '12px', border: '1px solid #1e293b', fontSize: '12px', fontFamily: 'monospace' }}>
-                  <button onClick={() => setFilter('all')} style={{ padding: '4px 10px', borderRadius: '8px', backgroundColor: filter === 'all' ? 'rgba(168,85,247,0.2)' : 'transparent', color: filter === 'all' ? '#d8b4fe' : '#94a3b8', border: filter === 'all' ? '1px solid rgba(168,85,247,0.4)' : 'none', cursor: 'pointer' }}>All ({logs.length})</button>
+                  <button onClick={() => setFilter('all')} style={{ padding: '4px 10px', borderRadius: '8px', backgroundColor: filter === 'all' ? 'rgba(194,24,91,0.2)' : 'transparent', color: filter === 'all' ? '#f48fb1' : '#94a3b8', border: filter === 'all' ? '1px solid rgba(194,24,91,0.4)' : 'none', cursor: 'pointer' }}>All ({logs.length})</button>
                   <button onClick={() => setFilter('log')} style={{ padding: '4px 10px', borderRadius: '8px', backgroundColor: filter === 'log' ? 'rgba(59,130,246,0.2)' : 'transparent', color: filter === 'log' ? '#93c5fd' : '#94a3b8', border: filter === 'log' ? '1px solid rgba(59,130,246,0.4)' : 'none', cursor: 'pointer' }}>Logs</button>
                   <button onClick={() => setFilter('warn')} style={{ padding: '4px 10px', borderRadius: '8px', backgroundColor: filter === 'warn' ? 'rgba(234,179,8,0.2)' : 'transparent', color: filter === 'warn' ? '#fde047' : '#94a3b8', border: filter === 'warn' ? '1px solid rgba(234,179,8,0.4)' : 'none', cursor: 'pointer' }}>Warns</button>
                   <button onClick={() => setFilter('error')} style={{ padding: '4px 10px', borderRadius: '8px', backgroundColor: filter === 'error' ? 'rgba(239,68,68,0.2)' : 'transparent', color: filter === 'error' ? '#fca5a5' : '#94a3b8', border: filter === 'error' ? '1px solid rgba(239,68,68,0.4)' : 'none', cursor: 'pointer' }}>Errors</button>
                 </div>
                 <button onClick={clearLogs} style={{ backgroundColor: '#1e293b', color: '#cbd5e1', padding: '6px 14px', borderRadius: '12px', fontSize: '12px', fontFamily: 'monospace', border: 'none', cursor: 'pointer' }}>Clear</button>
-                <button onClick={() => setIsOpen(false)} style={{ backgroundColor: '#9333ea', color: '#ffffff', padding: '6px 14px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(147,51,234,0.4)' }}>Close</button>
+                <button onClick={() => setIsOpen(false)} style={{ backgroundColor: '#c2185b', color: '#ffffff', padding: '6px 14px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(194,24,91,0.4)' }}>Close</button>
               </div>
             </div>
 
@@ -166,7 +166,7 @@ const DebugConsole: React.FC = () => {
                 console.log('[Terminal] Test log generated manually!');
                 console.warn('[Terminal] Test warning!');
                 console.error('[Terminal] Test error!');
-              }} style={{ background: 'none', border: 'none', color: '#c084fc', textDecoration: 'underline', cursor: 'pointer', fontFamily: 'monospace', fontSize: '11px' }}>Test Logs</button>
+              }} style={{ background: 'none', border: 'none', color: '#f48fb1', textDecoration: 'underline', cursor: 'pointer', fontFamily: 'monospace', fontSize: '11px' }}>Test Logs</button>
             </div>
           </div>
         </div>

@@ -18,13 +18,16 @@ enum TrackingStatus {
 }
 
 model User {
-  id       Int           @id @default(autoincrement())
-  nome     String
-  email    String        @unique
-  password String
-  animes   UserAnime[]
-  mangas   UserManga[]
-  sessions ChatSession[]
+  id                Int           @id @default(autoincrement())
+  nome              String
+  email             String        @unique
+  password          String
+  preferredLanguage String        @default("PT")
+  theme             String        @default("dark")
+  showAdultContent  Boolean       @default(false)
+  animes            UserAnime[]
+  mangas            UserManga[]
+  sessions          ChatSession[]
 }
 
 model Anime {

@@ -26,6 +26,12 @@ export class UserController {
     return this.userService.clearUserLibrary(req.user.userId);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Patch('profile')
+  updateProfile(@Request() req, @Body() updateDto: any) {
+    return this.userService.update(req.user.userId, updateDto);
+  }
+
   @Post()
   create(@Body() createUserDto: CreateUserDto) {
     return this.userService.create(createUserDto);

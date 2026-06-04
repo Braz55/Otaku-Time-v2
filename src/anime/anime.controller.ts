@@ -27,14 +27,14 @@ export class AnimeController {
 
   @UseGuards(JwtAuthGuard)
   @Get('search/:nome')
-  async search(@Param('nome') nome: string, @Query('page') page?: string) {
-    return this.animeService.searchAnimeList(nome, page ? +page : 1);
+  async search(@Param('nome') nome: string, @Request() req, @Query('page') page?: string) {
+    return this.animeService.searchAnimeList(nome, page ? +page : 1, req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('genre/:genre')
-  async searchByGenre(@Param('genre') genre: string, @Query('page') page?: string) {
-    return this.animeService.searchByGenre(genre, page ? +page : 1);
+  async searchByGenre(@Param('genre') genre: string, @Request() req, @Query('page') page?: string) {
+    return this.animeService.searchByGenre(genre, page ? +page : 1, req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -86,6 +86,9 @@ const HomePage = () => {
   const [newLinkSite, setNewLinkSite] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
 
+  const [savingItems, setSavingItems] = useState<Record<number, boolean>>({});
+  const [isSavingDetailsProgress, setIsSavingDetailsProgress] = useState(false);
+
   const [filtroStatus, setFiltroStatus] = useState<string>('ALL');
   const [filtroLancamento, setFiltroLancamento] = useState<string>('ALL');
   const [ordenacao, setOrdenacao] = useState<string>('PRIORITY');
@@ -238,6 +241,9 @@ const HomePage = () => {
   };
 
   const marcarComoVisto = async (item: any, type: 'anime' | 'manga') => {
+    if (savingItems[item.id]) return;
+    setSavingItems(prev => ({ ...prev, [item.id]: true }));
+
     const campo = type === 'anime' ? 'epAtual' : 'capAtual';
     const novoValor = (item[campo] || 0) + 1;
     const url = `${API_BASE_URL}/${type}/${item.id}`;
@@ -249,7 +255,7 @@ const HomePage = () => {
         body: JSON.stringify({ [campo]: novoValor })
       });
       if (response.ok) {
-        carregarDashboard();
+        await carregarDashboard();
         if (selectedItem && selectedItem.id === item.id) {
           const updated = await response.json();
           setSelectedItem(updated);
@@ -257,6 +263,8 @@ const HomePage = () => {
       }
     } catch (error) {
       console.error("Erro ao marcar como visto:", error);
+    } finally {
+      setSavingItems(prev => ({ ...prev, [item.id]: false }));
     }
   };
 
@@ -358,6 +366,13 @@ const HomePage = () => {
   const atualizarCampo = async (campo: string, valor: any) => {
     if (!selectedItem || selectedItem.isExternal) return;
     const targetId = selectedItem.dbId || selectedItem.id;
+    
+    const isProgressUpdate = campo === 'epAtual' || campo === 'capAtual';
+    if (isProgressUpdate) {
+      if (isSavingDetailsProgress) return;
+      setIsSavingDetailsProgress(true);
+    }
+
     let optimisticUpdates: any = { [campo]: valor };
     if (campo === 'status' && valor === 'COMPLETED') {
       const prop = categoria === 'anime' ? 'epAtual' : 'capAtual';
@@ -399,6 +414,10 @@ const HomePage = () => {
       }
     } catch (error) {
       console.error(`Erro ao atualizar ${campo}:`, error);
+    } finally {
+      if (isProgressUpdate) {
+        setIsSavingDetailsProgress(false);
+      }
     }
   };
 
@@ -607,7 +626,17 @@ const HomePage = () => {
                                 <div className="h-full bg-gradient-to-r from-purple-500 to-pink-500 shadow-[0_0_12px_rgba(168,85,247,0.8)] transition-all duration-500" style={{ width: `${item.epAtual > 0 ? Math.max(5, Math.min(progressoPercentual, 100)) : 0}%` }}></div>
                               </div>
                               <div className="flex gap-2">
-                                <button onClick={() => marcarComoVisto(item, 'anime')} className="w-full py-1.5 sm:py-2 bg-primary/10 border border-primary/20 text-primary text-[11px] sm:text-xs font-bold rounded-lg sm:rounded-xl hover:bg-primary hover:text-on-primary transition-all shadow-sm">Mark as Watched</button>
+                                <button 
+                                  onClick={() => marcarComoVisto(item, 'anime')} 
+                                  disabled={savingItems[item.id]}
+                                  className="w-full py-1.5 sm:py-2 bg-primary/10 border border-primary/20 text-primary text-[11px] sm:text-xs font-bold rounded-lg sm:rounded-xl hover:bg-primary hover:text-on-primary transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {savingItems[item.id] ? (
+                                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                  ) : (
+                                    <span>Mark as Watched</span>
+                                  )}
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -647,7 +676,17 @@ const HomePage = () => {
                                 <div className="h-full bg-gradient-to-r from-pink-500 to-rose-500 shadow-[0_0_12px_rgba(236,72,153,0.8)] transition-all duration-500" style={{ width: `${item.capAtual > 0 ? Math.max(5, Math.min(progressoPercentual, 100)) : 0}%` }}></div>
                               </div>
                               <div className="flex gap-2">
-                                <button onClick={() => marcarComoVisto(item, 'manga')} className="w-full py-1.5 sm:py-2 bg-secondary/10 border border-secondary/20 text-secondary text-[11px] sm:text-xs font-bold rounded-lg sm:rounded-xl hover:bg-secondary hover:text-on-secondary transition-all shadow-sm">Mark as Read</button>
+                                <button 
+                                  onClick={() => marcarComoVisto(item, 'manga')} 
+                                  disabled={savingItems[item.id]}
+                                  className="w-full py-1.5 sm:py-2 bg-secondary/10 border border-secondary/20 text-secondary text-[11px] sm:text-xs font-bold rounded-lg sm:rounded-xl hover:bg-secondary hover:text-on-secondary transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {savingItems[item.id] ? (
+                                    <Loader2 className="w-4 h-4 animate-spin text-secondary" />
+                                  ) : (
+                                    <span>Mark as Read</span>
+                                  )}
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -1132,21 +1171,29 @@ const HomePage = () => {
                           </div>
                           
                           <div className="flex items-baseline gap-2 mb-4 mt-2 justify-center">
-                            <input type="number" min="0" max={categoria === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 9999)) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 9999))} value={categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${categoria === 'anime' ? 'text-primary focus:bg-purple-500/10' : 'text-secondary focus:bg-pink-500/10'} font-black text-3xl w-16 text-center outline-none border-b border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} />
-                            <span className="text-on-surface-variant font-light text-2xl">/</span> 
-                            <span className="text-on-surface-variant font-bold text-2xl">
-                              {categoria === 'anime' 
-                                ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || '?'))
-                                : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || '?'))
-                              }
-                            </span>
+                            {isSavingDetailsProgress ? (
+                              <div className="h-10 flex items-center justify-center">
+                                <Loader2 className={`w-6 h-6 animate-spin ${categoria === 'anime' ? 'text-primary' : 'text-secondary'}`} />
+                              </div>
+                            ) : (
+                              <>
+                                <input type="number" min="0" max={categoria === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 9999)) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 9999))} value={categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${categoria === 'anime' ? 'text-primary focus:bg-purple-500/10' : 'text-secondary focus:bg-pink-500/10'} font-black text-3xl w-16 text-center outline-none border-b border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} />
+                                <span className="text-on-surface-variant font-light text-2xl">/</span> 
+                                <span className="text-on-surface-variant font-bold text-2xl">
+                                  {categoria === 'anime' 
+                                    ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || '?'))
+                                    : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || '?'))
+                                  }
+                                </span>
+                              </>
+                            )}
                           </div>
 
                           <div className="flex items-center justify-center gap-2 w-full flex-wrap mb-1">
-                            <button onClick={() => atualizarProgresso(-1)} title="Subtract 1" className={`w-9 h-9 rounded-xl bg-surface-variant/40 hover:bg-surface-variant border border-white/5 text-on-surface-variant hover:text-white transition-all flex items-center justify-center shadow-sm active:scale-95`}>
+                            <button onClick={() => atualizarProgresso(-1)} disabled={isSavingDetailsProgress} title="Subtract 1" className={`w-9 h-9 rounded-xl bg-surface-variant/40 hover:bg-surface-variant border border-white/5 text-on-surface-variant hover:text-white transition-all flex items-center justify-center shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}>
                               <span className="material-symbols-outlined text-base">remove</span>
                             </button>
-                            <button onClick={() => atualizarProgresso(1)} title="Add 1" className={`w-9 h-9 rounded-xl transition-all flex items-center justify-center shadow-md active:scale-95 font-bold ${categoria === 'anime' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary'}`}>
+                            <button onClick={() => atualizarProgresso(1)} disabled={isSavingDetailsProgress} title="Add 1" className={`w-9 h-9 rounded-xl transition-all flex items-center justify-center shadow-md active:scale-95 font-bold ${categoria === 'anime' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary'} disabled:opacity-50 disabled:cursor-not-allowed`}>
                               <span className="material-symbols-outlined text-base">add</span>
                             </button>
                             <button onClick={() => setShowEpList(!showEpList)} className={`px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold border active:scale-95 ${showEpList ? (categoria === 'anime' ? 'bg-primary/20 border-primary text-primary' : 'bg-secondary/20 border-secondary text-secondary') : 'bg-surface-variant/30 border-white/5 text-on-surface-variant'}`}>
@@ -1165,7 +1212,7 @@ const HomePage = () => {
                                   const num = i + 1;
                                   const isWatched = num <= (categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual);
                                   return (
-                                    <button key={num} onClick={() => atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', num)} className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all ${isWatched ? (categoria === 'anime' ? 'bg-primary text-on-primary scale-105' : 'bg-secondary text-on-secondary scale-105') : 'bg-surface-variant/30 text-on-surface-variant border border-white/5'}`}>
+                                    <button key={num} onClick={() => atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', num)} disabled={isSavingDetailsProgress} className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isWatched ? (categoria === 'anime' ? 'bg-primary text-on-primary scale-105' : 'bg-secondary text-on-secondary scale-105') : 'bg-surface-variant/30 text-on-surface-variant border border-white/5'}`}>
                                       {num}
                                     </button>
                                   );
@@ -1615,22 +1662,30 @@ const HomePage = () => {
                           </div>
                           
                           <div className="flex items-baseline gap-2 mb-6 mt-3 justify-center">
-                            <input type="number" min="0" max={categoria === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 9999)) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 9999))} value={categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${categoria === 'anime' ? 'text-primary focus:bg-purple-500/10' : 'text-secondary focus:bg-pink-500/10'} font-black text-4xl w-20 text-center outline-none border-b-2 border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} />
-                            <span className="text-on-surface-variant font-light text-3xl">/</span> 
-                            <span className="text-on-surface-variant font-bold text-3xl">
-                              {categoria === 'anime' 
-                                ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || '?'))
-                                : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || '?'))
-                              }
-                            </span>
+                            {isSavingDetailsProgress ? (
+                              <div className="h-10 flex items-center justify-center">
+                                <Loader2 className={`w-6 h-6 animate-spin ${categoria === 'anime' ? 'text-primary' : 'text-secondary'}`} />
+                              </div>
+                            ) : (
+                              <>
+                                <input type="number" min="0" max={categoria === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 9999)) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 9999))} value={categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${categoria === 'anime' ? 'text-primary focus:bg-purple-500/10' : 'text-secondary focus:bg-pink-500/10'} font-black text-4xl w-20 text-center outline-none border-b-2 border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} />
+                                <span className="text-on-surface-variant font-light text-3xl">/</span> 
+                                <span className="text-on-surface-variant font-bold text-3xl">
+                                  {categoria === 'anime' 
+                                    ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || '?'))
+                                    : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || '?'))
+                                  }
+                                </span>
+                              </>
+                            )}
                           </div>
 
                           {/* Quick Action Buttons */}
                           <div className="flex items-center justify-center gap-3 w-full flex-wrap mb-2">
-                            <button onClick={() => atualizarProgresso(-1)} title="Subtract 1" className={`w-10 h-10 rounded-xl bg-surface-variant/40 hover:bg-surface-variant border border-white/5 hover:border-white/20 text-on-surface-variant hover:text-white transition-all flex items-center justify-center shadow-sm active:scale-95`}>
+                            <button onClick={() => atualizarProgresso(-1)} disabled={isSavingDetailsProgress} title="Subtract 1" className={`w-10 h-10 rounded-xl bg-surface-variant/40 hover:bg-surface-variant border border-white/5 hover:border-white/20 text-on-surface-variant hover:text-white transition-all flex items-center justify-center shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}>
                               <span className="material-symbols-outlined text-lg">remove</span>
                             </button>
-                            <button onClick={() => atualizarProgresso(1)} title="Add 1" className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center shadow-md active:scale-95 font-bold ${categoria === 'anime' ? 'bg-primary hover:bg-primary/80 text-on-primary shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'bg-secondary hover:bg-secondary/80 text-on-secondary shadow-[0_0_15px_rgba(236,72,153,0.3)]'}`}>
+                            <button onClick={() => atualizarProgresso(1)} disabled={isSavingDetailsProgress} title="Add 1" className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center shadow-md active:scale-95 font-bold ${categoria === 'anime' ? 'bg-primary hover:bg-primary/80 text-on-primary shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'bg-secondary hover:bg-secondary/80 text-on-secondary shadow-[0_0_15px_rgba(236,72,153,0.3)]'} disabled:opacity-50 disabled:cursor-not-allowed`}>
                               <span className="material-symbols-outlined text-lg">add</span>
                             </button>
                             <button onClick={() => setShowEpList(!showEpList)} className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 text-xs font-bold border active:scale-95 ${showEpList ? (categoria === 'anime' ? 'bg-primary/20 border-primary text-primary shadow-[0_0_15px_rgba(168,85,247,0.2)]' : 'bg-secondary/20 border-secondary text-secondary shadow-[0_0_15px_rgba(236,72,153,0.2)]') : 'bg-surface-variant/30 border-white/5 text-on-surface-variant hover:border-white/20 hover:text-white'}`}>
@@ -1649,7 +1704,7 @@ const HomePage = () => {
                                   const num = i + 1;
                                   const isWatched = num <= (categoria === 'anime' ? selectedItem.epAtual : selectedItem.capAtual);
                                   return (
-                                    <button key={num} onClick={() => atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', num)} className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all ${isWatched ? (categoria === 'anime' ? 'bg-primary text-on-primary shadow-[0_0_10px_rgba(221,184,255,0.3)] scale-105' : 'bg-secondary text-on-secondary shadow-[0_0_10px_rgba(255,176,203,0.3)] scale-105') : 'bg-surface-variant/30 text-on-surface-variant hover:bg-surface-variant hover:text-white border border-white/5'}`}>
+                                    <button key={num} onClick={() => atualizarCampo(categoria === 'anime' ? 'epAtual' : 'capAtual', num)} disabled={isSavingDetailsProgress} className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isWatched ? (categoria === 'anime' ? 'bg-primary text-on-primary shadow-[0_0_10px_rgba(221,184,255,0.3)] scale-105' : 'bg-secondary text-on-secondary shadow-[0_0_10px_rgba(255,176,203,0.3)] scale-105') : 'bg-surface-variant/30 text-on-surface-variant hover:bg-surface-variant hover:text-white border border-white/5'}`}>
                                       {num}
                                     </button>
                                   );

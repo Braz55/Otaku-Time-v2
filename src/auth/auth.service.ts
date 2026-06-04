@@ -27,6 +27,9 @@ export class AuthService {
         id: user.id,
         email: user.email,
         nome: user.nome,
+        preferredLanguage: user.preferredLanguage,
+        theme: user.theme,
+        showAdultContent: user.showAdultContent,
       },
     };
   }

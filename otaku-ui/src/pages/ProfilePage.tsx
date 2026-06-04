@@ -11,10 +11,32 @@ import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 
 
 const ProfilePage = () => {
-  const { user, logout, token } = useAuth();
+  const { user, logout, token, updateUser } = useAuth();
   const navigate = useNavigate();
   
   const [activeTab, setActiveTab] = useState<'sync' | 'account'>('sync');
+  const [isUpdatingPreferences, setIsUpdatingPreferences] = useState(false);
+
+  const handleUpdatePreference = async (field: string, value: any) => {
+    if (!token) return;
+    setIsUpdatingPreferences(true);
+    try {
+      const res = await customFetch(`${API_BASE_URL}/user/profile`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify({ [field]: value })
+      });
+      if (res.ok) {
+        updateUser({ [field]: value });
+      } else {
+        alert('Falha ao atualizar preferência.');
+      }
+    } catch (err: any) {
+      alert(`Erro: ${err.message || err}`);
+    } finally {
+      setIsUpdatingPreferences(false);
+    }
+  };
   const [localAnimeCount, setLocalAnimeCount] = useState(0);
   const [localMangaCount, setLocalMangaCount] = useState(0);
 
@@ -580,6 +602,75 @@ const ProfilePage = () => {
                 >
                   Log Out of Account
                 </button>
+              </div>
+            </div>
+
+            {/* User Preferences Card */}
+            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-purple-500/10 via-transparent to-transparent rounded-full blur-2xl pointer-events-none"></div>
+              
+              <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                <Smartphone className="w-6 h-6 text-pink-400" />
+                <span>Preferências do Utilizador</span>
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
+                {/* Preferred Language */}
+                <div className="space-y-2">
+                  <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm text-purple-400">language</span>
+                    Idioma de Preferência
+                  </label>
+                  <select 
+                    value={user?.preferredLanguage || 'PT'} 
+                    disabled={isUpdatingPreferences}
+                    onChange={(e) => handleUpdatePreference('preferredLanguage', e.target.value)}
+                    className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-purple-500 outline-none transition-all cursor-pointer"
+                  >
+                    <option value="PT" className="bg-[#0f1014]">Português (PT)</option>
+                    <option value="EN" className="bg-[#0f1014]">English (EN)</option>
+                  </select>
+                  <p className="text-[10px] text-gray-500">Idioma usado para os botões e interface principal da aplicação.</p>
+                </div>
+
+                {/* Theme */}
+                <div className="space-y-2">
+                  <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm text-pink-400">dark_mode</span>
+                    Tema Visual
+                  </label>
+                  <select 
+                    value={user?.theme || 'dark'} 
+                    disabled={isUpdatingPreferences}
+                    onChange={(e) => handleUpdatePreference('theme', e.target.value)}
+                    className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-pink-500 outline-none transition-all cursor-pointer"
+                  >
+                    <option value="dark" className="bg-[#0f1014]">Escuro (Dark Mode)</option>
+                    <option value="light" className="bg-[#0f1014]">Claro (Light Mode)</option>
+                  </select>
+                  <p className="text-[10px] text-gray-500">Escolha de contraste para a interface gráfica.</p>
+                </div>
+
+                {/* Show Adult Content */}
+                <div className="sm:col-span-2 p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between hover:bg-white/10 transition-all">
+                  <div className="space-y-1 flex-1">
+                    <label htmlFor="adult-content-checkbox" className="text-sm font-bold text-white cursor-pointer select-none flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-base text-red-400">no_adult_content</span>
+                      Mostrar Conteúdo Adulto (+18)
+                    </label>
+                    <p className="text-xs text-gray-400">Permite resultados NSFW/Adultos nas pesquisas da AniList.</p>
+                  </div>
+                  <div className="flex items-center pl-4">
+                    <input
+                      type="checkbox"
+                      id="adult-content-checkbox"
+                      checked={user?.showAdultContent || false}
+                      disabled={isUpdatingPreferences}
+                      onChange={(e) => handleUpdatePreference('showAdultContent', e.target.checked)}
+                      className="w-5 h-5 rounded border-white/10 text-pink-600 focus:ring-pink-500/50 bg-black/40 cursor-pointer"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>

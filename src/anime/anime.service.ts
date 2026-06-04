@@ -6,11 +6,19 @@ export class AnimeService {
   constructor(private readonly prisma: PrismaService) {}
 
   // Busca dados detalhados da AniList por Nome
-  async searchAniList(nomeAnime: string) {
+  async searchAniList(nomeAnime: string, userId?: number) {
+    let isAdult: boolean | undefined = false;
+    if (userId) {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (user && user.showAdultContent) {
+        isAdult = undefined;
+      }
+    }
+
     const query = `
-      query ($s: String) {
+      query ($s: String, $isAdult: Boolean) {
         Page(perPage: 1) {
-          media(search: $s, type: ANIME, sort: SEARCH_MATCH) {
+          media(search: $s, type: ANIME, sort: SEARCH_MATCH, isAdult: $isAdult) {
             id
             title { english romaji native }
             coverImage { large }
@@ -30,7 +38,7 @@ export class AnimeService {
         }
       }
     `;
-    const variables = { s: nomeAnime };
+    const variables = { s: nomeAnime, isAdult };
 
     try {
       const response = await fetch('https://graphql.anilist.co', {
@@ -87,7 +95,7 @@ export class AnimeService {
 
   // Importa para o Catálogo Global e adiciona à lista do utilizador
   async importFromAniList(nomeAnime: string, userId: number, anilistId?: number) {
-    const aniListData = anilistId ? await this.searchAniListById(anilistId) : await this.searchAniList(nomeAnime);
+    const aniListData = anilistId ? await this.searchAniListById(anilistId) : await this.searchAniList(nomeAnime, userId);
     if (!aniListData) throw new Error('Anime não encontrado na AniList');
 
     const topTags = aniListData.tags ? aniListData.tags.slice(0, 5).map((tag: any) => tag.name).join(', ') : '';
@@ -129,11 +137,19 @@ export class AnimeService {
     });
   }
 
-  async searchAnimeList(nomeAnime: string, page: number = 1) {
+  async searchAnimeList(nomeAnime: string, page: number = 1, userId?: number) {
+    let isAdult: boolean | undefined = false;
+    if (userId) {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (user && user.showAdultContent) {
+        isAdult = undefined;
+      }
+    }
+
     const query = `
-      query ($s: String, $page: Int) {
+      query ($s: String, $page: Int, $isAdult: Boolean) {
         Page(page: $page, perPage: 24) {
-          media(search: $s, type: ANIME, sort: SEARCH_MATCH) {
+          media(search: $s, type: ANIME, sort: SEARCH_MATCH, isAdult: $isAdult) {
             id
             title { romaji english }
             coverImage { large }
@@ -142,7 +158,7 @@ export class AnimeService {
         }
       }
     `;
-    const variables = { s: nomeAnime.trim(), page };
+    const variables = { s: nomeAnime.trim(), page, isAdult };
     try {
       const response = await fetch('https://graphql.anilist.co', {
         method: 'POST',
@@ -262,9 +278,17 @@ export class AnimeService {
     return this.prisma.userAnime.delete({ where: { id } });
   }
 
-  async searchByGenre(genre: string, page: number = 1) {
-    const query = `query ($g: String, $page: Int) { Page(page: $page, perPage: 24) { media(genre: $g, type: ANIME, sort: POPULARITY_DESC) { id title { english romaji } coverImage { large } genres } } }`;
-    const variables = { g: genre, page };
+  async searchByGenre(genre: string, page: number = 1, userId?: number) {
+    let isAdult: boolean | undefined = false;
+    if (userId) {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (user && user.showAdultContent) {
+        isAdult = undefined;
+      }
+    }
+
+    const query = `query ($g: String, $page: Int, $isAdult: Boolean) { Page(page: $page, perPage: 24) { media(genre: $g, type: ANIME, sort: POPULARITY_DESC, isAdult: $isAdult) { id title { english romaji } coverImage { large } genres } } }`;
+    const variables = { g: genre, page, isAdult };
     try {
       const response = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ query, variables }) });
       const result = await response.json() as any;

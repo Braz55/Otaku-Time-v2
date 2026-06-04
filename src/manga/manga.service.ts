@@ -277,11 +277,19 @@ export class MangaService {
   }
 
   // Pesquisa básica na AniList por Nome (para detalhes)
-  async searchAniListManga(nomeManga: string) {
+  async searchAniListManga(nomeManga: string, userId?: number) {
+    let isAdult: boolean | undefined = false;
+    if (userId) {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (user && user.showAdultContent) {
+        isAdult = undefined;
+      }
+    }
+
     const query = `
-      query ($s: String) {
+      query ($s: String, $isAdult: Boolean) {
         Page(perPage: 1) {
-          media(search: $s, type: MANGA, sort: SEARCH_MATCH) {
+          media(search: $s, type: MANGA, sort: SEARCH_MATCH, isAdult: $isAdult) {
             id
             title { english romaji }
             status
@@ -298,7 +306,7 @@ export class MangaService {
       const response = await fetch('https://graphql.anilist.co', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ query, variables: { s: nomeManga } }),
+        body: JSON.stringify({ query, variables: { s: nomeManga, isAdult } }),
       });
       const result = await response.json() as any;
       return result?.data?.Page?.media[0] || null;
@@ -333,11 +341,19 @@ export class MangaService {
   }
 
   // Pesquisa para a lista de resultados (Discovery)
-  async searchMangaList(nome: string, page: number = 1) {
+  async searchMangaList(nome: string, page: number = 1, userId?: number) {
+    let isAdult: boolean | undefined = false;
+    if (userId) {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (user && user.showAdultContent) {
+        isAdult = undefined;
+      }
+    }
+
     const query = `
-      query ($s: String, $page: Int) {
+      query ($s: String, $page: Int, $isAdult: Boolean) {
         Page(page: $page, perPage: 24) {
-          media(search: $s, type: MANGA, sort: POPULARITY_DESC) {
+          media(search: $s, type: MANGA, sort: POPULARITY_DESC, isAdult: $isAdult) {
             id
             title { english romaji }
             genres
@@ -353,7 +369,7 @@ export class MangaService {
       const response = await fetch('https://graphql.anilist.co', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ query, variables: { s: nome, page } })
+        body: JSON.stringify({ query, variables: { s: nome, page, isAdult } })
       });
       const data = await response.json() as any;
       return data.data?.Page?.media || [];
@@ -361,11 +377,19 @@ export class MangaService {
   }
 
   // Pesquisa por Género
-  async searchByGenre(genre: string, page: number = 1) {
+  async searchByGenre(genre: string, page: number = 1, userId?: number) {
+    let isAdult: boolean | undefined = false;
+    if (userId) {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (user && user.showAdultContent) {
+        isAdult = undefined;
+      }
+    }
+
     const query = `
-      query ($genre: String, $page: Int) {
+      query ($genre: String, $page: Int, $isAdult: Boolean) {
         Page(page: $page, perPage: 24) {
-          media(genre: $genre, type: MANGA, sort: POPULARITY_DESC) {
+          media(genre: $genre, type: MANGA, sort: POPULARITY_DESC, isAdult: $isAdult) {
             id
             title { english romaji }
             genres
@@ -381,7 +405,7 @@ export class MangaService {
       const response = await fetch('https://graphql.anilist.co', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ query, variables: { genre, page } })
+        body: JSON.stringify({ query, variables: { genre, page, isAdult } })
       });
       const data = await response.json() as any;
       return data.data?.Page?.media || [];
@@ -390,7 +414,7 @@ export class MangaService {
 
   // Importação simplificada
   async importFromAniList(nomeManga: string, userId: number, anilistId?: number) {
-    const aniListData = anilistId ? await this.searchAniListById(anilistId) : await this.searchAniListManga(nomeManga);
+    const aniListData = anilistId ? await this.searchAniListById(anilistId) : await this.searchAniListManga(nomeManga, userId);
     if (!aniListData) throw new Error('Manga not found');
 
     const linksJSON = aniListData.externalLinks ? JSON.stringify(aniListData.externalLinks) : null;

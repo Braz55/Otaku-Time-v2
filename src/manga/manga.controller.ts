@@ -40,14 +40,14 @@ export class MangaController {
 
   @UseGuards(JwtAuthGuard)
   @Get('search/:nome')
-  search(@Param('nome') nome: string, @Query('page') page?: string) {
-    return this.mangaService.searchMangaList(nome, page ? +page : 1); 
+  search(@Param('nome') nome: string, @Request() req, @Query('page') page?: string) {
+    return this.mangaService.searchMangaList(nome, page ? +page : 1, req.user.userId); 
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('genre/:genre')
-  async searchByGenre(@Param('genre') genre: string, @Query('page') page?: string) {
-    return this.mangaService.searchByGenre(genre, page ? +page : 1);
+  async searchByGenre(@Param('genre') genre: string, @Request() req, @Query('page') page?: string) {
+    return this.mangaService.searchByGenre(genre, page ? +page : 1, req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard)

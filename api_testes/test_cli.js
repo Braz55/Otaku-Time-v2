@@ -11,7 +11,7 @@ async function searchMangaList(nome) {
   const query = `
     query ($s: String) {
       Page(page: 1, perPage: 10) {
-        media(search: $s, type: MANGA, sort: POPULARITY_DESC) {
+        media(search: $s, type: MANGA, sort: POPULARITY_DESC, isAdult: false) {
           id
           title { english romaji }
           genres

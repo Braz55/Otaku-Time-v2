@@ -18,6 +18,16 @@ const ProfilePage = () => {
   const [localAnimeCount, setLocalAnimeCount] = useState(0);
   const [localMangaCount, setLocalMangaCount] = useState(0);
 
+  const [connectionMode, setConnectionMode] = useState<'online' | 'offline'>(() => {
+    return (localStorage.getItem('otaku_connection_mode') as 'online' | 'offline') || 'online';
+  });
+
+  const handleConnectionModeChange = (mode: 'online' | 'offline') => {
+    localStorage.setItem('otaku_connection_mode', mode);
+    setConnectionMode(mode);
+    window.location.reload();
+  };
+
   // Backup & Restore State
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -345,6 +355,47 @@ const ProfilePage = () => {
         {/* Tab Content: Database Synchronization */}
         {activeTab === 'sync' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Connection Mode Selection Card */}
+            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-4 shadow-xl relative overflow-hidden">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-2xl text-purple-400">
+                  <Smartphone className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Modo de Ligação da App</h3>
+                  <p className="text-xs text-on-surface-variant mt-0.5">
+                    Escolhe se queres ligar-te em tempo real à base de dados na nuvem (PostgreSQL) ou usar a base de dados local offline no telemóvel.
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <button
+                  onClick={() => handleConnectionModeChange('online')}
+                  className={`p-4 rounded-2xl border text-left transition-all ${connectionMode === 'online' ? 'border-purple-500 bg-purple-500/10 shadow-[0_0_15px_rgba(168,85,247,0.2)]' : 'border-white/10 bg-white/5 hover:bg-white/10'}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white text-sm">Modo Online (Nuvem)</span>
+                    <span className={`w-2.5 h-2.5 rounded-full ${connectionMode === 'online' ? 'bg-purple-500 animate-pulse' : 'bg-gray-600'}`}></span>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-2">
+                    Liga-se diretamente ao teu Render e ao Neon DB PostgreSQL na nuvem para veres e atualizares os teus dados em tempo real.
+                  </p>
+                </button>
+                <button
+                  onClick={() => handleConnectionModeChange('offline')}
+                  className={`p-4 rounded-2xl border text-left transition-all ${connectionMode === 'offline' ? 'border-pink-500 bg-pink-500/10 shadow-[0_0_15px_rgba(236,72,153,0.2)]' : 'border-white/10 bg-white/5 hover:bg-white/10'}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white text-sm">Modo Offline (Local)</span>
+                    <span className={`w-2.5 h-2.5 rounded-full ${connectionMode === 'offline' ? 'bg-pink-500 animate-pulse' : 'bg-gray-600'}`}></span>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-2">
+                    Guarda os teus progressos na base de dados IndexedDB (Dexie) local do telemóvel para funcionar sem internet.
+                  </p>
+                </button>
+              </div>
+            </div>
+
             {/* AutoSync Releases Card (Animes & Mangas) */}
             <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-purple-500/10 via-pink-500/5 to-transparent rounded-full blur-3xl pointer-events-none"></div>

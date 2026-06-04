@@ -490,8 +490,11 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
     path = urlStr.replace(API_BASE_URL, '').split('?')[0];
   }
 
-  // Se não estiver no Android, faz o fetch nativo
-  if (!Capacitor.isNativePlatform()) {
+  // Obter o modo de ligação atual (padrão: 'online')
+  const connectionMode = localStorage.getItem('otaku_connection_mode') || 'online';
+
+  // Se estivermos em modo online ou se não estiver no Android, faz o fetch nativo (chama o backend na nuvem)
+  if (!Capacitor.isNativePlatform() || connectionMode === 'online') {
     return nativeFetchResponse(input, init);
   }
 

@@ -54,10 +54,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <span className="material-symbols-outlined">calendar_today</span>
             <span className="font-label-md text-label-md">Calendar</span>
           </button>
-          <button onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/chat'); }} className={`flex items-center gap-4 px-4 py-3 w-full rounded-2xl font-bold transition-all duration-300 ease-in-out ${location.pathname === '/chat' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105' : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}>
-            <span className="material-symbols-outlined">forum</span>
-            <span className="font-label-md text-label-md">Otaku AI</span>
-          </button>
         </nav>
         <div className="pt-6 border-t border-white/5">
           <div className="flex items-center gap-3 px-2 cursor-pointer group" onClick={() => navigate('/profile')}>
@@ -102,10 +98,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <button onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/calendar'); }} className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${location.pathname === '/calendar' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30' : 'text-on-surface-variant hover:text-white transition-all'}`}>
           <span className="material-symbols-outlined">calendar_today</span>
           <span className="font-label-sm text-label-sm">Calendar</span>
-        </button>
-        <button onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/chat'); }} className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${location.pathname === '/chat' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30' : 'text-on-surface-variant hover:text-white transition-all'}`}>
-          <span className="material-symbols-outlined">smart_toy</span>
-          <span className="font-label-sm text-label-sm">Otaku AI</span>
         </button>
       </nav>
     </div>

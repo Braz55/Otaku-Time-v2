@@ -7,7 +7,6 @@ import { AnimeModule } from './anime/anime.module';
 import { UserModule } from './user/user.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
-import { ChatModule } from './chat/chat.module';
 import { SyncModule } from './sync/sync.module';
 
 @Module({
@@ -18,7 +17,6 @@ import { SyncModule } from './sync/sync.module';
     UserModule,
     PrismaModule,
     AuthModule,
-    ChatModule,
     SyncModule,
   ],
   controllers: [AppController],

@@ -949,66 +949,6 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
     }
 
     // ==========================================
-    // CHAT ROUTES
-    // ==========================================
-    if (path === '/chat/sessions' && method === 'GET') {
-      const sessions = await localDb.chatSessions.where('userId').equals(userId).toArray();
-      return createJsonResponse(sessions);
-    }
-
-    if (path === '/chat/sessions' && method === 'POST') {
-      const body = JSON.parse(init?.body as string);
-      const newSession = {
-        userId,
-        titulo: body.titulo || 'New Chat',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      const newId = await localDb.chatSessions.add(newSession);
-      return createJsonResponse({ ...newSession, id: newId });
-    }
-
-    if (path.startsWith('/chat/sessions/') && method === 'DELETE') {
-      const id = parseInt(path.split('/')[3]);
-      await localDb.chatSessions.delete(id);
-      await localDb.chatMessages.where('sessionId').equals(id).delete();
-      return createJsonResponse({ success: true });
-    }
-
-    if (path.startsWith('/chat/sessions/') && path.endsWith('/messages') && method === 'GET') {
-      const sessionId = parseInt(path.split('/')[3]);
-      const messages = await localDb.chatMessages.where('sessionId').equals(sessionId).toArray();
-      return createJsonResponse(messages);
-    }
-
-    if (path.startsWith('/chat/sessions/') && path.endsWith('/messages') && method === 'POST') {
-      const sessionId = parseInt(path.split('/')[3]);
-      const body = JSON.parse(init?.body as string);
-
-      // Guarda mensagem do utilizador
-      const userMsg = {
-        sessionId,
-        role: 'user' as const,
-        content: body.message,
-        createdAt: new Date().toISOString()
-      };
-      await localDb.chatMessages.add(userMsg);
-
-      // Gera resposta mockada rica do assistente
-      const aiContent = `Aqui tens algumas recomendações baseadas no teu pedido "${body.message}":\n\n- **Demon Slayer**: Ação espetacular com animação de topo.\n- **Chainsaw Man**: Ousado, frenético e visualmente incrível.\n- **Solo Leveling**: O melhor webtoon de caçadores e monstros!`;
-      const aiMsg = {
-        sessionId,
-        role: 'assistant' as const,
-        content: aiContent,
-        createdAt: new Date().toISOString()
-      };
-      await localDb.chatMessages.add(aiMsg);
-
-      // Simular stream ou retorno direto
-      return createJsonResponse({ content: aiContent });
-    }
-
-    // ==========================================
     // SYNC ROUTES
     // ==========================================
     // As rotas de sincronização (/sync/status, /sync/start, /sync/twoway) não são intercetadas

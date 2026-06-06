@@ -2,7 +2,6 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
-import * as crypto from 'crypto';
 
 @Injectable()
 export class UserService {
@@ -10,16 +9,10 @@ export class UserService {
 
   async create(createUserDto: CreateUserDto) {
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
-
     return this.prisma.user.create({
       data: {
         ...createUserDto,
         password: hashedPassword,
-        verificationToken,
-        verificationTokenExpires,
-        isVerified: false,
       },
     });
   }
@@ -302,27 +295,5 @@ export class UserService {
     await this.prisma.userAnime.deleteMany({ where: { userId } });
     await this.prisma.userManga.deleteMany({ where: { userId } });
     return { success: true, message: 'Library cleared successfully' };
-  }
-
-  async findByVerificationToken(token: string) {
-    return this.prisma.user.findFirst({
-      where: {
-        verificationToken: token,
-        verificationTokenExpires: {
-          gt: new Date(),
-        },
-      },
-    });
-  }
-
-  async verifyUser(id: number) {
-    return this.prisma.user.update({
-      where: { id },
-      data: {
-        isVerified: true,
-        verificationToken: null,
-        verificationTokenExpires: null,
-      },
-    });
   }
 }

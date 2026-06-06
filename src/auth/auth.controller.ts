@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Query, Header, UnauthorizedException, BadRequestException, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, UnauthorizedException, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
 
 @Controller('auth')
@@ -18,14 +18,5 @@ export class AuthController {
   @Post('register')
   async register(@Body() body: any) {
     return this.authService.register(body);
-  }
-
-  @Get('verify')
-  @Header('Content-Type', 'text/html')
-  async verifyEmail(@Query('token') token: string) {
-    if (!token) {
-      throw new BadRequestException('Token de verificação não fornecido.');
-    }
-    return this.authService.verifyEmail(token);
   }
 }

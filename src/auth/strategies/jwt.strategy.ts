@@ -19,9 +19,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       throw new UnauthorizedException('Utilizador não encontrado.');
     }
-    if (!user.isVerified) {
-      throw new UnauthorizedException('Email não verificado. Por favor, verifica o teu email.');
-    }
     if (user.tokenVersion !== payload.tokenVersion) {
       throw new UnauthorizedException('Sessão expirada. Por favor, inicia sessão novamente.');
     }

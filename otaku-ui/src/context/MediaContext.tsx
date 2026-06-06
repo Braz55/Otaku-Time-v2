@@ -11,6 +11,8 @@ interface MediaContextType {
   setIsSearchOpen: (show: boolean) => void;
   homeTrigger: number;
   triggerHome: () => void;
+  isViewingDetails: boolean;
+  setIsViewingDetails: (viewing: boolean) => void;
 }
 
 const MediaContext = createContext<MediaContextType | undefined>(undefined);
@@ -20,15 +22,28 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isShowingFavorites, setIsShowingFavorites] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [homeTrigger, setHomeTrigger] = useState(0);
+  const [isViewingDetails, setIsViewingDetails] = useState(false);
 
   const triggerHome = () => {
     setIsShowingFavorites(false);
     setIsSearchOpen(false);
+    setIsViewingDetails(false);
     setHomeTrigger(prev => prev + 1);
   };
 
   return (
-    <MediaContext.Provider value={{ categoria, setCategoria, isShowingFavorites, setIsShowingFavorites, isSearchOpen, setIsSearchOpen, homeTrigger, triggerHome }}>
+    <MediaContext.Provider value={{
+      categoria,
+      setCategoria,
+      isShowingFavorites,
+      setIsShowingFavorites,
+      isSearchOpen,
+      setIsSearchOpen,
+      homeTrigger,
+      triggerHome,
+      isViewingDetails,
+      setIsViewingDetails
+    }}>
       {children}
     </MediaContext.Provider>
   );
@@ -39,3 +54,4 @@ export const useMedia = () => {
   if (!context) throw new Error('useMedia must be used within a MediaProvider');
   return context;
 };
+

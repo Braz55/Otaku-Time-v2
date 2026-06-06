@@ -476,11 +476,48 @@ export class MangaService {
 
   // CRUD básico
   async findAll(userId: number) {
-    return this.prisma.userManga.findMany({ where: { userId }, include: { manga: true } });
+    const list = await this.prisma.userManga.findMany({ where: { userId }, include: { manga: true } });
+    return list.map(item => ({
+      id: item.id,
+      mangaId: item.mangaId,
+      titulo: item.manga.titulo,
+      statusLancamento: item.manga.statusLancamento,
+      capaUrl: item.manga.capaUrl,
+      generos: item.manga.generos,
+      descricao: item.manga.descricao,
+      status: item.status,
+      capAtual: item.capAtual,
+      numCapitulosTotal: item.manga.numCapitulosTotal,
+      prioridade: item.prioridade,
+      linksExternos: item.manga.linksExternos,
+      linksPersonalizados: item.linksPersonalizados,
+      proximoCapituloNumero: item.manga.proximoCapituloNumero,
+      proximoCapituloData: item.manga.proximoCapituloData,
+      updatedAt: item.updatedAt
+    }));
   }
 
   async findOne(id: number) {
-    return this.prisma.userManga.findUnique({ where: { id }, include: { manga: true } });
+    const item = await this.prisma.userManga.findUnique({ where: { id }, include: { manga: true } });
+    if (!item) return null;
+    return {
+      id: item.id,
+      mangaId: item.mangaId,
+      titulo: item.manga.titulo,
+      statusLancamento: item.manga.statusLancamento,
+      capaUrl: item.manga.capaUrl,
+      generos: item.manga.generos,
+      descricao: item.manga.descricao,
+      status: item.status,
+      capAtual: item.capAtual,
+      numCapitulosTotal: item.manga.numCapitulosTotal,
+      prioridade: item.prioridade,
+      linksExternos: item.manga.linksExternos,
+      linksPersonalizados: item.linksPersonalizados,
+      proximoCapituloNumero: item.manga.proximoCapituloNumero,
+      proximoCapituloData: item.manga.proximoCapituloData,
+      updatedAt: item.updatedAt
+    };
   }
 
   async update(id: number, updateDto: any) {

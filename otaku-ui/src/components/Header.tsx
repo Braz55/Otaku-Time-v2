@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { useMedia } from '../context/MediaContext';
 
 interface HeaderProps {
   categoria: 'anime' | 'manga';
@@ -14,6 +15,7 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { isViewingDetails } = useMedia();
 
   return (
     <>
@@ -34,17 +36,29 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
           
           {/* Barra de Baixo - Segmented Control Centrado e Estendido */}
           <div className="w-full bg-surface/80 backdrop-blur-lg px-4 py-2.5 flex justify-center items-center">
-            <div className="w-full max-w-sm flex gap-1 bg-surface-variant/60 p-1.5 rounded-full border border-white/10 shadow-inner">
+            <div className={`w-full max-w-sm flex gap-1 bg-surface-variant/60 p-1.5 rounded-full border border-white/10 shadow-inner transition-opacity duration-300 ${isViewingDetails ? 'opacity-80' : ''}`}>
               <button 
-                onClick={() => setCategoria('anime')}
-                className={`flex-1 py-2 rounded-full font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${categoria === 'anime' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-[1.02]' : 'text-on-surface-variant hover:text-white'}`}
+                onClick={() => !isViewingDetails && setCategoria('anime')}
+                disabled={isViewingDetails}
+                className={`flex-1 py-2 rounded-full font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
+                  categoria === 'anime' 
+                    ? 'bg-primary text-on-primary shadow-lg shadow-primary/30' 
+                    : 'text-on-surface-variant/40'
+                } ${isViewingDetails ? 'cursor-not-allowed' : 'hover:text-white active:scale-95 scale-[1.02]'}`}
+                title={isViewingDetails ? 'Cannot change category while viewing details' : ''}
               >
                 <span className="material-symbols-outlined text-base">live_tv</span>
                 <span>Anime</span>
               </button>
               <button 
-                onClick={() => setCategoria('manga')}
-                className={`flex-1 py-2 rounded-full font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${categoria === 'manga' ? 'bg-secondary text-on-secondary shadow-lg shadow-secondary/30 scale-[1.02]' : 'text-on-surface-variant hover:text-white'}`}
+                onClick={() => !isViewingDetails && setCategoria('manga')}
+                disabled={isViewingDetails}
+                className={`flex-1 py-2 rounded-full font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
+                  categoria === 'manga' 
+                    ? 'bg-secondary text-on-secondary shadow-lg shadow-secondary/30' 
+                    : 'text-on-surface-variant/40'
+                } ${isViewingDetails ? 'cursor-not-allowed' : 'hover:text-white active:scale-95 scale-[1.02]'}`}
+                title={isViewingDetails ? 'Cannot change category while viewing details' : ''}
               >
                 <span className="material-symbols-outlined text-base">menu_book</span>
                 <span>Manga</span>
@@ -61,16 +75,28 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
             </h1>
           </div>
           
-          <div className="flex gap-1 md:gap-8 bg-surface-variant/40 md:bg-transparent p-1 md:p-0 rounded-full border border-white/5 md:border-none">
+          <div className={`flex gap-1 md:gap-8 bg-surface-variant/40 md:bg-transparent p-1 md:p-0 rounded-full border border-white/5 md:border-none transition-opacity duration-300 ${isViewingDetails ? 'opacity-80' : ''}`}>
             <button 
-              onClick={() => setCategoria('anime')}
-              className={`font-label-sm md:font-label-md text-label-sm md:text-label-md px-3 md:px-4 py-1 sm:py-1.5 rounded-full transition-all ${categoria === 'anime' ? 'bg-primary/20 text-primary font-bold border border-primary/30 shadow-md shadow-primary/10' : 'text-on-surface-variant hover:bg-white/5'}`}
+              onClick={() => !isViewingDetails && setCategoria('anime')}
+              disabled={isViewingDetails}
+              className={`font-label-sm md:font-label-md text-label-sm md:text-label-md px-3 md:px-4 py-1 sm:py-1.5 rounded-full transition-all ${
+                categoria === 'anime' 
+                  ? 'bg-primary/20 text-primary font-bold border border-primary/30 shadow-md shadow-primary/10' 
+                  : 'text-on-surface-variant/40'
+              } ${isViewingDetails ? 'cursor-not-allowed' : 'hover:bg-white/5'}`}
+              title={isViewingDetails ? 'Cannot change category while viewing details' : ''}
             >
               Anime
             </button>
             <button 
-              onClick={() => setCategoria('manga')}
-              className={`font-label-sm md:font-label-md text-label-sm md:text-label-md px-3 md:px-4 py-1 sm:py-1.5 rounded-full transition-all ${categoria === 'manga' ? 'bg-secondary/20 text-secondary font-bold border border-secondary/30 shadow-md shadow-secondary/10' : 'text-on-surface-variant hover:bg-white/5'}`}
+              onClick={() => !isViewingDetails && setCategoria('manga')}
+              disabled={isViewingDetails}
+              className={`font-label-sm md:font-label-md text-label-sm md:text-label-md px-3 md:px-4 py-1 sm:py-1.5 rounded-full transition-all ${
+                categoria === 'manga' 
+                  ? 'bg-secondary/20 text-secondary font-bold border border-secondary/30 shadow-md shadow-secondary/10' 
+                  : 'text-on-surface-variant/40'
+              } ${isViewingDetails ? 'cursor-not-allowed' : 'hover:bg-white/5'}`}
+              title={isViewingDetails ? 'Cannot change category while viewing details' : ''}
             >
               Manga
             </button>
@@ -88,3 +114,4 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
 };
 
 export default Header;
+

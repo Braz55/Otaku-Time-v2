@@ -63,7 +63,7 @@ const formatLastModified = (item: any) => {
 const HomePage = () => {
   const { user, token } = useAuth();
   const { showToast } = useToast();
-  const { categoria, setCategoria, isShowingFavorites, setIsShowingFavorites, isSearchOpen, homeTrigger } = useMedia();
+  const { categoria, setCategoria, isShowingFavorites, setIsShowingFavorites, isSearchOpen, homeTrigger, setIsViewingDetails } = useMedia();
   const isMobile = useIsMobile();
   const [termoPesquisa, setTermoPesquisa] = useState('');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
@@ -502,7 +502,14 @@ const HomePage = () => {
   useEffect(() => {
     setView('home');
     setSelectedItem(null);
-  }, [isShowingFavorites, isSearchOpen]);
+  }, [isShowingFavorites, isSearchOpen, homeTrigger]);
+
+  useEffect(() => {
+    setIsViewingDetails(view === 'details');
+    return () => {
+      setIsViewingDetails(false);
+    };
+  }, [view, setIsViewingDetails]);
 
   return (
     <div className="max-w-7xl mx-auto px-1 sm:px-4 py-2 sm:py-10">

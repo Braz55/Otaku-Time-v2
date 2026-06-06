@@ -334,6 +334,98 @@ const HomePage = () => {
     }
   };
 
+  const sorteioAleatorioGlobal = async () => {
+    setLoading(true);
+    try {
+      const randomRank = Math.floor(Math.random() * 2000) + 1;
+      const type = categoria === 'manga' ? 'MANGA' : 'ANIME';
+      const query = `
+        query ($page: Int, $type: MediaType) {
+          Page(page: $page, perPage: 1) {
+            media(type: $type, sort: POPULARITY_DESC) {
+              id
+            }
+          }
+        }
+      `;
+
+      const response = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ query, variables: { page: randomRank, type } })
+      });
+      const data = await response.json();
+      const media = data?.data?.Page?.media?.[0];
+      if (!media) {
+        showToast('Erro ao obter conteúdo aleatório. Tente novamente.', 'error');
+        return;
+      }
+
+      await abrirDetalhes(media.id, true, categoria);
+    } catch (error) {
+      console.error('Erro no sorteio global:', error);
+      showToast('Erro ao realizar o sorteio aleatório.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sorteioAleatorioBiblioteca = async () => {
+    const candidates = resultadosDB.filter(item => item.status === 'PLANNED');
+    if (candidates.length === 0) {
+      showToast('Não tens nenhum conteúdo com o estado "Planeado" para sortear nesta biblioteca.', 'warning');
+      return;
+    }
+
+    let selected = null;
+    let attempts = 0;
+
+    while (!selected && attempts < 100) {
+      attempts++;
+
+      // 1. Choose priority level (1 = highest, 10 = lowest)
+      const pRand = Math.random() * 100;
+      let chosenPriority = 10;
+      if (pRand < 35) chosenPriority = 1;
+      else if (pRand < 55) chosenPriority = 2;      // 35 + 20
+      else if (pRand < 70) chosenPriority = 3;      // 55 + 15
+      else if (pRand < 80) chosenPriority = 4;      // 70 + 10
+      else if (pRand < 88) chosenPriority = 5;      // 80 + 8
+      else if (pRand < 92) chosenPriority = 6;      // 88 + 4
+      else if (pRand < 95) chosenPriority = 7;      // 92 + 3
+      else if (pRand < 97.5) chosenPriority = 8;    // 95 + 2.5
+      else if (pRand < 99) chosenPriority = 9;      // 97.5 + 1.5
+
+      // 2. Choose finished status (75% finished, 25% releasing)
+      const finishedRand = Math.random() < 0.75;
+
+      // 3. Filter candidates
+      const matches = candidates.filter(item => {
+        const priority = item.prioridade || 5;
+        if (priority !== chosenPriority) return false;
+
+        const statusLancamento = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
+        const isItemFinished = statusLancamento === 'FINISHED';
+        return isItemFinished === finishedRand;
+      });
+
+      if (matches.length > 0) {
+        const idx = Math.floor(Math.random() * matches.length);
+        selected = matches[idx];
+      }
+    }
+
+    // Fallback if no matches after 100 attempts
+    if (!selected) {
+      const idx = Math.floor(Math.random() * candidates.length);
+      selected = candidates[idx];
+    }
+
+    if (selected) {
+      await abrirDetalhes(selected.id, false, categoria);
+    }
+  };
+
   const abrirLink = async (url: string, title: string) => {
     if (Capacitor.isNativePlatform()) {
       try {
@@ -545,6 +637,14 @@ const HomePage = () => {
                     >
                       Search
                     </button>
+                    <button 
+                      type="button"
+                      onClick={sorteioAleatorioGlobal}
+                      className={`${categoria === 'anime' ? 'bg-secondary hover:bg-secondary/80 text-on-secondary shadow-lg shadow-secondary/20' : 'bg-primary hover:bg-primary/80 text-on-primary shadow-lg shadow-primary/20'} p-2 sm:p-3 rounded-lg sm:rounded-xl font-bold hover:scale-105 active:scale-95 transition-all shadow-md flex items-center justify-center ml-2`}
+                      title="Sorteio Aleatório Global (AniList)"
+                    >
+                      <span className="material-symbols-outlined text-base sm:text-lg">casino</span>
+                    </button>
                   </div>
 
                   {/* Genre Accordion for Mobile / Cloud for Desktop */}
@@ -713,24 +813,38 @@ const HomePage = () => {
             {(isShowingFavorites && !isSearchOpen) && (
               <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 relative z-50">
                 <div className="flex flex-col space-y-6 border-b border-white/10 pb-6 relative z-50">
-                  <div className="flex items-center gap-3 sm:gap-4 px-1 sm:px-0">
-                    <span className="material-symbols-outlined text-primary text-3xl sm:text-4xl md:text-5xl flex-shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>video_library</span>
-                    <div className="min-w-0">
-                      <h2 className="text-2xl sm:text-4xl md:text-5xl font-black text-primary-light tracking-tight capitalize mb-0.5 sm:mb-1 truncate">
-                        Library ({categoria})
-                      </h2>
-                      <p className="text-xs sm:text-base text-on-surface-variant font-medium">
-                        {(() => {
-                          const filtrados = resultadosDB.filter(item => {
-                            if (filtroStatus !== 'ALL' && item.status !== filtroStatus) return false;
-                            const statusLancamento = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
-                            if (filtroLancamento !== 'ALL' && statusLancamento !== filtroLancamento) return false;
-                            return true;
-                          });
-                          return `Showing ${filtrados.length} of ${resultadosDB.length} saved titles`;
-                        })()}
-                      </p>
+                  <div className="flex items-center justify-between gap-4 px-1 sm:px-0">
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                      <span className="material-symbols-outlined text-primary text-3xl sm:text-4xl md:text-5xl flex-shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>video_library</span>
+                      <div className="min-w-0">
+                        <h2 className="text-2xl sm:text-4xl md:text-5xl font-black text-primary-light tracking-tight capitalize mb-0.5 sm:mb-1 truncate">
+                          Library ({categoria})
+                        </h2>
+                        <p className="text-xs sm:text-base text-on-surface-variant font-medium">
+                          {(() => {
+                            const filtrados = resultadosDB.filter(item => {
+                              if (filtroStatus !== 'ALL' && item.status !== filtroStatus) return false;
+                              const statusLancamento = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
+                              if (filtroLancamento !== 'ALL' && statusLancamento !== filtroLancamento) return false;
+                              return true;
+                            });
+                            return `Showing ${filtrados.length} of ${resultadosDB.length} saved titles`;
+                          })()}
+                        </p>
+                      </div>
                     </div>
+                    <button
+                      onClick={sorteioAleatorioBiblioteca}
+                      className={`flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-3 rounded-xl sm:rounded-2xl font-black text-[11px] sm:text-xs transition-all active:scale-95 shadow-lg flex-shrink-0 border ${
+                        categoria === 'anime' 
+                          ? 'bg-secondary/20 hover:bg-secondary text-secondary hover:text-white border-secondary/35 shadow-secondary/5' 
+                          : 'bg-primary/20 hover:bg-primary text-primary hover:text-white border-primary/35 shadow-primary/5'
+                      }`}
+                      title="Sorteio Aleatório da Biblioteca (Planeados)"
+                    >
+                      <span className="material-symbols-outlined text-sm sm:text-base">shuffle</span>
+                      <span>Sorteio Planeado</span>
+                    </button>
                   </div>
 
                   {/* Filters & Sorting Controls */}

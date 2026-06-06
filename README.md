@@ -44,6 +44,10 @@ Resolve as limitações e inconsistências das APIs tradicionais com um sistema 
 * **Modo Escuro & Claro:** Interface adaptada para ambos os contrastes (Dark/Light Mode) com transições suaves e tipografia moderna.
 * **Paletas de Cores Temáticas:** Seletor com 6 paletas cromáticas inspiradas em universos otaku e plataformas populares: Roxo Clássico (Padrão), Laranja Shounen (Crunchyroll), Vermelho Akatsuki (Naruto), Verde Mutsu (Mushi-Shi), Roxo Solo Leveling e Azul Visionário (AniList).
 
+### 🎲 8. Sorteios Aleatórios Inteligentes (Raffle/Gacha)
+* **Sorteio Global (Pesquisa):** Botão redondo com ícone de dado (`casino`) na cor secundária do tema que escolhe uma posição de popularidade aleatória entre 1 e 2000 no AniList e abre instantaneamente os detalhes desse anime ou mangá.
+* **Sorteio Planeado (Biblioteca):** Botão de setas cruzadas (`shuffle`) no cabeçalho da biblioteca que filtra conteúdos em estado `PLANNED` (Planeado) e realiza um sorteio probabilístico ponderado por prioridade (1 a 10) e por status de publicação (75% concluídos / 25% em lançamento), abrindo automaticamente a página de detalhes correspondente.
+
 ---
 
 ## 🛠️ Arquitetura do Sistema

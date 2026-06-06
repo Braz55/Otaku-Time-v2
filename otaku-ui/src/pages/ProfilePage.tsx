@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { ChevronLeft, Database, RefreshCw, AlertCircle, User, Shield, Smartphone, Download, Upload, Copy, Check } from 'lucide-react';
-import { localDb } from '../services/localDb';
 import { API_BASE_URL } from '../config';
 import { Capacitor } from '@capacitor/core';
 import { customFetch } from '../services/apiBridge';
@@ -121,8 +120,7 @@ const ProfilePage = () => {
       setIsUpdatingPreferences(false);
     }
   };
-  const [localAnimeCount, setLocalAnimeCount] = useState(0);
-  const [localMangaCount, setLocalMangaCount] = useState(0);
+
 
   const [connectionMode, setConnectionMode] = useState<'online' | 'offline'>(() => {
     return (localStorage.getItem('otaku_connection_mode') as 'online' | 'offline') || 'online';
@@ -164,11 +162,7 @@ const ProfilePage = () => {
         throw new Error('Falha ao apagar dados no servidor.');
       }
       
-      // Atualizar contagens locais
-      const aCount = await localDb.animes.count();
-      const mCount = await localDb.mangas.count();
-      setLocalAnimeCount(aCount);
-      setLocalMangaCount(mCount);
+
       
       showToast('Biblioteca apagada com sucesso!', 'success');
       setShowWipeConfirm(false);
@@ -305,14 +299,7 @@ const ProfilePage = () => {
       setImportJsonInput('');
       setCleanRestore(false);
       
-      // Recarregar os contadores da página e atualizar as listas
-      setTimeout(async () => {
-        try {
-          const aCount = await localDb.animes.count();
-          const mCount = await localDb.mangas.count();
-          setLocalAnimeCount(aCount);
-          setLocalMangaCount(mCount);
-        } catch {}
+      setTimeout(() => {
         setShowRestoreModal(false);
         setImportSuccess(null);
       }, 2500);
@@ -367,19 +354,7 @@ const ProfilePage = () => {
     }
   };
 
-  useEffect(() => {
-    const loadCounts = async () => {
-      try {
-        const aCount = await localDb.animes.count();
-        const mCount = await localDb.mangas.count();
-        setLocalAnimeCount(aCount);
-        setLocalMangaCount(mCount);
-      } catch (err) {
-        console.error("Erro ao carregar contagens locais:", err);
-      }
-    };
-    loadCounts();
-  }, []);
+
 
   return (
     <div className="min-h-screen bg-[#0f1014] text-gray-200 p-3 sm:p-6 font-sans pb-24">
@@ -423,14 +398,6 @@ const ProfilePage = () => {
               
               {/* Storage Quick Stats */}
               <div className="flex flex-wrap justify-center sm:justify-start gap-4 pt-2">
-                <div className="flex items-center gap-2 bg-black/40 px-3.5 py-1.5 rounded-xl border border-white/5">
-                  <Database className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-bold text-gray-300">Animes: <span className="text-primary font-black">{localAnimeCount}</span></span>
-                </div>
-                <div className="flex items-center gap-2 bg-black/40 px-3.5 py-1.5 rounded-xl border border-white/5">
-                  <Database className="w-4 h-4 text-secondary" />
-                  <span className="text-xs font-bold text-gray-300">Mangas: <span className="text-secondary font-black">{localMangaCount}</span></span>
-                </div>
                 <div className="flex items-center gap-2 bg-black/40 px-3.5 py-1.5 rounded-xl border border-white/5">
                   <Smartphone className="w-4 h-4 text-emerald-400" />
                   <span className="text-xs font-bold text-gray-300">Mode: <span className="text-emerald-400 font-black">{Capacitor.isNativePlatform() ? 'Android Native' : 'Web Browser'}</span></span>
@@ -641,14 +608,7 @@ const ProfilePage = () => {
                   <span>RESTAURAR CÓPIA DE SEGURANÇA</span>
                 </button>
 
-                {/* Wipe Button */}
-                <button
-                  onClick={() => setShowWipeConfirm(true)}
-                  className="sm:col-span-2 py-3.5 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-3 shadow-xl bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-600 hover:text-white hover:border-red-600 hover:scale-[1.01] active:scale-[0.99]"
-                >
-                  <AlertCircle className="w-4 h-4" />
-                  <span>LIMPAR BIBLIOTECA (APAGAR TODOS OS PROGRESSOS)</span>
-                </button>
+
               </div>
             </div>
           </div>

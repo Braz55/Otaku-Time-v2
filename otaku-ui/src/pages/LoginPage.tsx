@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useToast } from '../context/ToastContext';
 import { LogIn, Mail, Lock, Loader2 } from 'lucide-react';
 
 import { API_BASE_URL } from '../config';
@@ -13,54 +12,9 @@ const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { login } = useAuth();
-  const { showToast } = useToast();
   const navigate = useNavigate();
 
-  // Network Diagnostics States
-  const [diagOpen, setDiagOpen] = useState(false);
-  const [diagIp, setDiagIp] = useState(() => localStorage.getItem('diag_ip') || '192.168.1.85');
-  const [diagPort, setDiagPort] = useState(() => localStorage.getItem('diag_port') || '3001');
-  const [diagStatus, setDiagStatus] = useState<{ success?: boolean; message?: string; loading?: boolean }>({});
 
-  const testarConectividade = async () => {
-    localStorage.setItem('diag_ip', diagIp);
-    localStorage.setItem('diag_port', diagPort);
-    setDiagStatus({ loading: true });
-
-    try {
-      console.log(`A tentar ligar a: http://${diagIp}:${diagPort}/teste-rede/ping`);
-      
-      const resposta = await fetch(`http://${diagIp}:${diagPort}/teste-rede/ping`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        signal: AbortSignal.timeout(5000) 
-      });
-
-      if (!resposta.ok) {
-        throw new Error(`Erro do Servidor: ${resposta.status}`);
-      }
-
-      const dados = await resposta.json();
-      setDiagStatus({ success: true, message: `LIGAÇÃO BEM SUCEDIDA! 🎉\nMensagem: ${dados.mensagem}` });
-      showToast(`LIGAÇÃO BEM SUCEDIDA! 🎉`, 'success');
-      console.log("Dados recebidos:", dados);
-
-    } catch (erro: any) {
-      let errMsg = '';
-      if (erro.name === 'TimeoutError') {
-        errMsg = "❌ O pedido expirou (Timeout). Verifique a Firewall ou Wi-Fi.";
-      } else if (erro.message && (erro.message.includes("Failed to fetch") || erro.message.includes("NetworkError"))) {
-        errMsg = "❌ Erro de Rede ou CORS. Verifique o IP do PC.";
-      } else {
-        errMsg = `❌ Erro: ${erro.message || erro}`;
-      }
-      setDiagStatus({ success: false, message: errMsg });
-      showToast(errMsg, 'error');
-      console.error("Erro de conectividade:", erro);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,64 +125,7 @@ const LoginPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="mt-6 pt-6 border-t border-gray-800/60">
-            <button
-              type="button"
-              onClick={() => setDiagOpen(!diagOpen)}
-              className="text-xs text-gray-500 hover:text-secondary transition-colors flex items-center justify-center gap-1 mx-auto"
-            >
-              <span>{diagOpen ? '▲ Fechar Diagnóstico de Rede' : '▼ Ferramenta de Diagnóstico de Rede'}</span>
-            </button>
 
-            {diagOpen && (
-              <div className="mt-4 p-4 rounded-2xl bg-[#0f1014] border border-gray-800 text-left animate-slide-up space-y-3">
-                <p className="text-xs text-gray-400 font-medium">
-                  Testa a ligação entre o telemóvel e o PC através do Wi-Fi.
-                </p>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="col-span-2 space-y-1">
-                    <label className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">IP do PC</label>
-                    <input
-                      type="text"
-                      value={diagIp}
-                      onChange={(e) => setDiagIp(e.target.value)}
-                      placeholder="192.168.1.85"
-                      className="w-full bg-[#1a1c23] border border-gray-850 rounded-lg p-2 text-xs text-gray-300 focus:outline-none focus:border-secondary"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Porta</label>
-                    <input
-                      type="text"
-                      value={diagPort}
-                      onChange={(e) => setDiagPort(e.target.value)}
-                      placeholder="3001"
-                      className="w-full bg-[#1a1c23] border border-gray-850 rounded-lg p-2 text-xs text-gray-300 focus:outline-none focus:border-secondary"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={testarConectividade}
-                  disabled={diagStatus.loading}
-                  className="w-full bg-secondary hover:bg-secondary text-white font-bold py-2 rounded-lg text-xs transition-colors flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
-                >
-                  {diagStatus.loading ? 'A testar...' : '📡 Testar Ligação Wi-Fi'}
-                </button>
-
-                {diagStatus.message && (
-                  <div className={`p-3 rounded-lg text-xs border ${
-                    diagStatus.success 
-                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
-                      : 'bg-red-500/10 border-red-500/20 text-red-400'
-                  } whitespace-pre-line`}>
-                    {diagStatus.message}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </div>

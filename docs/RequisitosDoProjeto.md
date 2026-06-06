@@ -8,7 +8,6 @@
 
 * **Descoberta e Pesquisa:**
   * O sistema deve permitir a pesquisa de Animes e Mangas por título ou filtragem por género (via API AniList).
-  * O sistema deve gerar recomendações personalizadas com recurso a IA, baseadas no histórico do utilizador ou através de *prompts* diretos (ex: "Quero um anime de desporto parecido com Haikyuu").
 
 * **Gestão de Biblioteca (Tracking):**
   * O utilizador deve poder adicionar, atualizar e remover conteúdos da sua lista pessoal.
@@ -18,7 +17,7 @@
 
 * **Painel de Informações (Detalhes):**
   * O sistema deve exibir metadados ricos para cada conteúdo: tipo, capa, sinopse, data de lançamento, número total de episódios/capítulos, e quantidade atualmente disponível.
-  * O sistema deve calcular ou extrair (via API ou LLM) as datas de lançamento de futuros episódios/capítulos.
+  * O sistema deve calcular ou extrair (via API) as datas de lançamento de futuros episódios/capítulos.
 
 * **Calendário Pessoal:**
   * O sistema deve disponibilizar uma vista de calendário que cruze os conteúdos que o utilizador está a acompanhar com as respetivas datas de lançamento de novos episódios.

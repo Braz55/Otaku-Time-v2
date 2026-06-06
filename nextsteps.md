@@ -34,3 +34,9 @@ Substituir o polling manual de background por uma ligação WebSocket persistent
 
 ### Passo 2: Estatísticas de Leitura/Visualização Avançadas
 Criar um painel de análise gráfica que resuma os géneros mais consumidos, tempo total gasto a assistir/ler e projeções de finalização do backlog atual.
+
+### Passo 3: Remoção do Chatbot de IA (Otaku Bot)
+Para evitar que utilizadores externos gastem tokens ou sobrecarreguem o servidor com chamadas à API de IA, será efetuada a limpeza completa da funcionalidade de IA:
+* **Frontend:** Remover a página de chat e respetivas rotas/ícones de navegação.
+* **Backend:** Eliminar o `ChatModule`, controllers, services e endpoints `/chat`.
+* **Base de Dados:** Limpar as tabelas `ChatSession` e `ChatMessage` do schema Prisma e base de dados.

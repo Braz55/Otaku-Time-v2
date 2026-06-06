@@ -1,52 +1,58 @@
-# 🤖 Otaku Time Pro (v2.0)
+# 🤖 Otaku Time Pro (v2.5)
 
-**O teu tracker inteligente e pessoal de Anime & Manga.**
+**O teu tracker inteligente, híbrido e offline-first de Anime & Manga.**
 
-O **Otaku Time Pro** é um ecossistema Fullstack Offline-First (desktop e telemóvel) concebido especificamente para **registares, organizares e acompanhares o progresso** de todas as obras (animes e mangas) que estás a seguir ativamente. A plataforma resolve os problemas de acompanhamento ao automatizar fusos horários de lançamentos, cruzar capítulos lançados em diferentes portais e integrar um assistente IA local que reconhece a tua lista de acompanhamento em tempo real para dar sugestões personalizadas.
+O **Otaku Time Pro** é um ecossistema completo Fullstack projetado para **registar, organizar e acompanhar o progresso** de todas as tuas obras favoritas. Com uma arquitetura moderna que combina a robustez da nuvem com a flexibilidade offline-first, podes gerir a tua biblioteca no PC ou no telemóvel Android.
+
+A plataforma automatiza fusos horários de lançamentos de episódios, rastreia capítulos em múltiplos portais e apresenta uma interface altamente personalizável e fluida.
+
+🌍 **Aplicações em Produção:**
+* **Frontend Web & API:** [https://otaku-time-v2.onrender.com](https://otaku-time-v2.onrender.com)
+* **Base de Dados:** Alojada remotamente na nuvem Neon (PostgreSQL)
 
 ---
 
-## 🚀 Principais Diferenciais e Funcionalidades
+## 🚀 Principais Funcionalidades & Novidades (v2.5)
 
-### 📱 1. Ecossistema Mobile & Offline-First (Android via Capacitor)
-* **Offline-First (Dexie DB):** O telemóvel guarda o teu progresso de animes, mangas e chats localmente via **IndexedDB (Dexie DB)**, permitindo navegação, pesquisa e gestão de biblioteca mesmo sem qualquer ligação à internet.
-* **Layout Responsivo Adaptativo:** Através de `Capacitor.isNativePlatform()`, o frontend deteta se está num dispositivo móvel e ajusta a UI dinamicamente (ocultando filtros redundantes, adaptando o calendário para ecrãs menores e otimizando a barra de pesquisa), mantendo a versão desktop intocada.
+### ☁️ 1. Ecossistema na Nuvem & Deploy Automatizado (Neon DB + Render)
+* **Base de Dados PostgreSQL (Neon DB):** Transição de SQLite local para PostgreSQL remoto, com pool de ligações otimizado e certificados SSL seguros para garantir resiliência e estabilidade.
+* **Hospedagem no Render:** O backend em NestJS e o frontend React (SPA) estão alojados no Render com integração contínua (CI/CD) ligada diretamente ao branch `main` do repositório GitHub.
 
-### 🔄 2. Sincronização Bidirecional Inteligente (Two-Way Sync)
-* **Fusão Sem Perdas:** O endpoint `/sync/twoway` no servidor NestJS recebe os dados do telemóvel e executa uma lógica inteligente de `upsert` na base de dados PostgreSQL através do Prisma, comparando o progresso mais recente (ex: maior número de episódios/capítulos lidos) e fundindo as duas bases de dados numa versão unificada que atualiza o dispositivo móvel.
-* **Múltiplos Modos de Ligação & Conectividade:** Centro de controlo configurável na página de perfil (`/profile`) com estatísticas de armazenamento local em tempo real, suporte para ligação via **Wi-Fi (Rede Local)**, **Cabo USB (ADB Reverse)** ou **Cloud Server**, e alternância dinâmica entre Modo Online (Cloud/Nuvem via PostgreSQL) e Modo Offline (Local via Dexie DB) em dispositivos Android.
+### 🔄 2. Modos Híbridos no Android (Online / Offline-First via Capacitor)
+* **Modo Online (Nuvem):** Acesso e escrita direta na base de dados centralizada no Neon DB sempre que houver internet.
+* **Modo Offline (Local via Dexie DB):** O telemóvel guarda o teu progresso localmente usando IndexedDB (Dexie DB) para navegação, pesquisa e gestão de biblioteca totalmente offline.
+* **Sincronização Bidirecional (Two-Way Sync):** Painel interativo de perfil que permite realizar uma sincronização manual e inteligente (`/sync/twoway`). O servidor NestJS recebe os itens locais e executa operações de `upsert` na nuvem PostgreSQL, fundindo dados mais recentes e sincronizando de volta para o dispositivo.
 
-### 🧠 3. Assistente de IA Local (Otaku Bot)
-* **Integração Direta com Ollama:** O assistente de recomendações foi integrado diretamente no backend NestJS (removendo a necessidade de um microserviço Python externo) e consome localmente o modelo **Llama 3.1 8B**.
-* **Recomendações Contextuais:** O bot conhece o fuso horário e a lista pessoal do utilizador, sugerindo novas obras que não estejam na sua biblioteca. Usa a API do AniList por baixo para validação semântica e devolve referências formatadas em `[REC:ID]`.
-* **Streaming SSE:** Respostas em tempo real com efeito de digitação fluida.
-* **Auto-Nomeação de Sessões:** O LLM analisa a primeira mensagem da conversa e renomeia automaticamente a sessão com um título criativo em português de 3 palavras.
+### 🎲 3. Sorteios Aleatórios Inteligentes (Gacha / Raffle)
+* **Sorteio Global (Pesquisa):** Pressiona o botão de dado (`casino`) na barra de pesquisa para sortear uma obra aleatória de popularidade (rank 1 a 2000) diretamente da API AniList.
+* **Sorteio Planeado (Biblioteca):** Pressiona o botão de setas cruzadas (`shuffle`) na biblioteca para sortear um título da lista de planeados (`PLANNED`). A seleção utiliza um algoritmo probabilístico em cascata:
+  1. *Prioridade (1 a 10):* Obras com maior prioridade/ranking têm pesos substancialmente maiores.
+  2. *Status de Publicação:* Prioriza obras terminadas (75% de chance para `FINISHED`) em detrimento de obras em lançamento (25% para `RELEASING`).
+  3. *Tentativas com Fallback:* Algoritmo resiliente com até 100 tentativas e fallback seguro.
 
-### 📚 4. Rastreio Inteligente de Mangas (Smart Chapter Sync)
-Resolve as limitações e inconsistências das APIs tradicionais com um sistema de rastreio de capítulos em três planos:
-* **Plan A (Baka-Updates):** Consulta o MangaUpdates para obter a contagem exata e detalhada de capítulos e divisórias de temporadas/especiais (essencial para Webtoons/Manhwas).
-* **Plan B (MangaDex):** Fallback robusto que realiza a pesquisa por ID AniList ou por título aproximado para obter a contagem mais recente do feed.
-* **Plan C (AniList):** Utilização da contagem de capítulos nativa da AniList para obras já finalizadas.
+### 📊 4. Dashboard de Acompanhamento Premium (To-Watch/Read)
+* **Vista Dual-Column:** Painel inicial com secções separadas para "VER ASSEGUIR" (Animes) e "LER ASSEGUIR" (Mangas).
+* **Optimistic UI:** Atualização imediata do progresso no frontend ao clicar nos botões rápidos "VISTO" ou "LIDO", sincronizando com o servidor em segundo plano para eliminar tempos de espera.
+* **Progressão Automática:** Atualização automática para o estado `WATCHING` / `READING` ao mudar o progresso de 0 para 1, e para `COMPLETED` ao atingir o último episódio/capítulo.
 
 ### 📅 5. Calendário Pessoal Dinâmico
-* **Filtro Focado:** Exibe os lançamentos agendados para os próximos 7 dias.
-* **Inteligência de Lançamento:** Mapeia apenas as obras que constam na tua lista sob o estado `RELEASING`.
-* **Fusos Horários Corretos:** Extrai o timestamp de lançamento da API AniList e converte-o automaticamente do horário do Japão (JST) para o teu fuso horário local.
+* Mapeia os lançamentos futuros apenas das obras em estado `RELEASING` presentes na tua lista pessoal.
+* Converte automaticamente os timestamps de lançamento originais (Japan Standard Time - JST) obtidos via API AniList para o fuso horário local do utilizador.
 
-### 📊 6. Dashboard de Acompanhamento Premium (To-Watch/Read)
-* **Vista Dual-Column:** Separadores dedicados para "VER ASSEGUIR" (Animes) e "LER ASSEGUIR" (Mangas).
-* **Optimistic UI:** Atualiza o progresso visualmente no frontend de forma imediata ao clicar nos botões rápidos "Visto" ou "Lido", processando a sincronização com o servidor em segundo plano.
-* **Progressão Inteligente:**
-  * **Auto-Start:** Mudar o progresso de `0` para `1` altera o estado automaticamente para `WATCHING`.
-  * **Auto-Complete:** Ao atingir o último capítulo/episódio disponível, o estado é atualizado automaticamente para `COMPLETED`.
+### 📚 6. Rastreio de Capítulos Triplo (Manga)
+Resolve inconsistências de portais externos através de um sistema de 3 camadas:
+* **Plan A (Baka-Updates):** Consulta o MangaUpdates para obter a contagem exata e divisórias de temporadas/especiais.
+* **Plan B (MangaDex):** Fallback inteligente com pesquisa por ID AniList ou título aproximado.
+* **Plan C (AniList):** Fallback final para obras concluídas.
 
-### 🎨 7. Personalização e Temas Visuais Premium
-* **Modo Escuro & Claro:** Interface adaptada para ambos os contrastes (Dark/Light Mode) com transições suaves e tipografia moderna.
-* **Paletas de Cores Temáticas:** Seletor com 6 paletas cromáticas inspiradas em universos otaku e plataformas populares: Roxo Clássico (Padrão), Laranja Shounen (Crunchyroll), Vermelho Akatsuki (Naruto), Verde Mutsu (Mushi-Shi), Roxo Solo Leveling e Azul Visionário (AniList).
+### 🎨 7. Temas Visuais & Definições do Perfil
+* Interface moderna com suporte total a **Modo Escuro (Dark)** e **Modo Claro (Light)** com transições de CSS limpas.
+* Seletor de **6 paletas de cores cromáticas**: Roxo Clássico (Padrão), Laranja Shounen (Crunchyroll), Vermelho Akatsuki (Naruto), Verde Mutsu (Mushi-Shi), Roxo Solo Leveling e Azul Visionário (AniList).
+* Gestão de preferências do utilizador diretamente no Perfil: idioma preferido (Português/Inglês) e filtro de conteúdos para adultos (NSFW).
 
-### 🎲 8. Sorteios Aleatórios Inteligentes (Raffle/Gacha)
-* **Sorteio Global (Pesquisa):** Botão redondo com ícone de dado (`casino`) na cor secundária do tema que escolhe uma posição de popularidade aleatória entre 1 e 2000 no AniList e abre instantaneamente os detalhes desse anime ou mangá.
-* **Sorteio Planeado (Biblioteca):** Botão de setas cruzadas (`shuffle`) no cabeçalho da biblioteca que filtra conteúdos em estado `PLANNED` (Planeado) e realiza um sorteio probabilístico ponderado por prioridade (1 a 10) e por status de publicação (75% concluídos / 25% em lançamento), abrindo automaticamente a página de detalhes correspondente.
+### 📱 8. Correção de Ecrã Preto & Compatibilidade Android
+* **Compatibilidade ES2020:** O build do frontend Vite e TypeScript foi ajustado para `es2020`, garantindo total compatibilidade com WebViews do Android mais antigos.
+* **Cache-Busting & Loader:** Adicionado um script de interceção em `index.html` para limpar recursos estáticos obsoletos guardados em cache após novas atualizações e um ecrã de carregamento animado premium.
 
 ---
 
@@ -54,39 +60,50 @@ Resolve as limitações e inconsistências das APIs tradicionais com um sistema 
 
 ```mermaid
 flowchart TD
-    subgraph Cliente ["Frontend & App Móvel"]
-        A["Interface React + Tailwind"] ---|"Offline Cache"| B[(Dexie DB - IndexedDB)]
-        A -->|"Empacotamento Mobile"| C["Capacitor - Android App"]
+    subgraph Nuvem ["Nuvem & Produção (Render + Neon)"]
+        FE_Render["Frontend (Render SPA) \n otaku-time-v2.onrender.com"]
+        BE_Render["Backend (Render Web Service) \n api-otaku-time"]
+        DB_Neon[(PostgreSQL - Neon DB)]
     end
+
+    subgraph Dispositivo ["Cliente Local (Web & Mobile)"]
+        Browser["Navegador Web (Desktop/Mobile)"]
+        Capacitor["App Android (Capacitor)"]
+        LocalDB[(Dexie DB - IndexedDB)]
+    end
+
+    subgraph Fontes_Externas ["Fontes de Dados & Metadados"]
+        AniList["AniList GraphQL API"]
+        BakaUpdates["Baka-Updates API"]
+        MangaDex["MangaDex API"]
+    end
+
+    %% Relações de comunicação
+    Browser -->|Acede| FE_Render
+    Capacitor -->|Carrega WebView| LocalDB
     
-    subgraph Servidor ["Backend Server (Render Cloud)"]
-        D["Servidor NestJS"] ---|"Prisma ORM"| E[(PostgreSQL - Neon DB)]
-        D ---|"LLM Local: API Generate"| F["Ollama - Llama 3.1 8B"]
-    end
-
-    subgraph APIs ["APIs & Fontes Externas"]
-        G["AniList GraphQL API"]
-        H["Baka-Updates API"]
-        I["MangaDex API"]
-    end
-
-    A ---|"REST API / SSE / Two-Way Sync / Cloud Sync"| D
-    D -->|"Metadados & Lançamentos"| G
-    D -->|"Capítulos & Temporadas"| H
-    D -->|"Fallback de Capítulos"| I
+    FE_Render -->|Pedidos REST| BE_Render
+    Browser -->|Pedidos REST| BE_Render
+    Capacitor -->|Sincronização & Cloud Sync| BE_Render
+    
+    BE_Render ---|"Prisma ORM"| DB_Neon
+    
+    BE_Render -->|Metadados & Lançamentos| AniList
+    BE_Render -->|Capítulos & Temporadas| BakaUpdates
+    BE_Render -->|Fallback de Capítulos| MangaDex
 ```
 
 ### Tecnologias Utilizadas
 
 | Camada | Tecnologia | Descrição |
 | :--- | :--- | :--- |
-| **Backend** | NestJS (v11) | Framework progressivo em Node.js com TypeScript alojado no Render |
-| **BD & ORM** | Prisma + PostgreSQL & IndexedDB | Banco de dados PostgreSQL (Neon DB) na nuvem e SQLite/IndexedDB (Dexie DB) no telemóvel |
-| **Frontend** | React + Vite + TailwindCSS | Interface veloz, responsiva e com estilização moderna com suporte multi-tema |
-| **Offline-First** | Dexie DB | Wrapper do IndexedDB para armazenamento no telemóvel no Modo Offline |
-| **Mobile** | Capacitor | Empacotamento híbrido de alto desempenho para Android com alternador Online/Offline |
-| **IA Engine** | Ollama / Llama 3.1 | Motor local para geração de texto e processamento de linguagem natural |
-| **Data Sources** | AniList / MangaUpdates / MangaDex | APIs integradas de catálogo, agenda e capítulos de manga |
+| **Backend** | NestJS (v11) | Framework progressivo em Node.js com TypeScript, hospedado no Render |
+| **Base de Dados** | PostgreSQL (Neon DB) | Base de dados na nuvem com pooling de conexões e SSL ativo |
+| **ORM** | Prisma (v7) | Mapeamento relacional de dados e migrações eficientes |
+| **Frontend** | React (v19) + Vite + TailwindCSS (v4) | Interface veloz com sistema de temas, hook `useIsMobile` e CSS moderno |
+| **Offline-First** | Dexie DB | Wrapper do IndexedDB para gerir armazenamento local de alta velocidade em mobile |
+| **Mobile** | Capacitor (v8) | Empacotamento híbrido para Android WebView com target ES2020 |
+| **APIs** | AniList / MangaUpdates / MangaDex | Integrações externas para consulta de metadados, calendário e capítulos |
 
 ---
 
@@ -102,9 +119,9 @@ classDiagram
         +String preferredLanguage
         +String theme
         +Boolean showAdultContent
+        +Int tokenVersion
         +UserAnime[] animes
         +UserManga[] mangas
-        +ChatSession[] sessions
     }
 
     class Anime {
@@ -161,28 +178,10 @@ classDiagram
         +DateTime updatedAt
     }
 
-    class ChatSession {
-        +Int id
-        +String titulo
-        +DateTime createdAt
-        +DateTime updatedAt
-        +Int userId
-    }
-
-    class ChatMessage {
-        +Int id
-        +String role
-        +String content
-        +DateTime createdAt
-        +Int sessionId
-    }
-
     User "1" --> "*" UserAnime : possui
     User "1" --> "*" UserManga : possui
-    User "1" --> "*" ChatSession : possui
     Anime "1" --> "*" UserAnime : associado
     Manga "1" --> "*" UserManga : associado
-    ChatSession "1" --> "*" ChatMessage : contém
 ```
 
 ---
@@ -191,97 +190,118 @@ classDiagram
 
 ```bash
 Otaku-Time-v2/
-├── prisma/                  # Configuração do PostgreSQL e Schema de tabelas do Prisma
-│   └── schema.prisma        # Modelo relacional principal
+├── prisma/                  # Configuração do PostgreSQL (Neon) e Schema do Prisma
+│   └── schema.prisma        # Definição das tabelas relacionais
 ├── src/                     # Backend NestJS
-│   ├── anime/               # Módulo de importação e sincronização com AniList
-│   ├── manga/               # Módulo de integração (Baka-Updates, MangaDex, AniList)
-│   ├── chat/                # Serviço de IA local (Ollama + Llama 3.1)
-│   ├── sync/                # Endpoint de Sincronização Bidirecional (/sync/twoway)
-│   └── user/ & auth/        # Gestão de utilizadores e autenticação JWT
-├── otaku-ui/                # Frontend React + Vite + Capacitor
-│   ├── android/             # Projeto nativo gerado pelo Capacitor para Android Studio
+│   ├── anime/               # Metadados e calendário da AniList
+│   ├── manga/               # Integração Baka-Updates, MangaDex e AniList
+│   ├── sync/                # Lógica de sincronização bidirecional (/sync/twoway)
+│   └── user/ & auth/        # Gestão de utilizadores (login sem necessidade de email)
+├── otaku-ui/                # Frontend React + Vite + Capacitor (Tailwind v4)
+│   ├── android/             # Projeto nativo Android compilado pelo Capacitor
 │   ├── src/                 
-│   │   ├── pages/           # Dashboard (Home), Biblioteca, Chat, Calendário e Perfil
+│   │   ├── pages/           # Dashboard, Biblioteca, Calendário, Perfil e Detalhes
 │   │   ├── services/        
-│   │   │   ├── apiBridge.ts # Comunicação dinâmica entre servidor/telemóvel e offline
-│   │   │   └── localDb.ts   # Esquema do banco de dados local móvel (Dexie DB)
-│   │   └── context/         # Estados globais de navegação e biblioteca
-│   └── capacitor.config.ts  # Configuração de portas e builds do Capacitor
+│   │   │   ├── apiBridge.ts # Comunicação entre API, SQLite local e Dexie DB
+│   │   │   └── localDb.ts   # Esquema local Dexie DB do IndexedDB
+│   │   └── context/         # Estados globais de categoria, temas e navegação
+│   └── capacitor.config.ts  # Definições de compilação móvel do Capacitor
 ```
 
 ---
 
-## 🛠️ Passo a Passo de Configuração
+## 🛠️ Instalação e Configuração Local
 
 ### Requisitos Prévios
 * **Node.js** (v18 ou superior)
-* **Ollama** configurado com o modelo `llama3.1` (a correr em `http://localhost:11434`)
-* **Android Studio** (apenas para builds e deploys móveis com Capacitor)
+* **Android Studio** (para compilação e teste móvel)
 
-### 1. Configurar o Servidor (Backend)
+---
+
+### 1. Configurar o Servidor (Backend NestJS)
+
 Na pasta raiz do projeto:
 
-1. Instalar as dependências:
+1. **Instalar dependências:**
    ```bash
    npm install
    ```
-2. Garantir que o ficheiro `.env` está na raiz com a variável de ambiente `DATABASE_URL` configurada com a string de ligação da base de dados PostgreSQL (ex: Neon DB ou PostgreSQL local):
+2. **Configurar o ficheiro `.env`:**
+   Cria um ficheiro `.env` na raiz do projeto com as seguintes variáveis:
    ```env
    DATABASE_URL="postgresql://utilizador:password@ep-cold-surf.eu-central-1.aws.neon.tech/otakutime?sslmode=require"
+   JWT_SECRET="tua_chave_secreta_aqui"
    ```
-3. Inicializar e aplicar o esquema na base de dados:
+3. **Gerar o Prisma Client:**
+   ```bash
+   npx prisma generate
+   ```
+4. **Aplicar ou sincronizar o Schema com a Base de Dados:**
    ```bash
    npx prisma db push
    ```
-4. Arrancar o servidor backend (corre em `http://localhost:3001`):
+5. **Iniciar o backend em modo de desenvolvimento:**
    ```bash
    npm run start:dev
    ```
+   *O backend ficará disponível em `http://localhost:3001`.*
+
+---
 
 ### 2. Configurar o Cliente (Frontend React)
+
 Navegar para a pasta `otaku-ui`:
 
-1. Instalar as dependências:
+1. **Instalar dependências:**
    ```bash
    cd otaku-ui
    npm install
    ```
-2. Iniciar o servidor de desenvolvimento Vite (corre em `http://localhost:5173`):
+2. **Configurar o ficheiro `.env` no Frontend (opcional):**
+   Podes criar um `.env` dentro da pasta `otaku-ui` ou deixar que use o fallback predefinido no ficheiro `src/config.ts`:
+   ```env
+   VITE_API_URL="http://localhost:3001"
+   ```
+3. **Iniciar o servidor Vite:**
    ```bash
    npm run dev
    ```
+   *O frontend ficará disponível em `http://localhost:5173`.*
+
+---
 
 ### 3. Configurar a Aplicação Móvel (Android/Capacitor)
-Para compilar e correr a app móvel diretamente no telemóvel/emulador:
 
-1. Construir os estáticos do React:
+Para compilar e depurar a aplicação móvel:
+
+1. **Gerar a pasta de build do React:**
    ```bash
+   cd otaku-ui
    npm run build
    ```
-2. Sincronizar os ficheiros compilados com a pasta nativa de Android:
+2. **Sincronizar a build com o projeto Android:**
    ```bash
    npx cap sync
    ```
-3. Abrir o projeto no Android Studio para emular ou criar o ficheiro APK:
+3. **Abrir o Android Studio para compilar/emular:**
    ```bash
    npx cap open android
    ```
-   *Nota: Se estiver a depurar via cabo USB no telemóvel físico, utilize o comando `adb reverse tcp:3001 tcp:3001` para que a aplicação móvel consiga aceder ao servidor backend a correr na sua máquina local.*
+4. **Configurar o ADB Reverse para ligação ao Servidor Local:**
+   Se estiveres a depurar no teu telemóvel físico via cabo USB, corre o comando abaixo no terminal da tua máquina de desenvolvimento para permitir que o telemóvel envie pedidos para o teu servidor local:
+   ```bash
+   adb reverse tcp:3001 tcp:3001
+   ```
 
 ---
 
 ## 💡 Comandos Úteis
 
-* **Ver a Base de Dados (Interface Visual):**
+* **Visualizar a Base de Dados (Interface Web Prisma Studio):**
   ```bash
   npx prisma studio
   ```
-* **Aplicar Alterações de Schema na BD (Prisma):**
+* **Aplicar alterações manuais ao Schema da Base de Dados:**
   ```bash
   npx prisma db push
-  ```
-* **Arrancar o Ollama com o modelo correto:**
-  ```bash
-  ollama run llama3.1
   ```

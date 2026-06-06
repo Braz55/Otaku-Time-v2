@@ -16,11 +16,16 @@
 - [ ] **Notificações de Dashboard:** Criar um sistema de alertas no dashboard para avisar o utilizador quando houver capítulos novos de mangas da sua lista.
 
 ## 🔮 Fase 3: Próximas Funcionalidades Planeadas
-- [ ] **Sorteio Probabilístico Inteligente para Ler/Ver (Raffle):**
+- [x] **Sorteio Probabilístico Inteligente para Ler/Ver (Raffle):**
   - Implementação de um botão no dashboard para sortear a próxima leitura/visualização da biblioteca do utilizador.
   - Ponderação probabilística em duas etapas:
     1. **Probabilidade de Estado:** Escolha entre obra terminada e não terminada (a probabilidade de sorteio de algo terminado é substancialmente menor, ex: 5%).
     2. **Peso de Prioridade:** Obras com maior prioridade/ranking pessoal recebem pesos significativamente superiores no sorteio (ex: $peso = prioridade^2$).
+- [ ] **Remoção Completa do Chatbot de IA (Otaku Bot):**
+  - Limpeza total do código de inteligência artificial para evitar gastos de tokens e chamadas externas desnecessárias em produção.
+  - Remover componentes frontend (Chat page, rotas, botões de acesso).
+  - Remover endpoints backend (`/chat`, `ChatModule`, `ChatController`, `ChatService`).
+  - Eliminar tabelas de chat no Prisma schema (`ChatSession`, `ChatMessage`).
 
 ## ✅ Concluído Recentemente
 - [x] **Otimização Android Native:** Remoção de filtros de género em mobile via `Capacitor.isNativePlatform()`.

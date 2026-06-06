@@ -12,6 +12,7 @@ const RegisterPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -19,6 +20,7 @@ const RegisterPage: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccessMessage('');
 
     try {
       const response = await customFetch(`${API_BASE_URL}/auth/register`, {
@@ -30,8 +32,15 @@ const RegisterPage: React.FC = () => {
       const data = await response.json();
 
       if (response.ok) {
-        login(data.access_token, data.user);
-        navigate('/');
+        if (data.requiresVerification) {
+          setSuccessMessage(data.message || 'Conta criada! Por favor, verifica o teu email para a ativares.');
+          setNome('');
+          setEmail('');
+          setPassword('');
+        } else {
+          login(data.access_token, data.user);
+          navigate('/');
+        }
       } else {
         setError(data.message || 'Error creating account');
       }
@@ -66,6 +75,12 @@ const RegisterPage: React.FC = () => {
             {error && (
               <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-sm">
                 {error}
+              </div>
+            )}
+
+            {successMessage && (
+              <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-3 rounded-xl text-sm whitespace-pre-line">
+                {successMessage}
               </div>
             )}
 

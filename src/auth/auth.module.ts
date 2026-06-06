@@ -5,11 +5,13 @@ import { UserModule } from '../user/user.module';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { EmailModule } from './email.module';
 
 @Module({
   imports: [
     UserModule,
     PassportModule,
+    EmailModule,
     JwtModule.register({
       secret: 'SECRET_KEY', // Em produção, usar variável de ambiente
       signOptions: { expiresIn: '1d' },

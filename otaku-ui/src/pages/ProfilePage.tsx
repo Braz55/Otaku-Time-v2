@@ -32,6 +32,7 @@ const ProfilePage = () => {
   const [newName, setNewName] = useState(user?.nome || '');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [isSavingAccount, setIsSavingAccount] = useState(false);
 
   // Sync newName when user object is loaded
@@ -44,9 +45,15 @@ const ProfilePage = () => {
   const handleSaveAccountInfo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
-    if (newPassword && newPassword !== confirmPassword) {
-      showToast('As palavras-passe não coincidem!', 'warning');
-      return;
+    if (newPassword) {
+      if (!currentPassword) {
+        showToast('A palavra-passe atual é obrigatória para definir uma nova!', 'warning');
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        showToast('As novas palavras-passe não coincidem!', 'warning');
+        return;
+      }
     }
     setIsSavingAccount(true);
     try {
@@ -56,6 +63,7 @@ const ProfilePage = () => {
       }
       if (newPassword) {
         updateData.password = newPassword;
+        updateData.currentPassword = currentPassword;
       }
 
       if (Object.keys(updateData).length === 0) {
@@ -70,12 +78,21 @@ const ProfilePage = () => {
         body: JSON.stringify(updateData)
       });
       if (res.ok) {
-        updateUser(updateData);
+        if (updateData.password) {
+          showToast('Palavra-passe alterada com sucesso! A iniciar sessão novamente...', 'success');
+          setTimeout(() => {
+            logout();
+          }, 2000);
+        } else {
+          updateUser(updateData);
+          showToast('Dados da conta atualizados com sucesso!', 'success');
+        }
         setNewPassword('');
         setConfirmPassword('');
-        showToast('Dados da conta atualizados com sucesso!', 'success');
+        setCurrentPassword('');
       } else {
-        showToast('Falha ao atualizar dados da conta.', 'error');
+        const errData = await res.json().catch(() => ({}));
+        showToast(errData.message || 'Falha ao atualizar dados da conta.', 'error');
       }
     } catch (err: any) {
       showToast(`Erro: ${err.message || err}`, 'error');
@@ -661,6 +678,16 @@ const ProfilePage = () => {
                     <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Email Address</label>
                     <p className="text-base font-bold text-gray-500 bg-black/20 p-3 rounded-xl border border-white/5 cursor-not-allowed select-none">{user?.email || 'enthusiast@otakutime.com'}</p>
                   </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Palavra-passe Atual</label>
+                    <input 
+                      type="password" 
+                      value={currentPassword} 
+                      onChange={(e) => setCurrentPassword(e.target.value)} 
+                      className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-primary outline-none transition-all"
+                      placeholder="Preenche apenas se pretenderes alterar a palavra-passe"
+                    />
+                  </div>
                   <div className="space-y-2">
                     <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Nova Palavra-passe</label>
                     <input 
@@ -668,7 +695,7 @@ const ProfilePage = () => {
                       value={newPassword} 
                       onChange={(e) => setNewPassword(e.target.value)} 
                       className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-primary outline-none transition-all"
-                      placeholder="Preencher apenas para alterar"
+                      placeholder="Nova palavra-passe"
                     />
                   </div>
                   <div className="space-y-2">

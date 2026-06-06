@@ -1,10 +1,11 @@
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { UserService } from '../../user/user.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor() {
+  constructor(private readonly userService: UserService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -13,6 +14,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
+    const user = await this.userService.findOne(payload.sub);
+    
+    if (!user) {
+      throw new UnauthorizedException('Utilizador não encontrado.');
+    }
+    if (!user.isVerified) {
+      throw new UnauthorizedException('Email não verificado. Por favor, verifica o teu email.');
+    }
+    if (user.tokenVersion !== payload.tokenVersion) {
+      throw new UnauthorizedException('Sessão expirada. Por favor, inicia sessão novamente.');
+    }
+
     return { userId: payload.sub, email: payload.email };
   }
 }

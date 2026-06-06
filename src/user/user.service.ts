@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class UserService {
@@ -9,10 +10,16 @@ export class UserService {
 
   async create(createUserDto: CreateUserDto) {
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+
     return this.prisma.user.create({
       data: {
         ...createUserDto,
         password: hashedPassword,
+        verificationToken,
+        verificationTokenExpires,
+        isVerified: false,
       },
     });
   }
@@ -36,7 +43,20 @@ export class UserService {
   async update(id: number, updateDto: any) {
     const data = { ...updateDto };
     if (data.password) {
+      if (!data.currentPassword) {
+        throw new BadRequestException('A palavra-passe atual é obrigatória para definir uma nova.');
+      }
+      const user = await this.prisma.user.findUnique({ where: { id } });
+      if (!user) {
+        throw new BadRequestException('Utilizador não encontrado.');
+      }
+      const isMatch = await bcrypt.compare(data.currentPassword, user.password);
+      if (!isMatch) {
+        throw new BadRequestException('A palavra-passe atual está incorreta.');
+      }
       data.password = await bcrypt.hash(data.password, 10);
+      data.tokenVersion = user.tokenVersion + 1;
+      delete data.currentPassword;
     }
     return this.prisma.user.update({
       where: { id },
@@ -282,5 +302,27 @@ export class UserService {
     await this.prisma.userAnime.deleteMany({ where: { userId } });
     await this.prisma.userManga.deleteMany({ where: { userId } });
     return { success: true, message: 'Library cleared successfully' };
+  }
+
+  async findByVerificationToken(token: string) {
+    return this.prisma.user.findFirst({
+      where: {
+        verificationToken: token,
+        verificationTokenExpires: {
+          gt: new Date(),
+        },
+      },
+    });
+  }
+
+  async verifyUser(id: number) {
+    return this.prisma.user.update({
+      where: { id },
+      data: {
+        isVerified: true,
+        verificationToken: null,
+        verificationTokenExpires: null,
+      },
+    });
   }
 }

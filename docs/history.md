@@ -139,3 +139,25 @@ Finalizámos a experiência móvel no Android e preparámos toda a infraestrutur
 ## 3. Motor de Sincronização Bidirecional (Backend NestJS)
 *   **Endpoint de Sincronização:** Criação da rota `POST /sync/twoway` no `SyncController`.
 *   **Fusão Inteligente (Merge):** O `SyncService` analisa os itens offline enviados pelo telemóvel, utiliza operações de `upsert` no Prisma para atualizar o catálogo global e o progresso do utilizador sem duplicação de dados, e devolve a base de dados perfeitamente combinada para atualizar o armazenamento local do telemóvel.
+
+# ☁️ Atualização: Nuvem PostgreSQL, Deploy Render & Temas Premium [2026-06-06]
+
+Concluímos a transição de um ecossistema estritamente local para um ambiente moderno em nuvem com alta capacidade de personalização.
+
+## 1. Migração para PostgreSQL (Prisma)
+*   **Nuvem Ativa:** Atualizámos o provider do Prisma para PostgreSQL no `schema.prisma` e realizámos a migração dos dados locais. A base de dados principal é agora alojada remotamente no **Neon DB**.
+*   **Configuração Resiliente:** Configuração de pool de conexões com suporte a certificados SSL auto-assinados, garantindo estabilidade e proteção nos acessos.
+
+## 2. Deploy em Produção (Render)
+*   **Backend Autónomo:** O backend NestJS está hospedado no **Render**, configurado com integração contínua (CI/CD) a partir do branch `main` do repositório GitHub.
+*   **Robustez no Build:** Scripts de postinstall configurados para gerar automaticamente o Prisma Client durante a compilação remota, eliminando falhas de deploy.
+
+## 3. Modos Híbridos de Ligação no Android
+*   **Online vs Offline:** Adicionada uma nova secção de definições na página de Perfil (`/profile`) permitindo alternar dinamicamente o comportamento no telemóvel:
+    *   **Modo Online (Nuvem):** Acesso e escrita direta na base de dados centralizada na nuvem.
+    *   **Modo Offline (Local):** Gravação offline local via IndexedDB/Dexie DB, permitindo sincronização manual posterior.
+
+## 4. Personalização Avançada & Temas Premium
+*   **Modo Claro (Light Mode):** Criação de um tema claro para toda a interface gráfica do projeto, oferecendo melhor usabilidade em ambientes iluminados.
+*   **Seletor de Paleta Cromática:** Adicionados 6 temas cromáticos distintos para os destaques e botões da UI (Roxo Clássico, Laranja Shounen, Vermelho Akatsuki, Verde Mutsu, Roxo Solo Leveling e Azul Visionário).
+*   **Preferências do Utilizador:** Adicionado suporte no perfil para gerir idioma preferido (Português/Inglês) e controlo de exibição de conteúdo adulto (NSFW).

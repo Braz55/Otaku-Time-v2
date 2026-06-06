@@ -1,26 +1,39 @@
 # Próximos passos de implementação/futuras funcionalidades
 
-## Passo 1: A Base de Dados na Nuvem (PostgreSQL)
-Abandonar o SQLite (que guarda tudo num ficheiro local) e passar para o PostgreSQL. Como estás a usar o Prisma, a mudança de código é quase nula (só mudas o `provider` no `schema.prisma`).
+## ✅ Concluído (Fases Anteriores)
 
-* **Onde alojar:** Usas o Supabase ou o Neon DB.
-* **Como funciona:** Crias uma conta gratuita e eles dão-te um link de ligação (uma Connection String), algo do género: `postgresql://pedro:password@ep-cold-surf.eu-central-1.aws.neon.tech/otakutime`. Colocas isso no teu ficheiro `.env` (variável `DATABASE_URL`) e já está! A base de dados passa a estar na nuvem.
+### 1. Base de Dados na Nuvem (PostgreSQL)
+Migração concluída com sucesso do SQLite local para o PostgreSQL alojado na nuvem (através do Neon DB). O schema do Prisma foi configurado para utilizar o provider `postgresql` e o pool de conexões foi ajustado.
 
-## Passo 2: O Servidor Backend (NestJS)
-O teu código NestJS precisa de estar a correr num servidor para ouvir os pedidos da tua app.
+### 2. Alojamento do Servidor Backend (NestJS)
+O backend em NestJS está a correr no Render ([render.com](https://render.com)) de forma totalmente automatizada (deploy automático a cada `git push` no branch `main`).
 
-* **Onde alojar:** Usas o Render ([render.com](https://render.com)) ou o Railway ([railway.app](https://railway.app)).
-* **Como funciona:** Ligas a plataforma ao teu repositório do GitHub. O Render vai ler o teu código NestJS e colocar o servidor no ar automaticamente. Ele dá-te um link público e seguro, por exemplo: `https://api-otakutime.onrender.com`.
-* **A Magia:** Sempre que fizeres um `git push` com código novo no GitHub, o Render reconstrói e atualiza o servidor sozinho!
-
-## Passo 3: O Frontend e a App Android
-Agora que o teu backend e a base de dados estão a viver na internet, o resto é super fácil.
-
-* **No teu site Web:** Podes alojar a parte visual (React) gratuitamente na Vercel ou no Netlify.
-* **Na tua App Android (Capacitor):** Vais ao código onde antes tinhas `http://192.168.1.85:3001` (ou outro IP local) e trocas pela tua nova API online (ex: `https://api-otakutime.onrender.com`).
-* **O Resultado:** Quer estejas no ginásio em Vila Real com 5G, quer estejas num café no Porto, a app fala sempre com a nuvem de forma instantânea. Mudas de telemóvel? É só instalar a app, os dados estão todos seguros na nuvem!
+### 3. Frontend Multi-Tema & App Android
+O frontend React foi enriquecido com suporte para múltiplos temas e paletas de cores. A aplicação móvel em Android (via Capacitor) agora inclui um alternador no ecrã de Perfil para escolher dinamicamente entre o **Modo Online (Nuvem)** direto e o **Modo Offline (IndexedDB/Dexie DB)** local.
 
 ---
 
-> [!NOTE]
-> Esta transição do "funciona no meu PC" para "funciona na internet para qualquer pessoa" é o que vai dar um peso gigante ao teu portefólio para as candidaturas de mestrado. É o selo de qualidade de que sabes levar um projeto até ao fim.
+## 🔮 Próximos Passos (Planeamento)
+
+### Passo 1: Funcionalidade de Sorteio Inteligente para Leitura / Visualização (Raffle Probabilístico)
+Com o aumento da biblioteca pessoal, os utilizadores acumulam muitas obras no backlog. Esta funcionalidade visa sortear aleatoriamente o próximo anime ou mangá que o utilizador deve ver ou ler, mas de forma inteligente e probabilística em vez de puro acaso.
+
+#### 🎲 Regras e Lógica de Probabilidade do Sorteio:
+1. **Filtro de Estado (Terminado vs Não Terminado):**
+   - Primeiro, o sistema calcula a probabilidade de escolher entre algo terminado e não terminado.
+   - A probabilidade de escolher algo já concluído (`COMPLETED`) deve ser **muito menor** (ex: 5% a 10%), apenas para incentivar re-leitura/re-visualização ocasional. A maior probabilidade deve recair sobre obras não concluídas (ex: `PLANNED`, `WATCHING`, `PAUSED`).
+2. **Prioridade & Ranking (Pesos Proporcionais):**
+   - Depois de determinar a categoria (concluída ou não), o sistema atribui pesos probabilísticos com base na **Prioridade (1 a 10)** de cada obra na lista do utilizador.
+   - Obras com prioridade maior devem ter uma probabilidade proporcionalmente muito superior de serem selecionadas do que obras com prioridade menor.
+   - *Exemplo de cálculo de peso:* $Peso = Prioridade^2$, garantindo que itens com prioridade 10 se destaquem significativamente face a itens de prioridade 1.
+3. **Outros Ajustes Probabilísticos (Opcional):**
+   - **Tempo de abandono:** Dar maior peso a obras não atualizadas ou não abertas há mais tempo para ajudar a limpar o backlog.
+
+#### 🛠️ Sugestão de Implementação:
+- **Servidor (NestJS):** Endpoint `GET /media/draw` que calcula os pesos baseados na lista atual de animes/mangás do utilizador e escolhe a obra através de um algoritmo de amostragem ponderada.
+- **Frontend (React):** Botão interativo no dashboard ("Sorteio da Sorte") que exibe uma roleta animada antes de mostrar os detalhes do conteúdo selecionado.
+
+---
+
+### Passo 2: Sincronização WebSockets em Tempo Real
+Substituir o polling manual de background por uma ligação WebSocket persistente (via Socket.io no NestJS) para atualizar o progresso entre o telemóvel e o PC instantaneamente sempre que houver conexão.

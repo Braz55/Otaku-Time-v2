@@ -7,7 +7,7 @@ import { format, isSameDay, startOfToday, addDays, eachDayOfInterval } from 'dat
 import { enUS } from 'date-fns/locale';
 import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
-import { Capacitor } from '@capacitor/core';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 interface AiringAnime {
   id: number;
@@ -25,6 +25,7 @@ const CalendarPage = () => {
   const [items, setItems] = useState<AiringAnime[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(startOfToday());
+  const isMobile = useIsMobile();
 
   const days = eachDayOfInterval({
     start: startOfToday(),
@@ -95,7 +96,7 @@ const CalendarPage = () => {
         <div className="flex gap-1.5 sm:gap-4 mb-6 sm:mb-12 overflow-x-auto pb-2 sm:pb-4 scrollbar-hide w-full max-w-full px-1">
           {days.map((day) => {
             const isSelected = isSameDay(day, selectedDate);
-            return Capacitor.isNativePlatform() ? (
+            return isMobile ? (
               /* VERSÃO ANDROID NATIVA: Botões mais compactos para caberem perfeitamente no ecrã mobile sem expandir limites */
               <button
                 key={day.toString()}

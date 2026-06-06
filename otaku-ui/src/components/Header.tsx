@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Capacitor } from '@capacitor/core';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 interface HeaderProps {
   categoria: 'anime' | 'manga';
@@ -13,10 +13,11 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   return (
     <>
-      {Capacitor.isNativePlatform() ? (
+      {isMobile ? (
         <header className="sticky top-0 z-50 w-full flex flex-col shadow-2xl border-b border-white/10 bg-background">
           {/* Barra de Cima com pt-10 para evitar colisão com a barra de notificações do Android */}
           <div className="w-full hero-gradient px-4 pt-10 pb-3 flex justify-between items-center border-b border-white/5 bg-surface/40 backdrop-blur-xl">

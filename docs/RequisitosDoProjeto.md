@@ -2,8 +2,9 @@
 
 ## 🎯 Requisitos Funcionais (O que o sistema faz)
 
-* **Autenticação e Perfil:**
+* **Autenticação, Perfil e Preferências:**
   * O utilizador deve poder criar conta, fazer login e gerir a sua sessão de forma segura.
+  * O utilizador deve poder configurar preferências diretamente no seu perfil, incluindo idioma da interface (PT/EN), tema visual (Claro/Escuro), paletas de cores personalizadas e filtragem de conteúdo NSFW (adulto).
 
 * **Descoberta e Pesquisa:**
   * O sistema deve permitir a pesquisa de Animes e Mangas por título ou filtragem por género (via API AniList).
@@ -26,8 +27,9 @@
   * A aplicação deve funcionar nativamente em dispositivos móveis (Android via Capacitor) com armazenamento local (Dexie DB/IndexedDB) para garantir navegação fluida em modo offline.
   * O sistema deve suportar renderização condicional para otimizar o ecrã móvel (ex: ocultação de filtros de género redundantes na pesquisa), mantendo a integridade da versão Web para PC.
 
-* **Sincronização Bidirecional (Two-Way Sync):**
+* **Sincronização Bidirecional (Two-Way Sync) e Modos de Ligação:**
   * O sistema deve permitir a fusão inteligente de dados entre o armazenamento local móvel e a base de dados principal do servidor via Wi-Fi, Cabo USB ou Cloud.
+  * O utilizador móvel deve poder alternar ativamente entre o **Modo Online (Nuvem)** (ligação direta e em tempo real à base de dados PostgreSQL no Render/Neon DB) e o **Modo Offline (Local)** (guardar os dados localmente no Dexie DB).
 
 ## ⚙️ Requisitos Não Funcionais (Como o sistema funciona)
 
@@ -37,8 +39,8 @@
   * Comunicação entre frontend e backend via API REST e sincronização em lote.
 
 * **Persistência de Dados:**
-  * Os dados globais de animes/mangas e as listas dos utilizadores devem ser armazenados numa base de dados relacional (SQLite), gerida através do ORM Prisma.
-  * Em dispositivos móveis, os dados são geridos localmente via Dexie DB antes de serem sincronizados.
+  * Os dados globais de animes/mangas e as listas dos utilizadores devem ser armazenados numa base de dados relacional na nuvem (PostgreSQL via Neon DB), gerida através do ORM Prisma.
+  * Em dispositivos móveis, no Modo Offline, os dados são geridos localmente via Dexie DB (IndexedDB) antes de serem sincronizados com o servidor. No Modo Online, comunicam em tempo real com a base de dados central.
 
 * **Gestão de Recursos Excluídos (Regra de Negócio):**
   * Quando um utilizador remove um conteúdo da sua lista, a relação entre o utilizador e o conteúdo é destruída (ou ocultada via *soft delete* para manter o histórico de episódios vistos), mas o registo principal do Anime/Manga permanece na base de dados do sistema para otimização de consultas futuras.

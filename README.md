@@ -13,8 +13,8 @@ O **Otaku Time Pro** é um ecossistema Fullstack Offline-First (desktop e telem�
 * **Layout Responsivo Adaptativo:** Através de `Capacitor.isNativePlatform()`, o frontend deteta se está num dispositivo móvel e ajusta a UI dinamicamente (ocultando filtros redundantes, adaptando o calendário para ecrãs menores e otimizando a barra de pesquisa), mantendo a versão desktop intocada.
 
 ### 🔄 2. Sincronização Bidirecional Inteligente (Two-Way Sync)
-* **Fusão Sem Perdas:** O endpoint `/sync/twoway` no servidor NestJS recebe os dados do telemóvel e executa uma lógica inteligente de `upsert` na base de dados SQLite através do Prisma, comparando o progresso mais recente (ex: maior número de episódios/capítulos lidos) e fundindo as duas bases de dados numa versão unificada que atualiza o dispositivo móvel.
-* **Múltiplos Modos de Ligação:** Centro de controlo configurável na página de perfil (`/profile`) com estatísticas de armazenamento local em tempo real e suporte para ligação via **Wi-Fi (Rede Local)**, **Cabo USB (ADB Reverse)** ou **Cloud Server**.
+* **Fusão Sem Perdas:** O endpoint `/sync/twoway` no servidor NestJS recebe os dados do telemóvel e executa uma lógica inteligente de `upsert` na base de dados PostgreSQL através do Prisma, comparando o progresso mais recente (ex: maior número de episódios/capítulos lidos) e fundindo as duas bases de dados numa versão unificada que atualiza o dispositivo móvel.
+* **Múltiplos Modos de Ligação & Conectividade:** Centro de controlo configurável na página de perfil (`/profile`) com estatísticas de armazenamento local em tempo real, suporte para ligação via **Wi-Fi (Rede Local)**, **Cabo USB (ADB Reverse)** ou **Cloud Server**, e alternância dinâmica entre Modo Online (Cloud/Nuvem via PostgreSQL) e Modo Offline (Local via Dexie DB) em dispositivos Android.
 
 ### 🧠 3. Assistente de IA Local (Otaku Bot)
 * **Integração Direta com Ollama:** O assistente de recomendações foi integrado diretamente no backend NestJS (removendo a necessidade de um microserviço Python externo) e consome localmente o modelo **Llama 3.1 8B**.
@@ -40,6 +40,10 @@ Resolve as limitações e inconsistências das APIs tradicionais com um sistema 
   * **Auto-Start:** Mudar o progresso de `0` para `1` altera o estado automaticamente para `WATCHING`.
   * **Auto-Complete:** Ao atingir o último capítulo/episódio disponível, o estado é atualizado automaticamente para `COMPLETED`.
 
+### 🎨 7. Personalização e Temas Visuais Premium
+* **Modo Escuro & Claro:** Interface adaptada para ambos os contrastes (Dark/Light Mode) com transições suaves e tipografia moderna.
+* **Paletas de Cores Temáticas:** Seletor com 6 paletas cromáticas inspiradas em universos otaku e plataformas populares: Roxo Clássico (Padrão), Laranja Shounen (Crunchyroll), Vermelho Akatsuki (Naruto), Verde Mutsu (Mushi-Shi), Roxo Solo Leveling e Azul Visionário (AniList).
+
 ---
 
 ## 🛠️ Arquitetura do Sistema
@@ -51,8 +55,8 @@ flowchart TD
         A -->|"Empacotamento Mobile"| C["Capacitor - Android App"]
     end
     
-    subgraph Servidor ["Backend Server"]
-        D["Servidor NestJS"] ---|"Prisma ORM"| E[(SQLite - dev.db)]
+    subgraph Servidor ["Backend Server (Render Cloud)"]
+        D["Servidor NestJS"] ---|"Prisma ORM"| E[(PostgreSQL - Neon DB)]
         D ---|"LLM Local: API Generate"| F["Ollama - Llama 3.1 8B"]
     end
 
@@ -62,7 +66,7 @@ flowchart TD
         I["MangaDex API"]
     end
 
-    A ---|"REST API / SSE / Two-Way Sync"| D
+    A ---|"REST API / SSE / Two-Way Sync / Cloud Sync"| D
     D -->|"Metadados & Lançamentos"| G
     D -->|"Capítulos & Temporadas"| H
     D -->|"Fallback de Capítulos"| I
@@ -72,11 +76,11 @@ flowchart TD
 
 | Camada | Tecnologia | Descrição |
 | :--- | :--- | :--- |
-| **Backend** | NestJS (v11) | Framework progressivo em Node.js com TypeScript |
-| **BD & ORM** | Prisma + SQLite | Banco de dados leve e portátil com migrações simples |
-| **Frontend** | React + Vite + TailwindCSS | Interface veloz, responsiva e com estilização moderna |
-| **Offline-First** | Dexie DB | Wrapper do IndexedDB para armazenamento no telemóvel |
-| **Mobile** | Capacitor | Empacotamento híbrido de alto desempenho para Android |
+| **Backend** | NestJS (v11) | Framework progressivo em Node.js com TypeScript alojado no Render |
+| **BD & ORM** | Prisma + PostgreSQL & IndexedDB | Banco de dados PostgreSQL (Neon DB) na nuvem e SQLite/IndexedDB (Dexie DB) no telemóvel |
+| **Frontend** | React + Vite + TailwindCSS | Interface veloz, responsiva e com estilização moderna com suporte multi-tema |
+| **Offline-First** | Dexie DB | Wrapper do IndexedDB para armazenamento no telemóvel no Modo Offline |
+| **Mobile** | Capacitor | Empacotamento híbrido de alto desempenho para Android com alternador Online/Offline |
 | **IA Engine** | Ollama / Llama 3.1 | Motor local para geração de texto e processamento de linguagem natural |
 | **Data Sources** | AniList / MangaUpdates / MangaDex | APIs integradas de catálogo, agenda e capítulos de manga |
 
@@ -91,6 +95,9 @@ classDiagram
         +String nome
         +String email
         +String password
+        +String preferredLanguage
+        +String theme
+        +Boolean showAdultContent
         +UserAnime[] animes
         +UserManga[] mangas
         +ChatSession[] sessions
@@ -180,7 +187,7 @@ classDiagram
 
 ```bash
 Otaku-Time-v2/
-├── prisma/                  # Configuração do SQLite e Schema de tabelas do Prisma
+├── prisma/                  # Configuração do PostgreSQL e Schema de tabelas do Prisma
 │   └── schema.prisma        # Modelo relacional principal
 ├── src/                     # Backend NestJS
 │   ├── anime/               # Módulo de importação e sincronização com AniList
@@ -215,9 +222,9 @@ Na pasta raiz do projeto:
    ```bash
    npm install
    ```
-2. Garantir que o ficheiro `.env` está na raiz com o caminho correto do SQLite:
+2. Garantir que o ficheiro `.env` está na raiz com a variável de ambiente `DATABASE_URL` configurada com a string de ligação da base de dados PostgreSQL (ex: Neon DB ou PostgreSQL local):
    ```env
-   DATABASE_URL="file:./prisma/dev.db"
+   DATABASE_URL="postgresql://utilizador:password@ep-cold-surf.eu-central-1.aws.neon.tech/otakutime?sslmode=require"
    ```
 3. Inicializar e aplicar o esquema na base de dados:
    ```bash
@@ -266,7 +273,7 @@ Para compilar e correr a app móvel diretamente no telemóvel/emulador:
   ```bash
   npx prisma studio
   ```
-* **Forçar Re-sincronização do SQLite:**
+* **Aplicar Alterações de Schema na BD (Prisma):**
   ```bash
   npx prisma db push
   ```

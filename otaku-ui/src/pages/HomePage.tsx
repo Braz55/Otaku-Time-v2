@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 const MangaWebView = registerPlugin<any>('MangaWebView');
 
@@ -63,6 +64,7 @@ const HomePage = () => {
   const { user, token } = useAuth();
   const { showToast } = useToast();
   const { categoria, setCategoria, isShowingFavorites, setIsShowingFavorites, isSearchOpen, homeTrigger } = useMedia();
+  const isMobile = useIsMobile();
   const [termoPesquisa, setTermoPesquisa] = useState('');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [resultadosPesquisa, setResultadosPesquisa] = useState<any[]>([]);
@@ -540,7 +542,7 @@ const HomePage = () => {
 
                   {/* Genre Accordion for Mobile / Cloud for Desktop */}
                   <div className="pt-1 sm:pt-2 max-w-4.5xl mx-auto px-1">
-                    {Capacitor.isNativePlatform() ? null : (
+                    {isMobile ? null : (
                       /* VERSÃO WEB PC: Layout original com botão de expandir no mobile e lista completa no desktop */
                       <>
                         <div className="md:hidden flex justify-center mb-2.5">
@@ -578,7 +580,7 @@ const HomePage = () => {
             {/* Dashboard Queue */}
             {(!isShowingFavorites && !isSearchOpen) && (
               <section className="space-y-8 sm:space-y-12">
-                {Capacitor.isNativePlatform() ? null : (
+                {isMobile ? null : (
                   <div className="text-center py-12 hero-gradient rounded-[40px] border border-white/10 shadow-2xl p-8 mb-12 relative overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-r from-secondary/15 via-secondary-light/5 to-transparent blur-3xl"></div>
                     <h2 className="text-5xl md:text-7xl font-black text-secondary-light tracking-tight mb-4 relative z-10">
@@ -1034,7 +1036,7 @@ const HomePage = () => {
               Back to Home
             </button>
             {selectedItem && (
-              Capacitor.isNativePlatform() ? (
+              isMobile ? (
                 /* VERSÃO ANDROID NATIVA: Ordem Exata Solicitada pelo Utilizador + Margens Otimizadas */
                 <div className={`glass-panel rounded-2xl sm:rounded-3xl overflow-hidden border p-4 sm:p-6 space-y-6 ${categoria === 'anime' ? 'border-secondary/20 shadow-lg' : 'border-primary/20 shadow-lg'}`}>
                   {/* 1. Capa & Título */}

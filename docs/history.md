@@ -133,8 +133,8 @@ Finalizámos a experiência móvel no Android e preparámos toda a infraestrutur
 *   **Calendário Responsivo:** Refatoração do seletor de datas no Calendário para um formato compacto adaptado a ecrãs móveis, eliminando problemas de transbordamento horizontal.
 
 ## 2. Página de Perfil & Definições (/profile)
-*   **Centro de Controlo Premium:** Nova página com design de nível profissional, estatísticas de armazenamento local (Dexie DB) em tempo real e gestão de conta.
-*   **Seleção de Modo de Ligação:** Suporte à seleção dinâmica do modo de ligação à app: **Online (Nuvem)** ou **Offline (Local)**.
+*   **Centro de Controlo Premium:** Nova página com design de nível profissional, controlo de preferências de utilizador e gestão de conta.
+*   **Gestão de Preferências:** Suporte à personalização de idioma, filtro de conteúdos NSFW e seleção de temas visuais.
 
 ## 3. [Removido] Motor de Sincronização Bidirecional (Backend NestJS)
 *   **Remoção de Código:** A lógica de sincronização bidirecional em tempo real (`handleTwoWaySync`) foi removida do backend em prol de um modelo resiliente focado em Backups JSON manuais e estabilidade da base de dados.
@@ -151,10 +151,8 @@ Concluímos a transição de um ecossistema estritamente local para um ambiente 
 *   **Backend Autónomo:** O backend NestJS está hospedado no **Render**, configurado com integração contínua (CI/CD) a partir do branch `main` do repositório GitHub.
 *   **Robustez no Build:** Scripts de postinstall configurados para gerar automaticamente o Prisma Client durante a compilação remota, eliminando falhas de deploy.
 
-## 3. Modos Híbridos de Ligação no Android
-*   **Online vs Offline:** Adicionada uma nova secção de definições na página de Perfil (`/profile`) permitindo alternar dinamicamente o comportamento no telemóvel:
-    *   **Modo Online (Nuvem):** Acesso e escrita direta na base de dados centralizada na nuvem.
-    *   **Modo Offline (Local):** Gravação offline local via IndexedDB/Dexie DB, permitindo sincronização manual posterior.
+## 3. [Removido] Modos Híbridos de Ligação no Android
+*   **Always Online:** A opção de alternar para o modo offline (IndexedDB/Dexie DB) foi descontinuada e removida em prol de um modelo exclusivamente online conectado diretamente à base de dados centralizada no Neon DB, garantindo consistência total do progresso do utilizador.
 
 ## 4. Personalização Avançada & Temas Premium
 *   **Modo Claro (Light Mode):** Criação de um tema claro para toda a interface gráfica do projeto, oferecendo melhor usabilidade em ambientes iluminados.

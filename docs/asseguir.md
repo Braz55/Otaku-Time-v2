@@ -10,7 +10,7 @@
 ## 🔄 Fase 2: Sincronização, Nuvem e Conectividade
 - [x] **Base de Dados na Nuvem (PostgreSQL):** Transição de SQLite local para PostgreSQL remoto alojado no Neon DB.
 - [x] **Servidor em Produção (Render):** Alojamento do backend em NestJS com deploy automatizado através do Render.
-- [x] **Modos Híbridos de Ligação:** Adicionada a capacidade de alternar entre o Modo Online (Cloud) e Modo Offline (Dexie DB local) no Android.
+- [x] **Conexão Cloud Centralizada (Always Online):** Transição para o modo exclusivamente online, conectando diretamente o Android à base de dados na nuvem (PostgreSQL) para evitar discrepâncias locais.
 - [ ] **Refinamento do AutoSync Releases:** Melhorar logs e tratamentos de erro ao consultar APIs de lançamento.
 - [ ] **Scraper Engine:** Implementar serviço que combina o Ollama com pesquisa web para detetar o último capítulo lançado de forma automática.
 - [ ] **Notificações de Dashboard:** Criar um sistema de alertas no dashboard para avisar o utilizador quando houver capítulos novos de mangas da sua lista.
@@ -29,7 +29,7 @@
 
 ## ✅ Concluído Recentemente
 - [x] **Otimização Android Native:** Remoção de filtros de género em mobile via `Capacitor.isNativePlatform()`.
-- [x] **Página de Perfil Premium (`/profile`):** Monitorização de armazenamento Dexie DB e seleção de modos de ligação (Wi-Fi, USB, Cloud).
+- [x] **Página de Perfil Premium (`/profile`):** Centro de definições avançado, controlo de preferências (NSFW, idioma, temas) e portabilidade por ficheiro de backup JSON.
 - [x] **Remoção de Código de Sincronização Bidirecional:** Removida a lógica `handleTwoWaySync` do backend para garantir integridade e foco no modelo de backups locais/cloud independentes.
 - [x] **Streaming de Chat (SSE):** Respostas em tempo real do Bot.
 - [x] **Auto-nomeação de Conversas:** Títulos gerados automaticamente por IA.

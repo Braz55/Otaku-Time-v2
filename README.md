@@ -20,10 +20,9 @@ Production Applications:
 * PostgreSQL Database (Neon DB): Transition from local SQLite to remote PostgreSQL, featuring optimized connection pooling and secure SSL certificates to ensure resilience and stability.
 * Hosting on Render: The NestJS backend and React frontend (SPA) are hosted on Render with continuous integration (CI/CD) linked directly to the main branch of the GitHub repository.
 
-### 2. Hybrid Modes on Android (Online / Offline-First via Capacitor)
-* Online Mode (Cloud): Direct access and real-time writing to the centralized database on Neon DB whenever internet is available.
-* Offline Mode (Local via Dexie DB): The mobile device stores your progress locally using IndexedDB (Dexie DB) for fully offline navigation, search, and library management.
-* Backup and Portability: Generate JSON backups of your library (items, status, progress, priorities) to easily transfer data between devices/platforms.
+### 2. Native Android Experience (via Capacitor)
+* Centralized Cloud Data: Direct access and real-time writing to the centralized PostgreSQL database on Neon DB, ensuring your library is synchronized across all web browsers and Android devices.
+* Backup and Portability: Generate JSON backups of your library (items, status, progress, priorities) to easily transfer, archive, or restore data.
 
 ### 3. Smart Random Draws (Gacha / Raffle)
 * Global Draw (Search): Click the dice button (casino) on the search bar to draw a random work based on popularity (rank 1 to 2000) directly from the AniList API.
@@ -103,7 +102,6 @@ flowchart TD
 | Database | PostgreSQL (Neon DB) | Cloud database with connection pooling and active SSL |
 | ORM | Prisma (v7) | Relational database mapping and efficient migrations |
 | Frontend | React (v19) + Vite + TailwindCSS (v4) | Fast interface with theme system, useIsMobile hook, and modern CSS |
-| Offline-First | Dexie DB | IndexedDB wrapper for high-speed local storage on mobile |
 | Mobile | Capacitor (v8) | Hybrid wrapper for Android WebView with ES2020 target |
 | APIs | AniList / MangaUpdates / MangaDex | External integrations for metadata, calendar, and chapter lookups |
 
@@ -204,8 +202,7 @@ Otaku-Time-v2/
 │   ├── src/                 
 │   │   ├── pages/           # Dashboard, Library, Calendar, Profile, and Details
 │   │   ├── services/        
-│   │   │   ├── apiBridge.ts # Communication between API, local SQLite, and Dexie DB
-│   │   │   └── localDb.ts   # Local Dexie DB schema for IndexedDB
+│   │   │   └── apiBridge.ts # Communication helper with CORS bypass for Capacitor
 │   │   └── context/         # Global navigation, themes, and category states
 │   └── capacitor.config.ts  # Capacitor mobile build settings
 ```

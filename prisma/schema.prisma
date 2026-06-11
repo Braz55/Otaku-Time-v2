@@ -113,3 +113,10 @@ model ChatMessage {
   sessionId Int
   session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 }
+
+model SyncLog {
+  id        Int      @id @default(autoincrement())
+  timestamp DateTime @default(now())
+  status    String   // 'SUCCESS' or 'FAILED'
+  details   String?  // Description of what was synced or error details
+}

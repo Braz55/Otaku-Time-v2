@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useMedia } from '../context/MediaContext';
+import { API_BASE_URL } from '../config';
+import { customFetch } from '../services/apiBridge';
 
 interface HeaderProps {
   categoria: 'anime' | 'manga';
@@ -11,11 +13,45 @@ interface HeaderProps {
   onShowDashboard: () => void;
 }
 
+const SyncIndicator: React.FC = () => {
+  return (
+    <div className="flex items-center justify-center p-1.5" title="Sincronização em curso...">
+      <svg className="animate-spin w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 4V1L8 5L12 9V6C15.31 6 18 8.69 18 12C18 13.01 17.75 13.97 17.3 14.8L18.8 16.3C19.57 15.05 20 13.58 20 12C20 7.58 16.42 4 12 4Z" className="text-primary" fill="currentColor" />
+        <path d="M12 18C8.69 18 6 15.31 6 12C6 10.99 6.25 10.03 6.7 9.2L5.2 7.7C4.43 8.95 4 10.42 4 12C4 16.42 7.58 20 12 20V23L16 19L12 15V18Z" className="text-secondary" fill="currentColor" />
+      </svg>
+    </div>
+  );
+};
+
 const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { isViewingDetails } = useMedia();
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const checkSyncStatus = async () => {
+      try {
+        const res = await customFetch(`${API_BASE_URL}/sync/status`);
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          setIsSyncing(data.isSyncing);
+        }
+      } catch {
+        // ignore errors
+      }
+    };
+
+    checkSyncStatus();
+    const interval = setInterval(checkSyncStatus, 5000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   return (
     <>
@@ -29,8 +65,11 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
                 Otaku-Time
               </h1>
             </div>
-            <div className="w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary overflow-hidden cursor-pointer shadow-md shadow-primary/10 hover:scale-105 transition-transform" title="Perfil & Definições" onClick={() => navigate('/profile')}>
-              <span className="material-symbols-outlined text-lg">person</span>
+            <div className="flex items-center gap-2">
+              {isSyncing && <SyncIndicator />}
+              <div className="w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary overflow-hidden cursor-pointer shadow-md shadow-primary/10 hover:scale-105 transition-transform" title="Perfil & Definições" onClick={() => navigate('/profile')}>
+                <span className="material-symbols-outlined text-lg">person</span>
+              </div>
             </div>
           </div>
           
@@ -103,6 +142,7 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
           </div>
 
           <div className="flex items-center gap-4">
+            {isSyncing && <SyncIndicator />}
             <button onClick={logout} className="p-2 text-on-surface-variant hover:text-red-400 hover:bg-white/5 rounded-full transition-colors" title="Logout">
               <span className="material-symbols-outlined">logout</span>
             </button>

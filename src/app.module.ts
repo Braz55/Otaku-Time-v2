@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -8,6 +8,8 @@ import { UserModule } from './user/user.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { SyncModule } from './sync/sync.module';
+import { KeepAwakeService } from './keep-awake.service';
+import { KeepAwakeMiddleware } from './keep-awake.middleware';
 
 @Module({
   imports: [
@@ -20,6 +22,12 @@ import { SyncModule } from './sync/sync.module';
     SyncModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, KeepAwakeService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(KeepAwakeMiddleware)
+      .forRoutes('*');
+  }
+}

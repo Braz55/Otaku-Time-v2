@@ -951,7 +951,7 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
     // ==========================================
     // SYNC ROUTES
     // ==========================================
-    // As rotas de sincronização (/sync/status, /sync/start, /sync/twoway) não são intercetadas
+    // As rotas de sincronização (/sync/status, /sync/start) não são intercetadas
     // para permitir a comunicação real com o backend NestJS.
 
     // Fallback

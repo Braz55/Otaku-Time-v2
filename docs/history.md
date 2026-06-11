@@ -124,9 +124,9 @@ Iniciámos a implementação do assistente virtual inteligente do OtakuTime, uti
 *   **Interface de Chat:** Criação da página de chat no React com suporte a histórico de mensagens e design "Premium".
 *   **Streaming de Respostas:** Implementação de streaming para que as letras apareçam em tempo real.
 
-# 📱 Atualização: Otimização Mobile (Android) & Sincronização Bidirecional
+# 📱 Atualização: Otimização Mobile (Android) & Portabilidade de Dados
 
-Finalizámos a experiência móvel no Android e preparámos toda a infraestrutura para sincronização de dados entre plataformas (PC e Telemóvel).
+Finalizámos a experiência móvel no Android e preparámos toda a infraestrutura para importação/exportação de dados entre plataformas (PC e Telemóvel).
 
 ## 1. Otimizações Exclusivas Mobile (Capacitor)
 *   **Limpeza de Interface:** Remoção da barra de filtros por género na pesquisa da versão Android para maximizar a área útil de ecrã, mantendo a versão Web/PC intocada via `Capacitor.isNativePlatform()`.
@@ -134,11 +134,10 @@ Finalizámos a experiência móvel no Android e preparámos toda a infraestrutur
 
 ## 2. Página de Perfil & Definições (/profile)
 *   **Centro de Controlo Premium:** Nova página com design de nível profissional, estatísticas de armazenamento local (Dexie DB) em tempo real e gestão de conta.
-*   **Seleção de Modo de Ligação:** Suporte a múltiplos modos de sincronização com o PC: **Wi-Fi (Rede Local)**, **Cabo USB (ADB Reverse)** e **Cloud Server**.
+*   **Seleção de Modo de Ligação:** Suporte à seleção dinâmica do modo de ligação à app: **Online (Nuvem)** ou **Offline (Local)**.
 
-## 3. Motor de Sincronização Bidirecional (Backend NestJS)
-*   **Endpoint de Sincronização:** Criação da rota `POST /sync/twoway` no `SyncController`.
-*   **Fusão Inteligente (Merge):** O `SyncService` analisa os itens offline enviados pelo telemóvel, utiliza operações de `upsert` no Prisma para atualizar o catálogo global e o progresso do utilizador sem duplicação de dados, e devolve a base de dados perfeitamente combinada para atualizar o armazenamento local do telemóvel.
+## 3. [Removido] Motor de Sincronização Bidirecional (Backend NestJS)
+*   **Remoção de Código:** A lógica de sincronização bidirecional em tempo real (`handleTwoWaySync`) foi removida do backend em prol de um modelo resiliente focado em Backups JSON manuais e estabilidade da base de dados.
 
 # ☁️ Atualização: Nuvem PostgreSQL, Deploy Render & Temas Premium [2026-06-06]
 

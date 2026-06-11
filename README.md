@@ -23,7 +23,7 @@ Production Applications:
 ### 2. Hybrid Modes on Android (Online / Offline-First via Capacitor)
 * Online Mode (Cloud): Direct access and real-time writing to the centralized database on Neon DB whenever internet is available.
 * Offline Mode (Local via Dexie DB): The mobile device stores your progress locally using IndexedDB (Dexie DB) for fully offline navigation, search, and library management.
-* Bidirectional Sync (Two-Way Sync): Interactive profile panel that allows manual and smart synchronization (/sync/twoway). The NestJS server receives local items and performs upsert operations in the PostgreSQL cloud, merging the most recent data and syncing it back to the device.
+* Backup and Portability: Generate JSON backups of your library (items, status, progress, priorities) to easily transfer data between devices/platforms.
 
 ### 3. Smart Random Draws (Gacha / Raffle)
 * Global Draw (Search): Click the dice button (casino) on the search bar to draw a random work based on popularity (rank 1 to 2000) directly from the AniList API.
@@ -86,7 +86,7 @@ flowchart TD
     
     FE_Render -->|REST Requests| BE_Render
     Browser -->|REST Requests| BE_Render
-    Capacitor -->|Sync & Cloud Sync| BE_Render
+    Capacitor -->|Cloud Connection & Sync| BE_Render
     
     BE_Render ---|"Prisma ORM"| DB_Neon
     
@@ -197,7 +197,7 @@ Otaku-Time-v2/
 ├── src/                     # NestJS Backend
 │   ├── anime/               # AniList metadata and calendar
 │   ├── manga/               # MangaUpdates, MangaDex, and AniList integration
-│   ├── sync/                # Bidirectional synchronization logic (/sync/twoway)
+│   ├── sync/                # Release updates synchronization logic
 │   └── user/ & auth/        # User management (login without email requirement)
 ├── otaku-ui/                # React + Vite + Capacitor Frontend (Tailwind v4)
 │   ├── android/             # Native Android project built by Capacitor

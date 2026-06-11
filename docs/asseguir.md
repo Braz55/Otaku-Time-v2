@@ -11,7 +11,7 @@
 - [x] **Base de Dados na Nuvem (PostgreSQL):** Transição de SQLite local para PostgreSQL remoto alojado no Neon DB.
 - [x] **Servidor em Produção (Render):** Alojamento do backend em NestJS com deploy automatizado através do Render.
 - [x] **Modos Híbridos de Ligação:** Adicionada a capacidade de alternar entre o Modo Online (Cloud) e Modo Offline (Dexie DB local) no Android.
-- [ ] **Sincronização Cloud/Wi-Fi Automática:** Refinar o fluxo de Two-Way Sync para detetar automaticamente o IP do PC ou sincronizar em segundo plano via WebSockets.
+- [ ] **Refinamento do AutoSync Releases:** Melhorar logs e tratamentos de erro ao consultar APIs de lançamento.
 - [ ] **Scraper Engine:** Implementar serviço que combina o Ollama com pesquisa web para detetar o último capítulo lançado de forma automática.
 - [ ] **Notificações de Dashboard:** Criar um sistema de alertas no dashboard para avisar o utilizador quando houver capítulos novos de mangas da sua lista.
 
@@ -30,6 +30,6 @@
 ## ✅ Concluído Recentemente
 - [x] **Otimização Android Native:** Remoção de filtros de género em mobile via `Capacitor.isNativePlatform()`.
 - [x] **Página de Perfil Premium (`/profile`):** Monitorização de armazenamento Dexie DB e seleção de modos de ligação (Wi-Fi, USB, Cloud).
-- [x] **Motor Two-Way Sync (NestJS):** Endpoint `POST /sync/twoway` com lógica de fusão via `upsert` no Prisma.
+- [x] **Remoção de Código de Sincronização Bidirecional:** Removida a lógica `handleTwoWaySync` do backend para garantir integridade e foco no modelo de backups locais/cloud independentes.
 - [x] **Streaming de Chat (SSE):** Respostas em tempo real do Bot.
 - [x] **Auto-nomeação de Conversas:** Títulos gerados automaticamente por IA.

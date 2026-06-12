@@ -9,6 +9,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { SyncModule } from './sync/sync.module';
 import { RatingModule } from './rating/rating.module';
+import { CommentModule } from './comment/comment.module';
 import { KeepAwakeService } from './keep-awake.service';
 import { KeepAwakeMiddleware } from './keep-awake.middleware';
 
@@ -22,6 +23,7 @@ import { KeepAwakeMiddleware } from './keep-awake.middleware';
     AuthModule,
     SyncModule,
     RatingModule,
+    CommentModule,
   ],
   controllers: [AppController],
   providers: [AppService, KeepAwakeService],

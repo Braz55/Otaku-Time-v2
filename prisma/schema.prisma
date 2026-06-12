@@ -39,6 +39,7 @@ model User {
   subscription      UserSubscription?
   redeemedCodes     GiftCode[]
   ratings           UserRating[]
+  comments          Comment[]
 }
 
 model Anime {
@@ -230,4 +231,17 @@ model UserRating {
 
   @@unique([userId, mediaId])
   @@map("User_Rating")
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  mediaId   Int      @map("media_id")
+  text      String
+  likes     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("User_Comment")
 }

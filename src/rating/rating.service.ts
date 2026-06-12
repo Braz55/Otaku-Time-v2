@@ -5,6 +5,47 @@ import { PrismaService } from '../prisma/prisma.service';
 export class RatingService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async getOverallRating(mediaId: number) {
+    const media = await this.prisma.media.findUnique({
+      where: { id: mediaId },
+      select: {
+        id: true,
+        avaliacao_geral: true,
+        total_votos_users: true,
+      },
+    });
+
+    if (media) {
+      return media;
+    }
+
+    const baseScore = await this.fetchAniListAverageScore(mediaId);
+    return {
+      id: mediaId,
+      avaliacao_geral: Math.round(baseScore * 100) / 100,
+      total_votos_users: 0,
+    };
+  }
+
+  async getUserRating(userId: number, mediaId: number) {
+    const rating = await this.prisma.userRating.findUnique({
+      where: {
+        userId_mediaId: {
+          userId,
+          mediaId,
+        },
+      },
+      select: {
+        score: true,
+      },
+    });
+
+    return {
+      mediaId,
+      score: rating?.score ?? null,
+    };
+  }
+
   // Busca o averageScore da AniList por ID de Media (Anime ou Manga)
   async fetchAniListAverageScore(mediaId: number): Promise<number> {
     const query = `

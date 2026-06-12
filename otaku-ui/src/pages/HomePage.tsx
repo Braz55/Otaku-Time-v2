@@ -60,6 +60,24 @@ const formatLastModified = (item: any) => {
   }
 };
 
+type OverallRating = {
+  avaliacao_geral: number;
+  total_votos_users: number;
+};
+
+type MediaComment = {
+  id: number;
+  userId: number;
+  mediaId: number;
+  text: string;
+  likes: number;
+  createdAt: string;
+  user?: {
+    nome?: string;
+    iconUrl?: string | null;
+  };
+};
+
 const HomePage = () => {
   const { user, token } = useAuth();
   const { showToast } = useToast();
@@ -92,6 +110,13 @@ const HomePage = () => {
 
   const [savingItems, setSavingItems] = useState<Record<number, boolean>>({});
   const [isSavingDetailsProgress, setIsSavingDetailsProgress] = useState(false);
+  const [comments, setComments] = useState<MediaComment[]>([]);
+  const [overallRating, setOverallRating] = useState<OverallRating | null>(null);
+  const [userRating, setUserRating] = useState<number | null>(null);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [newCommentText, setNewCommentText] = useState('');
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
 
   const [filtroStatus, setFiltroStatus] = useState<string>('ALL');
   const [filtroLancamento, setFiltroLancamento] = useState<string>('ALL');
@@ -104,6 +129,138 @@ const HomePage = () => {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${token}`
   });
+
+  const getMediaId = (item = selectedItem) => item?.mangaId || item?.animeId || item?.id;
+
+  const formatCommentDate = (value: string) => {
+    const date = new Date(value);
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const carregarDadosInterativos = async (mediaId: number) => {
+    setLoadingComments(true);
+    setComments([]);
+    setOverallRating(null);
+    setUserRating(null);
+    setNewCommentText('');
+
+    try {
+      const requests: Promise<Response>[] = [
+        customFetch(`${API_BASE_URL}/comment/media/${mediaId}`),
+        customFetch(`${API_BASE_URL}/rating/media/${mediaId}`),
+      ];
+
+      if (token) {
+        requests.push(customFetch(`${API_BASE_URL}/rating/media/${mediaId}/user`, { headers: getHeaders() }));
+      }
+
+      const [commentsRes, overallRes, userRatingRes] = await Promise.all(requests);
+
+      if (commentsRes.ok) {
+        const data = await commentsRes.json();
+        setComments(Array.isArray(data) ? data : []);
+      }
+
+      if (overallRes.ok) {
+        const data = await overallRes.json();
+        setOverallRating({
+          avaliacao_geral: Number(data?.avaliacao_geral || 0),
+          total_votos_users: Number(data?.total_votos_users || 0),
+        });
+      }
+
+      if (userRatingRes?.ok) {
+        const data = await userRatingRes.json();
+        setUserRating(data?.score ?? null);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar avaliações/comentários:', error);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const votarConteudo = async (score: number) => {
+    const mediaId = getMediaId();
+    if (!token || !mediaId || isSubmittingRating) return;
+    setIsSubmittingRating(true);
+
+    try {
+      const response = await customFetch(`${API_BASE_URL}/rating`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ mediaId, score }),
+      });
+
+      if (!response.ok) throw new Error('Erro ao submeter avaliação');
+      const data = await response.json();
+      setUserRating(score);
+      if (data?.media) {
+        setOverallRating({
+          avaliacao_geral: Number(data.media.avaliacao_geral || 0),
+          total_votos_users: Number(data.media.total_votos_users || 0),
+        });
+      }
+      showToast('Avaliação guardada.', 'success');
+    } catch (error) {
+      console.error('Erro ao votar:', error);
+      showToast('Não foi possível guardar a avaliação.', 'error');
+    } finally {
+      setIsSubmittingRating(false);
+    }
+  };
+
+  const enviarComentario = async () => {
+    const mediaId = getMediaId();
+    const text = newCommentText.trim();
+    if (!token || !mediaId || !text || isSubmittingComment) return;
+    setIsSubmittingComment(true);
+
+    try {
+      const response = await customFetch(`${API_BASE_URL}/comment`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ mediaId, text }),
+      });
+
+      if (!response.ok) throw new Error('Erro ao enviar comentário');
+      const created = await response.json();
+      setComments(prev => [created, ...prev]);
+      setNewCommentText('');
+      showToast('Comentário publicado.', 'success');
+    } catch (error) {
+      console.error('Erro ao comentar:', error);
+      showToast('Não foi possível publicar o comentário.', 'error');
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
+
+  const gostarComentario = async (commentId: number) => {
+    try {
+      const response = await customFetch(`${API_BASE_URL}/comment/${commentId}/like`, { method: 'POST' });
+      if (!response.ok) throw new Error('Erro ao gostar do comentário');
+      setComments(prev => prev.map(comment => comment.id === commentId ? { ...comment, likes: comment.likes + 1 } : comment));
+    } catch (error) {
+      console.error('Erro ao gostar do comentário:', error);
+    }
+  };
+
+  const eliminarComentario = async (commentId: number) => {
+    if (!token) return;
+    try {
+      const response = await customFetch(`${API_BASE_URL}/comment/${commentId}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+      });
+      if (!response.ok) throw new Error('Erro ao eliminar comentário');
+      setComments(prev => prev.filter(comment => comment.id !== commentId));
+    } catch (error) {
+      console.error('Erro ao eliminar comentário:', error);
+      showToast('Não foi possível eliminar o comentário.', 'error');
+    }
+  };
 
   const carregarCapituloMaisRecente = async (anilistId: number, keepState = false) => {
     if (categoria !== 'manga') return;
@@ -330,6 +487,7 @@ const HomePage = () => {
         carregarCapituloMaisRecente(data.mangaId || data.id);
       }
 
+      carregarDadosInterativos(data.mangaId || data.animeId || data.id);
       setView('details');
       setShowEpList(false);
     } catch (error) {
@@ -622,6 +780,134 @@ const HomePage = () => {
       setIsViewingDetails(false);
     };
   }, [view, setIsViewingDetails]);
+
+  const renderRatingCommentsSection = () => {
+    const ratingValue = overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A';
+    const votes = overallRating?.total_votos_users ?? 0;
+
+    return (
+      <div className={`space-y-6 pt-8 border-t border-white/5 ${isMobile ? '' : 'mt-4'}`}>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <h3 className={`${isMobile ? 'text-base' : 'font-headline-lg text-2xl'} font-bold flex items-center gap-3 text-white`}>
+            <span className={`${isMobile ? 'w-1 h-4' : 'w-1.5 h-6'} rounded-full ${categoria === 'anime' ? 'bg-primary' : 'bg-secondary'}`}></span>
+            Avaliações e comentários
+          </h3>
+          <div className={`px-4 py-2 rounded-2xl border flex items-center gap-2 ${categoria === 'anime' ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-secondary/10 border-secondary/30 text-secondary'}`}>
+            <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+            <span className="font-black">{ratingValue}</span>
+            <span className="text-xs text-on-surface-variant">/ 10 ({votes} {votes === 1 ? 'voto' : 'votos'})</span>
+          </div>
+        </div>
+
+        {token ? (
+          <div className="space-y-5">
+            <div className="space-y-3">
+              <p className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest">
+                {userRating ? `A tua avaliação atual: ${userRating}/10` : 'Dá a tua avaliação'}
+              </p>
+              <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
+                {Array.from({ length: 10 }, (_, index) => index + 1).map(score => {
+                  const active = userRating === score;
+                  return (
+                    <button
+                      key={score}
+                      onClick={() => votarConteudo(score)}
+                      disabled={isSubmittingRating}
+                      className={`aspect-square rounded-full border text-sm font-black transition-all active:scale-95 disabled:opacity-60 ${
+                        active
+                          ? `${categoria === 'anime' ? 'bg-primary border-primary text-on-primary shadow-[0_0_18px_rgba(221,184,255,0.35)]' : 'bg-secondary border-secondary text-on-secondary shadow-[0_0_18px_rgba(255,176,203,0.35)]'}`
+                          : `bg-surface-variant/30 border-white/10 text-on-surface-variant hover:text-white ${categoria === 'anime' ? 'hover:border-primary/40 hover:bg-primary/10' : 'hover:border-secondary/40 hover:bg-secondary/10'}`
+                      }`}
+                    >
+                      {score}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex gap-3 items-start">
+              <div className={`w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border ${categoria === 'anime' ? 'border-primary/40 bg-primary/10' : 'border-secondary/40 bg-secondary/10'}`}>
+                {user?.iconUrl ? (
+                  <img src={user.iconUrl} alt={user.nome} className="w-full h-full object-cover" />
+                ) : (
+                  <div className={`w-full h-full flex items-center justify-center font-black ${categoria === 'anime' ? 'text-primary' : 'text-secondary'}`}>
+                    {(user?.nome || 'U').charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 space-y-3">
+                <textarea
+                  value={newCommentText}
+                  onChange={event => setNewCommentText(event.target.value)}
+                  placeholder="Escreve um comentário..."
+                  rows={3}
+                  className={`w-full bg-black/30 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white outline-none resize-none transition-all ${categoria === 'anime' ? 'focus:border-primary/60' : 'focus:border-secondary/60'}`}
+                />
+                <button
+                  onClick={enviarComentario}
+                  disabled={!newCommentText.trim() || isSubmittingComment}
+                  className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 disabled:bg-surface-variant disabled:text-on-surface-variant disabled:shadow-none ${categoria === 'anime' ? 'bg-primary hover:bg-primary/80 text-on-primary' : 'bg-secondary hover:bg-secondary/80 text-on-secondary'}`}
+                >
+                  {isSubmittingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : <span className="material-symbols-outlined text-base">send</span>}
+                  Publicar
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className={`p-4 rounded-2xl border bg-surface-variant/20 text-sm text-on-surface-variant ${categoria === 'anime' ? 'border-primary/20' : 'border-secondary/20'}`}>
+            Inicia sessão para avaliar e comentar este conteúdo.
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {loadingComments ? (
+            <div className="flex items-center gap-2 text-on-surface-variant text-sm">
+              <Loader2 className={`w-4 h-4 animate-spin ${categoria === 'anime' ? 'text-primary' : 'text-secondary'}`} />
+              A carregar comentários...
+            </div>
+          ) : comments.length === 0 ? (
+            <div className="p-5 rounded-2xl border border-white/10 bg-surface-variant/20 text-center text-on-surface-variant text-sm">
+              Ninguém comentou ainda. Seja o primeiro a comentar!
+            </div>
+          ) : (
+            comments.map(comment => (
+              <div key={comment.id} className="glass-panel rounded-2xl border border-white/5 p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-full overflow-hidden bg-surface-variant flex-shrink-0">
+                      {comment.user?.iconUrl ? (
+                        <img src={comment.user.iconUrl} alt={comment.user?.nome || 'User'} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xs font-black text-on-surface-variant">
+                          {(comment.user?.nome || 'U').charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-white text-sm truncate">{comment.user?.nome || 'Utilizador'}</p>
+                      <p className="text-[10px] uppercase tracking-widest text-on-surface-variant">{formatCommentDate(comment.createdAt)}</p>
+                    </div>
+                  </div>
+                  {comment.userId === user?.id && (
+                    <button onClick={() => eliminarComentario(comment.id)} className="w-8 h-8 rounded-lg flex items-center justify-center text-error hover:bg-error/10 transition-all" title="Eliminar comentário">
+                      <span className="material-symbols-outlined text-lg">delete</span>
+                    </button>
+                  )}
+                </div>
+                <p className="text-sm text-on-surface leading-relaxed whitespace-pre-wrap">{comment.text}</p>
+                <button onClick={() => gostarComentario(comment.id)} className="flex items-center gap-1.5 text-xs font-bold text-on-surface-variant hover:text-white transition-all">
+                  <span className="material-symbols-outlined text-base">favorite</span>
+                  {comment.likes}
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-1 sm:px-4 py-2 sm:py-10">
@@ -1197,6 +1483,10 @@ const HomePage = () => {
                         </span>
                       </div>
                       <h2 className={`text-xl sm:text-2xl font-bold tracking-tight ${categoria === 'anime' ? 'text-primary-light' : 'text-secondary-light'} line-clamp-3`}>{selectedItem.titulo}</h2>
+                      <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black w-fit ${categoria === 'anime' ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-secondary/10 border-secondary/30 text-secondary'}`}>
+                        <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                        {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'} / 10
+                      </div>
                       
                       {categoria === 'manga' && (
                         <div className="pt-1">
@@ -1246,7 +1536,7 @@ const HomePage = () => {
                   </div>
 
                   {/* Info Grid: Release Status, Season & Total Episodes/Chapters (Visible always) */}
-                  <div className="grid grid-cols-3 gap-2 py-3 border-t border-white/5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 py-3 border-t border-white/5">
                     <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/5 min-w-0">
                       <p className="text-on-surface-variant text-[8px] uppercase font-bold tracking-widest mb-1 truncate w-full">Status</p>
                       <p className={`font-bold text-xs truncate w-full ${selectedItem.statusLancamento === 'RELEASING' ? (categoria === 'anime' ? 'text-primary' : 'text-secondary') : 'text-white'}`}>
@@ -1269,6 +1559,12 @@ const HomePage = () => {
                       </p>
                       <p className="font-bold text-xs text-white truncate w-full">
                         {categoria === 'anime' ? (selectedItem.numEpisodiosTotal || 'N/A') : (selectedItem.numCapitulosTotal || 'N/A')}
+                      </p>
+                    </div>
+                    <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/5 min-w-0">
+                      <p className="text-on-surface-variant text-[8px] uppercase font-bold tracking-widest mb-1 truncate w-full">Nota Geral</p>
+                      <p className={`font-bold text-xs truncate w-full ${categoria === 'anime' ? 'text-primary' : 'text-secondary'}`}>
+                        {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'} / 10
                       </p>
                     </div>
                   </div>
@@ -1518,6 +1814,7 @@ const HomePage = () => {
                       {selectedItem.descricao || "No description available."}
                     </p>
                   </div>
+                  {renderRatingCommentsSection()}
                 </div>
               ) : (
                 /* VERSÃO WEB INTOCADA (Exatamente o código original) */
@@ -1541,6 +1838,11 @@ const HomePage = () => {
                           </span>
                         </div>
                         <h2 className={`font-display-lg text-4xl md:text-5xl font-bold mb-6 tracking-tight ${categoria === 'anime' ? 'text-primary-light' : 'text-secondary-light'}`}>{selectedItem.titulo}</h2>
+                        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-2xl border mb-6 font-black ${categoria === 'anime' ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-secondary/10 border-secondary/30 text-secondary'}`}>
+                          <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                          {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'} / 10
+                          <span className="text-xs font-bold text-on-surface-variant">({overallRating?.total_votos_users ?? 0} votos)</span>
+                        </div>
                         {categoria === 'manga' && (
                           <div className="flex items-center gap-3 mb-6">
                             {loadingLatest ? (
@@ -1670,7 +1972,7 @@ const HomePage = () => {
                           </div>
                         );
                       })()}
-                      <div className={`grid grid-cols-1 ${!selectedItem.isExternal ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-6 py-8 border-t border-white/5`}>
+                      <div className={`grid grid-cols-1 ${!selectedItem.isExternal ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} gap-6 py-8 border-t border-white/5`}>
                         {/* Status Card */}
                         <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${categoria === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}>
                           <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-3 ${selectedItem.statusLancamento === 'RELEASING' ? (categoria === 'anime' ? 'bg-primary/10 text-primary shadow-[0_0_15px_rgba(221,184,255,0.2)]' : 'bg-secondary/10 text-secondary shadow-[0_0_15px_rgba(255,176,203,0.2)]') : 'bg-surface-variant/30 text-on-surface-variant'}`}>
@@ -1722,7 +2024,18 @@ const HomePage = () => {
                             </p>
                           </div>
                         )}
+                        <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${categoria === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}>
+                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-3 ${categoria === 'anime' ? 'bg-primary/10 text-primary shadow-[0_0_15px_rgba(221,184,255,0.2)]' : 'bg-secondary/10 text-secondary shadow-[0_0_15px_rgba(255,176,203,0.2)]'}`}>
+                            <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                          </div>
+                          <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">Nota Geral</p>
+                          <p className={`font-bold text-lg ${categoria === 'anime' ? 'text-primary' : 'text-secondary'}`}>
+                            {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'} / 10
+                          </p>
+                          <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest">{overallRating?.total_votos_users ?? 0} votos</p>
+                        </div>
                       </div>
+                      {renderRatingCommentsSection()}
                     </div>
                     <div className="space-y-6">
                       <div className={`glass-panel p-8 rounded-[32px] border ${categoria === 'anime' ? 'border-secondary/20 shadow-[0_0_50px_rgba(194,24,91,0.08)]' : 'border-primary/20 shadow-[0_0_50px_rgba(106,27,154,0.08)]'}`}>

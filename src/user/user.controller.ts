@@ -188,5 +188,11 @@ export class UserController {
   updateSubscription(@Param('id') id: string, @Body() body: any) {
     return this.userService.updateSubscription(+id, body);
   }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Post('admin/achievements')
+  createAchievement(@Body() data: { name: string; description: string; badgeImageUrl?: string }) {
+    return this.userService.createAchievement(data);
+  }
 }
 

@@ -14,13 +14,50 @@ import { Share } from '@capacitor/share';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { getCurrentPalette, savePalette } from '../services/paletteService';
 
-const SubscriptionRow = ({ subscription, onSave }: { subscription: any, onSave: (id: number, status: string, date: string) => void }) => {
-  const [status, setStatus] = useState(subscription.status);
-  const [dateVal, setDateVal] = useState(() => {
-    const d = new Date(subscription.currentPeriodEnd);
-    return d.toISOString().split('T')[0];
-  });
-  const [dirty, setDirty] = useState(false);
+const SubscriptionRow = ({ subscription }: { subscription: any }) => {
+  const formatDate = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'ACTIVE':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-500/10 border border-green-500/20 text-green-400 uppercase tracking-wider">
+            Ativo
+          </span>
+        );
+      case 'CANCELED':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 uppercase tracking-wider">
+            Cancelado
+          </span>
+        );
+      case 'EXPIRED':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/10 border border-red-500/20 text-red-400 uppercase tracking-wider">
+            Expirado
+          </span>
+        );
+      case 'PAST_DUE':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/10 border border-orange-500/20 text-orange-400 uppercase tracking-wider">
+            Em Dívida
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-500/10 border border-gray-500/20 text-gray-400 uppercase tracking-wider">
+            {status}
+          </span>
+        );
+    }
+  };
 
   return (
     <tr className="hover:bg-white/[0.01]">
@@ -31,45 +68,8 @@ const SubscriptionRow = ({ subscription, onSave }: { subscription: any, onSave: 
         </div>
       </td>
       <td className="p-3 text-center font-bold text-amber-400 uppercase tracking-wider">{subscription.planType}</td>
-      <td className="p-3 text-center font-mono">
-        <input 
-          type="date"
-          value={dateVal}
-          onChange={(e) => {
-            setDateVal(e.target.value);
-            setDirty(true);
-          }}
-          className="bg-black/40 border border-white/10 hover:border-white/20 text-white rounded p-1 text-xs font-bold outline-none text-center"
-        />
-      </td>
-      <td className="p-3 text-center">
-        <select
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value);
-            setDirty(true);
-          }}
-          className="bg-black/40 border border-white/10 hover:border-white/20 text-white rounded p-1 px-1.5 text-xs font-bold outline-none cursor-pointer"
-        >
-          <option value="ACTIVE">Ativo</option>
-          <option value="CANCELED">Cancelado</option>
-          <option value="EXPIRED">Expirado</option>
-          <option value="PAST_DUE">Em Dívida</option>
-        </select>
-      </td>
-      <td className="p-3 text-center">
-        <button
-          disabled={!dirty}
-          onClick={() => {
-            onSave(subscription.id, status, dateVal);
-            setDirty(false);
-          }}
-          className="p-1.5 rounded-lg bg-green-500/20 border border-green-500/40 text-green-400 hover:bg-green-500/30 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Guardar Alterações"
-        >
-          <Check className="w-4 h-4" />
-        </button>
-      </td>
+      <td className="p-3 text-center font-mono text-gray-300 font-semibold">{formatDate(subscription.currentPeriodEnd)}</td>
+      <td className="p-3 text-center">{getStatusBadge(subscription.status)}</td>
     </tr>
   );
 };
@@ -79,7 +79,7 @@ const ProfilePage = () => {
   const { showToast } = useToast();
   const navigate = useNavigate();
   
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'sync' | 'account' | 'admin'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'account' | 'admin'>('dashboard');
   const [isUpdatingPreferences, setIsUpdatingPreferences] = useState(false);
   const [selectedPalette, setSelectedPalette] = useState(() => getCurrentPalette());
 
@@ -215,13 +215,18 @@ const ProfilePage = () => {
   const [adminGiftSearch, setAdminGiftSearch] = useState('');
   const [adminSubSearch, setAdminSubSearch] = useState('');
   const [isSeedingAchievements, setIsSeedingAchievements] = useState(false);
-  const [isForcingSync, setIsForcingSync] = useState(false);
 
   // Gift Code Generation State
   const [giftDays, setGiftDays] = useState(30);
   const [giftCustomCode, setGiftCustomCode] = useState('');
   const [giftExpiresAt, setGiftExpiresAt] = useState('');
   const [isGeneratingGift, setIsGeneratingGift] = useState(false);
+
+  // Achievement Creation State
+  const [newAchievementName, setNewAchievementName] = useState('');
+  const [newAchievementDescription, setNewAchievementDescription] = useState('');
+  const [newAchievementBadgeUrl, setNewAchievementBadgeUrl] = useState('');
+  const [isCreatingAchievement, setIsCreatingAchievement] = useState(false);
 
   // User redemption state
   const [redeemCodeInput, setRedeemCodeInput] = useState('');
@@ -299,25 +304,7 @@ const ProfilePage = () => {
     }
   };
 
-  const handleAdminForceSync = async () => {
-    setIsForcingSync(true);
-    try {
-      const res = await customFetch(`${API_BASE_URL}/sync/start`, { 
-        method: 'POST',
-        headers: getHeaders()
-      });
-      if (res.ok) {
-        showToast('Sincronização geral forçada com sucesso!', 'success');
-        setTimeout(checkSyncStatus, 2000);
-      } else {
-        showToast('Falha ao iniciar sincronização.', 'error');
-      }
-    } catch (err: any) {
-      showToast(`Erro: ${err.message || err}`, 'error');
-    } finally {
-      setIsForcingSync(false);
-    }
-  };
+
 
   const handleGenerateGiftCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -351,31 +338,6 @@ const ProfilePage = () => {
     }
   };
 
-  const handleUpdateSubscription = async (subId: number, newStatus: string, newDateStr: string) => {
-    if (!token) return;
-    try {
-      const res = await customFetch(`${API_BASE_URL}/user/admin/subscriptions/${subId}`, {
-        method: 'PATCH',
-        headers: getHeaders(),
-        body: JSON.stringify({
-          status: newStatus,
-          currentPeriodEnd: newDateStr
-        })
-      });
-      if (res.ok) {
-        showToast('Subscrição atualizada com sucesso!', 'success');
-        // Refresh subscriptions and stats
-        const refreshedSubs = await customFetch(`${API_BASE_URL}/user/admin/subscriptions`, { headers: getHeaders() });
-        if (refreshedSubs.ok) setAdminSubscriptions(await refreshedSubs.json());
-        fetchAdminData();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        showToast(err.message || 'Falha ao atualizar subscrição.', 'error');
-      }
-    } catch (err: any) {
-      showToast(`Erro: ${err.message || err}`, 'error');
-    }
-  };
 
   const handleRedeemCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -401,6 +363,41 @@ const ProfilePage = () => {
       showToast(`Erro: ${err.message || err}`, 'error');
     } finally {
       setIsRedeemingCode(false);
+    }
+  };
+
+  const handleCreateAchievement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    if (!newAchievementName.trim() || !newAchievementDescription.trim()) {
+      showToast('Nome e descrição são obrigatórios.', 'warning');
+      return;
+    }
+    setIsCreatingAchievement(true);
+    try {
+      const res = await customFetch(`${API_BASE_URL}/user/admin/achievements`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          name: newAchievementName,
+          description: newAchievementDescription,
+          badgeImageUrl: newAchievementBadgeUrl || undefined
+        })
+      });
+      if (res.ok) {
+        showToast('Nova conquista criada com sucesso!', 'success');
+        setNewAchievementName('');
+        setNewAchievementDescription('');
+        setNewAchievementBadgeUrl('');
+        fetchCatalog();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.message || 'Falha ao criar conquista.', 'error');
+      }
+    } catch (err: any) {
+      showToast(`Erro: ${err.message || err}`, 'error');
+    } finally {
+      setIsCreatingAchievement(false);
     }
   };
 
@@ -1045,13 +1042,7 @@ const ProfilePage = () => {
             <Award className="w-4 h-4" />
             <span>Perfil & Conquistas</span>
           </button>
-          <button 
-            onClick={() => setActiveTab('sync')} 
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all whitespace-nowrap ${activeTab === 'sync' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105' : 'bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5'}`}
-          >
-            <RefreshCw className="w-4 h-4" />
-            <span>Sincronização</span>
-          </button>
+
            <button 
             onClick={() => setActiveTab('account')} 
             className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all whitespace-nowrap ${activeTab === 'account' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105' : 'bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5'}`}
@@ -1431,165 +1422,7 @@ const ProfilePage = () => {
           </div>
         )}
 
-        {/* Tab Content: Database Synchronization */}
-        {activeTab === 'sync' && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* AutoSync Releases Card */}
-            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-secondary/10 via-primary/5 to-transparent rounded-full blur-3xl pointer-events-none"></div>
-              
-              <div className="flex items-center justify-between flex-wrap gap-4 relative z-10">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-primary/10 border border-primary/30 rounded-2xl text-secondary shadow-inner">
-                    <RefreshCw className={`w-6 h-6 ${syncStatus.isSyncing ? 'animate-spin text-secondary' : ''}`} />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                      <span>AutoSync Releases (Animes & Mangas)</span>
-                      {syncStatus.isSyncing && (
-                        <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/20 border border-primary/40 text-[10px] font-black text-primary animate-pulse">
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span> ACTIVE
-                        </span>
-                      )}
-                    </h3>
-                    <p className="text-xs text-on-surface-variant mt-0.5 max-w-xl">
-                      Obtém automaticamente as informações de episódios novos e lançamentos mais recentes de fontes como AniList e MangaDex.
-                    </p>
-                  </div>
-                </div>
-              </div>
 
-              <div className="space-y-4 pt-4 border-t border-white/5 relative z-10">
-                <button
-                  onClick={triggerManualReleaseSync}
-                  disabled={syncStatus.isSyncing}
-                  className={`w-full py-4 rounded-2xl font-black text-base transition-all flex items-center justify-center gap-3 shadow-xl ${syncStatus.isSyncing ? 'bg-primary/20 border border-primary/30 text-primary cursor-not-allowed shadow-[0_0_25px_rgba(106,27,154,0.2)]' : 'bg-primary hover:opacity-90 text-on-primary shadow-primary/20 hover:shadow-primary/40 hover:scale-[1.01] active:scale-[0.99]'}`}
-                >
-                  {syncStatus.isSyncing ? (
-                    <>
-                      <RefreshCw className="w-5 h-5 animate-spin text-secondary" />
-                      <span>AUTOSYNC EM CURSO ({syncStatus.current}/{syncStatus.total})</span>
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="w-5 h-5" />
-                      <span>INICIAR AUTOSYNC MANUAL</span>
-                    </>
-                  )}
-                </button>
-
-                {syncStatus.isSyncing && (
-                  <div className="p-6 rounded-2xl bg-black/40 border border-primary/30 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500 shadow-2xl backdrop-blur-xl">
-                    <div className="flex items-center justify-between text-xs font-bold">
-                      <span className="text-secondary uppercase tracking-widest flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-primary animate-ping"></span> Progresso em Tempo Real
-                      </span>
-                      <span className="text-white bg-primary/20 px-2.5 py-1 rounded-lg border border-primary/30 font-mono">
-                        {syncStatus.current} / {syncStatus.total} Concluídos
-                      </span>
-                    </div>
-
-                    <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden border border-white/5 p-0.5 shadow-inner">
-                      <div 
-                        className="h-full bg-gradient-to-r from-primary via-secondary to-indigo-500 rounded-full transition-all duration-500 shadow-[0_0_15px_rgba(106,27,154,0.8)]" 
-                        style={{ width: `${syncStatus.total > 0 ? (syncStatus.current / syncStatus.total) * 100 : 0}%` }}
-                      ></div>
-                    </div>
-
-                    <div className="p-4 rounded-xl bg-surface-variant/40 border border-white/5 flex items-center gap-3 text-sm">
-                      <div className="w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center text-secondary flex-shrink-0 shadow-md">
-                        <span className="material-symbols-outlined text-base animate-spin">sync</span>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">A atualizar</p>
-                        <p className="font-black text-white text-base truncate mt-0.5">
-                          {syncStatus.currentItemTitle || 'A ligar às APIs externas...'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {releaseSyncError && (
-                  <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3 text-red-400 animate-in fade-in zoom-in-95 duration-300 shadow-lg">
-                    <AlertCircle className="w-6 h-6 flex-shrink-0" />
-                    <div>
-                      <p className="font-bold text-sm text-white">Falha no AutoSync</p>
-                      <p className="text-xs text-red-300 mt-0.5">{releaseSyncError}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Backup & Portability Card */}
-            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-secondary/10 via-primary/5 to-transparent rounded-full blur-3xl pointer-events-none"></div>
-              
-              <div className="flex items-center justify-between flex-wrap gap-4 relative z-10">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-primary/10 border border-primary/30 rounded-2xl text-primary shadow-inner">
-                    <Database className="w-6 h-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                      <span>Cópia de Segurança (Backup & Portabilidade)</span>
-                    </h3>
-                    <p className="text-xs text-on-surface-variant mt-0.5 max-w-xl">
-                      Exporta toda a tua biblioteca de Animes e Mangas para um ficheiro JSON portátil, facilitando a migração entre o PC e o Android.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-white/5 relative z-10">
-                <button
-                  onClick={handleExportBackup}
-                  disabled={isExporting}
-                  className="py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 shadow-xl bg-primary hover:opacity-90 text-on-primary shadow-primary/20 hover:shadow-primary/40 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isExporting ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                      <span>A GERAR BACKUP...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-4 h-4 text-white" />
-                      <span>CRIAR CÓPIA DE SEGURANÇA</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  onClick={() => setShowRestoreModal(true)}
-                  className="py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 shadow-xl bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5 hover:scale-[1.01] active:scale-[0.99]"
-                >
-                  <Upload className="w-4 h-4 text-primary" />
-                  <span>RESTAURAR CÓPIA DE SEGURANÇA</span>
-                </button>
-              </div>
-
-              {/* Danger Zone: Wipe Library */}
-              <div className="pt-6 border-t border-red-500/10 space-y-4">
-                <h4 className="text-sm font-bold text-red-400 uppercase tracking-wider">Zona de Perigo</h4>
-                <div className="p-4 rounded-2xl bg-red-500/5 border border-red-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div>
-                    <h5 className="font-bold text-sm text-white">Limpar Biblioteca</h5>
-                    <p className="text-xs text-gray-500 mt-0.5">Apaga permanentemente todos os registos de animes, mangás e progresso da tua conta.</p>
-                  </div>
-                  <button 
-                    onClick={() => setShowWipeConfirm(true)}
-                    className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow"
-                  >
-                    Apagar Tudo
-                  </button>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        )}
 
         {/* Tab Content: Account Details */}
         {activeTab === 'account' && (
@@ -1810,6 +1643,72 @@ const ProfilePage = () => {
                 </form>
               </div>
             </div>
+
+            {/* Backup & Portability Card */}
+            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-secondary/10 via-primary/5 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+              
+              <div className="flex items-center justify-between flex-wrap gap-4 relative z-10">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-primary/10 border border-primary/30 rounded-2xl text-primary shadow-inner">
+                    <Database className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                      <span>Cópia de Segurança (Backup & Portabilidade)</span>
+                    </h3>
+                    <p className="text-xs text-on-surface-variant mt-0.5 max-w-xl">
+                      Exporta toda a tua biblioteca de Animes e Mangas para um ficheiro JSON portátil, facilitando a migração entre o PC e o Android.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-white/5 relative z-10">
+                <button
+                  onClick={handleExportBackup}
+                  disabled={isExporting}
+                  className="py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 shadow-xl bg-primary hover:opacity-90 text-on-primary shadow-primary/20 hover:shadow-primary/40 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isExporting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                      <span>A GERAR BACKUP...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 text-white" />
+                      <span>CRIAR CÓPIA DE SEGURANÇA</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setShowRestoreModal(true)}
+                  className="py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 shadow-xl bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5 hover:scale-[1.01] active:scale-[0.99]"
+                >
+                  <Upload className="w-4 h-4 text-primary" />
+                  <span>RESTAURAR CÓPIA DE SEGURANÇA</span>
+                </button>
+              </div>
+
+              {/* Danger Zone: Wipe Library */}
+              <div className="pt-6 border-t border-red-500/10 space-y-4">
+                <h4 className="text-sm font-bold text-red-400 uppercase tracking-wider">Zona de Perigo</h4>
+                <div className="p-4 rounded-2xl bg-red-500/5 border border-red-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div>
+                    <h5 className="font-bold text-sm text-white">Limpar Biblioteca</h5>
+                    <p className="text-xs text-gray-500 mt-0.5">Apaga permanentemente todos os registos de animes, mangás e progresso da tua conta.</p>
+                  </div>
+                  <button 
+                    onClick={() => setShowWipeConfirm(true)}
+                    className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow"
+                  >
+                    Apagar Tudo
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1842,18 +1741,19 @@ const ProfilePage = () => {
                   </div>
                   <div className="glass-panel p-5 rounded-2xl border border-white/5 bg-gradient-to-br from-primary/5 to-transparent hover:border-primary/20 transition-all flex flex-col justify-between h-28 shadow relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-xl group-hover:bg-primary/15 transition-all"></div>
-                    <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Total Seguidores</span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Acompanhamentos Totais</span>
                     <span className="text-3xl font-black text-white">{adminStats?.totalTrackedItems ?? 0}</span>
                   </div>
                 </div>
 
                 {/* System Admin Actions */}
-                <div className="glass-panel p-6 rounded-[32px] border border-white/10 space-y-4 shadow-xl">
+                <div className="glass-panel p-6 rounded-[32px] border border-white/10 space-y-6 shadow-xl">
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">
                     <Database className="w-5 h-5 text-primary" />
                     <span>Ações do Sistema</span>
                   </h3>
-                  <div className="flex flex-wrap gap-4">
+                  
+                  <div className="flex flex-wrap gap-4 pb-4 border-b border-white/5">
                     <button
                       onClick={handleAdminSeedAchievements}
                       disabled={isSeedingAchievements}
@@ -1863,20 +1763,150 @@ const ProfilePage = () => {
                       <span>Repovoar Conquistas</span>
                     </button>
                     <button
-                      onClick={handleAdminForceSync}
-                      disabled={isForcingSync}
-                      className="px-5 py-3 rounded-xl bg-surface-variant/30 hover:bg-white/10 border border-white/5 text-white font-bold text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
-                    >
-                      {isForcingSync ? <RefreshCw className="w-4 h-4 animate-spin text-primary" /> : <RefreshCw className="w-4 h-4 text-primary-light" />}
-                      <span>Forçar Sincronização Lançamentos</span>
-                    </button>
-                    <button
                       onClick={fetchAdminData}
                       className="px-5 py-3 rounded-xl bg-surface-variant/30 hover:bg-white/10 border border-white/5 text-white font-bold text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95"
                     >
                       <RefreshCw className="w-4 h-4" />
                       <span>Atualizar Painel</span>
                     </button>
+                  </div>
+
+                  {/* Create Achievement Form */}
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Award className="w-4 h-4 text-primary-light" />
+                      <span>Criar Nova Conquista</span>
+                    </h4>
+                    <form onSubmit={handleCreateAchievement} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end bg-white/[0.01] border border-white/5 p-4 rounded-2xl font-sans">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Nome da Conquista</label>
+                        <input
+                          type="text"
+                          placeholder="EX: Crítico de Elite"
+                          value={newAchievementName}
+                          onChange={(e) => setNewAchievementName(e.target.value)}
+                          className="w-full bg-black/40 text-white font-bold p-2.5 rounded-xl border border-white/10 outline-none text-xs"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Descrição</label>
+                        <input
+                          type="text"
+                          placeholder="EX: Adicionou 3 favoritos ao topo"
+                          value={newAchievementDescription}
+                          onChange={(e) => setNewAchievementDescription(e.target.value)}
+                          className="w-full bg-black/40 text-white font-bold p-2.5 rounded-xl border border-white/10 outline-none text-xs"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">URL do Crachá/Imagem</label>
+                        <input
+                          type="text"
+                          placeholder="EX: https://..."
+                          value={newAchievementBadgeUrl}
+                          onChange={(e) => setNewAchievementBadgeUrl(e.target.value)}
+                          className="w-full bg-black/40 text-white font-bold p-2.5 rounded-xl border border-white/10 outline-none text-xs"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={isCreatingAchievement}
+                        className="w-full md:col-span-3 px-4 py-2.5 rounded-xl bg-primary hover:opacity-90 text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-2 shadow"
+                      >
+                        {isCreatingAchievement ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                        <span>Criar Conquista</span>
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                {/* AutoSync Releases Card (Exclusivo do Admin) */}
+                <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-secondary/10 via-primary/5 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+                  
+                  <div className="flex items-center justify-between flex-wrap gap-4 relative z-10">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 bg-primary/10 border border-primary/30 rounded-2xl text-secondary shadow-inner">
+                        <RefreshCw className={`w-6 h-6 ${syncStatus.isSyncing ? 'animate-spin text-secondary' : ''}`} />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                          <span>AutoSync Releases (Animes & Mangas)</span>
+                          {syncStatus.isSyncing && (
+                            <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/20 border border-primary/40 text-[10px] font-black text-primary animate-pulse">
+                              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span> ACTIVE
+                            </span>
+                          )}
+                        </h3>
+                        <p className="text-xs text-on-surface-variant mt-0.5 max-w-xl">
+                          Obtém automaticamente as informações de episódios novos e lançamentos mais recentes de fontes como AniList e MangaDex.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-4 border-t border-white/5 relative z-10">
+                    <button
+                      onClick={triggerManualReleaseSync}
+                      disabled={syncStatus.isSyncing}
+                      className={`w-full py-4 rounded-2xl font-black text-base transition-all flex items-center justify-center gap-3 shadow-xl ${syncStatus.isSyncing ? 'bg-primary/20 border border-primary/30 text-primary cursor-not-allowed shadow-[0_0_25px_rgba(106,27,154,0.2)]' : 'bg-primary hover:opacity-90 text-on-primary shadow-primary/20 hover:shadow-primary/40 hover:scale-[1.01] active:scale-[0.99]'}`}
+                    >
+                      {syncStatus.isSyncing ? (
+                        <>
+                          <RefreshCw className="w-5 h-5 animate-spin text-secondary" />
+                          <span>AUTOSYNC EM CURSO ({syncStatus.current}/{syncStatus.total})</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-5 h-5" />
+                          <span>INICIAR AUTOSYNC MANUAL</span>
+                        </>
+                      )}
+                    </button>
+
+                    {syncStatus.isSyncing && (
+                      <div className="p-6 rounded-2xl bg-black/40 border border-primary/30 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500 shadow-2xl backdrop-blur-xl">
+                        <div className="flex items-center justify-between text-xs font-bold">
+                          <span className="text-secondary uppercase tracking-widest flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-primary animate-ping"></span> Progresso em Tempo Real
+                          </span>
+                          <span className="text-white bg-primary/20 px-2.5 py-1 rounded-lg border border-primary/30 font-mono">
+                            {syncStatus.current} / {syncStatus.total} Concluídos
+                          </span>
+                        </div>
+
+                        <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden border border-white/5 p-0.5 shadow-inner">
+                          <div 
+                            className="h-full bg-gradient-to-r from-primary via-secondary to-indigo-500 rounded-full transition-all duration-500 shadow-[0_0_15px_rgba(106,27,154,0.8)]" 
+                            style={{ width: `${syncStatus.total > 0 ? (syncStatus.current / syncStatus.total) * 100 : 0}%` }}
+                          ></div>
+                        </div>
+
+                        <div className="p-4 rounded-xl bg-surface-variant/40 border border-white/5 flex items-center gap-3 text-sm">
+                          <div className="w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center text-secondary flex-shrink-0 shadow-md">
+                            <span className="material-symbols-outlined text-base animate-spin">sync</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">A atualizar</p>
+                            <p className="font-black text-white text-base truncate mt-0.5">
+                              {syncStatus.currentItemTitle || 'A ligar às APIs externas...'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {releaseSyncError && (
+                      <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3 text-red-400 animate-in fade-in zoom-in-95 duration-300 shadow-lg">
+                        <AlertCircle className="w-6 h-6 flex-shrink-0" />
+                        <div>
+                          <p className="font-bold text-sm text-white">Falha no AutoSync</p>
+                          <p className="text-xs text-red-300 mt-0.5">{releaseSyncError}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1939,7 +1969,7 @@ const ProfilePage = () => {
                                   onChange={(e) => handleUpdateUserRole(u.id, e.target.value)}
                                   className="bg-black/40 border border-white/10 hover:border-white/20 text-white rounded-lg p-1 px-2 text-xs font-bold outline-none focus:border-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                                 >
-                                  <option value="padrao">Padrão</option>
+                                  <option value="padrao" disabled={u.tipoConta === 'pro'}>Padrão</option>
                                   <option value="pro">Pro Tier</option>
                                   <option value="ADMIN">ADMIN</option>
                                 </select>
@@ -2123,7 +2153,6 @@ const ProfilePage = () => {
                             <th className="p-3 text-center">Plano</th>
                             <th className="p-3 text-center">Data Fim</th>
                             <th className="p-3 text-center">Estado</th>
-                            <th className="p-3 text-center">Ações</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5 text-xs">
@@ -2136,12 +2165,11 @@ const ProfilePage = () => {
                               <SubscriptionRow 
                                 key={s.id} 
                                 subscription={s} 
-                                onSave={handleUpdateSubscription} 
                               />
                             ))}
                           {adminSubscriptions.length === 0 && (
                             <tr>
-                              <td colSpan={5} className="p-6 text-center text-gray-500 font-medium">Nenhuma subscrição ativa ou expirada encontrada.</td>
+                              <td colSpan={4} className="p-6 text-center text-gray-500 font-medium">Nenhuma subscrição ativa ou expirada encontrada.</td>
                             </tr>
                           )}
                         </tbody>

@@ -509,6 +509,18 @@ export class UserService {
       throw new BadRequestException('Tipo de conta inválido.');
     }
 
+    const currentUser = await this.prisma.user.findUnique({
+      where: { id }
+    });
+
+    if (!currentUser) {
+      throw new BadRequestException('Utilizador não encontrado.');
+    }
+
+    if (currentUser.tipoConta === 'pro' && tipoConta === 'padrao') {
+      throw new BadRequestException('Não é permitido despromover um utilizador Pro para Padrão, pois trata-se de um serviço pago.');
+    }
+
     const user = await this.prisma.user.update({
       where: { id },
       data: { tipoConta },
@@ -680,5 +692,18 @@ export class UserService {
     }
 
     return sub;
+  }
+
+  async createAchievement(data: { name: string; description: string; badgeImageUrl?: string }) {
+    if (!data.name || !data.description) {
+      throw new BadRequestException('Nome e descrição são obrigatórios.');
+    }
+    return this.prisma.achievement.create({
+      data: {
+        name: data.name,
+        description: data.description,
+        badgeImageUrl: data.badgeImageUrl || null
+      }
+    });
   }
 }

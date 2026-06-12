@@ -325,8 +325,9 @@ export class UserService {
 
     return this.prisma.userTopFavorite.upsert({
       where: {
-        userId_rankPosition: {
+        userId_mediaType_rankPosition: {
           userId,
+          mediaType,
           rankPosition,
         },
       },
@@ -343,13 +344,14 @@ export class UserService {
     });
   }
 
-  async removeFavorite(userId: number, rankPosition: number) {
+  async removeFavorite(userId: number, mediaType: 'ANIME' | 'MANGA', rankPosition: number) {
     if (rankPosition < 1 || rankPosition > 3) {
       throw new BadRequestException('A posição do ranking deve ser 1, 2 ou 3.');
     }
     return this.prisma.userTopFavorite.deleteMany({
       where: {
         userId,
+        mediaType,
         rankPosition,
       },
     });

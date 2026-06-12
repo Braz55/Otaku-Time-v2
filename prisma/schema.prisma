@@ -140,7 +140,7 @@ model UserTopFavorite {
   rankPosition   Int       // 1, 2 ou 3
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, rankPosition])
+  @@unique([userId, mediaType, rankPosition])
   @@unique([userId, anilistMediaId, mediaType])
 }
 
@@ -149,7 +149,8 @@ model UserStatistics {
   totalAnimeCompleted  Int   @default(0)
   totalEpisodesWatched Int   @default(0)
   totalMangaRead       Int   @default(0)
-  daysWasted           Float @default(0.0)
+  animeDaysWasted      Float @default(0.0)
+  mangaDaysWasted      Float @default(0.0)
   user                 User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 

@@ -592,7 +592,8 @@ export class MangaService {
       const totalAnimeCompleted = animes.filter(a => a.status === 'COMPLETED').length;
       const totalEpisodesWatched = animes.reduce((sum, a) => sum + (a.epAtual || 0), 0);
       const totalMangaRead = mangas.reduce((sum, m) => sum + Math.floor(m.capAtual || 0), 0);
-      const daysWasted = parseFloat(((totalEpisodesWatched * 24) / 1440).toFixed(2));
+      const animeDaysWasted = parseFloat(((totalEpisodesWatched * 24) / 1440).toFixed(2));
+      const mangaDaysWasted = parseFloat(((totalMangaRead * 10) / 1440).toFixed(2));
 
       await this.prisma.userStatistics.upsert({
         where: { userId },
@@ -600,14 +601,16 @@ export class MangaService {
           totalAnimeCompleted,
           totalEpisodesWatched,
           totalMangaRead,
-          daysWasted,
+          animeDaysWasted,
+          mangaDaysWasted,
         },
         create: {
           userId,
           totalAnimeCompleted,
           totalEpisodesWatched,
           totalMangaRead,
-          daysWasted,
+          animeDaysWasted,
+          mangaDaysWasted,
         },
       });
 

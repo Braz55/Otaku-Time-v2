@@ -26,7 +26,7 @@ const ProfilePage = () => {
   // Profile Data state
   const [profile, setProfile] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
-  const [favoriteDetails, setFavoriteDetails] = useState<Record<number, { title: string; coverUrl: string }>>({});
+  const [favoriteDetails, setFavoriteDetails] = useState<Record<string, { title: string; coverUrl: string }>>({});
   const [catalog, setCatalog] = useState<any[]>([]);
 
   // Edit Account/Profile state
@@ -41,6 +41,7 @@ const ProfilePage = () => {
   const [editName, setEditName] = useState('');
   const [editIconUrl, setEditIconUrl] = useState('');
   const [editBannerUrl, setEditBannerUrl] = useState('');
+  const [editBannerPosition, setEditBannerPosition] = useState<number>(50);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   // Compress/resize image using Canvas before converting to base64
@@ -183,12 +184,12 @@ const ProfilePage = () => {
     if (!profile?.topFavorites) return;
     
     // Clear old details that are not in the new topFavorites
-    const currentRanks = profile.topFavorites.map((f: any) => f.rankPosition);
+    const currentKeys = profile.topFavorites.map((f: any) => `${f.mediaType}-${f.rankPosition}`);
     setFavoriteDetails(prev => {
       const updated = { ...prev };
       Object.keys(updated).forEach(k => {
-        if (!currentRanks.includes(Number(k))) {
-          delete updated[Number(k)];
+        if (!currentKeys.includes(k)) {
+          delete updated[k];
         }
       });
       return updated;
@@ -206,7 +207,7 @@ const ProfilePage = () => {
           const coverUrl = data.coverImage?.large || '';
           setFavoriteDetails(prev => ({
             ...prev,
-            [fav.rankPosition]: { title, coverUrl }
+            [`${fav.mediaType}-${fav.rankPosition}`]: { title, coverUrl }
           }));
         }
       } catch (e) {
@@ -224,7 +225,7 @@ const ProfilePage = () => {
     fetchFavoriteDetails();
   }, [profile?.topFavorites]);
 
-  // Sync edit name state
+  // Sync edit name and profile states
   useEffect(() => {
     if (user?.nome) {
       setNewName(user.nome);
@@ -233,6 +234,7 @@ const ProfilePage = () => {
     if (profile) {
       setEditIconUrl(profile.iconUrl || '');
       setEditBannerUrl(profile.bannerUrl || '');
+      setEditBannerPosition(profile.preferences?.bannerPosition ?? 50);
     }
   }, [user, profile]);
 
@@ -242,11 +244,17 @@ const ProfilePage = () => {
     showToast('Paleta de cores atualizada!', 'success');
   };
 
-  // Save profile edit (icon, banner, name)
+  // Save profile edit (icon, banner, bannerPosition, name)
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
     setIsSavingProfile(true);
+
+    const updatedPreferences = {
+      ...profile?.preferences,
+      bannerPosition: editBannerPosition
+    };
+
     try {
       const res = await customFetch(`${API_BASE_URL}/user/profile`, {
         method: 'PATCH',
@@ -254,11 +262,15 @@ const ProfilePage = () => {
         body: JSON.stringify({
           nome: editName,
           iconUrl: editIconUrl || null,
-          bannerUrl: editBannerUrl || null
+          bannerUrl: editBannerUrl || null,
+          preferences: updatedPreferences
         })
       });
       if (res.ok) {
-        updateUser({ nome: editName });
+        updateUser({ 
+          nome: editName,
+          preferences: updatedPreferences
+        });
         showToast('Perfil atualizado com sucesso!', 'success');
         setShowEditProfileModal(false);
         fetchProfile();
@@ -388,7 +400,8 @@ const ProfilePage = () => {
   };
 
   // Favorites logic
-  const openFavoritesSearch = (rank: number) => {
+  const openFavoritesSearch = (type: 'anime' | 'manga', rank: number) => {
+    setFavSearchType(type);
     setSelectedRank(rank);
     setFavSearchResults([]);
     setFavSearchTerm('');
@@ -436,9 +449,9 @@ const ProfilePage = () => {
     }
   };
 
-  const handleRemoveFavorite = async (rank: number) => {
+  const handleRemoveFavorite = async (type: 'ANIME' | 'MANGA', rank: number) => {
     try {
-      const res = await customFetch(`${API_BASE_URL}/user/favorites/${rank}`, {
+      const res = await customFetch(`${API_BASE_URL}/user/favorites/${type.toLowerCase()}/${rank}`, {
         method: 'DELETE',
         headers: getHeaders()
       });
@@ -664,19 +677,22 @@ const ProfilePage = () => {
 
         {/* User Card Hero (Profile Banner & Avatar) */}
         <div 
-          className="glass-panel p-6 sm:p-8 rounded-[32px] border border-secondary/20 shadow-2xl relative overflow-hidden flex flex-col justify-end min-h-[220px] transition-all duration-500"
+          className="relative w-full rounded-[32px] border border-secondary/20 shadow-2xl overflow-hidden min-h-[220px] transition-all duration-500 flex flex-col justify-end"
           style={{
-            backgroundImage: profile?.bannerUrl ? `linear-gradient(to top, rgba(15, 16, 20, 0.95), rgba(15, 16, 20, 0.4)), url(${profile.bannerUrl})` : undefined,
+            backgroundImage: profile?.bannerUrl ? `url(${profile.bannerUrl})` : undefined,
             backgroundSize: 'cover',
-            backgroundPosition: 'center',
+            backgroundPosition: `center ${profile?.preferences?.bannerPosition ?? '50'}%`,
           }}
         >
+          {/* Dark Overlay aligned perfectly within card borders */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0f1014] via-black/45 to-transparent z-0"></div>
+
           {/* Default Hero Gradient overlay if no banner exists */}
           {!profile?.bannerUrl && (
             <div className="absolute inset-0 bg-gradient-to-r from-secondary/25 via-primary/15 to-transparent blur-3xl -z-10 hero-gradient"></div>
           )}
           
-          <div className="flex flex-col sm:flex-row items-center gap-6 relative z-10 text-center sm:text-left w-full justify-between mt-auto">
+          <div className="p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-6 relative z-10 text-center sm:text-left w-full justify-between mt-auto">
             <div className="flex flex-col sm:flex-row items-center gap-6">
               <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-primary p-1 shadow-[0_0_30px_rgba(194,24,91,0.4)] flex-shrink-0 relative overflow-hidden">
                 <div className="w-full h-full rounded-full bg-surface flex items-center justify-center text-4xl font-black text-white overflow-hidden">
@@ -741,32 +757,32 @@ const ProfilePage = () => {
           </div>
         )}
 
-        {/* Tab Content: Dashboard (Podium, Stats, Achievements) */}
+        {/* Tab Content: Dashboard (Podiums, Stats, Achievements) */}
         {!loadingProfile && activeTab === 'dashboard' && profile && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             
-            {/* 1. TOP FAVORITES (PODIUM) */}
+            {/* 1. ANIME PODIUM */}
             <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-primary/10 to-transparent rounded-full blur-2xl"></div>
               <div>
                 <h3 className="text-xl font-bold text-white flex items-center gap-2.5">
-                  <Heart className="w-5 h-5 text-red-500 fill-red-500" />
-                  <span>Destaques Favoritos (O Pódio)</span>
+                  <Heart className="w-5 h-5 text-primary fill-primary animate-pulse" />
+                  <span>Destaques de Anime</span>
                 </h3>
-                <p className="text-xs text-on-surface-variant mt-0.5">Personaliza o teu pódio de animes/mangás favoritos para exibir no teu perfil.</p>
+                <p className="text-xs text-on-surface-variant mt-0.5">O teu pódio dos 3 melhores Animes de sempre.</p>
               </div>
 
               <div className="grid grid-cols-3 gap-3 sm:gap-6 pt-2 max-w-2xl mx-auto items-end">
-                {/* 2nd Place */}
+                {/* Anime 2nd Place */}
                 <div className="flex flex-col items-center gap-2">
                   <div className="w-full aspect-[2/3] rounded-2xl border border-white/5 bg-black/40 overflow-hidden relative group shadow-md flex items-center justify-center text-center">
-                    {favoriteDetails[2] ? (
+                    {favoriteDetails['ANIME-2'] ? (
                       <>
-                        <img src={favoriteDetails[2].coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="2nd Place" />
+                        <img src={favoriteDetails['ANIME-2'].coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="2nd Place" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent flex flex-col justify-end p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
-                          <p className="text-[10px] sm:text-xs font-bold text-white line-clamp-2 leading-tight">{favoriteDetails[2].title}</p>
+                          <p className="text-[10px] sm:text-xs font-bold text-white line-clamp-2 leading-tight">{favoriteDetails['ANIME-2'].title}</p>
                           <button 
-                            onClick={() => handleRemoveFavorite(2)}
+                            onClick={() => handleRemoveFavorite('ANIME', 2)}
                             className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg self-center mt-2 scale-90 active:scale-75 transition-all shadow"
                             title="Remover"
                           >
@@ -776,7 +792,7 @@ const ProfilePage = () => {
                       </>
                     ) : (
                       <button 
-                        onClick={() => openFavoritesSearch(2)}
+                        onClick={() => openFavoritesSearch('anime', 2)}
                         className="w-full h-full flex flex-col items-center justify-center p-3 text-gray-500 hover:text-white transition-all bg-white/5 hover:bg-white/10"
                       >
                         <Plus className="w-6 h-6 mb-1 text-primary-light" />
@@ -787,16 +803,16 @@ const ProfilePage = () => {
                   <div className="h-6 w-full bg-slate-400/20 rounded-lg flex items-center justify-center text-[10px] sm:text-xs font-black text-slate-300 border border-slate-400/40">2º SILVER</div>
                 </div>
 
-                {/* 1st Place */}
+                {/* Anime 1st Place */}
                 <div className="flex flex-col items-center gap-2">
                   <div className="w-full aspect-[2/3] rounded-2xl border border-amber-500/30 bg-black/40 overflow-hidden relative group shadow-lg flex items-center justify-center text-center ring-2 ring-amber-500/20">
-                    {favoriteDetails[1] ? (
+                    {favoriteDetails['ANIME-1'] ? (
                       <>
-                        <img src={favoriteDetails[1].coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="1st Place" />
+                        <img src={favoriteDetails['ANIME-1'].coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="1st Place" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent flex flex-col justify-end p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
-                          <p className="text-[10px] sm:text-xs font-bold text-white line-clamp-2 leading-tight">{favoriteDetails[1].title}</p>
+                          <p className="text-[10px] sm:text-xs font-bold text-white line-clamp-2 leading-tight">{favoriteDetails['ANIME-1'].title}</p>
                           <button 
-                            onClick={() => handleRemoveFavorite(1)}
+                            onClick={() => handleRemoveFavorite('ANIME', 1)}
                             className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg self-center mt-2 scale-90 active:scale-75 transition-all shadow"
                             title="Remover"
                           >
@@ -806,7 +822,7 @@ const ProfilePage = () => {
                       </>
                     ) : (
                       <button 
-                        onClick={() => openFavoritesSearch(1)}
+                        onClick={() => openFavoritesSearch('anime', 1)}
                         className="w-full h-full flex flex-col items-center justify-center p-3 text-gray-500 hover:text-white transition-all bg-white/5 hover:bg-white/10"
                       >
                         <Plus className="w-7 h-7 mb-1 text-amber-400" />
@@ -817,16 +833,16 @@ const ProfilePage = () => {
                   <div className="h-8 w-full bg-amber-500/20 rounded-lg flex items-center justify-center text-xs font-black text-amber-300 border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.2)]">1º GOLD</div>
                 </div>
 
-                {/* 3rd Place */}
+                {/* Anime 3rd Place */}
                 <div className="flex flex-col items-center gap-2">
                   <div className="w-full aspect-[2/3] rounded-2xl border border-white/5 bg-black/40 overflow-hidden relative group shadow-md flex items-center justify-center text-center">
-                    {favoriteDetails[3] ? (
+                    {favoriteDetails['ANIME-3'] ? (
                       <>
-                        <img src={favoriteDetails[3].coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="3rd Place" />
+                        <img src={favoriteDetails['ANIME-3'].coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="3rd Place" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent flex flex-col justify-end p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
-                          <p className="text-[10px] sm:text-xs font-bold text-white line-clamp-2 leading-tight">{favoriteDetails[3].title}</p>
+                          <p className="text-[10px] sm:text-xs font-bold text-white line-clamp-2 leading-tight">{favoriteDetails['ANIME-3'].title}</p>
                           <button 
-                            onClick={() => handleRemoveFavorite(3)}
+                            onClick={() => handleRemoveFavorite('ANIME', 3)}
                             className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg self-center mt-2 scale-90 active:scale-75 transition-all shadow"
                             title="Remover"
                           >
@@ -836,7 +852,7 @@ const ProfilePage = () => {
                       </>
                     ) : (
                       <button 
-                        onClick={() => openFavoritesSearch(3)}
+                        onClick={() => openFavoritesSearch('anime', 3)}
                         className="w-full h-full flex flex-col items-center justify-center p-3 text-gray-500 hover:text-white transition-all bg-white/5 hover:bg-white/10"
                       >
                         <Plus className="w-6 h-6 mb-1 text-orange-400" />
@@ -849,7 +865,111 @@ const ProfilePage = () => {
               </div>
             </div>
 
-            {/* 2. STATISTICS */}
+            {/* 2. MANGA PODIUM */}
+            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-secondary/10 to-transparent rounded-full blur-2xl"></div>
+              <div>
+                <h3 className="text-xl font-bold text-white flex items-center gap-2.5">
+                  <Heart className="w-5 h-5 text-secondary fill-secondary animate-pulse" />
+                  <span>Destaques de Mangá</span>
+                </h3>
+                <p className="text-xs text-on-surface-variant mt-0.5">O teu pódio dos 3 melhores Mangás de sempre.</p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 sm:gap-6 pt-2 max-w-2xl mx-auto items-end">
+                {/* Manga 2nd Place */}
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-full aspect-[2/3] rounded-2xl border border-white/5 bg-black/40 overflow-hidden relative group shadow-md flex items-center justify-center text-center">
+                    {favoriteDetails['MANGA-2'] ? (
+                      <>
+                        <img src={favoriteDetails['MANGA-2'].coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="2nd Place" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent flex flex-col justify-end p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
+                          <p className="text-[10px] sm:text-xs font-bold text-white line-clamp-2 leading-tight">{favoriteDetails['MANGA-2'].title}</p>
+                          <button 
+                            onClick={() => handleRemoveFavorite('MANGA', 2)}
+                            className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg self-center mt-2 scale-90 active:scale-75 transition-all shadow"
+                            title="Remover"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <button 
+                        onClick={() => openFavoritesSearch('manga', 2)}
+                        className="w-full h-full flex flex-col items-center justify-center p-3 text-gray-500 hover:text-white transition-all bg-white/5 hover:bg-white/10"
+                      >
+                        <Plus className="w-6 h-6 mb-1 text-primary-light" />
+                        <span className="text-[9px] sm:text-xs font-bold">2º Lugar</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="h-6 w-full bg-slate-400/20 rounded-lg flex items-center justify-center text-[10px] sm:text-xs font-black text-slate-300 border border-slate-400/40">2º SILVER</div>
+                </div>
+
+                {/* Manga 1st Place */}
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-full aspect-[2/3] rounded-2xl border border-amber-500/30 bg-black/40 overflow-hidden relative group shadow-lg flex items-center justify-center text-center ring-2 ring-amber-500/20">
+                    {favoriteDetails['MANGA-1'] ? (
+                      <>
+                        <img src={favoriteDetails['MANGA-1'].coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="1st Place" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent flex flex-col justify-end p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
+                          <p className="text-[10px] sm:text-xs font-bold text-white line-clamp-2 leading-tight">{favoriteDetails['MANGA-1'].title}</p>
+                          <button 
+                            onClick={() => handleRemoveFavorite('MANGA', 1)}
+                            className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg self-center mt-2 scale-90 active:scale-75 transition-all shadow"
+                            title="Remover"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <button 
+                        onClick={() => openFavoritesSearch('manga', 1)}
+                        className="w-full h-full flex flex-col items-center justify-center p-3 text-gray-500 hover:text-white transition-all bg-white/5 hover:bg-white/10"
+                      >
+                        <Plus className="w-7 h-7 mb-1 text-amber-400" />
+                        <span className="text-[10px] sm:text-sm font-bold">1º Lugar</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="h-8 w-full bg-amber-500/20 rounded-lg flex items-center justify-center text-xs font-black text-amber-300 border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.2)]">1º GOLD</div>
+                </div>
+
+                {/* Manga 3rd Place */}
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-full aspect-[2/3] rounded-2xl border border-white/5 bg-black/40 overflow-hidden relative group shadow-md flex items-center justify-center text-center">
+                    {favoriteDetails['MANGA-3'] ? (
+                      <>
+                        <img src={favoriteDetails['MANGA-3'].coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="3rd Place" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent flex flex-col justify-end p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
+                          <p className="text-[10px] sm:text-xs font-bold text-white line-clamp-2 leading-tight">{favoriteDetails['MANGA-3'].title}</p>
+                          <button 
+                            onClick={() => handleRemoveFavorite('MANGA', 3)}
+                            className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg self-center mt-2 scale-90 active:scale-75 transition-all shadow"
+                            title="Remover"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <button 
+                        onClick={() => openFavoritesSearch('manga', 3)}
+                        className="w-full h-full flex flex-col items-center justify-center p-3 text-gray-500 hover:text-white transition-all bg-white/5 hover:bg-white/10"
+                      >
+                        <Plus className="w-6 h-6 mb-1 text-orange-400" />
+                        <span className="text-[9px] sm:text-xs font-bold">3º Lugar</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="h-6 w-full bg-amber-700/20 rounded-lg flex items-center justify-center text-[10px] sm:text-xs font-black text-amber-500 border border-amber-700/40">3º BRONZE</div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. STATISTICS */}
             <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-secondary/10 to-transparent rounded-full blur-2xl"></div>
               <div>
@@ -860,7 +980,7 @@ const ProfilePage = () => {
                 <p className="text-xs text-on-surface-variant mt-0.5">Resumo automático do teu progresso global em Anime e Mangá.</p>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 pt-2">
                 {/* Completed Anime */}
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col gap-1 shadow-inner relative group overflow-hidden">
                   <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 self-start">
@@ -894,20 +1014,31 @@ const ProfilePage = () => {
                   <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Capítulos Lidos</span>
                 </div>
 
-                {/* Days Wasted */}
+                {/* Anime Time Spent */}
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col gap-1 shadow-inner relative group overflow-hidden">
                   <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 self-start">
                     <Clock className="w-5 h-5" />
                   </div>
-                  <span className="text-2xl font-black text-white mt-2">
-                    {profile.statistics?.daysWasted ? `${profile.statistics.daysWasted}d` : '0d'}
+                  <span className="text-xl font-black text-white mt-2 truncate">
+                    {profile.statistics?.animeDaysWasted ? `${profile.statistics.animeDaysWasted}d` : '0d'}
                   </span>
-                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Tempo Desperdiçado</span>
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Tempo a ver Anime</span>
+                </div>
+
+                {/* Manga Time Spent */}
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col gap-1 shadow-inner relative group overflow-hidden">
+                  <div className="p-2 bg-pink-500/10 border border-pink-500/20 rounded-xl text-pink-400 self-start">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <span className="text-xl font-black text-white mt-2 truncate">
+                    {profile.statistics?.mangaDaysWasted ? `${profile.statistics.mangaDaysWasted}d` : '0d'}
+                  </span>
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Tempo a ler Mangá</span>
                 </div>
               </div>
             </div>
 
-            {/* 3. ACHIEVEMENTS */}
+            {/* 4. ACHIEVEMENTS */}
             <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-amber-500/10 to-transparent rounded-full blur-2xl"></div>
               <div className="flex justify-between items-center flex-wrap gap-2">
@@ -1419,14 +1550,44 @@ const ProfilePage = () => {
                 </div>
               </div>
 
-              {/* Instant previews */}
-              <div className="p-4 bg-black/40 rounded-2xl border border-white/5 flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full bg-surface border border-white/10 overflow-hidden flex items-center justify-center text-xl font-bold text-gray-400">
-                  {editIconUrl ? <img src={editIconUrl} className="w-full h-full object-cover" alt="Preview" /> : (editName ? editName.charAt(0).toUpperCase() : '?')}
+              {editBannerUrl && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs font-bold text-on-surface-variant">
+                    <span>Posição Vertical do Banner</span>
+                    <span className="text-primary-light font-mono">{editBannerPosition}%</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="100" 
+                    value={editBannerPosition}
+                    onChange={(e) => setEditBannerPosition(Number(e.target.value))}
+                    className="w-full accent-primary bg-black/40 h-2 rounded-lg cursor-pointer"
+                  />
+                  <p className="text-[10px] text-gray-500">Desliza para centrar a melhor parte da imagem.</p>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-white truncate">{editName || 'Nome de Perfil'}</p>
-                  <p className="text-[10px] text-gray-500 mt-0.5">Pré-visualização do Perfil</p>
+              )}
+
+              {/* Instant previews */}
+              <div className="p-4 bg-black/40 rounded-2xl border border-white/5 space-y-4">
+                {editBannerUrl && (
+                  <div 
+                    className="w-full h-24 rounded-xl border border-white/10 overflow-hidden"
+                    style={{
+                      backgroundImage: `url(${editBannerUrl})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: `center ${editBannerPosition}%`
+                    }}
+                  />
+                )}
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-surface border border-white/10 overflow-hidden flex items-center justify-center text-lg font-bold text-gray-400">
+                    {editIconUrl ? <img src={editIconUrl} className="w-full h-full object-cover" alt="Preview" /> : (editName ? editName.charAt(0).toUpperCase() : '?')}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-white truncate">{editName || 'Nome de Perfil'}</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Pré-visualização do Perfil</p>
+                  </div>
                 </div>
               </div>
 
@@ -1461,22 +1622,14 @@ const ProfilePage = () => {
             <div className="space-y-2">
               <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
                 <Heart className="w-6 h-6 text-red-500 fill-red-500" />
-                <span>Definir {selectedRank}º Destaque</span>
+                <span className="capitalize">Definir {selectedRank}º Destaque de {favSearchType}</span>
               </h3>
               <p className="text-xs sm:text-sm text-gray-400">
-                Pesquisa na AniList para definir qual anime ou mangá pretendes destacar no teu pódio.
+                Pesquisa na AniList para definir qual {favSearchType} pretendes destacar no teu pódio.
               </p>
             </div>
 
             <div className="flex gap-2">
-              <select 
-                value={favSearchType}
-                onChange={(e: any) => setFavSearchType(e.target.value)}
-                className="bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 outline-none text-xs sm:text-sm cursor-pointer"
-              >
-                <option value="anime" className="bg-[#0f1014]">Anime</option>
-                <option value="manga" className="bg-[#0f1014]">Manga</option>
-              </select>
               <div className="flex-1 flex gap-2">
                 <input 
                   type="text" 

@@ -83,9 +83,10 @@ export class UserController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Delete('favorites/:rank')
-  removeFavorite(@Request() req, @Param('rank') rank: string) {
-    return this.userService.removeFavorite(req.user.userId, +rank);
+  @Delete('favorites/:type/:rank')
+  removeFavorite(@Request() req, @Param('type') type: string, @Param('rank') rank: string) {
+    const mediaType = type.toUpperCase() as 'ANIME' | 'MANGA';
+    return this.userService.removeFavorite(req.user.userId, mediaType, +rank);
   }
 
   // --- Estatísticas ---

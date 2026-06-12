@@ -68,6 +68,7 @@ model UserAnime {
   animeId    Int
   user       User           @relation(fields: [userId], references: [id])
   anime      Anime          @relation(fields: [animeId], references: [id])
+  wasDropped Boolean        @default(false)
   updatedAt  DateTime       @default(now()) @updatedAt
 
   @@unique([userId, animeId])
@@ -99,6 +100,7 @@ model UserManga {
   mangaId    Int
   user       User           @relation(fields: [userId], references: [id])
   manga      Manga          @relation(fields: [mangaId], references: [id])
+  wasDropped Boolean        @default(false)
   updatedAt  DateTime       @default(now()) @updatedAt
 
   @@unique([userId, mangaId])
@@ -162,6 +164,7 @@ model Achievement {
   name          String
   description   String
   badgeImageUrl String?
+  rarity        String            @default("COMMON")
   users         UserAchievement[]
 }
 

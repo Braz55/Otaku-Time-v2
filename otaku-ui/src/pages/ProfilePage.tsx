@@ -74,6 +74,19 @@ const SubscriptionRow = ({ subscription }: { subscription: any }) => {
   );
 };
 
+const getRarityBadge = (rarity?: string) => {
+  switch (rarity) {
+    case 'RARE':
+      return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 uppercase tracking-wider">Raro</span>;
+    case 'EPIC':
+      return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black bg-purple-500/10 border border-purple-500/20 text-purple-400 uppercase tracking-wider">Épico</span>;
+    case 'LEGENDARY':
+      return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black bg-amber-500/10 border border-amber-500/20 text-amber-400 uppercase tracking-wider">Lendário</span>;
+    default:
+      return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black bg-gray-500/10 border border-gray-500/20 text-gray-400 uppercase tracking-wider">Comum</span>;
+  }
+};
+
 const ProfilePage = () => {
   const { user, logout, token, updateUser } = useAuth();
   const { showToast } = useToast();
@@ -222,11 +235,14 @@ const ProfilePage = () => {
   const [giftExpiresAt, setGiftExpiresAt] = useState('');
   const [isGeneratingGift, setIsGeneratingGift] = useState(false);
 
-  // Achievement Creation State
-  const [newAchievementName, setNewAchievementName] = useState('');
-  const [newAchievementDescription, setNewAchievementDescription] = useState('');
-  const [newAchievementBadgeUrl, setNewAchievementBadgeUrl] = useState('');
-  const [isCreatingAchievement, setIsCreatingAchievement] = useState(false);
+  // Manage Achievements State
+  const [showManageAchievementsModal, setShowManageAchievementsModal] = useState(false);
+  const [editingAchievement, setEditingAchievement] = useState<any>(null);
+  const [editAchievementName, setEditAchievementName] = useState('');
+  const [editAchievementDescription, setEditAchievementDescription] = useState('');
+  const [editAchievementBadgeUrl, setEditAchievementBadgeUrl] = useState('');
+  const [editAchievementRarity, setEditAchievementRarity] = useState('COMMON');
+  const [isSavingAchievement, setIsSavingAchievement] = useState(false);
 
   // User redemption state
   const [redeemCodeInput, setRedeemCodeInput] = useState('');
@@ -366,38 +382,68 @@ const ProfilePage = () => {
     }
   };
 
-  const handleCreateAchievement = async (e: React.FormEvent) => {
+  const handleAchievementIconChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Por favor, seleciona um ficheiro de imagem válido.', 'warning');
+      return;
+    }
+
+    try {
+      const compressed = await compressImage(file, 150, 150);
+      setEditAchievementBadgeUrl(compressed);
+      showToast('Ícone da conquista carregado!', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Erro ao processar imagem.', 'error');
+    }
+  };
+
+  const selectAchievementForEdit = (ach: any) => {
+    setEditingAchievement(ach);
+    setEditAchievementName(ach.name);
+    setEditAchievementDescription(ach.description);
+    setEditAchievementBadgeUrl(ach.badgeImageUrl || '');
+    setEditAchievementRarity(ach.rarity || 'COMMON');
+  };
+
+  const handleSaveAchievement = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token) return;
-    if (!newAchievementName.trim() || !newAchievementDescription.trim()) {
+    if (!editingAchievement) return;
+    if (!editAchievementName.trim() || !editAchievementDescription.trim()) {
       showToast('Nome e descrição são obrigatórios.', 'warning');
       return;
     }
-    setIsCreatingAchievement(true);
+    setIsSavingAchievement(true);
     try {
-      const res = await customFetch(`${API_BASE_URL}/user/admin/achievements`, {
-        method: 'POST',
+      const res = await customFetch(`${API_BASE_URL}/user/admin/achievements/${editingAchievement.id}`, {
+        method: 'PATCH',
         headers: getHeaders(),
         body: JSON.stringify({
-          name: newAchievementName,
-          description: newAchievementDescription,
-          badgeImageUrl: newAchievementBadgeUrl || undefined
+          name: editAchievementName,
+          description: editAchievementDescription,
+          badgeImageUrl: editAchievementBadgeUrl || null,
+          rarity: editAchievementRarity
         })
       });
       if (res.ok) {
-        showToast('Nova conquista criada com sucesso!', 'success');
-        setNewAchievementName('');
-        setNewAchievementDescription('');
-        setNewAchievementBadgeUrl('');
+        showToast('Conquista atualizada com sucesso!', 'success');
+        setEditingAchievement(null);
+        setEditAchievementName('');
+        setEditAchievementDescription('');
+        setEditAchievementBadgeUrl('');
+        setEditAchievementRarity('COMMON');
         fetchCatalog();
       } else {
         const err = await res.json().catch(() => ({}));
-        showToast(err.message || 'Falha ao criar conquista.', 'error');
+        showToast(err.message || 'Falha ao atualizar conquista.', 'error');
       }
     } catch (err: any) {
       showToast(`Erro: ${err.message || err}`, 'error');
     } finally {
-      setIsCreatingAchievement(false);
+      setIsSavingAchievement(false);
     }
   };
 
@@ -1368,10 +1414,17 @@ const ProfilePage = () => {
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {catalog.map(ach => {
                       const unlocked = isUnlocked(ach.id);
+                      let borderClass = 'border-white/5 bg-black/40 grayscale opacity-40';
+                      if (unlocked) {
+                        if (ach.rarity === 'RARE') borderClass = 'border-cyan-500/20 bg-cyan-500/5 hover:scale-[1.02]';
+                        else if (ach.rarity === 'EPIC') borderClass = 'border-purple-500/20 bg-purple-500/5 hover:scale-[1.02]';
+                        else if (ach.rarity === 'LEGENDARY') borderClass = 'border-amber-500/20 bg-amber-500/5 hover:scale-[1.02]';
+                        else borderClass = 'border-primary/20 bg-primary/5 hover:scale-[1.02]';
+                      }
                       return (
                         <div 
                           key={ach.id} 
-                          className={`glass-panel p-4 rounded-2xl border flex flex-col items-center text-center gap-2 group relative transition-all ${unlocked ? 'border-primary/20 bg-primary/5 hover:scale-[1.02]' : 'border-white/5 opacity-40 bg-black/40 grayscale'}`}
+                          className={`glass-panel p-4 rounded-2xl border flex flex-col items-center text-center gap-2 group relative transition-all ${borderClass}`}
                         >
                           <div className="w-14 h-14 rounded-full bg-white/5 p-1 relative flex items-center justify-center">
                             {ach.badgeImageUrl ? (
@@ -1386,8 +1439,11 @@ const ProfilePage = () => {
                             )}
                           </div>
                           <div>
-                            <h5 className="font-bold text-xs sm:text-sm text-white">{ach.name}</h5>
-                            <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-2 leading-tight">{ach.description}</p>
+                            <h5 className="font-bold text-xs sm:text-sm text-white flex flex-col items-center gap-1">
+                              <span>{ach.name}</span>
+                              {getRarityBadge(ach.rarity)}
+                            </h5>
+                            <p className="text-[10px] text-gray-500 mt-1.5 line-clamp-2 leading-tight">{ach.description}</p>
                           </div>
                           {unlocked && (
                             <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 mt-1">
@@ -1753,7 +1809,7 @@ const ProfilePage = () => {
                     <span>Ações do Sistema</span>
                   </h3>
                   
-                  <div className="flex flex-wrap gap-4 pb-4 border-b border-white/5">
+                  <div className="flex flex-wrap gap-4 pb-4">
                     <button
                       onClick={handleAdminSeedAchievements}
                       disabled={isSeedingAchievements}
@@ -1763,62 +1819,19 @@ const ProfilePage = () => {
                       <span>Repovoar Conquistas</span>
                     </button>
                     <button
+                      onClick={() => setShowManageAchievementsModal(true)}
+                      className="px-5 py-3 rounded-xl bg-gradient-to-r from-primary/80 to-primary hover:from-primary hover:to-primary-dark text-on-primary font-bold text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 shadow-md shadow-primary/20"
+                    >
+                      <Award className="w-4 h-4 text-white" />
+                      <span>Gerir Conquistas</span>
+                    </button>
+                    <button
                       onClick={fetchAdminData}
                       className="px-5 py-3 rounded-xl bg-surface-variant/30 hover:bg-white/10 border border-white/5 text-white font-bold text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95"
                     >
                       <RefreshCw className="w-4 h-4" />
                       <span>Atualizar Painel</span>
                     </button>
-                  </div>
-
-                  {/* Create Achievement Form */}
-                  <div className="space-y-4">
-                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                      <Award className="w-4 h-4 text-primary-light" />
-                      <span>Criar Nova Conquista</span>
-                    </h4>
-                    <form onSubmit={handleCreateAchievement} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end bg-white/[0.01] border border-white/5 p-4 rounded-2xl font-sans">
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Nome da Conquista</label>
-                        <input
-                          type="text"
-                          placeholder="EX: Crítico de Elite"
-                          value={newAchievementName}
-                          onChange={(e) => setNewAchievementName(e.target.value)}
-                          className="w-full bg-black/40 text-white font-bold p-2.5 rounded-xl border border-white/10 outline-none text-xs"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Descrição</label>
-                        <input
-                          type="text"
-                          placeholder="EX: Adicionou 3 favoritos ao topo"
-                          value={newAchievementDescription}
-                          onChange={(e) => setNewAchievementDescription(e.target.value)}
-                          className="w-full bg-black/40 text-white font-bold p-2.5 rounded-xl border border-white/10 outline-none text-xs"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">URL do Crachá/Imagem</label>
-                        <input
-                          type="text"
-                          placeholder="EX: https://..."
-                          value={newAchievementBadgeUrl}
-                          onChange={(e) => setNewAchievementBadgeUrl(e.target.value)}
-                          className="w-full bg-black/40 text-white font-bold p-2.5 rounded-xl border border-white/10 outline-none text-xs"
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={isCreatingAchievement}
-                        className="w-full md:col-span-3 px-4 py-2.5 rounded-xl bg-primary hover:opacity-90 text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-2 shadow"
-                      >
-                        {isCreatingAchievement ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                        <span>Criar Conquista</span>
-                      </button>
-                    </form>
                   </div>
                 </div>
 
@@ -2628,6 +2641,199 @@ const ProfilePage = () => {
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manage Achievements Modal */}
+      {showManageAchievementsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="glass-panel w-full max-w-4xl p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-primary/10 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+
+            <div className="flex justify-between items-center border-b border-white/5 pb-4">
+              <div className="space-y-1">
+                <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                  <Award className="w-6 h-6 text-amber-400" />
+                  <span>Gerir Conquistas</span>
+                </h3>
+                <p className="text-xs text-gray-400">
+                  Visualiza e edita os detalhes das conquistas registadas no sistema.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowManageAchievementsModal(false);
+                  setEditingAchievement(null);
+                }}
+                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white transition-all text-xs font-bold"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Left Column: Achievement List */}
+              <div className="lg:col-span-7 space-y-4">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Lista de Conquistas ({catalog.length})</h4>
+                <div className="max-h-[380px] overflow-y-auto space-y-3 pr-2 rounded-xl border border-white/5 bg-black/30 p-3">
+                  {catalog.map((ach) => {
+                    const isEditingThis = editingAchievement?.id === ach.id;
+                    return (
+                      <div
+                        key={ach.id}
+                        onClick={() => selectAchievementForEdit(ach)}
+                        className={`p-3 rounded-xl border transition-all flex items-center justify-between gap-3 cursor-pointer ${
+                          isEditingThis
+                            ? 'border-primary/50 bg-primary/10'
+                            : 'border-white/5 bg-white/[0.02] hover:bg-white/5 hover:border-white/10'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-full bg-white/5 p-1 flex items-center justify-center flex-shrink-0">
+                            {ach.badgeImageUrl ? (
+                              <img src={ach.badgeImageUrl} className="w-full h-full object-contain" alt={ach.name} />
+                            ) : (
+                              <Award className="w-6 h-6 text-primary" />
+                            )}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h5 className="font-bold text-sm text-white">{ach.name}</h5>
+                              {getRarityBadge(ach.rarity)}
+                            </div>
+                            <p className="text-[10px] text-gray-400 line-clamp-1 mt-0.5">{ach.description}</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-primary hover:text-on-primary hover:border-primary text-[10px] font-bold text-white transition-all"
+                        >
+                          Editar
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {catalog.length === 0 && (
+                    <div className="text-center py-8 text-gray-500 text-xs font-medium">
+                      Nenhuma conquista encontrada. Clica em "Repovoar Conquistas" para semear.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Edit Form */}
+              <div className="lg:col-span-5 space-y-4">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  {editingAchievement ? 'Editar Detalhes' : 'Selecione para Editar'}
+                </h4>
+                {editingAchievement ? (
+                  <form onSubmit={handleSaveAchievement} className="space-y-4 bg-white/[0.01] border border-white/5 p-4 rounded-xl">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Nome da Conquista</label>
+                      <input
+                        type="text"
+                        value={editAchievementName}
+                        onChange={(e) => setEditAchievementName(e.target.value)}
+                        className="w-full bg-black/40 text-white font-bold p-2.5 rounded-lg border border-white/10 outline-none text-xs focus:border-primary"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Descrição</label>
+                      <textarea
+                        value={editAchievementDescription}
+                        onChange={(e) => setEditAchievementDescription(e.target.value)}
+                        rows={2}
+                        className="w-full bg-black/40 text-white font-medium p-2.5 rounded-lg border border-white/10 outline-none text-xs focus:border-primary resize-none"
+                        required
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Raridade</label>
+                        <select
+                          value={editAchievementRarity}
+                          onChange={(e) => setEditAchievementRarity(e.target.value)}
+                          className="w-full bg-black/40 text-white font-bold p-2.5 rounded-lg border border-white/10 outline-none text-xs cursor-pointer focus:border-primary"
+                        >
+                          <option value="COMMON">Comum</option>
+                          <option value="RARE">Raro</option>
+                          <option value="EPIC">Épico</option>
+                          <option value="LEGENDARY">Lendário</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Carregar Ícone</label>
+                        <input
+                          type="file"
+                          id="achievement-icon-file"
+                          accept="image/*"
+                          onChange={handleAchievementIconChange}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => document.getElementById('achievement-icon-file')?.click()}
+                          className="w-full py-2.5 px-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5"
+                        >
+                          <Upload className="w-3.5 h-3.5 text-primary" />
+                          <span>Upload Icon</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">URL do Ícone (Alternativo)</label>
+                      <div className="flex gap-2 items-center">
+                        <input
+                          type="text"
+                          value={editAchievementBadgeUrl}
+                          onChange={(e) => setEditAchievementBadgeUrl(e.target.value)}
+                          className="flex-1 bg-black/40 text-white font-mono p-2 rounded-lg border border-white/10 outline-none text-[10px] focus:border-primary"
+                          placeholder="EX: https://..."
+                        />
+                        {editAchievementBadgeUrl && (
+                          <div className="w-8 h-8 rounded-full bg-white/5 p-0.5 flex items-center justify-center flex-shrink-0 border border-white/10">
+                            <img src={editAchievementBadgeUrl} className="w-full h-full object-contain rounded-full" alt="Preview" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-2 border-t border-white/5">
+                      <button
+                        type="button"
+                        onClick={() => setEditingAchievement(null)}
+                        className="flex-1 py-2 rounded-lg bg-surface-variant/30 text-on-surface-variant hover:text-white text-xs font-bold transition-all border border-white/5"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSavingAchievement}
+                        className="flex-1 py-2 rounded-lg bg-primary hover:opacity-90 text-white text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow"
+                      >
+                        {isSavingAchievement ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Check className="w-3.5 h-3.5" />
+                        )}
+                        <span>Salvar</span>
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="border border-dashed border-white/10 rounded-xl p-8 text-center text-gray-500 text-xs flex flex-col items-center justify-center gap-2 bg-black/10 min-h-[220px]">
+                    <Award className="w-8 h-8 text-gray-600" />
+                    <span>Seleciona uma conquista na lista para editar os seus detalhes.</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

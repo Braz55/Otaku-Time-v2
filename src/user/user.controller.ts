@@ -191,8 +191,14 @@ export class UserController {
 
   @UseGuards(JwtAuthGuard, AdminGuard)
   @Post('admin/achievements')
-  createAchievement(@Body() data: { name: string; description: string; badgeImageUrl?: string }) {
+  createAchievement(@Body() data: { name: string; description: string; badgeImageUrl?: string; rarity?: string }) {
     return this.userService.createAchievement(data);
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Patch('admin/achievements/:id')
+  updateAchievement(@Param('id') id: string, @Body() data: { name?: string; description?: string; badgeImageUrl?: string; rarity?: string }) {
+    return this.userService.updateAchievement(+id, data);
   }
 }
 

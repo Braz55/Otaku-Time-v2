@@ -170,6 +170,11 @@ const HomePage = () => {
       });
       
       if (response.ok) {
+        // Reset random clicks for today since we added a title to list
+        const todayStr = new Date().toISOString().split('T')[0];
+        localStorage.removeItem(`random_clicks_anime_${todayStr}`);
+        localStorage.removeItem(`random_clicks_manga_${todayStr}`);
+
         const novoItem = await response.json();
         consultarMinhaLista();
         carregarDashboard();
@@ -337,6 +342,21 @@ const HomePage = () => {
   const sorteioAleatorioGlobal = async () => {
     setLoading(true);
     try {
+      // Track random clicks for "Roleta Russa Sobrevivida" (ID 44 for Anime, 45 for Manga)
+      const todayStr = new Date().toISOString().split('T')[0];
+      const storageKey = `random_clicks_${categoria}_${todayStr}`;
+      const currentClicks = parseInt(localStorage.getItem(storageKey) || '0') + 1;
+      localStorage.setItem(storageKey, String(currentClicks));
+      
+      if (currentClicks >= 10) {
+        const targetAchId = categoria === 'manga' ? 45 : 44;
+        customFetch(`${API_BASE_URL}/user/achievements/unlock`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({ achievementId: targetAchId })
+        }).catch(err => console.error("Error unlocking random search achievement:", err));
+      }
+
       const randomRank = Math.floor(Math.random() * 2000) + 1;
       const type = categoria === 'manga' ? 'MANGA' : 'ANIME';
       const query = `

@@ -117,6 +117,7 @@ const HomePage = () => {
   const [newCommentText, setNewCommentText] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isSubmittingRating, setIsSubmittingRating] = useState(false);
+  const [isAddingToLibrary, setIsAddingToLibrary] = useState(false);
 
   const [filtroStatus, setFiltroStatus] = useState<string>('ALL');
   const [filtroLancamento, setFiltroLancamento] = useState<string>('ALL');
@@ -318,6 +319,7 @@ const HomePage = () => {
   };
 
   const adicionarAoBanco = async (titulo: string, anilistId?: number) => {
+    setIsAddingToLibrary(true);
     const url = `${API_BASE_URL}/${categoria}/import`;
     try {
       const response = await customFetch(url, {
@@ -333,17 +335,25 @@ const HomePage = () => {
         localStorage.removeItem(`random_clicks_manga_${todayStr}`);
 
         const novoItem = await response.json();
-        consultarMinhaLista();
-        carregarDashboard();
+        await Promise.all([
+          consultarMinhaLista(),
+          carregarDashboard()
+        ]);
         
         const itemData = novoItem.manga || novoItem.anime || novoItem;
         setSelectedItem({ ...itemData, ...novoItem, dbId: novoItem.id, isExternal: false });
         if (categoria === 'manga' && anilistId) {
           carregarCapituloMaisRecente(anilistId, true);
         }
+        showToast('Adicionado à biblioteca com sucesso!', 'success');
+      } else {
+        showToast('Não foi possível adicionar à biblioteca.', 'error');
       }
     } catch (error) {
       console.error("Erro no POST:", error);
+      showToast('Erro ao adicionar à biblioteca.', 'error');
+    } finally {
+      setIsAddingToLibrary(false);
     }
   };
 
@@ -1577,8 +1587,21 @@ const HomePage = () => {
                     </h3>
 
                     {selectedItem.isExternal ? (
-                      <button onClick={() => { adicionarAoBanco(selectedItem.titulo, selectedItem.id); }} className="w-full bg-primary hover:bg-primary/80 text-on-primary py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm shadow-md">
-                        <span className="material-symbols-outlined text-base">add</span> ADD TO LIBRARY
+                      <button 
+                        onClick={() => { adicionarAoBanco(selectedItem.titulo, selectedItem.id); }} 
+                        disabled={isAddingToLibrary}
+                        className="w-full bg-primary hover:bg-primary/80 text-on-primary py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isAddingToLibrary ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            ADDING...
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined text-base">add</span> ADD TO LIBRARY
+                          </>
+                        )}
                       </button>
                     ) : (
                       <div className="space-y-4">
@@ -2041,7 +2064,22 @@ const HomePage = () => {
                       <div className={`glass-panel p-8 rounded-[32px] border ${categoria === 'anime' ? 'border-secondary/20 shadow-[0_0_50px_rgba(194,24,91,0.08)]' : 'border-primary/20 shadow-[0_0_50px_rgba(106,27,154,0.08)]'}`}>
                         <h4 className="text-lg font-bold mb-6 flex items-center gap-2">Quick Actions</h4>
                         {selectedItem.isExternal ? (
-                          <button onClick={() => { adicionarAoBanco(selectedItem.titulo, selectedItem.id); }} className="w-full bg-primary hover:bg-primary/80 text-on-primary py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 shadow-lg"><span className="material-symbols-outlined">add</span> ADD TO LIBRARY</button>
+                          <button 
+                            onClick={() => { adicionarAoBanco(selectedItem.titulo, selectedItem.id); }} 
+                            disabled={isAddingToLibrary}
+                            className="w-full bg-primary hover:bg-primary/80 text-on-primary py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isAddingToLibrary ? (
+                              <>
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                                ADDING TO LIBRARY...
+                              </>
+                            ) : (
+                              <>
+                                <span className="material-symbols-outlined">add</span> ADD TO LIBRARY
+                              </>
+                            )}
+                          </button>
                         ) : (
                           <div className="space-y-6">
                             <div className="space-y-3">

@@ -97,6 +97,28 @@ export class AnimeService {
 
   // Importa para o Catálogo Global e adiciona à lista do utilizador
   async importFromAniList(nomeAnime: string, userId: number, anilistId?: number) {
+    let anime = anilistId ? await this.prisma.anime.findUnique({ where: { id: anilistId } }) : null;
+
+    if (anime) {
+      const userAnime = await this.prisma.userAnime.upsert({
+        where: { userId_animeId: { userId, animeId: anime.id } },
+        update: {},
+        create: { userId, animeId: anime.id, status: 'PLANNED', epAtual: 0 },
+        include: { anime: true }
+      });
+      
+      this.backgroundUpdateAnime(anime.id, userId).catch(err => {
+        console.error('Error in backgroundUpdateAnime:', err);
+      });
+
+      const rating = await this.prisma.media.findUnique({ where: { id: anime.id } });
+      return {
+        ...userAnime,
+        avaliacaoGeral: rating?.avaliacao_geral ?? null,
+        totalVotosUsers: rating?.total_votos_users ?? 0,
+      };
+    }
+
     const aniListData = anilistId ? await this.searchAniListById(anilistId) : await this.searchAniList(nomeAnime, userId);
     if (!aniListData) throw new Error('Anime não encontrado na AniList');
 
@@ -105,7 +127,7 @@ export class AnimeService {
     const descricaoLimpa = aniListData.description ? aniListData.description.replace(/<[^>]*>?/gm, '') : "Sem descrição.";
     const linksJSON = aniListData.externalLinks ? JSON.stringify(aniListData.externalLinks) : null;
 
-    const anime = await this.prisma.anime.upsert({
+    anime = await this.prisma.anime.upsert({
       where: { id: aniListData.id },
       update: {
         numEpisodiosTotal: aniListData.episodes,
@@ -152,13 +174,60 @@ export class AnimeService {
       create: { userId, animeId: anime.id, status: 'PLANNED', epAtual: 0 },
       include: { anime: true }
     });
-    await this.recalculateUserStats(userId);
+    this.recalculateUserStats(userId).catch(err => {
+      console.error('Error recalculating user stats in background:', err);
+    });
     const rating = await this.prisma.media.findUnique({ where: { id: anime.id } });
     return {
       ...userAnime,
       avaliacaoGeral: rating?.avaliacao_geral ?? null,
       totalVotosUsers: rating?.total_votos_users ?? 0,
     };
+  }
+
+  async backgroundUpdateAnime(animeId: number, userId: number) {
+    try {
+      const aniListData = await this.searchAniListById(animeId);
+      if (aniListData) {
+        const topTags = aniListData.tags ? aniListData.tags.slice(0, 5).map((tag: any) => tag.name).join(', ') : '';
+        const generosComTags = `${aniListData.genres ? aniListData.genres.join(', ') : ''}, ${topTags}`;
+        const descricaoLimpa = aniListData.description ? aniListData.description.replace(/<[^>]*>?/gm, '') : "Sem descrição.";
+        const linksJSON = aniListData.externalLinks ? JSON.stringify(aniListData.externalLinks) : null;
+
+        await this.prisma.anime.update({
+          where: { id: animeId },
+          data: {
+            numEpisodiosTotal: aniListData.episodes,
+            capaUrl: aniListData.coverImage.large,
+            statusLancamento: aniListData.status,
+            linksExternos: linksJSON,
+            proximoEpisodio: aniListData.nextAiringEpisode?.episode,
+            proximoEpisodioData: aniListData.nextAiringEpisode ? new Date(aniListData.nextAiringEpisode.airingAt * 1000) : null,
+          }
+        });
+
+        // Garantir registo de Media
+        const averageScore = aniListData.averageScore ? aniListData.averageScore / 10 : 0;
+        const existingMedia = await this.prisma.media.findUnique({ where: { id: animeId } });
+        if (!existingMedia) {
+          await this.prisma.media.create({
+            data: {
+              id: animeId,
+              avaliacao_base: averageScore,
+              total_votos_users: 0,
+              soma_notas_users: 0,
+              avaliacao_geral: averageScore,
+            },
+          });
+        }
+      }
+    } catch (error) {
+      console.error(`Error in backgroundUpdateAnime for anime ID ${animeId}:`, error);
+    } finally {
+      this.recalculateUserStats(userId).catch(err => {
+        console.error('Error recalculating user stats in background:', err);
+      });
+    }
   }
 
   async searchAnimeList(nomeAnime: string, page: number = 1, userId?: number) {
@@ -306,7 +375,9 @@ export class AnimeService {
       }
     }
     const updated = await this.prisma.userAnime.update({ where: { id }, data: novosDados, include: { anime: true } });
-    await this.recalculateUserStats(updated.userId);
+    this.recalculateUserStats(updated.userId).catch(err => {
+      console.error('Error recalculating user stats in background:', err);
+    });
     const rating = await this.prisma.media.findUnique({ where: { id: updated.animeId } });
     return { ...updated, titulo: updated.anime.titulo, capaUrl: updated.anime.capaUrl, linksExternos: updated.anime.linksExternos, numEpisodiosTotal: updated.anime.numEpisodiosTotal, proximoEpisodio: updated.anime.proximoEpisodio, avaliacaoGeral: rating?.avaliacao_geral ?? null, totalVotosUsers: rating?.total_votos_users ?? 0 };
   }
@@ -321,7 +392,9 @@ export class AnimeService {
   async remove(id: number) {
     const item = await this.prisma.userAnime.delete({ where: { id } });
     if (item) {
-      await this.recalculateUserStats(item.userId);
+      this.recalculateUserStats(item.userId).catch(err => {
+        console.error('Error recalculating user stats in background:', err);
+      });
     }
     return item;
   }

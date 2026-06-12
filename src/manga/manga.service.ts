@@ -416,6 +416,28 @@ export class MangaService {
 
   // Importação simplificada
   async importFromAniList(nomeManga: string, userId: number, anilistId?: number) {
+    let manga = anilistId ? await this.prisma.manga.findUnique({ where: { id: anilistId } }) : null;
+
+    if (manga) {
+      const userManga = await this.prisma.userManga.upsert({
+        where: { userId_mangaId: { userId, mangaId: manga.id } },
+        update: {},
+        create: { userId, mangaId: manga.id, status: 'PLANNED', capAtual: 0, prioridade: 5 },
+        include: { manga: true }
+      });
+
+      this.backgroundUpdateManga(manga.id, userId).catch(err => {
+        console.error('Error in backgroundUpdateManga:', err);
+      });
+
+      const rating = await this.prisma.media.findUnique({ where: { id: manga.id } });
+      return {
+        ...userManga,
+        avaliacaoGeral: rating?.avaliacao_geral ?? null,
+        totalVotosUsers: rating?.total_votos_users ?? 0,
+      };
+    }
+
     const aniListData = anilistId ? await this.searchAniListById(anilistId) : await this.searchAniListManga(nomeManga, userId);
     if (!aniListData) throw new Error('Manga not found');
 
@@ -426,7 +448,7 @@ export class MangaService {
     const existingManga = await this.prisma.manga.findUnique({ where: { id: aniListData.id } });
     const initialTotalCaps = existingManga?.numCapitulosTotal ?? (aniListData.chapters || null);
 
-    const manga = await this.prisma.manga.upsert({
+    manga = await this.prisma.manga.upsert({
       where: { id: aniListData.id },
       update: { 
         numCapitulosTotal: initialTotalCaps,
@@ -467,7 +489,9 @@ export class MangaService {
       include: { manga: true }
     });
 
-    await this.recalculateUserStats(userId);
+    this.recalculateUserStats(userId).catch(err => {
+      console.error('Error recalculating user stats in background:', err);
+    });
 
     // Iniciar a sincronização de capítulos externa em background (não bloqueante)
     this.syncLatestChapter(manga.id).catch(err => {
@@ -480,6 +504,47 @@ export class MangaService {
       avaliacaoGeral: rating?.avaliacao_geral ?? null,
       totalVotosUsers: rating?.total_votos_users ?? 0,
     };
+  }
+
+  async backgroundUpdateManga(mangaId: number, userId: number) {
+    try {
+      const aniListData = await this.searchAniListById(mangaId);
+      if (aniListData) {
+        const linksJSON = aniListData.externalLinks ? JSON.stringify(aniListData.externalLinks) : null;
+        
+        await this.prisma.manga.update({
+          where: { id: mangaId },
+          data: {
+            capaUrl: aniListData.coverImage.large, 
+            linksExternos: linksJSON
+          }
+        });
+
+        // Garantir registo de Media
+        const averageScore = aniListData.averageScore ? aniListData.averageScore / 10 : 0;
+        const existingMedia = await this.prisma.media.findUnique({ where: { id: mangaId } });
+        if (!existingMedia) {
+          await this.prisma.media.create({
+            data: {
+              id: mangaId,
+              avaliacao_base: averageScore,
+              total_votos_users: 0,
+              soma_notas_users: 0,
+              avaliacao_geral: averageScore,
+            },
+          });
+        }
+      }
+    } catch (error) {
+      console.error(`Error in backgroundUpdateManga for manga ID ${mangaId}:`, error);
+    } finally {
+      this.recalculateUserStats(userId).catch(err => {
+        console.error('Error recalculating user stats in background:', err);
+      });
+      this.syncLatestChapter(mangaId).catch(err => {
+        console.error(`[BackgroundSync] Erro ao sincronizar capítulos para manga ID ${mangaId} em background:`, err);
+      });
+    }
   }
 
   // CRUD básico
@@ -589,7 +654,9 @@ export class MangaService {
       }
     }
     const updated = await this.prisma.userManga.update({ where: { id }, data: novosDados, include: { manga: true } });
-    await this.recalculateUserStats(updated.userId);
+    this.recalculateUserStats(updated.userId).catch(err => {
+      console.error('Error recalculating user stats in background:', err);
+    });
     const rating = await this.prisma.media.findUnique({ where: { id: updated.mangaId } });
     return { ...updated, titulo: updated.manga.titulo, capaUrl: updated.manga.capaUrl, linksExternos: updated.manga.linksExternos, numCapitulosTotal: updated.manga.numCapitulosTotal, proximoCapituloNumero: updated.manga.proximoCapituloNumero, avaliacaoGeral: rating?.avaliacao_geral ?? null, totalVotosUsers: rating?.total_votos_users ?? 0 };
   }
@@ -604,7 +671,9 @@ export class MangaService {
   async remove(id: number) {
     const item = await this.prisma.userManga.delete({ where: { id } });
     if (item) {
-      await this.recalculateUserStats(item.userId);
+      this.recalculateUserStats(item.userId).catch(err => {
+        console.error('Error recalculating user stats in background:', err);
+      });
     }
     return item;
   }

@@ -14,12 +14,72 @@ import { Share } from '@capacitor/share';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { getCurrentPalette, savePalette } from '../services/paletteService';
 
+const SubscriptionRow = ({ subscription, onSave }: { subscription: any, onSave: (id: number, status: string, date: string) => void }) => {
+  const [status, setStatus] = useState(subscription.status);
+  const [dateVal, setDateVal] = useState(() => {
+    const d = new Date(subscription.currentPeriodEnd);
+    return d.toISOString().split('T')[0];
+  });
+  const [dirty, setDirty] = useState(false);
+
+  return (
+    <tr className="hover:bg-white/[0.01]">
+      <td className="p-3">
+        <div className="font-bold text-white">
+          {subscription.user.nome}
+          <span className="block text-[9px] text-gray-500 font-medium font-mono">{subscription.user.email}</span>
+        </div>
+      </td>
+      <td className="p-3 text-center font-bold text-amber-400 uppercase tracking-wider">{subscription.planType}</td>
+      <td className="p-3 text-center font-mono">
+        <input 
+          type="date"
+          value={dateVal}
+          onChange={(e) => {
+            setDateVal(e.target.value);
+            setDirty(true);
+          }}
+          className="bg-black/40 border border-white/10 hover:border-white/20 text-white rounded p-1 text-xs font-bold outline-none text-center"
+        />
+      </td>
+      <td className="p-3 text-center">
+        <select
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value);
+            setDirty(true);
+          }}
+          className="bg-black/40 border border-white/10 hover:border-white/20 text-white rounded p-1 px-1.5 text-xs font-bold outline-none cursor-pointer"
+        >
+          <option value="ACTIVE">Ativo</option>
+          <option value="CANCELED">Cancelado</option>
+          <option value="EXPIRED">Expirado</option>
+          <option value="PAST_DUE">Em Dívida</option>
+        </select>
+      </td>
+      <td className="p-3 text-center">
+        <button
+          disabled={!dirty}
+          onClick={() => {
+            onSave(subscription.id, status, dateVal);
+            setDirty(false);
+          }}
+          className="p-1.5 rounded-lg bg-green-500/20 border border-green-500/40 text-green-400 hover:bg-green-500/30 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+          title="Guardar Alterações"
+        >
+          <Check className="w-4 h-4" />
+        </button>
+      </td>
+    </tr>
+  );
+};
+
 const ProfilePage = () => {
   const { user, logout, token, updateUser } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'sync' | 'account'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'sync' | 'account' | 'admin'>('dashboard');
   const [isUpdatingPreferences, setIsUpdatingPreferences] = useState(false);
   const [selectedPalette, setSelectedPalette] = useState(() => getCurrentPalette());
 
@@ -143,6 +203,206 @@ const ProfilePage = () => {
     current: 0,
     currentItemTitle: ''
   });
+
+  // Admin State
+  const [adminStats, setAdminStats] = useState<any>(null);
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
+  const [adminSyncLogs, setAdminSyncLogs] = useState<any[]>([]);
+  const [adminGiftCodes, setAdminGiftCodes] = useState<any[]>([]);
+  const [adminSubscriptions, setAdminSubscriptions] = useState<any[]>([]);
+  const [loadingAdminData, setLoadingAdminData] = useState(false);
+  const [adminUserSearch, setAdminUserSearch] = useState('');
+  const [adminGiftSearch, setAdminGiftSearch] = useState('');
+  const [adminSubSearch, setAdminSubSearch] = useState('');
+  const [isSeedingAchievements, setIsSeedingAchievements] = useState(false);
+  const [isForcingSync, setIsForcingSync] = useState(false);
+
+  // Gift Code Generation State
+  const [giftDays, setGiftDays] = useState(30);
+  const [giftCustomCode, setGiftCustomCode] = useState('');
+  const [giftExpiresAt, setGiftExpiresAt] = useState('');
+  const [isGeneratingGift, setIsGeneratingGift] = useState(false);
+
+  // User redemption state
+  const [redeemCodeInput, setRedeemCodeInput] = useState('');
+  const [isRedeemingCode, setIsRedeemingCode] = useState(false);
+
+  const fetchAdminData = async () => {
+    if (!token) return;
+    setLoadingAdminData(true);
+    try {
+      const [statsRes, usersRes, logsRes, giftCodesRes, subscriptionsRes] = await Promise.all([
+        customFetch(`${API_BASE_URL}/user/admin/stats`, { headers: getHeaders() }),
+        customFetch(`${API_BASE_URL}/user/admin/users`, { headers: getHeaders() }),
+        customFetch(`${API_BASE_URL}/user/admin/sync-logs`, { headers: getHeaders() }),
+        customFetch(`${API_BASE_URL}/user/admin/gift-codes`, { headers: getHeaders() }),
+        customFetch(`${API_BASE_URL}/user/admin/subscriptions`, { headers: getHeaders() })
+      ]);
+
+      if (statsRes.ok) setAdminStats(await statsRes.json());
+      if (usersRes.ok) setAdminUsers(await usersRes.json());
+      if (logsRes.ok) setAdminSyncLogs(await logsRes.json());
+      if (giftCodesRes.ok) setAdminGiftCodes(await giftCodesRes.json());
+      if (subscriptionsRes.ok) setAdminSubscriptions(await subscriptionsRes.json());
+    } catch (err) {
+      console.error('Error fetching admin data:', err);
+      showToast('Erro ao carregar dados do painel admin.', 'error');
+    } finally {
+      setLoadingAdminData(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'admin') {
+      fetchAdminData();
+    }
+  }, [activeTab, token]);
+
+  const handleUpdateUserRole = async (targetUserId: number, newRole: string) => {
+    if (!token) return;
+    try {
+      const res = await customFetch(`${API_BASE_URL}/user/admin/users/${targetUserId}/role`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify({ tipoConta: newRole })
+      });
+      if (res.ok) {
+        showToast('Função do utilizador atualizada com sucesso!', 'success');
+        setAdminUsers(prev => prev.map(u => u.id === targetUserId ? { ...u, tipoConta: newRole } : u));
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.message || 'Falha ao atualizar função do utilizador.', 'error');
+      }
+    } catch (err: any) {
+      showToast(`Erro: ${err.message || err}`, 'error');
+    }
+  };
+
+  const handleAdminSeedAchievements = async () => {
+    if (!token) return;
+    setIsSeedingAchievements(true);
+    try {
+      const res = await customFetch(`${API_BASE_URL}/user/achievements/seed`, {
+        method: 'POST',
+        headers: getHeaders()
+      });
+      if (res.ok) {
+        showToast('Conquistas repovoadas com sucesso no sistema!', 'success');
+        fetchCatalog();
+      } else {
+        showToast('Falha ao repovoar conquistas.', 'error');
+      }
+    } catch (err: any) {
+      showToast(`Erro: ${err.message || err}`, 'error');
+    } finally {
+      setIsSeedingAchievements(false);
+    }
+  };
+
+  const handleAdminForceSync = async () => {
+    setIsForcingSync(true);
+    try {
+      const res = await customFetch(`${API_BASE_URL}/sync/start`, { 
+        method: 'POST',
+        headers: getHeaders()
+      });
+      if (res.ok) {
+        showToast('Sincronização geral forçada com sucesso!', 'success');
+        setTimeout(checkSyncStatus, 2000);
+      } else {
+        showToast('Falha ao iniciar sincronização.', 'error');
+      }
+    } catch (err: any) {
+      showToast(`Erro: ${err.message || err}`, 'error');
+    } finally {
+      setIsForcingSync(false);
+    }
+  };
+
+  const handleGenerateGiftCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    setIsGeneratingGift(true);
+    try {
+      const res = await customFetch(`${API_BASE_URL}/user/admin/gift-codes/generate`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          durationDays: giftDays,
+          customCode: giftCustomCode || undefined,
+          expiresAt: giftExpiresAt || undefined
+        })
+      });
+      if (res.ok) {
+        showToast('Gift Card gerado com sucesso!', 'success');
+        setGiftCustomCode('');
+        setGiftExpiresAt('');
+        // Refresh codes list
+        const refreshedCodes = await customFetch(`${API_BASE_URL}/user/admin/gift-codes`, { headers: getHeaders() });
+        if (refreshedCodes.ok) setAdminGiftCodes(await refreshedCodes.json());
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.message || 'Falha ao gerar Gift Card.', 'error');
+      }
+    } catch (err: any) {
+      showToast(`Erro: ${err.message || err}`, 'error');
+    } finally {
+      setIsGeneratingGift(false);
+    }
+  };
+
+  const handleUpdateSubscription = async (subId: number, newStatus: string, newDateStr: string) => {
+    if (!token) return;
+    try {
+      const res = await customFetch(`${API_BASE_URL}/user/admin/subscriptions/${subId}`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          status: newStatus,
+          currentPeriodEnd: newDateStr
+        })
+      });
+      if (res.ok) {
+        showToast('Subscrição atualizada com sucesso!', 'success');
+        // Refresh subscriptions and stats
+        const refreshedSubs = await customFetch(`${API_BASE_URL}/user/admin/subscriptions`, { headers: getHeaders() });
+        if (refreshedSubs.ok) setAdminSubscriptions(await refreshedSubs.json());
+        fetchAdminData();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.message || 'Falha ao atualizar subscrição.', 'error');
+      }
+    } catch (err: any) {
+      showToast(`Erro: ${err.message || err}`, 'error');
+    }
+  };
+
+  const handleRedeemCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !redeemCodeInput.trim()) return;
+    setIsRedeemingCode(true);
+    try {
+      const res = await customFetch(`${API_BASE_URL}/user/subscription/redeem`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ code: redeemCodeInput })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        showToast(data.message || 'Premium resgatado com sucesso!', 'success');
+        setRedeemCodeInput('');
+        fetchProfile();
+        updateUser({ tipoConta: 'pro' });
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.message || 'Falha ao resgatar código.', 'error');
+      }
+    } catch (err: any) {
+      showToast(`Erro: ${err.message || err}`, 'error');
+    } finally {
+      setIsRedeemingCode(false);
+    }
+  };
 
   const getHeaders = () => ({
     'Content-Type': 'application/json',
@@ -743,11 +1003,26 @@ const ProfilePage = () => {
               <div className="space-y-1.5 min-w-0">
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 sm:gap-3">
                   <h2 className="text-2xl sm:text-3xl font-black text-white truncate drop-shadow">{user?.nome || 'Otaku Enthusiast'}</h2>
-                  <span className="px-3 py-1 rounded-full bg-primary/20 border border-primary/40 text-primary text-xs font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
-                    <Shield className="w-3.5 h-3.5" /> PRO TIER
-                  </span>
+                  {user?.tipoConta === 'ADMIN' ? (
+                    <span className="px-3 py-1 rounded-full bg-red-500/20 border border-red-500/40 text-red-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm animate-pulse">
+                      <Shield className="w-3.5 h-3.5" /> ADMIN
+                    </span>
+                  ) : user?.tipoConta === 'pro' ? (
+                    <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                      <Award className="w-3.5 h-3.5" /> PRO TIER
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 rounded-full bg-gray-500/20 border border-gray-500/40 text-gray-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                      <User className="w-3.5 h-3.5" /> MEMBRO
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm sm:text-base text-gray-300 font-medium drop-shadow">{user?.email || 'enthusiast@otakutime.com'}</p>
+                {profile?.subscription?.status === 'ACTIVE' && (
+                  <p className="text-xs text-amber-400 font-bold flex items-center justify-center sm:justify-start gap-1 mt-1 drop-shadow">
+                    <Clock className="w-3.5 h-3.5 text-amber-500 animate-pulse" /> Premium válido até {new Date(profile.subscription.currentPeriodEnd).toLocaleDateString('pt-PT')}
+                  </p>
+                )}
               </div>
             </div>
             
@@ -777,13 +1052,22 @@ const ProfilePage = () => {
             <RefreshCw className="w-4 h-4" />
             <span>Sincronização</span>
           </button>
-          <button 
+           <button 
             onClick={() => setActiveTab('account')} 
             className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all whitespace-nowrap ${activeTab === 'account' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105' : 'bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5'}`}
           >
             <User className="w-4 h-4" />
             <span>Definições</span>
           </button>
+          {user?.tipoConta === 'ADMIN' && (
+            <button 
+              onClick={() => setActiveTab('admin')} 
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all whitespace-nowrap ${activeTab === 'admin' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105' : 'bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5'}`}
+            >
+              <Shield className="w-4 h-4" />
+              <span>Painel Admin</span>
+            </button>
+          )}
         </div>
 
         {/* Loading Indicator */}
@@ -1494,6 +1778,379 @@ const ProfilePage = () => {
                 </div>
               </div>
             </div>
+
+            {/* Gift Card Redemption Box */}
+            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl">
+              <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                <Award className="w-6 h-6 text-amber-500" />
+                <span>Resgatar Código Premium</span>
+              </h3>
+              <div className="space-y-4">
+                <p className="text-xs text-gray-400">Tens um código promocional ou de Gift Card? Insere-o abaixo para ativares ou prolongares o teu Premium tier.</p>
+                <form onSubmit={handleRedeemCode} className="flex flex-col sm:flex-row gap-4 items-end">
+                  <div className="space-y-2 flex-1 w-full">
+                    <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Código de Resgate</label>
+                    <input 
+                      type="text" 
+                      value={redeemCodeInput} 
+                      onChange={(e) => setRedeemCodeInput(e.target.value)} 
+                      className="w-full bg-black/40 text-white font-black p-3 rounded-xl border border-white/10 focus:border-primary outline-none transition-all uppercase placeholder-gray-600"
+                      placeholder="EX: OTAKU-XXXX-XXXX"
+                      disabled={isRedeemingCode}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isRedeemingCode || !redeemCodeInput.trim()}
+                    className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-primary hover:from-amber-600 hover:to-primary-dark text-white font-bold text-xs sm:text-sm transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg"
+                  >
+                    {isRedeemingCode ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Award className="w-4 h-4" />}
+                    <span>Ativar Premium</span>
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab Content: Admin Panel */}
+        {activeTab === 'admin' && user?.tipoConta === 'ADMIN' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Stats Summary cards */}
+            {loadingAdminData ? (
+              <div className="flex flex-col items-center justify-center py-20 space-y-3">
+                <RefreshCw className="w-10 h-10 animate-spin text-primary" />
+                <p className="text-xs text-gray-500">A carregar dados administrativos...</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="glass-panel p-5 rounded-2xl border border-white/5 bg-gradient-to-br from-blue-500/5 to-transparent hover:border-blue-500/20 transition-all flex flex-col justify-between h-28 shadow relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-xl group-hover:bg-blue-500/15 transition-all"></div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Total Utilizadores</span>
+                    <span className="text-3xl font-black text-white">{adminStats?.totalUsers ?? 0}</span>
+                  </div>
+                  <div className="glass-panel p-5 rounded-2xl border border-white/5 bg-gradient-to-br from-green-500/5 to-transparent hover:border-green-500/20 transition-all flex flex-col justify-between h-28 shadow relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/10 rounded-full blur-xl group-hover:bg-green-500/15 transition-all"></div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Animes Cache</span>
+                    <span className="text-3xl font-black text-white">{adminStats?.totalAnimes ?? 0}</span>
+                  </div>
+                  <div className="glass-panel p-5 rounded-2xl border border-white/5 bg-gradient-to-br from-purple-500/5 to-transparent hover:border-purple-500/20 transition-all flex flex-col justify-between h-28 shadow relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/15 transition-all"></div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Mangás Cache</span>
+                    <span className="text-3xl font-black text-white">{adminStats?.totalMangas ?? 0}</span>
+                  </div>
+                  <div className="glass-panel p-5 rounded-2xl border border-white/5 bg-gradient-to-br from-primary/5 to-transparent hover:border-primary/20 transition-all flex flex-col justify-between h-28 shadow relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-xl group-hover:bg-primary/15 transition-all"></div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Total Seguidores</span>
+                    <span className="text-3xl font-black text-white">{adminStats?.totalTrackedItems ?? 0}</span>
+                  </div>
+                </div>
+
+                {/* System Admin Actions */}
+                <div className="glass-panel p-6 rounded-[32px] border border-white/10 space-y-4 shadow-xl">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Database className="w-5 h-5 text-primary" />
+                    <span>Ações do Sistema</span>
+                  </h3>
+                  <div className="flex flex-wrap gap-4">
+                    <button
+                      onClick={handleAdminSeedAchievements}
+                      disabled={isSeedingAchievements}
+                      className="px-5 py-3 rounded-xl bg-surface-variant/30 hover:bg-white/10 border border-white/5 text-white font-bold text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      {isSeedingAchievements ? <RefreshCw className="w-4 h-4 animate-spin text-primary" /> : <Award className="w-4 h-4 text-primary-light" />}
+                      <span>Repovoar Conquistas</span>
+                    </button>
+                    <button
+                      onClick={handleAdminForceSync}
+                      disabled={isForcingSync}
+                      className="px-5 py-3 rounded-xl bg-surface-variant/30 hover:bg-white/10 border border-white/5 text-white font-bold text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      {isForcingSync ? <RefreshCw className="w-4 h-4 animate-spin text-primary" /> : <RefreshCw className="w-4 h-4 text-primary-light" />}
+                      <span>Forçar Sincronização Lançamentos</span>
+                    </button>
+                    <button
+                      onClick={fetchAdminData}
+                      className="px-5 py-3 rounded-xl bg-surface-variant/30 hover:bg-white/10 border border-white/5 text-white font-bold text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      <span>Atualizar Painel</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* User Management Section */}
+                <div className="glass-panel p-6 rounded-[32px] border border-white/10 space-y-6 shadow-xl">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                      <User className="w-5 h-5 text-primary" />
+                      <span>Gestão de Utilizadores</span>
+                    </h3>
+                    
+                    {/* Search filter */}
+                    <div className="relative">
+                      <Search className="w-4 h-4 text-gray-500 absolute left-3 top-3.5" />
+                      <input
+                        type="text"
+                        placeholder="Procurar utilizador..."
+                        value={adminUserSearch}
+                        onChange={(e) => setAdminUserSearch(e.target.value)}
+                        className="bg-black/30 border border-white/5 hover:border-white/10 focus:border-primary text-white text-xs p-3 pl-9 rounded-xl outline-none w-full sm:w-64 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-xl border border-white/5 bg-black/20">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-white/5 bg-white/5 text-xs text-gray-400 font-bold uppercase tracking-wider text-left">
+                          <th className="p-4 text-center">ID</th>
+                          <th className="p-4">Nome</th>
+                          <th className="p-4">Email</th>
+                          <th className="p-4 text-center">Itens Seguidos</th>
+                          <th className="p-4">Tipo de Conta</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5 text-sm">
+                        {adminUsers
+                          .filter(u => 
+                            u.nome.toLowerCase().includes(adminUserSearch.toLowerCase()) || 
+                            u.email.toLowerCase().includes(adminUserSearch.toLowerCase())
+                          )
+                          .map((u) => (
+                            <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
+                              <td className="p-4 text-center font-bold text-gray-400">{u.id}</td>
+                              <td className="p-4 font-bold text-white">{u.nome} {u.id === user?.id && <span className="text-[10px] text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded ml-1">Tu</span>}</td>
+                              <td className="p-4 text-gray-300 font-medium">{u.email}</td>
+                              <td className="p-4 text-center text-gray-400 font-bold">
+                                {u._count ? (
+                                  <span className="flex items-center justify-center gap-1.5 text-xs text-primary-light">
+                                    <Film className="w-3.5 h-3.5" /> {u._count.animes} 
+                                    <span className="text-gray-600">/</span>
+                                    <BookOpen className="w-3.5 h-3.5" /> {u._count.mangas}
+                                  </span>
+                                ) : '0'}
+                              </td>
+                              <td className="p-4">
+                                <select
+                                  value={u.tipoConta}
+                                  disabled={u.id === user?.id} // Don't let admin demote/change themselves to avoid locking out
+                                  onChange={(e) => handleUpdateUserRole(u.id, e.target.value)}
+                                  className="bg-black/40 border border-white/10 hover:border-white/20 text-white rounded-lg p-1 px-2 text-xs font-bold outline-none focus:border-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                >
+                                  <option value="padrao">Padrão</option>
+                                  <option value="pro">Pro Tier</option>
+                                  <option value="ADMIN">ADMIN</option>
+                                </select>
+                              </td>
+                            </tr>
+                          ))}
+                        {adminUsers.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="p-8 text-center text-gray-500 font-medium">Nenhum utilizador encontrado.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* System Sync Logs */}
+                <div className="glass-panel p-6 rounded-[32px] border border-white/10 space-y-4 shadow-xl">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Database className="w-5 h-5 text-primary" />
+                    <span>Logs de Sincronização Recentes (SyncLog)</span>
+                  </h3>
+                  <div className="max-h-72 overflow-y-auto rounded-xl border border-white/5 bg-black/30 divide-y divide-white/5">
+                    {adminSyncLogs.map((log) => (
+                      <div key={log.id} className="p-4 hover:bg-white/[0.01] transition-colors flex items-start gap-3 justify-between">
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${log.status === 'SUCCESS' ? 'bg-green-500/10 border border-green-500/20 text-green-400' : 'bg-red-500/10 border border-red-500/20 text-red-400'}`}>
+                              {log.status}
+                            </span>
+                            <span className="text-[10px] text-gray-500 font-bold">{new Date(log.timestamp).toLocaleString('pt-PT')}</span>
+                          </div>
+                          <p className="text-xs text-gray-300 font-medium">{log.details}</p>
+                        </div>
+                        <span className="text-[10px] font-bold text-gray-600">ID #{log.id}</span>
+                      </div>
+                    ))}
+                    {adminSyncLogs.length === 0 && (
+                      <p className="p-6 text-center text-xs text-gray-500 font-medium">Nenhum log de sincronização registado.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Gift Cards Section */}
+                <div className="glass-panel p-6 rounded-[32px] border border-white/10 space-y-6 shadow-xl">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Award className="w-5 h-5 text-amber-500 font-bold" />
+                    <span>Gestão de Gift Cards</span>
+                  </h3>
+                  
+                  {/* Generation Form */}
+                  <form onSubmit={handleGenerateGiftCode} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Dias de Premium</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={giftDays}
+                        onChange={(e) => setGiftDays(+e.target.value)}
+                        className="w-full bg-black/40 text-white font-bold p-2.5 rounded-xl border border-white/10 outline-none text-xs"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Código Customizado (Opcional)</label>
+                      <input
+                        type="text"
+                        placeholder="EX: VIP-30D"
+                        value={giftCustomCode}
+                        onChange={(e) => setGiftCustomCode(e.target.value)}
+                        className="w-full bg-black/40 text-white font-bold p-2.5 rounded-xl border border-white/10 outline-none text-xs uppercase"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Expiração do Código (Opcional)</label>
+                      <input
+                        type="date"
+                        value={giftExpiresAt}
+                        onChange={(e) => setGiftExpiresAt(e.target.value)}
+                        className="w-full bg-black/40 text-white font-bold p-2.5 rounded-xl border border-white/10 outline-none text-xs text-gray-400"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isGeneratingGift}
+                      className="w-full px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      {isGeneratingGift ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                      <span>Gerar Gift Card</span>
+                    </button>
+                  </form>
+
+                  {/* Filter and Table */}
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-xs text-gray-400 font-bold uppercase tracking-wider">Códigos Disponíveis</h4>
+                      <input
+                        type="text"
+                        placeholder="Filtrar códigos..."
+                        value={adminGiftSearch}
+                        onChange={(e) => setAdminGiftSearch(e.target.value)}
+                        className="bg-black/30 border border-white/5 hover:border-white/10 focus:border-primary text-white text-xs p-2 px-3 rounded-lg outline-none w-48 transition-all"
+                      />
+                    </div>
+
+                    <div className="overflow-x-auto rounded-xl border border-white/5 bg-black/20 max-h-80 overflow-y-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-white/5 bg-white/5 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                            <th className="p-3">Código</th>
+                            <th className="p-3 text-center">Duração</th>
+                            <th className="p-3 text-center">Estado</th>
+                            <th className="p-3">Resgatado Por</th>
+                            <th className="p-3">Data de Resgate</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 text-xs">
+                          {adminGiftCodes
+                            .filter(g => g.code.toLowerCase().includes(adminGiftSearch.toLowerCase()))
+                            .map((g) => (
+                              <tr key={g.id} className="hover:bg-white/[0.01]">
+                                <td className="p-3 font-mono font-bold text-white tracking-wider">{g.code}</td>
+                                <td className="p-3 text-center font-bold text-amber-400">{g.durationDays} dias</td>
+                                <td className="p-3 text-center">
+                                  {g.isUsed ? (
+                                    <span className="px-2 py-0.5 rounded bg-red-500/10 border border-red-500/25 text-red-400 font-bold text-[10px]">Usado</span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded bg-green-500/10 border border-green-500/25 text-green-400 font-bold text-[10px]">Livre</span>
+                                  )}
+                                </td>
+                                <td className="p-3 font-medium">
+                                  {g.redeemedByUser ? (
+                                    <div className="font-bold text-white">
+                                      {g.redeemedByUser.nome}
+                                      <span className="block text-[9px] text-gray-500 font-medium font-mono">{g.redeemedByUser.email}</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-500 font-bold">-</span>
+                                  )}
+                                </td>
+                                <td className="p-3 text-gray-400 font-medium">
+                                  {g.redeemedAt ? new Date(g.redeemedAt).toLocaleString('pt-PT') : '-'}
+                                </td>
+                              </tr>
+                            ))}
+                          {adminGiftCodes.length === 0 && (
+                            <tr>
+                              <td colSpan={5} className="p-6 text-center text-gray-500 font-medium">Nenhum Gift Card gerado.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Subscriptions Section */}
+                <div className="glass-panel p-6 rounded-[32px] border border-white/10 space-y-6 shadow-xl font-sans">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-primary" />
+                    <span>Gestão de Subscrições</span>
+                  </h3>
+
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-xs text-gray-400 font-bold uppercase tracking-wider">Utilizadores com Subscrição</h4>
+                      <input
+                        type="text"
+                        placeholder="Pesquisar por email/nome..."
+                        value={adminSubSearch}
+                        onChange={(e) => setAdminSubSearch(e.target.value)}
+                        className="bg-black/30 border border-white/5 hover:border-white/10 focus:border-primary text-white text-xs p-2 px-3 rounded-lg outline-none w-48 transition-all"
+                      />
+                    </div>
+
+                    <div className="overflow-x-auto rounded-xl border border-white/5 bg-black/20">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-white/5 bg-white/5 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                            <th className="p-3">Utilizador</th>
+                            <th className="p-3 text-center">Plano</th>
+                            <th className="p-3 text-center">Data Fim</th>
+                            <th className="p-3 text-center">Estado</th>
+                            <th className="p-3 text-center">Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 text-xs">
+                          {adminSubscriptions
+                            .filter(s => 
+                              s.user.nome.toLowerCase().includes(adminSubSearch.toLowerCase()) ||
+                              s.user.email.toLowerCase().includes(adminSubSearch.toLowerCase())
+                            )
+                            .map((s) => (
+                              <SubscriptionRow 
+                                key={s.id} 
+                                subscription={s} 
+                                onSave={handleUpdateSubscription} 
+                              />
+                            ))}
+                          {adminSubscriptions.length === 0 && (
+                            <tr>
+                              <td colSpan={5} className="p-6 text-center text-gray-500 font-medium">Nenhuma subscrição ativa ou expirada encontrada.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

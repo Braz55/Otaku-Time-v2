@@ -23,6 +23,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Sessão expirada. Por favor, inicia sessão novamente.');
     }
 
-    return { userId: payload.sub, email: payload.email };
+    return { userId: payload.sub, email: payload.email, tipoConta: user.tipoConta };
   }
 }

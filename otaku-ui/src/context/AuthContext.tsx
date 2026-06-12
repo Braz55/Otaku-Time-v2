@@ -10,6 +10,7 @@ interface User {
   iconUrl?: string | null;
   bannerUrl?: string | null;
   preferences?: any;
+  tipoConta?: string;
 }
 
 interface AuthContextType {

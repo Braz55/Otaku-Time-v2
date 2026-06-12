@@ -3,6 +3,7 @@ import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AdminGuard } from '../auth/guards/admin.guard';
 
 @Controller('user')
 export class UserController {
@@ -123,6 +124,69 @@ export class UserController {
   @Post('achievements/seed')
   seedAchievements() {
     return this.userService.seedAchievements();
+  }
+
+  // --- Rotas Administrativas ---
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Get('admin/stats')
+  getAdminStats() {
+    return this.userService.getAdminStats();
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Get('admin/users')
+  getAdminUsers() {
+    return this.userService.getAdminUsersList();
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Patch('admin/users/:id/role')
+  updateUserRole(@Param('id') id: string, @Body('tipoConta') body: { tipoConta: string }) {
+    // Note: check if body is nested or raw request body. If the client sends { "tipoConta": "pro" }, NestJS can bind it.
+    // Let's support both raw Body('tipoConta') or body.tipoConta to prevent runtime payload errors.
+    const roleValue = typeof body === 'object' && body !== null && 'tipoConta' in body ? (body as any).tipoConta : body;
+    return this.userService.updateUserRole(+id, roleValue);
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Get('admin/sync-logs')
+  getSyncLogs() {
+    return this.userService.getSyncLogs();
+  }
+
+  // --- Rotas de Subscrições & Gift Codes ---
+  @UseGuards(JwtAuthGuard)
+  @Post('subscription/redeem')
+  redeemGiftCode(@Request() req, @Body('code') code: string) {
+    return this.userService.redeemGiftCode(req.user.userId, code);
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Get('admin/gift-codes')
+  getGiftCodes() {
+    return this.userService.listGiftCodes();
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Post('admin/gift-codes/generate')
+  generateGiftCode(
+    @Body('durationDays') durationDays: number,
+    @Body('customCode') customCode?: string,
+    @Body('expiresAt') expiresAt?: string
+  ) {
+    return this.userService.generateGiftCode(+durationDays, customCode, expiresAt);
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Get('admin/subscriptions')
+  getSubscriptions() {
+    return this.userService.listAllSubscriptions();
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Patch('admin/subscriptions/:id')
+  updateSubscription(@Param('id') id: string, @Body() body: any) {
+    return this.userService.updateSubscription(+id, body);
   }
 }
 

@@ -442,12 +442,12 @@ export class UserService {
     return { success: true, message: 'Achievements seeded successfully.' };
   }
 
-  // --- Perfil Completo ---
   async getUserProfile(userId: number) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
         statistics: true,
+        subscription: true,
         topFavorites: {
           orderBy: { rankPosition: 'asc' },
         },
@@ -464,7 +464,221 @@ export class UserService {
       throw new BadRequestException('Utilizador não encontrado.');
     }
 
+    // Dynamic expiration check
+    if (user.subscription && user.subscription.status === 'ACTIVE' && user.subscription.currentPeriodEnd < new Date()) {
+      await this.prisma.$transaction([
+        this.prisma.userSubscription.update({
+          where: { userId },
+          data: { status: 'EXPIRED' },
+        }),
+        this.prisma.user.update({
+          where: { id: userId },
+          data: { tipoConta: 'padrao' },
+        }),
+      ]);
+      user.subscription.status = 'EXPIRED';
+      user.tipoConta = 'padrao';
+    }
+
     const { password, ...profile } = user;
     return profile;
+  }
+
+  // --- Métodos de Administração ---
+  async getAdminUsersList() {
+    const users = await this.prisma.user.findMany({
+      include: {
+        _count: {
+          select: {
+            animes: true,
+            mangas: true,
+          },
+        },
+      },
+      orderBy: { id: 'asc' },
+    });
+    return users.map(user => {
+      const { password, ...rest } = user;
+      return rest;
+    });
+  }
+
+  async updateUserRole(id: number, tipoConta: string) {
+    const validTypes = ['padrao', 'pro', 'ADMIN'];
+    if (!validTypes.includes(tipoConta)) {
+      throw new BadRequestException('Tipo de conta inválido.');
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: { tipoConta },
+    });
+
+    const { password, ...rest } = user;
+    return rest;
+  }
+
+  async getAdminStats() {
+    const totalUsers = await this.prisma.user.count();
+    const totalAnimes = await this.prisma.anime.count();
+    const totalMangas = await this.prisma.manga.count();
+    const totalUserAnimes = await this.prisma.userAnime.count();
+    const totalUserMangas = await this.prisma.userManga.count();
+
+    return {
+      totalUsers,
+      totalAnimes,
+      totalMangas,
+      totalTrackedItems: totalUserAnimes + totalUserMangas,
+    };
+  }
+
+  async getSyncLogs() {
+    return this.prisma.syncLog.findMany({
+      orderBy: { timestamp: 'desc' },
+      take: 50,
+    });
+  }
+
+  // --- Subscrições & Gift Codes ---
+  async redeemGiftCode(userId: number, inputCode: string) {
+    const code = inputCode.trim().toUpperCase();
+    const gift = await this.prisma.giftCode.findUnique({
+      where: { code },
+    });
+
+    if (!gift) {
+      throw new BadRequestException('Código inválido ou não encontrado.');
+    }
+    if (gift.isUsed) {
+      throw new BadRequestException('Este código já foi utilizado.');
+    }
+    if (gift.expiresAt && gift.expiresAt < new Date()) {
+      throw new BadRequestException('Este código expirou.');
+    }
+
+    const durationMs = gift.durationDays * 24 * 60 * 60 * 1000;
+    const now = new Date();
+    let newEndDate: Date;
+
+    const sub = await this.prisma.userSubscription.findUnique({
+      where: { userId },
+    });
+
+    if (sub && sub.status === 'ACTIVE' && sub.currentPeriodEnd > now) {
+      newEndDate = new Date(sub.currentPeriodEnd.getTime() + durationMs);
+    } else {
+      newEndDate = new Date(now.getTime() + durationMs);
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.giftCode.update({
+        where: { id: gift.id },
+        data: {
+          isUsed: true,
+          redeemedByUserId: userId,
+          redeemedAt: now,
+        },
+      }),
+      this.prisma.userSubscription.upsert({
+        where: { userId },
+        update: {
+          status: 'ACTIVE',
+          currentPeriodEnd: newEndDate,
+          planType: 'PREMIUM',
+        },
+        create: {
+          userId,
+          status: 'ACTIVE',
+          startDate: now,
+          currentPeriodEnd: newEndDate,
+          planType: 'PREMIUM',
+        },
+      }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { tipoConta: 'pro' },
+      }),
+    ]);
+
+    return {
+      success: true,
+      message: `Premium (${gift.durationDays} dias) resgatado com sucesso!`,
+      currentPeriodEnd: newEndDate,
+    };
+  }
+
+  async listGiftCodes() {
+    return this.prisma.giftCode.findMany({
+      include: {
+        redeemedByUser: {
+          select: { id: true, nome: true, email: true },
+        },
+      },
+      orderBy: { id: 'desc' },
+    });
+  }
+
+  async generateGiftCode(durationDays: number, customCode?: string, expiresAt?: string) {
+    let code = customCode?.trim().toUpperCase();
+    if (!code) {
+      const rand = () => Math.random().toString(36).substring(2, 6).toUpperCase();
+      code = `OTAKU-${rand()}-${rand()}`;
+    }
+
+    const exists = await this.prisma.giftCode.findUnique({ where: { code } });
+    if (exists) {
+      throw new BadRequestException('O código inserido já existe.');
+    }
+
+    return this.prisma.giftCode.create({
+      data: {
+        code,
+        durationDays,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+      },
+    });
+  }
+
+  async listAllSubscriptions() {
+    return this.prisma.userSubscription.findMany({
+      include: {
+        user: {
+          select: { id: true, nome: true, email: true },
+        },
+      },
+      orderBy: { currentPeriodEnd: 'desc' },
+    });
+  }
+
+  async updateSubscription(id: number, updateData: any) {
+    const data: any = {};
+    if (updateData.planType) data.planType = updateData.planType;
+    if (updateData.status) data.status = updateData.status;
+    if (updateData.currentPeriodEnd) data.currentPeriodEnd = new Date(updateData.currentPeriodEnd);
+
+    const sub = await this.prisma.userSubscription.update({
+      where: { id },
+      data,
+      include: {
+        user: {
+          select: { id: true, nome: true, email: true },
+        },
+      },
+    });
+
+    if (data.status === 'EXPIRED') {
+      await this.prisma.user.update({
+        where: { id: sub.userId },
+        data: { tipoConta: 'padrao' },
+      });
+    } else if (data.status === 'ACTIVE') {
+      await this.prisma.user.update({
+        where: { id: sub.userId },
+        data: { tipoConta: 'pro' },
+      });
+    }
+
+    return sub;
   }
 }

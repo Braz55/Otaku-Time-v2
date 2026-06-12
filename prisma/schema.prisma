@@ -26,6 +26,7 @@ model User {
   theme             String        @default("dark")
   showAdultContent  Boolean       @default(false)
   tokenVersion      Int           @default(1)
+  tipoConta         String        @default("padrao")
   iconUrl           String?
   bannerUrl         String?
   preferences       Json?         @default("{}")
@@ -35,6 +36,8 @@ model User {
   topFavorites      UserTopFavorite[]
   statistics        UserStatistics?
   achievements      UserAchievement[]
+  subscription      UserSubscription?
+  redeemedCodes     GiftCode[]
 }
 
 model Anime {
@@ -170,4 +173,33 @@ model UserAchievement {
   achievement   Achievement       @relation(fields: [achievementId], references: [id], onDelete: Cascade)
 
   @@id([userId, achievementId])
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  EXPIRED
+  PAST_DUE
+}
+
+model UserSubscription {
+  id                     Int                @id @default(autoincrement())
+  userId                 Int                @unique
+  planType               String             @default("PREMIUM")
+  status                 SubscriptionStatus @default(ACTIVE)
+  startDate              DateTime           @default(now())
+  currentPeriodEnd       DateTime
+  externalSubscriptionId String?
+  user                   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model GiftCode {
+  id                 Int       @id @default(autoincrement())
+  code               String    @unique
+  durationDays       Int
+  isUsed             Boolean   @default(false)
+  redeemedByUserId   Int?
+  redeemedAt         DateTime?
+  expiresAt          DateTime?
+  redeemedByUser     User?     @relation(fields: [redeemedByUserId], references: [id], onDelete: SetNull)
 }

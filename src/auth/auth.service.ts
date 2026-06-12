@@ -30,6 +30,7 @@ export class AuthService {
         preferredLanguage: user.preferredLanguage,
         theme: user.theme,
         showAdultContent: user.showAdultContent,
+        tipoConta: user.tipoConta,
       },
     };
   }

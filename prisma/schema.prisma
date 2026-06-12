@@ -38,6 +38,7 @@ model User {
   achievements      UserAchievement[]
   subscription      UserSubscription?
   redeemedCodes     GiftCode[]
+  ratings           UserRating[]
 }
 
 model Anime {
@@ -205,4 +206,28 @@ model GiftCode {
   redeemedAt         DateTime?
   expiresAt          DateTime?
   redeemedByUser     User?     @relation(fields: [redeemedByUserId], references: [id], onDelete: SetNull)
+}
+
+model Media {
+  id                Int          @id
+  avaliacao_base    Float
+  total_votos_users Int          @default(0)
+  soma_notas_users  Float        @default(0)
+  avaliacao_geral   Float
+  ratings           UserRating[]
+
+  @@map("Media")
+}
+
+model UserRating {
+  id      Int   @id @default(autoincrement())
+  userId  Int   @map("user_id")
+  mediaId Int   @map("media_id")
+  score   Float
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, mediaId])
+  @@map("User_Rating")
 }

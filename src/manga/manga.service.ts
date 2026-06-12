@@ -292,6 +292,7 @@ export class MangaService {
           media(search: $s, type: MANGA, sort: SEARCH_MATCH, isAdult: $isAdult) {
             id
             title { english romaji }
+            averageScore
             status
             chapters
             genres
@@ -320,6 +321,7 @@ export class MangaService {
         Media(id: $id, type: MANGA) {
           id
           title { english romaji }
+          averageScore
           status
           chapters
           genres
@@ -466,6 +468,21 @@ export class MangaService {
       },
     });
 
+    // Criar registo de Media se não existir para semente híbrida de avaliações
+    const averageScore = aniListData.averageScore ? aniListData.averageScore / 10 : 0;
+    const existingMedia = await this.prisma.media.findUnique({ where: { id: manga.id } });
+    if (!existingMedia) {
+      await this.prisma.media.create({
+        data: {
+          id: manga.id,
+          avaliacao_base: averageScore,
+          total_votos_users: 0,
+          soma_notas_users: 0,
+          avaliacao_geral: averageScore,
+        },
+      });
+    }
+
     const userManga = await this.prisma.userManga.upsert({
       where: { userId_mangaId: { userId, mangaId: manga.id } },
       update: {},
@@ -473,35 +490,52 @@ export class MangaService {
       include: { manga: true }
     });
     await this.recalculateUserStats(userId);
-    return userManga;
+    const rating = await this.prisma.media.findUnique({ where: { id: manga.id } });
+    return {
+      ...userManga,
+      avaliacaoGeral: rating?.avaliacao_geral ?? null,
+      totalVotosUsers: rating?.total_votos_users ?? 0,
+    };
   }
 
   // CRUD básico
   async findAll(userId: number) {
     const list = await this.prisma.userManga.findMany({ where: { userId }, include: { manga: true } });
-    return list.map(item => ({
-      id: item.id,
-      mangaId: item.mangaId,
-      titulo: item.manga.titulo,
-      statusLancamento: item.manga.statusLancamento,
-      capaUrl: item.manga.capaUrl,
-      generos: item.manga.generos,
-      descricao: item.manga.descricao,
-      status: item.status,
-      capAtual: item.capAtual,
-      numCapitulosTotal: item.manga.numCapitulosTotal,
-      prioridade: item.prioridade,
-      linksExternos: item.manga.linksExternos,
-      linksPersonalizados: item.linksPersonalizados,
-      proximoCapituloNumero: item.manga.proximoCapituloNumero,
-      proximoCapituloData: item.manga.proximoCapituloData,
-      updatedAt: item.updatedAt
-    }));
+    const mangaIds = list.map(item => item.mangaId);
+    const ratings = await this.prisma.media.findMany({
+      where: { id: { in: mangaIds } }
+    });
+    const ratingMap = new Map(ratings.map(r => [r.id, r]));
+
+    return list.map(item => {
+      const rating = ratingMap.get(item.mangaId);
+      return {
+        id: item.id,
+        mangaId: item.mangaId,
+        titulo: item.manga.titulo,
+        statusLancamento: item.manga.statusLancamento,
+        capaUrl: item.manga.capaUrl,
+        generos: item.manga.generos,
+        descricao: item.manga.descricao,
+        status: item.status,
+        capAtual: item.capAtual,
+        numCapitulosTotal: item.manga.numCapitulosTotal,
+        prioridade: item.prioridade,
+        linksExternos: item.manga.linksExternos,
+        linksPersonalizados: item.linksPersonalizados,
+        proximoCapituloNumero: item.manga.proximoCapituloNumero,
+        proximoCapituloData: item.manga.proximoCapituloData,
+        updatedAt: item.updatedAt,
+        avaliacaoGeral: rating?.avaliacao_geral ?? null,
+        totalVotosUsers: rating?.total_votos_users ?? 0
+      };
+    });
   }
 
   async findOne(id: number) {
     const item = await this.prisma.userManga.findUnique({ where: { id }, include: { manga: true } });
     if (!item) return null;
+    const rating = await this.prisma.media.findUnique({ where: { id: item.mangaId } });
     return {
       id: item.id,
       mangaId: item.mangaId,
@@ -518,7 +552,9 @@ export class MangaService {
       linksPersonalizados: item.linksPersonalizados,
       proximoCapituloNumero: item.manga.proximoCapituloNumero,
       proximoCapituloData: item.manga.proximoCapituloData,
-      updatedAt: item.updatedAt
+      updatedAt: item.updatedAt,
+      avaliacaoGeral: rating?.avaliacao_geral ?? null,
+      totalVotosUsers: rating?.total_votos_users ?? 0
     };
   }
 
@@ -570,7 +606,8 @@ export class MangaService {
     }
     const updated = await this.prisma.userManga.update({ where: { id }, data: novosDados, include: { manga: true } });
     await this.recalculateUserStats(updated.userId);
-    return { ...updated, titulo: updated.manga.titulo, capaUrl: updated.manga.capaUrl, linksExternos: updated.manga.linksExternos, numCapitulosTotal: updated.manga.numCapitulosTotal, proximoCapituloNumero: updated.manga.proximoCapituloNumero };
+    const rating = await this.prisma.media.findUnique({ where: { id: updated.mangaId } });
+    return { ...updated, titulo: updated.manga.titulo, capaUrl: updated.manga.capaUrl, linksExternos: updated.manga.linksExternos, numCapitulosTotal: updated.manga.numCapitulosTotal, proximoCapituloNumero: updated.manga.proximoCapituloNumero, avaliacaoGeral: rating?.avaliacao_geral ?? null, totalVotosUsers: rating?.total_votos_users ?? 0 };
   }
 
   async updateLastModified(id: number, date: Date = new Date()) {

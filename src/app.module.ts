@@ -8,6 +8,7 @@ import { UserModule } from './user/user.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { SyncModule } from './sync/sync.module';
+import { RatingModule } from './rating/rating.module';
 import { KeepAwakeService } from './keep-awake.service';
 import { KeepAwakeMiddleware } from './keep-awake.middleware';
 
@@ -20,6 +21,7 @@ import { KeepAwakeMiddleware } from './keep-awake.middleware';
     PrismaModule,
     AuthModule,
     SyncModule,
+    RatingModule,
   ],
   controllers: [AppController],
   providers: [AppService, KeepAwakeService],

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useMedia } from '../context/MediaContext';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import Header from './Header';
 
 interface LayoutProps {
@@ -9,6 +10,7 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { categoria, setCategoria, isShowingFavorites, setIsShowingFavorites, isSearchOpen, setIsSearchOpen, triggerHome } = useMedia();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -56,13 +58,40 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </button>
         </nav>
         <div className="pt-6 border-t border-white/5">
-          <div className="flex items-center gap-3 px-2 cursor-pointer group" onClick={() => navigate('/profile')}>
-            <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container overflow-hidden group-hover:scale-105 transition-transform shadow-md">
-              <span className="material-symbols-outlined">person</span>
+          <div 
+            className="relative overflow-hidden rounded-2xl p-4 flex items-center gap-3 cursor-pointer group border border-white/5 shadow-lg min-h-[72px]" 
+            onClick={() => navigate('/profile')}
+          >
+            {/* Banner Background */}
+            {user?.bannerUrl ? (
+              <img 
+                src={user.bannerUrl} 
+                alt="Banner" 
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                style={{ objectPosition: `center ${user.preferences?.bannerPosition ?? 50}%` }}
+              />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-tr from-primary/30 to-secondary/30 transition-transform duration-500 group-hover:scale-105" />
+            )}
+            
+            {/* Dark Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/35 group-hover:from-black/90 transition-all duration-300" />
+            
+            {/* Avatar */}
+            <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container overflow-hidden relative z-10 flex-shrink-0 border border-white/10 group-hover:scale-105 transition-transform shadow-md">
+              {user?.iconUrl ? (
+                <img src={user.iconUrl} className="w-full h-full object-cover" alt="Profile" />
+              ) : (
+                <span className="material-symbols-outlined">person</span>
+              )}
             </div>
-            <div>
-              <p className="font-label-md text-label-md text-on-surface group-hover:text-primary transition-colors">Enthusiast</p>
-              <p className="text-xs text-on-surface-variant">Pro Member</p>
+
+            {/* User Info */}
+            <div className="relative z-10 flex-1 min-w-0">
+              <p className="font-bold text-sm text-white truncate group-hover:text-primary-light transition-colors">
+                {user?.nome || 'Enthusiast'}
+              </p>
+              <p className="text-xs text-white/70 truncate">Pro Member</p>
             </div>
           </div>
         </div>

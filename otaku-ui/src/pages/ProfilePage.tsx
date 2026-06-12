@@ -119,6 +119,8 @@ const ProfilePage = () => {
   const [favSearchTerm, setFavSearchTerm] = useState('');
   const [favSearchResults, setFavSearchResults] = useState<any[]>([]);
   const [loadingFavSearch, setLoadingFavSearch] = useState(false);
+  const [libraryAnimes, setLibraryAnimes] = useState<any[]>([]);
+  const [libraryMangas, setLibraryMangas] = useState<any[]>([]);
 
   // Backup & Restore State
   const [isExporting, setIsExporting] = useState(false);
@@ -400,12 +402,47 @@ const ProfilePage = () => {
   };
 
   // Favorites logic
-  const openFavoritesSearch = (type: 'anime' | 'manga', rank: number) => {
+  const openFavoritesSearch = async (type: 'anime' | 'manga', rank: number) => {
     setFavSearchType(type);
     setSelectedRank(rank);
     setFavSearchResults([]);
     setFavSearchTerm('');
     setShowFavoritesModal(true);
+    setLoadingFavSearch(true);
+    try {
+      const res = await customFetch(`${API_BASE_URL}/${type}`, {
+        headers: getHeaders()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          const mapped = data.map((item: any) => {
+            const mediaObj = type === 'anime' ? item.anime : item.manga;
+            return {
+              id: mediaObj.id,
+              coverImage: {
+                large: mediaObj.capaUrl
+              },
+              title: {
+                english: mediaObj.titulo,
+                romaji: mediaObj.titulo
+              },
+              status: mediaObj.statusLancamento
+            };
+          });
+          if (type === 'anime') {
+            setLibraryAnimes(mapped);
+          } else {
+            setLibraryMangas(mapped);
+          }
+          setFavSearchResults(mapped);
+        }
+      }
+    } catch (err) {
+      console.error(`Error loading library ${type}:`, err);
+    } finally {
+      setLoadingFavSearch(false);
+    }
   };
 
   const handleSearchFavMedia = async () => {
@@ -1625,7 +1662,7 @@ const ProfilePage = () => {
                 <span className="capitalize">Definir {selectedRank}º Destaque de {favSearchType}</span>
               </h3>
               <p className="text-xs sm:text-sm text-gray-400">
-                Pesquisa na AniList para definir qual {favSearchType} pretendes destacar no teu pódio.
+                Escolhe um título da tua biblioteca abaixo ou pesquisa por outros títulos no motor de busca.
               </p>
             </div>
 
@@ -1634,10 +1671,16 @@ const ProfilePage = () => {
                 <input 
                   type="text" 
                   value={favSearchTerm}
-                  onChange={(e) => setFavSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFavSearchTerm(val);
+                    if (!val.trim()) {
+                      setFavSearchResults(favSearchType === 'anime' ? libraryAnimes : libraryMangas);
+                    }
+                  }}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSearchFavMedia(); }}
                   className="flex-1 bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-primary outline-none transition-all text-xs sm:text-sm"
-                  placeholder={`Pesquisa títulos de ${favSearchType}...`}
+                  placeholder={`Pesquisa títulos ou limpa para ver a tua biblioteca...`}
                 />
                 <button 
                   onClick={handleSearchFavMedia}
@@ -1653,7 +1696,7 @@ const ProfilePage = () => {
               {loadingFavSearch ? (
                 <div className="flex flex-col items-center justify-center py-10 space-y-2">
                   <RefreshCw className="w-8 h-8 animate-spin text-primary" />
-                  <p className="text-xs text-gray-500">A pesquisar na AniList...</p>
+                  <p className="text-xs text-gray-500">A carregar...</p>
                 </div>
               ) : favSearchResults.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1678,7 +1721,7 @@ const ProfilePage = () => {
               ) : favSearchTerm ? (
                 <p className="text-center py-10 text-xs sm:text-sm italic text-gray-500">Nenhum resultado encontrado.</p>
               ) : (
-                <p className="text-center py-10 text-xs sm:text-sm italic text-gray-500">Insere o termo de pesquisa acima.</p>
+                <p className="text-center py-10 text-xs sm:text-sm italic text-gray-500">A tua biblioteca de {favSearchType} está vazia. Pesquisa acima para encontrar títulos.</p>
               )}
             </div>
 

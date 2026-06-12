@@ -31,6 +31,9 @@ export class AuthService {
         theme: user.theme,
         showAdultContent: user.showAdultContent,
         tipoConta: user.tipoConta,
+        iconUrl: user.iconUrl,
+        bannerUrl: user.bannerUrl,
+        preferences: user.preferences,
       },
     };
   }

@@ -722,6 +722,8 @@ const ProfilePage = () => {
       if (res.ok) {
         updateUser({ 
           nome: editName,
+          iconUrl: editIconUrl || null,
+          bannerUrl: editBannerUrl || null,
           preferences: updatedPreferences
         });
         showToast('Perfil atualizado com sucesso!', 'success');
@@ -868,17 +870,16 @@ const ProfilePage = () => {
         const data = await res.json();
         if (Array.isArray(data)) {
           const mapped = data.map((item: any) => {
-            const mediaObj = type === 'anime' ? item.anime : item.manga;
             return {
-              id: mediaObj.id,
+              id: type === 'anime' ? item.animeId : item.mangaId,
               coverImage: {
-                large: mediaObj.capaUrl
+                large: item.capaUrl
               },
               title: {
-                english: mediaObj.titulo,
-                romaji: mediaObj.titulo
+                english: item.titulo,
+                romaji: item.titulo
               },
-              status: mediaObj.statusLancamento
+              status: item.statusLancamento
             };
           });
           if (type === 'anime') {
@@ -1164,23 +1165,25 @@ const ProfilePage = () => {
         </header>
 
         {/* User Card Hero (Profile Banner & Avatar) */}
-        <div 
-          className="relative w-full rounded-[32px] border border-secondary/20 shadow-2xl overflow-hidden min-h-[220px] transition-all duration-500 flex flex-col justify-end"
-          style={{
-            backgroundImage: profile?.bannerUrl ? `url(${profile.bannerUrl})` : undefined,
-            backgroundSize: 'cover',
-            backgroundPosition: `center ${profile?.preferences?.bannerPosition ?? '50'}%`,
-          }}
-        >
+        <div className="relative w-full rounded-[32px] border border-secondary/20 shadow-2xl overflow-hidden min-h-[220px] transition-all duration-500 flex flex-col justify-end">
+          {profile?.bannerUrl && (
+            <img 
+              src={profile.bannerUrl} 
+              alt="Banner" 
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none z-0"
+              style={{ objectPosition: `center ${profile?.preferences?.bannerPosition ?? '50'}%` }}
+            />
+          )}
+
           {/* Dark Overlay aligned perfectly within card borders */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0f1014] via-black/45 to-transparent z-0"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0f1014] via-black/45 to-transparent z-10"></div>
 
           {/* Default Hero Gradient overlay if no banner exists */}
           {!profile?.bannerUrl && (
-            <div className="absolute inset-0 bg-gradient-to-r from-secondary/25 via-primary/15 to-transparent blur-3xl -z-10 hero-gradient"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-secondary/25 via-primary/15 to-transparent blur-3xl z-0 hero-gradient"></div>
           )}
           
-          <div className="p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-6 relative z-10 text-center sm:text-left w-full justify-between mt-auto">
+          <div className="p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-6 relative z-20 text-center sm:text-left w-full justify-between mt-auto">
             <div className="flex flex-col sm:flex-row items-center gap-6">
               <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-primary p-1 shadow-[0_0_30px_rgba(194,24,91,0.4)] flex-shrink-0 relative overflow-hidden">
                 <div className="w-full h-full rounded-full bg-surface flex items-center justify-center text-4xl font-black text-white overflow-hidden">
@@ -2454,14 +2457,14 @@ const ProfilePage = () => {
               {/* Instant previews */}
               <div className="p-4 bg-black/40 rounded-2xl border border-white/5 space-y-4">
                 {editBannerUrl && (
-                  <div 
-                    className="w-full h-24 rounded-xl border border-white/10 overflow-hidden"
-                    style={{
-                      backgroundImage: `url(${editBannerUrl})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: `center ${editBannerPosition}%`
-                    }}
-                  />
+                  <div className="w-full h-24 rounded-xl border border-white/10 overflow-hidden relative">
+                    <img 
+                      src={editBannerUrl} 
+                      alt="Banner Preview" 
+                      className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                      style={{ objectPosition: `center ${editBannerPosition}%` }}
+                    />
+                  </div>
                 )}
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-full bg-surface border border-white/10 overflow-hidden flex items-center justify-center text-lg font-bold text-gray-400">

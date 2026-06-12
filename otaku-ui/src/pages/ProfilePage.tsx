@@ -2,14 +2,16 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { ChevronLeft, Database, RefreshCw, AlertCircle, User, Shield, Smartphone, Download, Upload, Copy, Check } from 'lucide-react';
+import { 
+  ChevronLeft, Database, RefreshCw, AlertCircle, User, Shield, 
+  Smartphone, Download, Upload, Copy, Check, Award, Heart, 
+  Edit3, Trash2, Plus, Search, BookOpen, Clock, Film, PlayCircle 
+} from 'lucide-react';
 import { API_BASE_URL } from '../config';
 import { Capacitor } from '@capacitor/core';
 import { customFetch } from '../services/apiBridge';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
-
-
 import { getCurrentPalette, savePalette } from '../services/paletteService';
 
 const ProfilePage = () => {
@@ -17,9 +19,222 @@ const ProfilePage = () => {
   const { showToast } = useToast();
   const navigate = useNavigate();
   
-  const [activeTab, setActiveTab] = useState<'sync' | 'account'>('sync');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'sync' | 'account'>('dashboard');
   const [isUpdatingPreferences, setIsUpdatingPreferences] = useState(false);
   const [selectedPalette, setSelectedPalette] = useState(() => getCurrentPalette());
+
+  // Profile Data state
+  const [profile, setProfile] = useState<any>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [favoriteDetails, setFavoriteDetails] = useState<Record<number, { title: string; coverUrl: string }>>({});
+  const [catalog, setCatalog] = useState<any[]>([]);
+
+  // Edit Account/Profile state
+  const [newName, setNewName] = useState(user?.nome || '');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [isSavingAccount, setIsSavingAccount] = useState(false);
+
+  // Edit Profile Avatar/Banner state
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editIconUrl, setEditIconUrl] = useState('');
+  const [editBannerUrl, setEditBannerUrl] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Compress/resize image using Canvas before converting to base64
+  const compressImage = (file: File, maxWidth: number, maxHeight: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(event.target?.result as string);
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(dataUrl);
+        };
+        img.onerror = (err) => reject(err);
+      };
+      reader.onerror = (err) => reject(err);
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, target: 'avatar' | 'banner') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Por favor, seleciona um ficheiro de imagem válido.', 'warning');
+      return;
+    }
+
+    try {
+      if (target === 'avatar') {
+        const compressed = await compressImage(file, 150, 150);
+        setEditIconUrl(compressed);
+        showToast('Foto de perfil carregada e comprimida!', 'success');
+      } else {
+        const compressed = await compressImage(file, 800, 300);
+        setEditBannerUrl(compressed);
+        showToast('Banner carregado e comprimido!', 'success');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Erro ao processar imagem.', 'error');
+    }
+  };
+
+  // Favorites Podium Search state
+  const [showFavoritesModal, setShowFavoritesModal] = useState(false);
+  const [selectedRank, setSelectedRank] = useState<number>(1);
+  const [favSearchType, setFavSearchType] = useState<'anime' | 'manga'>('anime');
+  const [favSearchTerm, setFavSearchTerm] = useState('');
+  const [favSearchResults, setFavSearchResults] = useState<any[]>([]);
+  const [loadingFavSearch, setLoadingFavSearch] = useState(false);
+
+  // Backup & Restore State
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [backupText, setBackupText] = useState('');
+  const [showBackupModal, setShowBackupModal] = useState(false);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
+  const [importJsonInput, setImportJsonInput] = useState('');
+  const [cleanRestore, setCleanRestore] = useState(false);
+  const [showWipeConfirm, setShowWipeConfirm] = useState(false);
+  const [isWiping, setIsWiping] = useState(false);
+
+  // AutoSync Releases State
+  const [syncStatus, setSyncStatus] = useState<{ isSyncing: boolean; total: number; current: number; currentItemTitle: string }>({
+    isSyncing: false,
+    total: 0,
+    current: 0,
+    currentItemTitle: ''
+  });
+
+  const getHeaders = () => ({
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  });
+
+  // Fetch Full Profile
+  const fetchProfile = async () => {
+    if (!token) return;
+    setLoadingProfile(true);
+    try {
+      const res = await customFetch(`${API_BASE_URL}/user/profile/me`, {
+        headers: getHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProfile(data);
+      }
+    } catch (err) {
+      console.error('Error fetching profile:', err);
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
+  // Fetch Achievements Catalog
+  const fetchCatalog = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/user/achievements/catalog`);
+      if (res.ok) {
+        const data = await res.json();
+        setCatalog(data);
+      }
+    } catch (e) {
+      console.error('Error loading achievements catalog:', e);
+    }
+  };
+
+  // Fetch details of top favorites from AniList/cache
+  const fetchFavoriteDetails = async () => {
+    if (!profile?.topFavorites) return;
+    
+    // Clear old details that are not in the new topFavorites
+    const currentRanks = profile.topFavorites.map((f: any) => f.rankPosition);
+    setFavoriteDetails(prev => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach(k => {
+        if (!currentRanks.includes(Number(k))) {
+          delete updated[Number(k)];
+        }
+      });
+      return updated;
+    });
+
+    profile.topFavorites.forEach(async (fav: any) => {
+      try {
+        const typeLower = fav.mediaType.toLowerCase();
+        const res = await customFetch(`${API_BASE_URL}/${typeLower}/anilist/${fav.anilistMediaId}`, {
+          headers: getHeaders()
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const title = data.title?.english || data.title?.romaji || 'Título Desconhecido';
+          const coverUrl = data.coverImage?.large || '';
+          setFavoriteDetails(prev => ({
+            ...prev,
+            [fav.rankPosition]: { title, coverUrl }
+          }));
+        }
+      } catch (e) {
+        console.error("Failed to load favorite details for id " + fav.anilistMediaId, e);
+      }
+    });
+  };
+
+  useEffect(() => {
+    fetchProfile();
+    fetchCatalog();
+  }, [token]);
+
+  useEffect(() => {
+    fetchFavoriteDetails();
+  }, [profile?.topFavorites]);
+
+  // Sync edit name state
+  useEffect(() => {
+    if (user?.nome) {
+      setNewName(user.nome);
+      setEditName(user.nome);
+    }
+    if (profile) {
+      setEditIconUrl(profile.iconUrl || '');
+      setEditBannerUrl(profile.bannerUrl || '');
+    }
+  }, [user, profile]);
 
   const handlePaletteChange = (paletteName: string) => {
     savePalette(paletteName);
@@ -27,20 +242,38 @@ const ProfilePage = () => {
     showToast('Paleta de cores atualizada!', 'success');
   };
 
-  // Account Information Edit state
-  const [newName, setNewName] = useState(user?.nome || '');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [isSavingAccount, setIsSavingAccount] = useState(false);
-
-  // Sync newName when user object is loaded
-  useEffect(() => {
-    if (user?.nome) {
-      setNewName(user.nome);
+  // Save profile edit (icon, banner, name)
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    setIsSavingProfile(true);
+    try {
+      const res = await customFetch(`${API_BASE_URL}/user/profile`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          nome: editName,
+          iconUrl: editIconUrl || null,
+          bannerUrl: editBannerUrl || null
+        })
+      });
+      if (res.ok) {
+        updateUser({ nome: editName });
+        showToast('Perfil atualizado com sucesso!', 'success');
+        setShowEditProfileModal(false);
+        fetchProfile();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.message || 'Falha ao atualizar perfil.', 'error');
+      }
+    } catch (err: any) {
+      showToast(`Erro: ${err.message || err}`, 'error');
+    } finally {
+      setIsSavingProfile(false);
     }
-  }, [user]);
+  };
 
+  // Save Account password
   const handleSaveAccountInfo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
@@ -121,28 +354,104 @@ const ProfilePage = () => {
     }
   };
 
+  // Genre toggling
+  const handleToggleGenre = async (genre: string) => {
+    if (!profile) return;
+    const currentGenres = profile.preferences?.favoriteGenres || [];
+    const updatedGenres = currentGenres.includes(genre)
+      ? currentGenres.filter((g: string) => g !== genre)
+      : [...currentGenres, genre];
+    
+    const updatedPreferences = {
+      ...profile.preferences,
+      favoriteGenres: updatedGenres
+    };
 
+    try {
+      const res = await customFetch(`${API_BASE_URL}/user/profile`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify({ preferences: updatedPreferences })
+      });
+      if (res.ok) {
+        setProfile((prev: any) => ({
+          ...prev,
+          preferences: updatedPreferences
+        }));
+        updateUser({ preferences: updatedPreferences });
+        showToast(`Género ${genre} atualizado!`, 'success');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('Erro ao atualizar género favorito.', 'error');
+    }
+  };
 
+  // Favorites logic
+  const openFavoritesSearch = (rank: number) => {
+    setSelectedRank(rank);
+    setFavSearchResults([]);
+    setFavSearchTerm('');
+    setShowFavoritesModal(true);
+  };
 
-  // Backup & Restore State
-  const [isExporting, setIsExporting] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
-  const [backupText, setBackupText] = useState('');
-  const [showBackupModal, setShowBackupModal] = useState(false);
-  const [showRestoreModal, setShowRestoreModal] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [importError, setImportError] = useState<string | null>(null);
-  const [importSuccess, setImportSuccess] = useState<string | null>(null);
-  const [importJsonInput, setImportJsonInput] = useState('');
-  const [cleanRestore, setCleanRestore] = useState(false);
-  const [showWipeConfirm, setShowWipeConfirm] = useState(false);
-  const [isWiping, setIsWiping] = useState(false);
+  const handleSearchFavMedia = async () => {
+    if (!favSearchTerm.trim()) return;
+    setLoadingFavSearch(true);
+    try {
+      const res = await customFetch(`${API_BASE_URL}/${favSearchType}/search/${encodeURIComponent(favSearchTerm)}?page=1`, {
+        headers: getHeaders()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setFavSearchResults(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error('Error searching AniList:', err);
+    } finally {
+      setLoadingFavSearch(false);
+    }
+  };
 
-  const getHeaders = () => ({
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`
-  });
+  const handleSelectFavorite = async (mediaId: number) => {
+    try {
+      const res = await customFetch(`${API_BASE_URL}/user/favorites`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          anilistMediaId: mediaId,
+          mediaType: favSearchType.toUpperCase(),
+          rankPosition: selectedRank
+        })
+      });
+      if (res.ok) {
+        showToast('Destaque definido com sucesso!', 'success');
+        setShowFavoritesModal(false);
+        fetchProfile();
+      } else {
+        showToast('Falha ao definir destaque.', 'error');
+      }
+    } catch (err: any) {
+      showToast(`Erro: ${err.message || err}`, 'error');
+    }
+  };
 
+  const handleRemoveFavorite = async (rank: number) => {
+    try {
+      const res = await customFetch(`${API_BASE_URL}/user/favorites/${rank}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      if (res.ok) {
+        showToast('Destaque removido.', 'success');
+        fetchProfile();
+      }
+    } catch (err: any) {
+      showToast(`Erro: ${err.message || err}`, 'error');
+    }
+  };
+
+  // Wipe, Backups, Sync controllers
   const handleWipeLibrary = async () => {
     setIsWiping(true);
     try {
@@ -150,12 +459,7 @@ const ProfilePage = () => {
         method: 'DELETE',
         headers: getHeaders()
       });
-      if (!res.ok) {
-        throw new Error('Falha ao apagar dados no servidor.');
-      }
-      
-
-      
+      if (!res.ok) throw new Error('Falha ao apagar dados no servidor.');
       showToast('Biblioteca apagada com sucesso!', 'success');
       setShowWipeConfirm(false);
     } catch (err: any) {
@@ -173,27 +477,20 @@ const ProfilePage = () => {
       const res = await customFetch(`${API_BASE_URL}/user/backup`, {
         headers: getHeaders()
       });
-      if (!res.ok) {
-        throw new Error(`Erro ao gerar backup: ${res.statusText}`);
-      }
+      if (!res.ok) throw new Error(`Erro ao gerar backup: ${res.statusText}`);
       const backupData = await res.json();
       const backupString = JSON.stringify(backupData, null, 2);
       setBackupText(backupString);
 
-      // Se for Android (Native Platform)
       if (Capacitor.isNativePlatform()) {
         try {
           const fileName = `otaku_time_backup_${new Date().toISOString().split('T')[0]}.json`;
-          
-          // Gravar o ficheiro temporariamente no sistema de ficheiros nativo do Android
           const writeResult = await Filesystem.writeFile({
             path: fileName,
             data: backupString,
             directory: Directory.Cache,
             encoding: Encoding.UTF8
           });
-
-          // Partilhar o ficheiro através do menu de partilha nativo do Android
           await Share.share({
             title: 'Backup Otaku-Time',
             text: 'Ficheiro de cópia de segurança do Otaku-Time.',
@@ -202,11 +499,9 @@ const ProfilePage = () => {
           });
         } catch (shareErr: any) {
           console.error("Erro ao partilhar via Capacitor:", shareErr);
-          // Se falhar a partilha nativa (por ex. cancelada), mostramos o modal para o utilizador copiar
           setShowBackupModal(true);
         }
       } else {
-        // No PC / Web: Download direto
         const blob = new Blob([backupString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -216,7 +511,6 @@ const ProfilePage = () => {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        
         setShowBackupModal(true);
       }
     } catch (err: any) {
@@ -229,12 +523,10 @@ const ProfilePage = () => {
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
-        const text = event.target?.result as string;
-        setImportJsonInput(text);
+        setImportJsonInput(event.target?.result as string);
       } catch (err) {
         setImportError('Não foi possível ler o ficheiro selecionado.');
       }
@@ -247,13 +539,11 @@ const ProfilePage = () => {
       setImportError('Por favor, cole o texto do backup ou selecione um ficheiro JSON.');
       return;
     }
-
     setImportError(null);
     setImportSuccess(null);
     setIsImporting(true);
 
     try {
-      // Validar JSON localmente antes de enviar
       let parsed;
       try {
         parsed = JSON.parse(importJsonInput);
@@ -265,15 +555,12 @@ const ProfilePage = () => {
         throw new Error('O backup selecionado não contém dados válidos de animes ou mangás.');
       }
 
-      // Se for restauro limpo, apagar biblioteca primeiro
       if (cleanRestore) {
         const wipeRes = await customFetch(`${API_BASE_URL}/user/library`, {
           method: 'DELETE',
           headers: getHeaders()
         });
-        if (!wipeRes.ok) {
-          throw new Error('Não foi possível apagar os dados existentes para o restauro limpo.');
-        }
+        if (!wipeRes.ok) throw new Error('Não foi possível apagar os dados existentes para o restauro limpo.');
       }
 
       const res = await customFetch(`${API_BASE_URL}/user/restore`, {
@@ -290,12 +577,11 @@ const ProfilePage = () => {
       setImportSuccess('Cópia de segurança restaurada com sucesso! A recarregar biblioteca...');
       setImportJsonInput('');
       setCleanRestore(false);
-      
       setTimeout(() => {
         setShowRestoreModal(false);
         setImportSuccess(null);
+        fetchProfile();
       }, 2500);
-
     } catch (err: any) {
       setImportError(err.message || 'Erro inesperado ao restaurar o backup.');
     } finally {
@@ -303,14 +589,6 @@ const ProfilePage = () => {
     }
   };
   
-  // AutoSync Releases State (Animes & Mangas)
-  const [syncStatus, setSyncStatus] = useState<{ isSyncing: boolean; total: number; current: number; currentItemTitle: string }>({
-    isSyncing: false,
-    total: 0,
-    current: 0,
-    currentItemTitle: ''
-  });
-
   const checkSyncStatus = async () => {
     try {
       const res = await customFetch(`${API_BASE_URL}/sync/status`);
@@ -336,7 +614,6 @@ const ProfilePage = () => {
     try {
       const res = await customFetch(`${API_BASE_URL}/sync/start`, { method: 'POST' });
       if (!res.ok) {
-        await res.json().catch(() => ({}));
         setReleaseSyncError('Falha ao ligar ao servidor. Verifique se o backend está a correr.');
         return;
       }
@@ -346,11 +623,26 @@ const ProfilePage = () => {
     }
   };
 
+  const isUnlocked = (achievementId: number) => {
+    return profile?.achievements?.some((ua: any) => ua.achievementId === achievementId);
+  };
 
+  const getUnlockDate = (achievementId: number) => {
+    const record = profile?.achievements?.find((ua: any) => ua.achievementId === achievementId);
+    if (!record?.unlockedAt) return '';
+    return new Date(record.unlockedAt).toLocaleDateString('pt-PT');
+  };
+
+  const ALL_GENRES = [
+    "Action", "Adventure", "Comedy", "Drama", "Fantasy", 
+    "Horror", "Mecha", "Mystery", "Psychological", "Romance", 
+    "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"
+  ];
 
   return (
     <div className="min-h-screen bg-[#0f1014] text-gray-200 p-3 sm:p-6 font-sans pb-24">
       <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
+        
         {/* Header */}
         <header className="flex items-center justify-between border-b border-white/10 pb-6">
           <div className="flex items-center gap-4">
@@ -363,66 +655,334 @@ const ProfilePage = () => {
             </button>
             <div>
               <h1 className="text-2xl sm:text-4xl font-black text-primary-light tracking-tight">
-                Profile & Settings
+                Perfil & Definições
               </h1>
-              <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Manage your account, offline storage, and database synchronization</p>
+              <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Gere o teu perfil, estatísticas, conquistas e sincronização</p>
             </div>
           </div>
         </header>
 
-        {/* User Card Hero */}
-        <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-secondary/20 shadow-2xl relative overflow-hidden hero-gradient">
-          <div className="absolute inset-0 bg-gradient-to-r from-secondary/15 via-secondary-light/5 to-transparent blur-3xl"></div>
-          <div className="flex flex-col sm:flex-row items-center gap-6 relative z-10 text-center sm:text-left">
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-primary p-1 shadow-[0_0_30px_rgba(194,24,91,0.4)] flex-shrink-0">
-              <div className="w-full h-full rounded-full bg-surface flex items-center justify-center text-4xl font-black text-white overflow-hidden">
-                {user?.nome ? user.nome.charAt(0).toUpperCase() : 'O'}
-              </div>
-            </div>
-            <div className="space-y-2 flex-1 min-w-0">
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 sm:gap-3">
-                <h2 className="text-2xl sm:text-3xl font-black text-white truncate">{user?.nome || 'Otaku Enthusiast'}</h2>
-                <span className="px-3 py-1 rounded-full bg-primary/20 border border-primary/40 text-primary text-xs font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
-                  <Shield className="w-3.5 h-3.5" /> PRO TIER
-                </span>
-              </div>
-              <p className="text-sm sm:text-base text-on-surface-variant font-medium">{user?.email || 'enthusiast@otakutime.com'}</p>
-              
-              {/* Storage Quick Stats */}
-              <div className="flex flex-wrap justify-center sm:justify-start gap-4 pt-2">
-                <div className="flex items-center gap-2 bg-black/40 px-3.5 py-1.5 rounded-xl border border-white/5">
-                  <Smartphone className="w-4 h-4 text-emerald-400" />
-                  <span className="text-xs font-bold text-gray-300">Mode: <span className="text-emerald-400 font-black">{Capacitor.isNativePlatform() ? 'Android Native' : 'Web Browser'}</span></span>
+        {/* User Card Hero (Profile Banner & Avatar) */}
+        <div 
+          className="glass-panel p-6 sm:p-8 rounded-[32px] border border-secondary/20 shadow-2xl relative overflow-hidden flex flex-col justify-end min-h-[220px] transition-all duration-500"
+          style={{
+            backgroundImage: profile?.bannerUrl ? `linear-gradient(to top, rgba(15, 16, 20, 0.95), rgba(15, 16, 20, 0.4)), url(${profile.bannerUrl})` : undefined,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        >
+          {/* Default Hero Gradient overlay if no banner exists */}
+          {!profile?.bannerUrl && (
+            <div className="absolute inset-0 bg-gradient-to-r from-secondary/25 via-primary/15 to-transparent blur-3xl -z-10 hero-gradient"></div>
+          )}
+          
+          <div className="flex flex-col sm:flex-row items-center gap-6 relative z-10 text-center sm:text-left w-full justify-between mt-auto">
+            <div className="flex flex-col sm:flex-row items-center gap-6">
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-primary p-1 shadow-[0_0_30px_rgba(194,24,91,0.4)] flex-shrink-0 relative overflow-hidden">
+                <div className="w-full h-full rounded-full bg-surface flex items-center justify-center text-4xl font-black text-white overflow-hidden">
+                  {profile?.iconUrl ? (
+                    <img src={profile.iconUrl} className="w-full h-full object-cover" alt="Avatar" />
+                  ) : (
+                    user?.nome ? user.nome.charAt(0).toUpperCase() : 'O'
+                  )}
                 </div>
               </div>
+              <div className="space-y-1.5 min-w-0">
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 sm:gap-3">
+                  <h2 className="text-2xl sm:text-3xl font-black text-white truncate drop-shadow">{user?.nome || 'Otaku Enthusiast'}</h2>
+                  <span className="px-3 py-1 rounded-full bg-primary/20 border border-primary/40 text-primary text-xs font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                    <Shield className="w-3.5 h-3.5" /> PRO TIER
+                  </span>
+                </div>
+                <p className="text-sm sm:text-base text-gray-300 font-medium drop-shadow">{user?.email || 'enthusiast@otakutime.com'}</p>
+              </div>
             </div>
+            
+            <button 
+              onClick={() => setShowEditProfileModal(true)}
+              className="px-5 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs sm:text-sm border border-white/10 transition-all flex items-center gap-2 active:scale-95 shadow"
+            >
+              <Edit3 className="w-4 h-4" />
+              <span>Editar Perfil</span>
+            </button>
           </div>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex gap-3 border-b border-white/10 pb-4">
+        <div className="flex gap-2 border-b border-white/10 pb-4 overflow-x-auto">
+          <button 
+            onClick={() => setActiveTab('dashboard')} 
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all whitespace-nowrap ${activeTab === 'dashboard' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105' : 'bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5'}`}
+          >
+            <Award className="w-4 h-4" />
+            <span>Perfil & Conquistas</span>
+          </button>
           <button 
             onClick={() => setActiveTab('sync')} 
-            className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm transition-all ${activeTab === 'sync' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105' : 'bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5'}`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all whitespace-nowrap ${activeTab === 'sync' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105' : 'bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5'}`}
           >
             <RefreshCw className="w-4 h-4" />
-            <span>Database Synchronization</span>
+            <span>Sincronização</span>
           </button>
           <button 
             onClick={() => setActiveTab('account')} 
-            className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm transition-all ${activeTab === 'account' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105' : 'bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5'}`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all whitespace-nowrap ${activeTab === 'account' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105' : 'bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5'}`}
           >
             <User className="w-4 h-4" />
-            <span>Account Details</span>
+            <span>Definições</span>
           </button>
         </div>
+
+        {/* Loading Indicator */}
+        {loadingProfile && activeTab === 'dashboard' && (
+          <div className="flex flex-col items-center justify-center py-20 space-y-3">
+            <RefreshCw className="w-10 h-10 animate-spin text-primary" />
+            <p className="text-xs text-gray-500">A carregar detalhes do perfil...</p>
+          </div>
+        )}
+
+        {/* Tab Content: Dashboard (Podium, Stats, Achievements) */}
+        {!loadingProfile && activeTab === 'dashboard' && profile && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            
+            {/* 1. TOP FAVORITES (PODIUM) */}
+            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-primary/10 to-transparent rounded-full blur-2xl"></div>
+              <div>
+                <h3 className="text-xl font-bold text-white flex items-center gap-2.5">
+                  <Heart className="w-5 h-5 text-red-500 fill-red-500" />
+                  <span>Destaques Favoritos (O Pódio)</span>
+                </h3>
+                <p className="text-xs text-on-surface-variant mt-0.5">Personaliza o teu pódio de animes/mangás favoritos para exibir no teu perfil.</p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 sm:gap-6 pt-2 max-w-2xl mx-auto items-end">
+                {/* 2nd Place */}
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-full aspect-[2/3] rounded-2xl border border-white/5 bg-black/40 overflow-hidden relative group shadow-md flex items-center justify-center text-center">
+                    {favoriteDetails[2] ? (
+                      <>
+                        <img src={favoriteDetails[2].coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="2nd Place" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent flex flex-col justify-end p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
+                          <p className="text-[10px] sm:text-xs font-bold text-white line-clamp-2 leading-tight">{favoriteDetails[2].title}</p>
+                          <button 
+                            onClick={() => handleRemoveFavorite(2)}
+                            className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg self-center mt-2 scale-90 active:scale-75 transition-all shadow"
+                            title="Remover"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <button 
+                        onClick={() => openFavoritesSearch(2)}
+                        className="w-full h-full flex flex-col items-center justify-center p-3 text-gray-500 hover:text-white transition-all bg-white/5 hover:bg-white/10"
+                      >
+                        <Plus className="w-6 h-6 mb-1 text-primary-light" />
+                        <span className="text-[9px] sm:text-xs font-bold">2º Lugar</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="h-6 w-full bg-slate-400/20 rounded-lg flex items-center justify-center text-[10px] sm:text-xs font-black text-slate-300 border border-slate-400/40">2º SILVER</div>
+                </div>
+
+                {/* 1st Place */}
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-full aspect-[2/3] rounded-2xl border border-amber-500/30 bg-black/40 overflow-hidden relative group shadow-lg flex items-center justify-center text-center ring-2 ring-amber-500/20">
+                    {favoriteDetails[1] ? (
+                      <>
+                        <img src={favoriteDetails[1].coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="1st Place" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent flex flex-col justify-end p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
+                          <p className="text-[10px] sm:text-xs font-bold text-white line-clamp-2 leading-tight">{favoriteDetails[1].title}</p>
+                          <button 
+                            onClick={() => handleRemoveFavorite(1)}
+                            className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg self-center mt-2 scale-90 active:scale-75 transition-all shadow"
+                            title="Remover"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <button 
+                        onClick={() => openFavoritesSearch(1)}
+                        className="w-full h-full flex flex-col items-center justify-center p-3 text-gray-500 hover:text-white transition-all bg-white/5 hover:bg-white/10"
+                      >
+                        <Plus className="w-7 h-7 mb-1 text-amber-400" />
+                        <span className="text-[10px] sm:text-sm font-bold">1º Lugar</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="h-8 w-full bg-amber-500/20 rounded-lg flex items-center justify-center text-xs font-black text-amber-300 border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.2)]">1º GOLD</div>
+                </div>
+
+                {/* 3rd Place */}
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-full aspect-[2/3] rounded-2xl border border-white/5 bg-black/40 overflow-hidden relative group shadow-md flex items-center justify-center text-center">
+                    {favoriteDetails[3] ? (
+                      <>
+                        <img src={favoriteDetails[3].coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="3rd Place" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent flex flex-col justify-end p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
+                          <p className="text-[10px] sm:text-xs font-bold text-white line-clamp-2 leading-tight">{favoriteDetails[3].title}</p>
+                          <button 
+                            onClick={() => handleRemoveFavorite(3)}
+                            className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg self-center mt-2 scale-90 active:scale-75 transition-all shadow"
+                            title="Remover"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <button 
+                        onClick={() => openFavoritesSearch(3)}
+                        className="w-full h-full flex flex-col items-center justify-center p-3 text-gray-500 hover:text-white transition-all bg-white/5 hover:bg-white/10"
+                      >
+                        <Plus className="w-6 h-6 mb-1 text-orange-400" />
+                        <span className="text-[9px] sm:text-xs font-bold">3º Lugar</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="h-6 w-full bg-amber-700/20 rounded-lg flex items-center justify-center text-[10px] sm:text-xs font-black text-amber-500 border border-amber-700/40">3º BRONZE</div>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. STATISTICS */}
+            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-secondary/10 to-transparent rounded-full blur-2xl"></div>
+              <div>
+                <h3 className="text-xl font-bold text-white flex items-center gap-2.5">
+                  <Smartphone className="w-5 h-5 text-secondary" />
+                  <span>Estatísticas de Consumo</span>
+                </h3>
+                <p className="text-xs text-on-surface-variant mt-0.5">Resumo automático do teu progresso global em Anime e Mangá.</p>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+                {/* Completed Anime */}
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col gap-1 shadow-inner relative group overflow-hidden">
+                  <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 self-start">
+                    <PlayCircle className="w-5 h-5" />
+                  </div>
+                  <span className="text-2xl font-black text-white mt-2">
+                    {profile.statistics?.totalAnimeCompleted || 0}
+                  </span>
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Animes Completos</span>
+                </div>
+
+                {/* Episodes Watched */}
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col gap-1 shadow-inner relative group overflow-hidden">
+                  <div className="p-2 bg-primary/10 border border-primary/20 rounded-xl text-primary self-start">
+                    <Film className="w-5 h-5" />
+                  </div>
+                  <span className="text-2xl font-black text-white mt-2">
+                    {profile.statistics?.totalEpisodesWatched || 0}
+                  </span>
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Episódios Vistos</span>
+                </div>
+
+                {/* Manga Read */}
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col gap-1 shadow-inner relative group overflow-hidden">
+                  <div className="p-2 bg-secondary/10 border border-secondary/20 rounded-xl text-secondary self-start">
+                    <BookOpen className="w-5 h-5" />
+                  </div>
+                  <span className="text-2xl font-black text-white mt-2">
+                    {profile.statistics?.totalMangaRead || 0}
+                  </span>
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Capítulos Lidos</span>
+                </div>
+
+                {/* Days Wasted */}
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col gap-1 shadow-inner relative group overflow-hidden">
+                  <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 self-start">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <span className="text-2xl font-black text-white mt-2">
+                    {profile.statistics?.daysWasted ? `${profile.statistics.daysWasted}d` : '0d'}
+                  </span>
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Tempo Desperdiçado</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. ACHIEVEMENTS */}
+            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-amber-500/10 to-transparent rounded-full blur-2xl"></div>
+              <div className="flex justify-between items-center flex-wrap gap-2">
+                <div>
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2.5">
+                    <Award className="w-5 h-5 text-amber-400" />
+                    <span>Conquistas Otaku ({profile.achievements?.length || 0}/{catalog.length || 5})</span>
+                  </h3>
+                  <p className="text-xs text-on-surface-variant mt-0.5">Completa desafios na tua biblioteca para desbloquear medalhas e badges.</p>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-white/5">
+                {catalog.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {catalog.map(ach => {
+                      const unlocked = isUnlocked(ach.id);
+                      return (
+                        <div 
+                          key={ach.id} 
+                          className={`glass-panel p-4 rounded-2xl border flex flex-col items-center text-center gap-2 group relative transition-all ${unlocked ? 'border-primary/20 bg-primary/5 hover:scale-[1.02]' : 'border-white/5 opacity-40 bg-black/40 grayscale'}`}
+                        >
+                          <div className="w-14 h-14 rounded-full bg-white/5 p-1 relative flex items-center justify-center">
+                            {ach.badgeImageUrl ? (
+                              <img src={ach.badgeImageUrl} className="w-full h-full object-contain" alt={ach.name} />
+                            ) : (
+                              <Award className="w-8 h-8 text-primary" />
+                            )}
+                            {!unlocked && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full">
+                                <span className="material-symbols-outlined text-white text-base">lock</span>
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <h5 className="font-bold text-xs sm:text-sm text-white">{ach.name}</h5>
+                            <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-2 leading-tight">{ach.description}</p>
+                          </div>
+                          {unlocked && (
+                            <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 mt-1">
+                              Ganho {getUnlockDate(ach.id)}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 bg-white/5 rounded-2xl border border-white/5 space-y-3">
+                    <p className="text-xs sm:text-sm italic text-gray-400">Nenhuma conquista registada no catálogo.</p>
+                    <button 
+                      onClick={async () => {
+                        const res = await customFetch(`${API_BASE_URL}/user/achievements/seed`, { method: 'POST' });
+                        if (res.ok) {
+                          showToast('Conquistas semeadas!', 'success');
+                          fetchCatalog();
+                          fetchProfile();
+                        }
+                      }}
+                      className="px-4 py-2 bg-primary hover:opacity-90 text-on-primary text-xs font-bold rounded-xl transition-all active:scale-95 shadow"
+                    >
+                      Popular Catálogo de Conquistas
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+        )}
 
         {/* Tab Content: Database Synchronization */}
         {activeTab === 'sync' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-
-
-            {/* AutoSync Releases Card (Animes & Mangas) */}
+            {/* AutoSync Releases Card */}
             <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-secondary/10 via-primary/5 to-transparent rounded-full blur-3xl pointer-events-none"></div>
               
@@ -441,7 +1001,7 @@ const ProfilePage = () => {
                       )}
                     </h3>
                     <p className="text-xs text-on-surface-variant mt-0.5 max-w-xl">
-                      Automatically queries external APIs (AniList, MangaDex, Baka-Updates) to fetch the latest published episode and chapter numbers for all your Releasing titles.
+                      Obtém automaticamente as informações de episódios novos e lançamentos mais recentes de fontes como AniList e MangaDex.
                     </p>
                   </div>
                 </div>
@@ -456,25 +1016,24 @@ const ProfilePage = () => {
                   {syncStatus.isSyncing ? (
                     <>
                       <RefreshCw className="w-5 h-5 animate-spin text-secondary" />
-                      <span>AUTOSYNC IN PROGRESS ({syncStatus.current}/{syncStatus.total})</span>
+                      <span>AUTOSYNC EM CURSO ({syncStatus.current}/{syncStatus.total})</span>
                     </>
                   ) : (
                     <>
                       <RefreshCw className="w-5 h-5" />
-                      <span>START RELEASE AUTOSYNC NOW</span>
+                      <span>INICIAR AUTOSYNC MANUAL</span>
                     </>
                   )}
                 </button>
 
-                {/* Expanding Details Panel */}
                 {syncStatus.isSyncing && (
                   <div className="p-6 rounded-2xl bg-black/40 border border-primary/30 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500 shadow-2xl backdrop-blur-xl">
                     <div className="flex items-center justify-between text-xs font-bold">
                       <span className="text-secondary uppercase tracking-widest flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-primary animate-ping"></span> Live Background Progress
+                        <span className="w-2 h-2 rounded-full bg-primary animate-ping"></span> Progresso em Tempo Real
                       </span>
                       <span className="text-white bg-primary/20 px-2.5 py-1 rounded-lg border border-primary/30 font-mono">
-                        {syncStatus.current} / {syncStatus.total} Completed
+                        {syncStatus.current} / {syncStatus.total} Concluídos
                       </span>
                     </div>
 
@@ -490,16 +1049,15 @@ const ProfilePage = () => {
                         <span className="material-symbols-outlined text-base animate-spin">sync</span>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Currently Updating Media</p>
+                        <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">A atualizar</p>
                         <p className="font-black text-white text-base truncate mt-0.5">
-                          {syncStatus.currentItemTitle || 'Initializing external API connections...'}
+                          {syncStatus.currentItemTitle || 'A ligar às APIs externas...'}
                         </p>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* Connection Error Alert */}
                 {releaseSyncError && (
                   <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3 text-red-400 animate-in fade-in zoom-in-95 duration-300 shadow-lg">
                     <AlertCircle className="w-6 h-6 flex-shrink-0" />
@@ -513,7 +1071,7 @@ const ProfilePage = () => {
             </div>
 
             {/* Backup & Portability Card */}
-            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden animate-in fade-in duration-500">
+            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-secondary/10 via-primary/5 to-transparent rounded-full blur-3xl pointer-events-none"></div>
               
               <div className="flex items-center justify-between flex-wrap gap-4 relative z-10">
@@ -526,14 +1084,13 @@ const ProfilePage = () => {
                       <span>Cópia de Segurança (Backup & Portabilidade)</span>
                     </h3>
                     <p className="text-xs text-on-surface-variant mt-0.5 max-w-xl">
-                      Exporte toda a sua biblioteca de Animes e Mangas (títulos, estados de acompanhamento, progresso atual e prioridade) para um ficheiro JSON portátil, facilitando a migração entre o PC e o Android.
+                      Exporta toda a tua biblioteca de Animes e Mangas para um ficheiro JSON portátil, facilitando a migração entre o PC e o Android.
                     </p>
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-white/5 relative z-10">
-                {/* Export Button */}
                 <button
                   onClick={handleExportBackup}
                   disabled={isExporting}
@@ -552,7 +1109,6 @@ const ProfilePage = () => {
                   )}
                 </button>
 
-                {/* Import Button */}
                 <button
                   onClick={() => setShowRestoreModal(true)}
                   className="py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 shadow-xl bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5 hover:scale-[1.01] active:scale-[0.99]"
@@ -560,9 +1116,25 @@ const ProfilePage = () => {
                   <Upload className="w-4 h-4 text-primary" />
                   <span>RESTAURAR CÓPIA DE SEGURANÇA</span>
                 </button>
-
-
               </div>
+
+              {/* Danger Zone: Wipe Library */}
+              <div className="pt-6 border-t border-red-500/10 space-y-4">
+                <h4 className="text-sm font-bold text-red-400 uppercase tracking-wider">Zona de Perigo</h4>
+                <div className="p-4 rounded-2xl bg-red-500/5 border border-red-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div>
+                    <h5 className="font-bold text-sm text-white">Limpar Biblioteca</h5>
+                    <p className="text-xs text-gray-500 mt-0.5">Apaga permanentemente todos os registos de animes, mangás e progresso da tua conta.</p>
+                  </div>
+                  <button 
+                    onClick={() => setShowWipeConfirm(true)}
+                    className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow"
+                  >
+                    Apagar Tudo
+                  </button>
+                </div>
+              </div>
+
             </div>
           </div>
         )}
@@ -570,15 +1142,16 @@ const ProfilePage = () => {
         {/* Tab Content: Account Details */}
         {activeTab === 'account' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Account Info Form */}
             <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl">
               <h3 className="text-xl font-bold text-white flex items-center gap-3">
                 <User className="w-6 h-6 text-primary" />
-                <span>Account Information</span>
+                <span>Dados da Conta</span>
               </h3>
               <form onSubmit={handleSaveAccountInfo} className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
                   <div className="space-y-2">
-                    <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Display Name</label>
+                    <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Nome de Utilizador</label>
                     <input 
                       type="text" 
                       value={newName} 
@@ -588,7 +1161,7 @@ const ProfilePage = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Email Address</label>
+                    <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Endereço de Email</label>
                     <p className="text-base font-bold text-gray-500 bg-black/20 p-3 rounded-xl border border-white/5 cursor-not-allowed select-none">{user?.email || 'enthusiast@otakutime.com'}</p>
                   </div>
                   <div className="space-y-2 sm:col-span-2">
@@ -621,13 +1194,6 @@ const ProfilePage = () => {
                       placeholder="Confirmar nova palavra-passe"
                     />
                   </div>
-                  <div className="space-y-1 sm:col-span-2">
-                    <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Membership Status</label>
-                    <div className="flex items-center gap-3 bg-primary/10 p-4 rounded-xl border border-primary/30 text-primary-light font-bold text-sm">
-                      <Shield className="w-5 h-5" />
-                      <span>OtakuTime Pro Member (All premium features unlocked)</span>
-                    </div>
-                  </div>
                 </div>
                 <div className="pt-6 border-t border-white/5 flex flex-wrap gap-3 justify-end">
                   <button 
@@ -635,7 +1201,7 @@ const ProfilePage = () => {
                     onClick={logout} 
                     className="px-6 py-3 rounded-2xl bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white font-bold text-sm transition-all border border-red-500/30 shadow-lg"
                   >
-                    Log Out of Account
+                    Encerrar Sessão
                   </button>
                   <button 
                     type="submit"
@@ -646,6 +1212,32 @@ const ProfilePage = () => {
                   </button>
                 </div>
               </form>
+            </div>
+
+            {/* Favorite Genres Card */}
+            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl">
+              <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                <Heart className="w-6 h-6 text-primary" />
+                <span>Géneros Favoritos</span>
+              </h3>
+              <p className="text-xs text-on-surface-variant mt-0.5">Seleciona os teus géneros favoritos de anime e mangá para guardar no teu perfil.</p>
+              
+              <div className="flex flex-wrap gap-2 pt-2">
+                {ALL_GENRES.map(genre => {
+                  const currentFavs = profile?.preferences?.favoriteGenres || [];
+                  const isFav = currentFavs.includes(genre);
+                  return (
+                    <button
+                      key={genre}
+                      onClick={() => handleToggleGenre(genre)}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all active:scale-95 flex items-center gap-1.5 ${isFav ? 'bg-primary/20 border-primary text-primary-light shadow-[0_0_10px_rgba(106,27,154,0.15)]' : 'bg-black/40 border-white/10 text-gray-400 hover:border-white/20'}`}
+                    >
+                      <span>{genre}</span>
+                      {isFav && <Check className="w-3 h-3 text-primary" />}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* User Preferences Card */}
@@ -673,7 +1265,6 @@ const ProfilePage = () => {
                     <option value="PT" className="bg-[#0f1014]">Português (PT)</option>
                     <option value="EN" className="bg-[#0f1014]">English (EN)</option>
                   </select>
-                  <p className="text-[10px] text-gray-500">Idioma usado para os botões e interface principal da aplicação.</p>
                 </div>
 
                 {/* Theme */}
@@ -691,7 +1282,6 @@ const ProfilePage = () => {
                     <option value="dark" className="bg-[#0f1014]">Escuro (Dark Mode)</option>
                     <option value="light" className="bg-[#0f1014]">Claro (Light Mode)</option>
                   </select>
-                  <p className="text-[10px] text-gray-500">Escolha de contraste para a interface gráfica.</p>
                 </div>
 
                 {/* Color Palette */}
@@ -712,7 +1302,6 @@ const ProfilePage = () => {
                     <option value="sololeveling" className="bg-[#0f1014]">🔮 Roxo Solo Leveling (Neon)</option>
                     <option value="visionario" className="bg-[#0f1014]">🔵 Azul Visionário (AniList)</option>
                   </select>
-                  <p className="text-[10px] text-gray-500">Mude a paleta cromática dos botões e destaques do ecrã.</p>
                 </div>
 
                 {/* Show Adult Content */}
@@ -740,6 +1329,217 @@ const ProfilePage = () => {
           </div>
         )}
       </div>
+
+      {/* Edit Profile Modal (Avatar and Banner) */}
+      {showEditProfileModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="glass-panel w-full max-w-lg p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-primary/10 to-transparent rounded-full blur-2xl"></div>
+            
+            <div className="space-y-2">
+              <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                <Edit3 className="w-6 h-6 text-primary-light" />
+                <span>Editar Informações de Perfil</span>
+              </h3>
+              <p className="text-xs sm:text-sm text-gray-400">
+                Carrega fotos de perfil e banners diretamente do teu computador ou telemóvel.
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveProfile} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Nome de Exibição</label>
+                <input 
+                  type="text" 
+                  value={editName}
+                  required
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-primary outline-none transition-all text-sm"
+                  placeholder="O teu nome no perfil"
+                />
+              </div>
+
+              {/* Hidden file inputs */}
+              <input 
+                type="file" 
+                id="avatar-upload-file"
+                accept="image/*"
+                onChange={(e) => handleFileChange(e, 'avatar')}
+                className="hidden"
+              />
+              <input 
+                type="file" 
+                id="banner-upload-file"
+                accept="image/*"
+                onChange={(e) => handleFileChange(e, 'banner')}
+                className="hidden"
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider flex items-center gap-1.5">Foto de Perfil</label>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('avatar-upload-file')?.click()}
+                    className="w-full py-3 px-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold text-xs transition-all flex items-center justify-center gap-2"
+                  >
+                    <Upload className="w-4 h-4 text-primary" />
+                    <span>Importar Foto</span>
+                  </button>
+                  {editIconUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setEditIconUrl('')}
+                      className="w-full py-1 text-center text-[10px] text-red-400 font-bold hover:text-red-300 transition-colors"
+                    >
+                      Remover Foto
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider flex items-center gap-1.5">Banner de Perfil</label>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('banner-upload-file')?.click()}
+                    className="w-full py-3 px-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold text-xs transition-all flex items-center justify-center gap-2"
+                  >
+                    <Upload className="w-4 h-4 text-secondary" />
+                    <span>Importar Banner</span>
+                  </button>
+                  {editBannerUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setEditBannerUrl('')}
+                      className="w-full py-1 text-center text-[10px] text-red-400 font-bold hover:text-red-300 transition-colors"
+                    >
+                      Remover Banner
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Instant previews */}
+              <div className="p-4 bg-black/40 rounded-2xl border border-white/5 flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-surface border border-white/10 overflow-hidden flex items-center justify-center text-xl font-bold text-gray-400">
+                  {editIconUrl ? <img src={editIconUrl} className="w-full h-full object-cover" alt="Preview" /> : (editName ? editName.charAt(0).toUpperCase() : '?')}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-white truncate">{editName || 'Nome de Perfil'}</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">Pré-visualização do Perfil</p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 border-t border-white/5 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowEditProfileModal(false)}
+                  className="px-5 py-2.5 rounded-xl bg-surface-variant/30 text-on-surface-variant hover:text-white font-bold text-xs sm:text-sm transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingProfile}
+                  className="px-5 py-2.5 rounded-xl bg-primary hover:opacity-90 text-on-primary font-bold text-xs sm:text-sm transition-all shadow-lg flex items-center gap-1.5"
+                >
+                  {isSavingProfile ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  <span>Guardar Perfil</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Favorites Search & Set Modal */}
+      {showFavoritesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="glass-panel w-full max-w-xl p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[85vh]">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-primary/10 to-transparent rounded-full blur-2xl"></div>
+            
+            <div className="space-y-2">
+              <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                <Heart className="w-6 h-6 text-red-500 fill-red-500" />
+                <span>Definir {selectedRank}º Destaque</span>
+              </h3>
+              <p className="text-xs sm:text-sm text-gray-400">
+                Pesquisa na AniList para definir qual anime ou mangá pretendes destacar no teu pódio.
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <select 
+                value={favSearchType}
+                onChange={(e: any) => setFavSearchType(e.target.value)}
+                className="bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 outline-none text-xs sm:text-sm cursor-pointer"
+              >
+                <option value="anime" className="bg-[#0f1014]">Anime</option>
+                <option value="manga" className="bg-[#0f1014]">Manga</option>
+              </select>
+              <div className="flex-1 flex gap-2">
+                <input 
+                  type="text" 
+                  value={favSearchTerm}
+                  onChange={(e) => setFavSearchTerm(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSearchFavMedia(); }}
+                  className="flex-1 bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-primary outline-none transition-all text-xs sm:text-sm"
+                  placeholder={`Pesquisa títulos de ${favSearchType}...`}
+                />
+                <button 
+                  onClick={handleSearchFavMedia}
+                  className="p-3 bg-primary hover:bg-primary/80 text-on-primary rounded-xl font-bold hover:scale-105 active:scale-95 transition-all shadow flex items-center justify-center"
+                >
+                  <Search className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Results Grid Scrollable */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[200px] max-h-[350px]">
+              {loadingFavSearch ? (
+                <div className="flex flex-col items-center justify-center py-10 space-y-2">
+                  <RefreshCw className="w-8 h-8 animate-spin text-primary" />
+                  <p className="text-xs text-gray-500">A pesquisar na AniList...</p>
+                </div>
+              ) : favSearchResults.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {favSearchResults.map(item => (
+                    <div 
+                      key={item.id}
+                      onClick={() => handleSelectFavorite(item.id)}
+                      className="p-2 bg-white/5 border border-white/5 hover:border-primary/40 rounded-xl flex items-center gap-3 cursor-pointer hover:bg-white/10 transition-all select-none group"
+                    >
+                      <div className="w-10 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-surface">
+                        <img src={item.coverImage?.large} className="w-full h-full object-cover" alt="" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-xs text-white truncate group-hover:text-primary-light transition-colors">
+                          {item.title?.english || item.title?.romaji || 'Unknown Title'}
+                        </p>
+                        <p className="text-[10px] text-gray-500 capitalize mt-0.5">{item.status?.toLowerCase().replace('_', ' ')}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : favSearchTerm ? (
+                <p className="text-center py-10 text-xs sm:text-sm italic text-gray-500">Nenhum resultado encontrado.</p>
+              ) : (
+                <p className="text-center py-10 text-xs sm:text-sm italic text-gray-500">Insere o termo de pesquisa acima.</p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-white/5 pt-4">
+              <button
+                onClick={() => setShowFavoritesModal(false)}
+                className="px-5 py-2.5 rounded-xl bg-surface-variant/30 text-on-surface-variant hover:text-white font-bold text-xs sm:text-sm transition-all"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Export Backup Modal */}
       {showBackupModal && (
@@ -818,7 +1618,6 @@ const ProfilePage = () => {
               </p>
             </div>
 
-            {/* File input selector */}
             <div className="p-4 rounded-2xl border border-dashed border-white/10 hover:border-white/20 transition-all bg-white/5 flex flex-col items-center justify-center text-center gap-2">
               <span className="material-symbols-outlined text-gray-400 text-3xl">upload_file</span>
               <div>
@@ -836,7 +1635,6 @@ const ProfilePage = () => {
               </div>
             </div>
 
-            {/* JSON Textarea paste input */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-gray-400 block">OU COLE O CÓDIGO JSON DIRETAMENTE</label>
               <textarea
@@ -847,7 +1645,6 @@ const ProfilePage = () => {
               />
             </div>
 
-            {/* Clean Restore Checkbox */}
             <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-red-500/5 border border-red-500/20 text-red-300">
               <input
                 type="checkbox"
@@ -861,7 +1658,6 @@ const ProfilePage = () => {
               </label>
             </div>
 
-            {/* Status Alert Messages */}
             {importError && (
               <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3 text-red-400 animate-in fade-in duration-300">
                 <AlertCircle className="w-5 h-5 flex-shrink-0" />
@@ -892,7 +1688,7 @@ const ProfilePage = () => {
               <button
                 onClick={handleRestoreBackup}
                 disabled={isImporting || !importJsonInput}
-                className="px-6 py-3 rounded-2xl bg-primary hover:opacity-90 text-on-primary font-bold text-sm transition-all shadow-lg shadow-primary/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-3 rounded-2xl bg-primary hover:opacity-90 text-on-primary font-bold text-sm transition-all shadow-lg shadow-primary/20 flex items-center gap-2"
               >
                 {isImporting ? (
                   <>

@@ -7,6 +7,9 @@ interface User {
   preferredLanguage: string;
   theme: string;
   showAdultContent: boolean;
+  iconUrl?: string | null;
+  bannerUrl?: string | null;
+  preferences?: any;
 }
 
 interface AuthContextType {

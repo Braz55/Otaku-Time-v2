@@ -25,6 +25,12 @@ Implementámos dois botões de sorteio com ícones e comportamentos distintos no
 * **Remoção da Verificação de E-mail:** Removido por completo o fluxo de envio de email e validação de registo, passando a permitir registo e login direto.
 * **Responsividade Móvel via React Hook:** Substituída a verificação estrita de plataforma nativa pelo hook flexível `useIsMobile`, otimizando a responsividade no browser do telemóvel.
 
+### 5. Sincronização Inteligente Neon DB (Cold Start)
+* **Refatoração da Sincronização:** Quando o servidor NestJS acorda de um cold start, verifica a data da última sincronização. Se tiver passado mais de 4 horas, é desencadeada uma sincronização em segundo plano da base de dados Neon DB com a AniList.
+
+### 6. Serviço de Auto-Ping (Keep-Awake)
+* **Keep-Awake Dinâmico:** Implementado um serviço que mantém o backend ativo durante 2 horas, acionado automaticamente a partir de ambas as plataformas cliente (Web e Android/Capacitor) para evitar cold starts durante o uso.
+
 ---
 
 ## 🔮 Próximos Passos (Planeamento)

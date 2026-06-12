@@ -1225,6 +1225,34 @@ const HomePage = () => {
                     ))}
                   </div>
 
+                  {/* Info Grid: Release Status, Season & Total Episodes/Chapters (Visible always) */}
+                  <div className="grid grid-cols-3 gap-2 py-3 border-t border-white/5">
+                    <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/5 min-w-0">
+                      <p className="text-on-surface-variant text-[8px] uppercase font-bold tracking-widest mb-1 truncate w-full">Status</p>
+                      <p className={`font-bold text-xs truncate w-full ${selectedItem.statusLancamento === 'RELEASING' ? (categoria === 'anime' ? 'text-primary' : 'text-secondary') : 'text-white'}`}>
+                        {selectedItem.statusLancamento === 'RELEASING' ? 'Releasing' : 
+                         selectedItem.statusLancamento === 'FINISHED' ? 'Finished' : 
+                         selectedItem.statusLancamento === 'HIATUS' ? 'Hiatus' : 
+                         selectedItem.statusLancamento === 'CANCELLED' ? 'Cancelled' : 
+                         selectedItem.statusLancamento || 'Unknown'}
+                      </p>
+                    </div>
+                    <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/5 min-w-0">
+                      <p className="text-on-surface-variant text-[8px] uppercase font-bold tracking-widest mb-1 truncate w-full">Season</p>
+                      <p className="font-bold text-xs text-white capitalize truncate w-full">
+                        {selectedItem.temporada ? `${selectedItem.temporada.toLowerCase()} ${selectedItem.ano || ''}` : selectedItem.ano || 'N/A'}
+                      </p>
+                    </div>
+                    <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/5 min-w-0">
+                      <p className="text-on-surface-variant text-[8px] uppercase font-bold tracking-widest mb-1 truncate w-full">
+                        {categoria === 'anime' ? 'Episodes' : 'Chapters'}
+                      </p>
+                      <p className="font-bold text-xs text-white truncate w-full">
+                        {categoria === 'anime' ? (selectedItem.numEpisodiosTotal || 'N/A') : (selectedItem.numCapitulosTotal || 'N/A')}
+                      </p>
+                    </div>
+                  </div>
+
                   {/* 3. Ações (Quick Actions & My Progress) */}
                   <div className="space-y-4 pt-4 border-t border-white/5">
                     <h3 className="text-base font-bold flex items-center gap-2 text-white">
@@ -1367,25 +1395,7 @@ const HomePage = () => {
                           </div>
                         )}
 
-                        {/* Release Status & Season */}
-                        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/5">
-                          <div className="glass-panel p-3.5 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">
-                            <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-0.5">Release Status</p>
-                            <p className={`font-bold text-sm ${selectedItem.statusLancamento === 'RELEASING' ? (categoria === 'anime' ? 'text-primary' : 'text-secondary') : 'text-white'}`}>
-                              {selectedItem.statusLancamento === 'RELEASING' ? 'Releasing' : 
-                               selectedItem.statusLancamento === 'FINISHED' ? 'Finished' : 
-                               selectedItem.statusLancamento === 'HIATUS' ? 'Hiatus' : 
-                               selectedItem.statusLancamento === 'CANCELLED' ? 'Cancelled' : 
-                               selectedItem.statusLancamento || 'Unknown'}
-                            </p>
-                          </div>
-                          <div className="glass-panel p-3.5 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">
-                            <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-0.5">Season / Year</p>
-                            <p className="font-bold text-sm text-white capitalize truncate max-w-full">
-                              {selectedItem.temporada ? `${selectedItem.temporada.toLowerCase()} ${selectedItem.ano || ''}` : selectedItem.ano || 'N/A'}
-                            </p>
-                          </div>
-                        </div>
+
 
                         {/* Last Modified Card */}
                         <div className="glass-panel p-3.5 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">
@@ -1640,7 +1650,7 @@ const HomePage = () => {
                           </div>
                         );
                       })()}
-                      <div className={`grid grid-cols-1 ${selectedItem.statusLancamento === 'RELEASING' ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-6 py-8 border-t border-white/5`}>
+                      <div className={`grid grid-cols-1 ${!selectedItem.isExternal ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-6 py-8 border-t border-white/5`}>
                         {/* Status Card */}
                         <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${categoria === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}>
                           <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-3 ${selectedItem.statusLancamento === 'RELEASING' ? (categoria === 'anime' ? 'bg-primary/10 text-primary shadow-[0_0_15px_rgba(221,184,255,0.2)]' : 'bg-secondary/10 text-secondary shadow-[0_0_15px_rgba(255,176,203,0.2)]') : 'bg-surface-variant/30 text-on-surface-variant'}`}>
@@ -1669,29 +1679,29 @@ const HomePage = () => {
                           </p>
                         </div>
 
-                        {/* Planned Episodes/Chapters Card (Only when Releasing) */}
-                        {selectedItem.statusLancamento === 'RELEASING' && (
-                          <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all animate-in zoom-in-95 duration-300 ${categoria === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}>
-                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-3 ${categoria === 'anime' ? 'bg-primary/10 text-primary shadow-[0_0_15px_rgba(221,184,255,0.2)]' : 'bg-secondary/10 text-secondary shadow-[0_0_15px_rgba(255,176,203,0.2)]'}`}>
-                              <span className="material-symbols-outlined text-xl">update</span>
+                        {/* Planned Episodes/Chapters Card */}
+                        <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${categoria === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}>
+                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-3 ${categoria === 'anime' ? 'bg-primary/10 text-primary shadow-[0_0_15px_rgba(221,184,255,0.2)]' : 'bg-secondary/10 text-secondary shadow-[0_0_15px_rgba(255,176,203,0.2)]'}`}>
+                            <span className="material-symbols-outlined text-xl">update</span>
+                          </div>
+                          <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">{categoria === 'anime' ? 'Total Episodes' : 'Total Chapters'}</p>
+                          <p className="font-bold text-lg text-white">
+                            {categoria === 'anime' ? (selectedItem.numEpisodiosTotal || 'No official info') : (selectedItem.numCapitulosTotal || 'No official info')}
+                          </p>
+                        </div>
+
+                        {/* Last Modified Card */}
+                        {!selectedItem.isExternal && (
+                          <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${categoria === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}>
+                            <div className="w-10 h-10 rounded-2xl bg-surface-variant/30 text-on-surface-variant flex items-center justify-center mb-3">
+                              <span className="material-symbols-outlined text-xl">history</span>
                             </div>
-                            <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">{categoria === 'anime' ? 'Planned Episodes' : 'Planned Chapters'}</p>
-                            <p className="font-bold text-lg text-white">
-                              {categoria === 'anime' ? (selectedItem.numEpisodiosTotal || 'No official info') : (selectedItem.numCapitulosTotal || 'No official info')}
+                            <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">Last Content Update</p>
+                            <p className="font-bold text-lg text-white font-mono">
+                              {formatLastModified(selectedItem)}
                             </p>
                           </div>
                         )}
-
-                        {/* Last Modified Card */}
-                        <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${categoria === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}>
-                          <div className="w-10 h-10 rounded-2xl bg-surface-variant/30 text-on-surface-variant flex items-center justify-center mb-3">
-                            <span className="material-symbols-outlined text-xl">history</span>
-                          </div>
-                          <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">Last Content Update</p>
-                          <p className="font-bold text-lg text-white font-mono">
-                            {formatLastModified(selectedItem)}
-                          </p>
-                        </div>
                       </div>
                     </div>
                     <div className="space-y-6">

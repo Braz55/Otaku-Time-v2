@@ -1,8 +1,8 @@
 # Otaku Time Pro (v2.5)
 
-**Your smart, hybrid, and offline-first Anime & Manga tracker.**
+**Your smart, cloud-based, and centralized Anime & Manga tracker.**
 
-Otaku Time Pro is a complete Fullstack ecosystem designed to **register, organize, and track the progress** of all your favorite works. With a modern architecture that combines cloud robustness with offline-first flexibility, you can manage your library on your PC or on your Android mobile device.
+Otaku Time Pro is a complete Fullstack ecosystem designed to **register, organize, and track the progress** of all your favorite works. With a modern architecture that connects both your PC browser and your Android mobile app directly to a centralized cloud database, you can manage your library with real-time synchronization.
 
 The platform automates release time zones for episodes, tracks chapters across multiple portals, and features a highly customizable and fluid interface.
 
@@ -70,7 +70,6 @@ flowchart TD
     subgraph Device ["Local Client (Web & Mobile)"]
         Browser["Web Browser (Desktop/Mobile)"]
         Capacitor["Android App (Capacitor)"]
-        LocalDB[(Dexie DB - IndexedDB)]
     end
 
     subgraph External_Sources ["External Data & Metadata Sources"]
@@ -81,11 +80,10 @@ flowchart TD
 
     %% Communication relationships
     Browser -->|Accesses| FE_Render
-    Capacitor -->|Loads WebView| LocalDB
     
     FE_Render -->|REST Requests| BE_Render
     Browser -->|REST Requests| BE_Render
-    Capacitor -->|Cloud Connection & Sync| BE_Render
+    Capacitor -->|REST Requests| BE_Render
     
     BE_Render ---|"Prisma ORM"| DB_Neon
     

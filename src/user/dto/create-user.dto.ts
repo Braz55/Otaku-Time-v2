@@ -5,4 +5,7 @@ export class CreateUserDto {
   preferredLanguage?: string;
   theme?: string;
   showAdultContent?: boolean;
+  iconUrl?: string;
+  bannerUrl?: string;
+  preferences?: any;
 }

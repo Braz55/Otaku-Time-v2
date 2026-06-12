@@ -13,6 +13,9 @@ export class UserService {
       data: {
         ...createUserDto,
         password: hashedPassword,
+        statistics: {
+          create: {}, // Cria automaticamente o registo de estatísticas em branco
+        },
       },
     });
   }
@@ -295,5 +298,171 @@ export class UserService {
     await this.prisma.userAnime.deleteMany({ where: { userId } });
     await this.prisma.userManga.deleteMany({ where: { userId } });
     return { success: true, message: 'Library cleared successfully' };
+  }
+
+  // --- Destaques (Top Favorites) ---
+  async getFavorites(userId: number) {
+    return this.prisma.userTopFavorite.findMany({
+      where: { userId },
+      orderBy: { rankPosition: 'asc' },
+    });
+  }
+
+  async setFavorite(userId: number, favoriteData: { anilistMediaId: number; mediaType: 'ANIME' | 'MANGA'; rankPosition: number }) {
+    const { anilistMediaId, mediaType, rankPosition } = favoriteData;
+    if (rankPosition < 1 || rankPosition > 3) {
+      throw new BadRequestException('A posição do ranking deve ser 1, 2 ou 3.');
+    }
+
+    // Remover se o mesmo anime/manga já estiver em outro rank para evitar violação de unique e permitir troca de posições
+    await this.prisma.userTopFavorite.deleteMany({
+      where: {
+        userId,
+        anilistMediaId,
+        mediaType,
+      },
+    });
+
+    return this.prisma.userTopFavorite.upsert({
+      where: {
+        userId_rankPosition: {
+          userId,
+          rankPosition,
+        },
+      },
+      update: {
+        anilistMediaId,
+        mediaType,
+      },
+      create: {
+        userId,
+        anilistMediaId,
+        mediaType,
+        rankPosition,
+      },
+    });
+  }
+
+  async removeFavorite(userId: number, rankPosition: number) {
+    if (rankPosition < 1 || rankPosition > 3) {
+      throw new BadRequestException('A posição do ranking deve ser 1, 2 ou 3.');
+    }
+    return this.prisma.userTopFavorite.deleteMany({
+      where: {
+        userId,
+        rankPosition,
+      },
+    });
+  }
+
+  // --- Estatísticas ---
+  async getStatistics(userId: number) {
+    let stats = await this.prisma.userStatistics.findUnique({
+      where: { userId },
+    });
+    if (!stats) {
+      stats = await this.prisma.userStatistics.create({
+        data: { userId },
+      });
+    }
+    return stats;
+  }
+
+  async updateStatistics(userId: number, statsData: any) {
+    return this.prisma.userStatistics.upsert({
+      where: { userId },
+      update: statsData,
+      create: {
+        userId,
+        ...statsData,
+      },
+    });
+  }
+
+  // --- Conquistas ---
+  async getAchievements(userId: number) {
+    return this.prisma.userAchievement.findMany({
+      where: { userId },
+      include: {
+        achievement: true,
+      },
+      orderBy: { unlockedAt: 'desc' },
+    });
+  }
+
+  async getAchievementCatalog() {
+    return this.prisma.achievement.findMany();
+  }
+
+  async unlockAchievement(userId: number, achievementId: number) {
+    const achievementExists = await this.prisma.achievement.findUnique({
+      where: { id: achievementId },
+    });
+    if (!achievementExists) {
+      throw new BadRequestException('Conquista não encontrada no catálogo.');
+    }
+
+    return this.prisma.userAchievement.upsert({
+      where: {
+        userId_achievementId: {
+          userId,
+          achievementId,
+        },
+      },
+      update: {},
+      create: {
+        userId,
+        achievementId,
+      },
+    });
+  }
+
+  async seedAchievements() {
+    const defaultAchievements = [
+      { id: 1, name: 'Primeiros Passos', description: 'Criou uma conta no Otaku-Time.', badgeImageUrl: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png' },
+      { id: 2, name: 'Isekai Trash', description: 'Assistiu a mais de 5 animes do género Isekai.', badgeImageUrl: 'https://cdn-icons-png.flaticon.com/512/3135/3135755.png' },
+      { id: 3, name: 'Maratonista', description: 'Terminou de ver um anime inteiro em menos de 24 horas.', badgeImageUrl: 'https://cdn-icons-png.flaticon.com/512/3135/3135768.png' },
+      { id: 4, name: 'Leitor Voraz', description: 'Leu o seu primeiro capítulo de manga.', badgeImageUrl: 'https://cdn-icons-png.flaticon.com/512/3135/3135789.png' },
+      { id: 5, name: 'Crítico de Elite', description: 'Adicionou 3 conteúdos favoritos em destaque no seu perfil.', badgeImageUrl: 'https://cdn-icons-png.flaticon.com/512/3135/3135802.png' },
+    ];
+
+    for (const ach of defaultAchievements) {
+      await this.prisma.achievement.upsert({
+        where: { id: ach.id },
+        update: {
+          name: ach.name,
+          description: ach.description,
+          badgeImageUrl: ach.badgeImageUrl,
+        },
+        create: ach,
+      });
+    }
+    return { success: true, message: 'Achievements seeded successfully.' };
+  }
+
+  // --- Perfil Completo ---
+  async getUserProfile(userId: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        statistics: true,
+        topFavorites: {
+          orderBy: { rankPosition: 'asc' },
+        },
+        achievements: {
+          include: {
+            achievement: true,
+          },
+          orderBy: { unlockedAt: 'desc' },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Utilizador não encontrado.');
+    }
+
+    const { password, ...profile } = user;
+    return profile;
   }
 }

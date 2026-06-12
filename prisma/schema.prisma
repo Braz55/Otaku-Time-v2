@@ -26,9 +26,15 @@ model User {
   theme             String        @default("dark")
   showAdultContent  Boolean       @default(false)
   tokenVersion      Int           @default(1)
+  iconUrl           String?
+  bannerUrl         String?
+  preferences       Json?         @default("{}")
   animes            UserAnime[]
   mangas            UserManga[]
   sessions          ChatSession[]
+  topFavorites      UserTopFavorite[]
+  statistics        UserStatistics?
+  achievements      UserAchievement[]
 }
 
 model Anime {
@@ -119,4 +125,48 @@ model SyncLog {
   timestamp DateTime @default(now())
   status    String   // 'SUCCESS' or 'FAILED'
   details   String?  // Description of what was synced or error details
+}
+
+enum MediaType {
+  ANIME
+  MANGA
+}
+
+model UserTopFavorite {
+  id             Int       @id @default(autoincrement())
+  userId         Int
+  anilistMediaId Int
+  mediaType      MediaType
+  rankPosition   Int       // 1, 2 ou 3
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, rankPosition])
+  @@unique([userId, anilistMediaId, mediaType])
+}
+
+model UserStatistics {
+  userId               Int   @id
+  totalAnimeCompleted  Int   @default(0)
+  totalEpisodesWatched Int   @default(0)
+  totalMangaRead       Int   @default(0)
+  daysWasted           Float @default(0.0)
+  user                 User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Achievement {
+  id            Int               @id @default(autoincrement())
+  name          String
+  description   String
+  badgeImageUrl String?
+  users         UserAchievement[]
+}
+
+model UserAchievement {
+  userId        Int
+  achievementId Int
+  unlockedAt    DateTime          @default(now())
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement   Achievement       @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@id([userId, achievementId])
 }

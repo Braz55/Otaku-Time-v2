@@ -56,4 +56,72 @@ export class UserController {
   remove(@Param('id') id: string) {
     return this.userService.remove(+id);
   }
+
+  // --- Perfil Completo ---
+  @UseGuards(JwtAuthGuard)
+  @Get('profile/me')
+  getProfileMe(@Request() req) {
+    return this.userService.getUserProfile(req.user.userId);
+  }
+
+  @Get('profile/:id')
+  getProfileId(@Param('id') id: string) {
+    return this.userService.getUserProfile(+id);
+  }
+
+  // --- Destaques (Top Favorites) ---
+  @UseGuards(JwtAuthGuard)
+  @Get('favorites')
+  getFavorites(@Request() req) {
+    return this.userService.getFavorites(req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('favorites')
+  setFavorite(@Request() req, @Body() favoriteData: { anilistMediaId: number; mediaType: 'ANIME' | 'MANGA'; rankPosition: number }) {
+    return this.userService.setFavorite(req.user.userId, favoriteData);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('favorites/:rank')
+  removeFavorite(@Request() req, @Param('rank') rank: string) {
+    return this.userService.removeFavorite(req.user.userId, +rank);
+  }
+
+  // --- Estatísticas ---
+  @UseGuards(JwtAuthGuard)
+  @Get('statistics')
+  getStatistics(@Request() req) {
+    return this.userService.getStatistics(req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('statistics')
+  updateStatistics(@Request() req, @Body() statsData: any) {
+    return this.userService.updateStatistics(req.user.userId, statsData);
+  }
+
+  // --- Conquistas ---
+  @UseGuards(JwtAuthGuard)
+  @Get('achievements')
+  getAchievements(@Request() req) {
+    return this.userService.getAchievements(req.user.userId);
+  }
+
+  @Get('achievements/catalog')
+  getAchievementCatalog() {
+    return this.userService.getAchievementCatalog();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('achievements/unlock')
+  unlockAchievement(@Request() req, @Body('achievementId') achievementId: number) {
+    return this.userService.unlockAchievement(req.user.userId, +achievementId);
+  }
+
+  @Post('achievements/seed')
+  seedAchievements() {
+    return this.userService.seedAchievements();
+  }
 }
+

@@ -129,12 +129,14 @@ export class AnimeService {
       },
     });
 
-    return this.prisma.userAnime.upsert({
+    const userAnime = await this.prisma.userAnime.upsert({
       where: { userId_animeId: { userId, animeId: anime.id } },
       update: {},
       create: { userId, animeId: anime.id, status: 'PLANNED', epAtual: 0 },
       include: { anime: true }
     });
+    await this.recalculateUserStats(userId);
+    return userAnime;
   }
 
   async searchAnimeList(nomeAnime: string, page: number = 1, userId?: number) {
@@ -264,6 +266,7 @@ export class AnimeService {
       }
     }
     const updated = await this.prisma.userAnime.update({ where: { id }, data: novosDados, include: { anime: true } });
+    await this.recalculateUserStats(updated.userId);
     return { ...updated, titulo: updated.anime.titulo, capaUrl: updated.anime.capaUrl, linksExternos: updated.anime.linksExternos, numEpisodiosTotal: updated.anime.numEpisodiosTotal, proximoEpisodio: updated.anime.proximoEpisodio };
   }
 
@@ -275,7 +278,11 @@ export class AnimeService {
   }
 
   async remove(id: number) {
-    return this.prisma.userAnime.delete({ where: { id } });
+    const item = await this.prisma.userAnime.delete({ where: { id } });
+    if (item) {
+      await this.recalculateUserStats(item.userId);
+    }
+    return item;
   }
 
   async searchByGenre(genre: string, page: number = 1, userId?: number) {
@@ -321,5 +328,86 @@ export class AnimeService {
       }
     }
     return { latest, source: 'AniList' };
+  }
+
+  async recalculateUserStats(userId: number) {
+    try {
+      const animes = await this.prisma.userAnime.findMany({ where: { userId } });
+      const mangas = await this.prisma.userManga.findMany({ where: { userId } });
+
+      const totalAnimeCompleted = animes.filter(a => a.status === 'COMPLETED').length;
+      const totalEpisodesWatched = animes.reduce((sum, a) => sum + (a.epAtual || 0), 0);
+      const totalMangaRead = mangas.reduce((sum, m) => sum + Math.floor(m.capAtual || 0), 0);
+      const daysWasted = parseFloat(((totalEpisodesWatched * 24) / 1440).toFixed(2));
+
+      await this.prisma.userStatistics.upsert({
+        where: { userId },
+        update: {
+          totalAnimeCompleted,
+          totalEpisodesWatched,
+          totalMangaRead,
+          daysWasted,
+        },
+        create: {
+          userId,
+          totalAnimeCompleted,
+          totalEpisodesWatched,
+          totalMangaRead,
+          daysWasted,
+        },
+      });
+
+      // --- Conquistas automáticas ---
+      // 1. Primeiros passos: sempre obtido
+      await this.prisma.userAchievement.upsert({
+        where: { userId_achievementId: { userId, achievementId: 1 } },
+        update: {},
+        create: { userId, achievementId: 1 }
+      });
+
+      // 2. Maratonista (ex: mais de 100 episódios no total)
+      if (totalEpisodesWatched >= 100) {
+        await this.prisma.userAchievement.upsert({
+          where: { userId_achievementId: { userId, achievementId: 3 } },
+          update: {},
+          create: { userId, achievementId: 3 }
+        });
+      }
+
+      // 3. Leitor Voraz (se leu o primeiro capítulo)
+      if (totalMangaRead >= 1) {
+        await this.prisma.userAchievement.upsert({
+          where: { userId_achievementId: { userId, achievementId: 4 } },
+          update: {},
+          create: { userId, achievementId: 4 }
+        });
+      }
+
+      // 4. Isekai Trash: Se viu 5+ animes do género "Isekai"
+      const animesDetalhes = await this.prisma.userAnime.findMany({
+        where: { userId, status: 'COMPLETED' },
+        include: { anime: true }
+      });
+      const isekaiCount = animesDetalhes.filter(ua => ua.anime.generos?.toLowerCase().includes('isekai')).length;
+      if (isekaiCount >= 5) {
+        await this.prisma.userAchievement.upsert({
+          where: { userId_achievementId: { userId, achievementId: 2 } },
+          update: {},
+          create: { userId, achievementId: 2 }
+        });
+      }
+
+      // 5. Crítico de Elite: se definiu 3 destaques no pódio
+      const favoritesCount = await this.prisma.userTopFavorite.count({ where: { userId } });
+      if (favoritesCount >= 3) {
+        await this.prisma.userAchievement.upsert({
+          where: { userId_achievementId: { userId, achievementId: 5 } },
+          update: {},
+          create: { userId, achievementId: 5 }
+        });
+      }
+    } catch (e) {
+      console.error('Error recalculating user statistics/achievements:', e);
+    }
   }
 }

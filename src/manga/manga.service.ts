@@ -466,12 +466,14 @@ export class MangaService {
       },
     });
 
-    return this.prisma.userManga.upsert({
+    const userManga = await this.prisma.userManga.upsert({
       where: { userId_mangaId: { userId, mangaId: manga.id } },
       update: {},
       create: { userId, mangaId: manga.id, status: 'PLANNED', capAtual: 0, prioridade: 5 },
       include: { manga: true }
     });
+    await this.recalculateUserStats(userId);
+    return userManga;
   }
 
   // CRUD básico
@@ -563,6 +565,7 @@ export class MangaService {
       }
     }
     const updated = await this.prisma.userManga.update({ where: { id }, data: novosDados, include: { manga: true } });
+    await this.recalculateUserStats(updated.userId);
     return { ...updated, titulo: updated.manga.titulo, capaUrl: updated.manga.capaUrl, linksExternos: updated.manga.linksExternos, numCapitulosTotal: updated.manga.numCapitulosTotal, proximoCapituloNumero: updated.manga.proximoCapituloNumero };
   }
 
@@ -574,6 +577,91 @@ export class MangaService {
   }
 
   async remove(id: number) {
-    return this.prisma.userManga.delete({ where: { id } });
+    const item = await this.prisma.userManga.delete({ where: { id } });
+    if (item) {
+      await this.recalculateUserStats(item.userId);
+    }
+    return item;
+  }
+
+  async recalculateUserStats(userId: number) {
+    try {
+      const animes = await this.prisma.userAnime.findMany({ where: { userId } });
+      const mangas = await this.prisma.userManga.findMany({ where: { userId } });
+
+      const totalAnimeCompleted = animes.filter(a => a.status === 'COMPLETED').length;
+      const totalEpisodesWatched = animes.reduce((sum, a) => sum + (a.epAtual || 0), 0);
+      const totalMangaRead = mangas.reduce((sum, m) => sum + Math.floor(m.capAtual || 0), 0);
+      const daysWasted = parseFloat(((totalEpisodesWatched * 24) / 1440).toFixed(2));
+
+      await this.prisma.userStatistics.upsert({
+        where: { userId },
+        update: {
+          totalAnimeCompleted,
+          totalEpisodesWatched,
+          totalMangaRead,
+          daysWasted,
+        },
+        create: {
+          userId,
+          totalAnimeCompleted,
+          totalEpisodesWatched,
+          totalMangaRead,
+          daysWasted,
+        },
+      });
+
+      // --- Conquistas automáticas ---
+      // 1. Primeiros passos
+      await this.prisma.userAchievement.upsert({
+        where: { userId_achievementId: { userId, achievementId: 1 } },
+        update: {},
+        create: { userId, achievementId: 1 }
+      });
+
+      // 2. Maratonista (ex: mais de 100 episódios no total)
+      if (totalEpisodesWatched >= 100) {
+        await this.prisma.userAchievement.upsert({
+          where: { userId_achievementId: { userId, achievementId: 3 } },
+          update: {},
+          create: { userId, achievementId: 3 }
+        });
+      }
+
+      // 3. Leitor Voraz (se leu o primeiro capítulo)
+      if (totalMangaRead >= 1) {
+        await this.prisma.userAchievement.upsert({
+          where: { userId_achievementId: { userId, achievementId: 4 } },
+          update: {},
+          create: { userId, achievementId: 4 }
+        });
+      }
+
+      // 4. Isekai Trash: Se viu 5+ animes do género "Isekai"
+      const animesDetalhes = await this.prisma.userAnime.findMany({
+        where: { userId, status: 'COMPLETED' },
+        include: { anime: true }
+      });
+      const isekaiCount = animesDetalhes.filter(ua => ua.anime.generos?.toLowerCase().includes('isekai')).length;
+      if (isekaiCount >= 5) {
+        await this.prisma.userAchievement.upsert({
+          where: { userId_achievementId: { userId, achievementId: 2 } },
+          update: {},
+          create: { userId, achievementId: 2 }
+        });
+      }
+
+      // 5. Crítico de Elite: se definiu 3 destaques no pódio
+      const favoritesCount = await this.prisma.userTopFavorite.count({ where: { userId } });
+      if (favoritesCount >= 3) {
+        await this.prisma.userAchievement.upsert({
+          where: { userId_achievementId: { userId, achievementId: 5 } },
+          update: {},
+          create: { userId, achievementId: 5 }
+        });
+      }
+    } catch (e) {
+      console.error('Error recalculating user statistics/achievements:', e);
+    }
   }
 }

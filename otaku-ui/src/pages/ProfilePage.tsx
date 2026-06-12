@@ -117,6 +117,18 @@ const ProfilePage = () => {
   const [editBannerPosition, setEditBannerPosition] = useState<number>(50);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
+  // Estados para Recorte de Imagem das Conquistas
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState('');
+
+  const [zoom, setZoom] = useState(1);
+  const [offsetX, setOffsetX] = useState(0);
+  const [offsetY, setOffsetY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [cropImageDimensions, setCropImageDimensions] = useState({ width: 0, height: 0 });
+  const [cropBaseScale, setCropBaseScale] = useState(1);
+
   // Compress/resize image using Canvas before converting to base64
   const compressImage = (file: File, maxWidth: number, maxHeight: number): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -391,14 +403,150 @@ const ProfilePage = () => {
       return;
     }
 
-    try {
-      const compressed = await compressImage(file, 150, 150);
-      setEditAchievementBadgeUrl(compressed);
-      showToast('Ícone da conquista carregado!', 'success');
-    } catch (err) {
-      console.error(err);
-      showToast('Erro ao processar imagem.', 'error');
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setCropImageSrc(event.target?.result as string);
+      setZoom(1);
+      setOffsetX(0);
+      setOffsetY(0);
+      setShowCropModal(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    const naturalWidth = img.naturalWidth;
+    const naturalHeight = img.naturalHeight;
+    setCropImageDimensions({ width: naturalWidth, height: naturalHeight });
+
+    const M = 200; // crop size
+    const scale = Math.max(M / naturalWidth, M / naturalHeight);
+    setCropBaseScale(scale);
+
+    img.style.width = `${naturalWidth * scale}px`;
+    img.style.height = `${naturalHeight * scale}px`;
+  };
+
+  const clampOffsets = (newOffsetX: number, newOffsetY: number, currentZoom: number) => {
+    const M = 200;
+    const C = 280;
+    const cropLeft = (C - M) / 2; // 40
+    const cropTop = (C - M) / 2; // 40
+
+    const w = cropImageDimensions.width * cropBaseScale * currentZoom;
+    const h = cropImageDimensions.height * cropBaseScale * currentZoom;
+
+    const x0 = (C - w) / 2;
+    const y0 = (C - h) / 2;
+
+    const minX = cropLeft + M - w - x0;
+    const maxX = cropLeft - x0;
+    const minY = cropTop + M - h - y0;
+    const maxY = cropTop - y0;
+
+    const clampedX = Math.min(Math.max(newOffsetX, minX), maxX);
+    const clampedY = Math.min(Math.max(newOffsetY, minY), maxY);
+
+    return { x: clampedX, y: clampedY };
+  };
+
+  const handleZoomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newZoom = parseFloat(e.target.value);
+    setZoom(newZoom);
+    const clamped = clampOffsets(offsetX, offsetY, newZoom);
+    setOffsetX(clamped.x);
+    setOffsetY(clamped.y);
+  };
+
+  const handleCropMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - offsetX, y: e.clientY - offsetY });
+  };
+
+  const handleCropMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    const newOffsetX = e.clientX - dragStart.x;
+    const newOffsetY = e.clientY - dragStart.y;
+    const clamped = clampOffsets(newOffsetX, newOffsetY, zoom);
+    setOffsetX(clamped.x);
+    setOffsetY(clamped.y);
+  };
+
+  const handleCropMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleCropTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      setIsDragging(true);
+      setDragStart({
+        x: e.touches[0].clientX - offsetX,
+        y: e.touches[0].clientY - offsetY,
+      });
     }
+  };
+
+  const handleCropTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    const newOffsetX = e.touches[0].clientX - dragStart.x;
+    const newOffsetY = e.touches[0].clientY - dragStart.y;
+    const clamped = clampOffsets(newOffsetX, newOffsetY, zoom);
+    setOffsetX(clamped.x);
+    setOffsetY(clamped.y);
+  };
+
+  const handleCropTouchEnd = () => {
+    setIsDragging(false);
+  };
+
+  const handleConfirmCrop = () => {
+    if (!cropImageSrc) return;
+
+    const img = new Image();
+    img.src = cropImageSrc;
+    img.onload = () => {
+      const M = 200; // crop size
+      const C = 280;
+      const cropLeft = 40;
+      const cropTop = 40;
+
+      const w = cropImageDimensions.width * cropBaseScale * zoom;
+      const h = cropImageDimensions.height * cropBaseScale * zoom;
+
+      const x0 = (C - w) / 2;
+      const y0 = (C - h) / 2;
+
+      const actualX = x0 + offsetX;
+      const actualY = y0 + offsetY;
+
+      const relativeX = cropLeft - actualX;
+      const relativeY = cropTop - actualY;
+
+      const scaleFactor = cropBaseScale * zoom;
+      const sourceX = relativeX / scaleFactor;
+      const sourceY = relativeY / scaleFactor;
+      const sourceWidth = M / scaleFactor;
+      const sourceHeight = M / scaleFactor;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 150;
+      canvas.height = 150;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(
+          img,
+          sourceX, sourceY, sourceWidth, sourceHeight,
+          0, 0, 150, 150
+        );
+        const croppedBase64 = canvas.toDataURL('image/png');
+        setEditAchievementBadgeUrl(croppedBase64);
+        showToast('Ícone da conquista recortado e ajustado!', 'success');
+      }
+
+      setShowCropModal(false);
+      setCropImageSrc('');
+    };
   };
 
   const selectAchievementForEdit = (ach: any) => {
@@ -2834,6 +2982,87 @@ const ProfilePage = () => {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Crop Modal */}
+      {showCropModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="glass-panel w-full max-w-md p-6 rounded-[32px] border border-white/10 space-y-6 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col items-center">
+            <div className="space-y-1 text-center w-full">
+              <h3 className="text-lg font-black text-white flex items-center justify-center gap-2">
+                <span className="material-symbols-outlined text-amber-400">crop</span>
+                <span>Ajustar Ícone da Conquista</span>
+              </h3>
+              <p className="text-xs text-gray-400">Arraste a imagem para reposicionar e use a barra para fazer zoom.</p>
+            </div>
+
+            {/* Crop Interactive Area */}
+            <div 
+              className="w-[280px] h-[280px] bg-black/40 border border-white/15 rounded-2xl overflow-hidden relative flex items-center justify-center cursor-move select-none"
+              onMouseDown={handleCropMouseDown}
+              onMouseMove={handleCropMouseMove}
+              onMouseUp={handleCropMouseUp}
+              onMouseLeave={handleCropMouseUp}
+              onTouchStart={handleCropTouchStart}
+              onTouchMove={handleCropTouchMove}
+              onTouchEnd={handleCropTouchEnd}
+            >
+              {/* Scaled/Positioned Image */}
+              {cropImageSrc && (
+                <img
+                  src={cropImageSrc}
+                  alt="Crop Target"
+                  id="crop-image-element"
+                  className="absolute max-w-none origin-center pointer-events-none"
+                  style={{
+                    transform: `translate(${offsetX}px, ${offsetY}px) scale(${zoom})`,
+                  }}
+                  onLoad={handleCropImageLoad}
+                />
+              )}
+
+              {/* Circular overlay mask */}
+              <div className="w-[200px] h-[200px] rounded-full border-2 border-amber-500 border-dashed absolute pointer-events-none shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]"></div>
+            </div>
+
+            {/* Zoom Slider */}
+            <div className="w-full flex items-center gap-3 px-4">
+              <span className="material-symbols-outlined text-gray-400 text-sm">zoom_out</span>
+              <input
+                type="range"
+                min="1"
+                max="3"
+                step="0.01"
+                value={zoom}
+                onChange={handleZoomChange}
+                className="flex-1 accent-amber-500 bg-black/40 h-2 rounded-lg cursor-pointer"
+              />
+              <span className="material-symbols-outlined text-gray-400 text-sm">zoom_in</span>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 w-full border-t border-white/5 pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCropModal(false);
+                  setCropImageSrc('');
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-surface-variant/30 text-on-surface-variant hover:text-white text-xs font-bold transition-all border border-white/5"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCrop}
+                className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow"
+              >
+                <span className="material-symbols-outlined text-xs">check</span>
+                <span>Confirmar</span>
+              </button>
             </div>
           </div>
         </div>

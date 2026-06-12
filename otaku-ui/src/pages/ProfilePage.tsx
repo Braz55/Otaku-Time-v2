@@ -632,41 +632,18 @@ const ProfilePage = () => {
     }
   };
 
-  // Fetch details of top favorites from AniList/cache
-  const fetchFavoriteDetails = async () => {
+  // Fetch details of top favorites from AniList/cache (Now pre-populated locally by backend)
+  const fetchFavoriteDetails = () => {
     if (!profile?.topFavorites) return;
     
-    // Clear old details that are not in the new topFavorites
-    const currentKeys = profile.topFavorites.map((f: any) => `${f.mediaType}-${f.rankPosition}`);
-    setFavoriteDetails(prev => {
-      const updated = { ...prev };
-      Object.keys(updated).forEach(k => {
-        if (!currentKeys.includes(k)) {
-          delete updated[k];
-        }
-      });
-      return updated;
+    const details: Record<string, { title: string; coverUrl: string }> = {};
+    profile.topFavorites.forEach((fav: any) => {
+      details[`${fav.mediaType}-${fav.rankPosition}`] = {
+        title: fav.titulo || fav.title || 'Título Desconhecido',
+        coverUrl: fav.capaUrl || fav.coverUrl || ''
+      };
     });
-
-    profile.topFavorites.forEach(async (fav: any) => {
-      try {
-        const typeLower = fav.mediaType.toLowerCase();
-        const res = await customFetch(`${API_BASE_URL}/${typeLower}/anilist/${fav.anilistMediaId}`, {
-          headers: getHeaders()
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const title = data.title?.english || data.title?.romaji || 'Título Desconhecido';
-          const coverUrl = data.coverImage?.large || '';
-          setFavoriteDetails(prev => ({
-            ...prev,
-            [`${fav.mediaType}-${fav.rankPosition}`]: { title, coverUrl }
-          }));
-        }
-      } catch (e) {
-        console.error("Failed to load favorite details for id " + fav.anilistMediaId, e);
-      }
-    });
+    setFavoriteDetails(details);
   };
 
   useEffect(() => {

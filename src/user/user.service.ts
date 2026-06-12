@@ -535,8 +535,44 @@ export class UserService {
       user.tipoConta = 'padrao';
     }
 
+    // Buscar detalhes locais dos favoritos para evitar chamadas de API externas na página de perfil
+    let topFavoritesWithDetails: any[] = [];
+    if (user.topFavorites && user.topFavorites.length > 0) {
+      const animeIds = user.topFavorites.filter(f => f.mediaType === 'ANIME').map(f => f.anilistMediaId);
+      const mangaIds = user.topFavorites.filter(f => f.mediaType === 'MANGA').map(f => f.anilistMediaId);
+
+      const [localAnimes, localMangas] = await Promise.all([
+        this.prisma.anime.findMany({ where: { id: { in: animeIds } } }),
+        this.prisma.manga.findMany({ where: { id: { in: mangaIds } } })
+      ]);
+
+      const animeMap = new Map(localAnimes.map(a => [a.id, a]));
+      const mangaMap = new Map(localMangas.map(m => [m.id, m]));
+
+      topFavoritesWithDetails = user.topFavorites.map(fav => {
+        if (fav.mediaType === 'ANIME') {
+          const anime = animeMap.get(fav.anilistMediaId);
+          return {
+            ...fav,
+            titulo: anime?.titulo || 'Título Desconhecido',
+            capaUrl: anime?.capaUrl || ''
+          };
+        } else {
+          const manga = mangaMap.get(fav.anilistMediaId);
+          return {
+            ...fav,
+            titulo: manga?.titulo || 'Título Desconhecido',
+            capaUrl: manga?.capaUrl || ''
+          };
+        }
+      });
+    }
+
     const { password, ...profile } = user;
-    return profile;
+    return {
+      ...profile,
+      topFavorites: topFavoritesWithDetails
+    };
   }
 
   // --- Métodos de Administração ---

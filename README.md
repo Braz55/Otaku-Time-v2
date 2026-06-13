@@ -269,7 +269,7 @@ Navigate to the `otaku-ui` folder:
 
 ### 3. Configure the Mobile Application (Android/Capacitor)
 
-To compile and debug the mobile application:
+To compile, build, and debug the mobile application:
 
 1. **Generate the React build folder:**
    ```bash
@@ -280,15 +280,39 @@ To compile and debug the mobile application:
    ```bash
    npx cap sync
    ```
-3. **Open Android Studio to compile/emulate:**
+
+#### A. Generating the APK via Android Studio (Recommended)
+1. **Open the project in Android Studio:**
    ```bash
    npx cap open android
    ```
-4. **Configure ADB Reverse for Local Server connection:**
-   If you are debugging on your physical device via USB cable, run the command below in your development machine terminal to allow the device to send requests to your local server:
-   ```bash
-   adb reverse tcp:3001 tcp:3001
-   ```
+2. Wait for Gradle to finish syncing the project.
+3. In the top menu, navigate to: **Build** ➔ **Build Bundle(s) / APK(s)** ➔ **Build APK(s)**.
+4. Once completed, a popup notification will appear in the bottom-right corner. Click on **locate** to find your newly generated APK file (usually saved at `otaku-ui/android/app/build/outputs/apk/debug/app-debug.apk`).
+5. Alternately, connect your Android device via USB (with USB Debugging enabled) and click the green **Run (Play)** button in the top toolbar to install and run it directly.
+
+#### B. Generating the APK via CLI (Fastest)
+Run the following commands from the root directory of your project:
+* **Windows (PowerShell):**
+  ```powershell
+  cd otaku-ui/android
+  ./gradlew assembleDebug
+  ```
+* **macOS / Linux:**
+  ```bash
+  cd otaku-ui/android
+  ./gradlew assembleDebug
+  ```
+The generated APK will be available in:
+`otaku-ui/android/app/build/outputs/apk/debug/app-debug.apk`
+
+---
+
+#### 4. Configure ADB Reverse for Local Server connection
+If you are debugging on your physical device via USB cable, run the command below in your development machine terminal to allow the device to send requests to your local server:
+```bash
+adb reverse tcp:3001 tcp:3001
+```
 
 ---
 

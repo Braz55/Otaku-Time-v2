@@ -32,7 +32,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-on-background selection:bg-primary selection:text-on-primary font-body-md flex">
+    <div className="min-h-screen bg-background text-on-background selection:bg-primary selection:text-on-primary font-body-md flex max-w-full overflow-x-hidden">
       {/* SideNavBar Anchor */}
       <aside className="hidden lg:flex flex-col h-screen fixed left-0 top-0 p-6 space-y-8 w-64 bg-surface-container-low border-r border-white/5 shadow-xl z-50">
         <div className="flex items-center gap-3 px-2 cursor-pointer" onClick={handleShowDashboard}>
@@ -98,14 +98,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </aside>
 
       {/* Main Canvas */}
-      <div className="flex-1 lg:ml-64 min-h-screen pb-24 lg:pb-12 flex flex-col">
+      <div className="flex-1 lg:ml-64 min-h-screen pb-24 lg:pb-12 flex flex-col w-full max-w-full overflow-x-hidden">
         <Header 
           categoria={categoria} 
           setCategoria={setCategoria} 
           onShowFavorites={handleShowFavorites}
           onShowDashboard={handleShowDashboard}
         />
-        <main className="flex-1 relative z-0">
+        <main className="flex-1 relative z-0 w-full max-w-full overflow-x-hidden">
           {children}
         </main>
       </div>

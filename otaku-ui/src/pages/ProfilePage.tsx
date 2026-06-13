@@ -1142,12 +1142,12 @@ const ProfilePage = () => {
         </header>
 
         {/* User Card Hero (Profile Banner & Avatar) */}
-        <div className="relative w-full rounded-[32px] border border-secondary/20 shadow-2xl overflow-hidden min-h-[220px] transition-all duration-500 flex flex-col justify-end">
+        <div className="relative w-full rounded-[32px] border border-secondary/20 shadow-2xl overflow-hidden min-h-[220px] transition-all duration-500 flex flex-col justify-end" style={{ transform: 'translateZ(0)', isolation: 'isolate' }}>
           {profile?.bannerUrl && (
             <img 
               src={profile.bannerUrl} 
               alt="Banner" 
-              className="absolute inset-0 w-full h-full object-cover pointer-events-none z-0"
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none z-0 rounded-[30px]"
               style={{ objectPosition: `center ${profile?.preferences?.bannerPosition ?? '50'}%` }}
             />
           )}
@@ -1165,7 +1165,7 @@ const ProfilePage = () => {
               <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-primary p-1 shadow-[0_0_30px_rgba(194,24,91,0.4)] flex-shrink-0 relative overflow-hidden">
                 <div className="w-full h-full rounded-full bg-surface flex items-center justify-center text-4xl font-black text-white overflow-hidden">
                   {profile?.iconUrl ? (
-                    <img src={profile.iconUrl} className="w-full h-full object-cover" alt="Avatar" />
+                    <img src={profile.iconUrl} className="w-full h-full object-cover rounded-full" alt="Avatar" />
                   ) : (
                     user?.nome ? user.nome.charAt(0).toUpperCase() : 'O'
                   )}
@@ -1208,7 +1208,7 @@ const ProfilePage = () => {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex gap-2 border-b border-white/10 pb-4 overflow-x-auto">
+        <div className="flex gap-2 border-b border-white/10 pb-4 overflow-x-auto w-full no-scrollbar">
           <button 
             onClick={() => setActiveTab('dashboard')} 
             className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all whitespace-nowrap ${activeTab === 'dashboard' ? 'bg-primary text-on-primary shadow-lg shadow-primary/30 scale-105' : 'bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5'}`}
@@ -1248,7 +1248,7 @@ const ProfilePage = () => {
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             
             {/* 1. ANIME PODIUM */}
-            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
+            <div className="glass-panel p-4 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-primary/10 to-transparent rounded-full blur-2xl"></div>
               <div>
                 <h3 className="text-xl font-bold text-white flex items-center gap-2.5">
@@ -1258,13 +1258,13 @@ const ProfilePage = () => {
                 <p className="text-xs text-on-surface-variant mt-0.5">O teu pódio dos 3 melhores Animes de sempre.</p>
               </div>
 
-              <div className="grid grid-cols-3 gap-3 sm:gap-6 pt-2 max-w-2xl mx-auto items-end">
+              <div className="grid grid-cols-3 gap-2 sm:gap-6 pt-2 max-w-2xl mx-auto items-end">
                 {/* Anime 2nd Place */}
                 <div className="flex flex-col items-center gap-2">
                   <div className="w-full aspect-[2/3] rounded-2xl border border-white/5 bg-black/40 overflow-hidden relative group shadow-md flex items-center justify-center text-center">
                     {favoriteDetails['ANIME-2'] ? (
                       <>
-                        <img src={favoriteDetails['ANIME-2'].coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="2nd Place" />
+                        <img src={favoriteDetails['ANIME-2'].coverUrl} className="w-full h-full object-cover rounded-2xl group-hover:scale-105 transition-transform duration-300" alt="2nd Place" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent flex flex-col justify-end p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
                           <p className="text-[10px] sm:text-xs font-bold text-white line-clamp-2 leading-tight">{favoriteDetails['ANIME-2'].title}</p>
                           <button 
@@ -1286,7 +1286,7 @@ const ProfilePage = () => {
                       </button>
                     )}
                   </div>
-                  <div className="h-6 w-full bg-slate-400/20 rounded-lg flex items-center justify-center text-[10px] sm:text-xs font-black text-slate-300 border border-slate-400/40">2º SILVER</div>
+                  <div className="h-6 w-full bg-slate-400/20 rounded-lg flex items-center justify-center text-[9px] min-[375px]:text-[10px] sm:text-xs font-black text-slate-300 border border-slate-400/40 truncate px-1">2º SILVER</div>
                 </div>
 
                 {/* Anime 1st Place */}
@@ -1294,7 +1294,7 @@ const ProfilePage = () => {
                   <div className="w-full aspect-[2/3] rounded-2xl border border-amber-500/30 bg-black/40 overflow-hidden relative group shadow-lg flex items-center justify-center text-center ring-2 ring-amber-500/20">
                     {favoriteDetails['ANIME-1'] ? (
                       <>
-                        <img src={favoriteDetails['ANIME-1'].coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="1st Place" />
+                        <img src={favoriteDetails['ANIME-1'].coverUrl} className="w-full h-full object-cover rounded-2xl group-hover:scale-105 transition-transform duration-300" alt="1st Place" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent flex flex-col justify-end p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
                           <p className="text-[10px] sm:text-xs font-bold text-white line-clamp-2 leading-tight">{favoriteDetails['ANIME-1'].title}</p>
                           <button 
@@ -1316,7 +1316,7 @@ const ProfilePage = () => {
                       </button>
                     )}
                   </div>
-                  <div className="h-8 w-full bg-amber-500/20 rounded-lg flex items-center justify-center text-xs font-black text-amber-300 border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.2)]">1º GOLD</div>
+                  <div className="h-8 w-full bg-amber-500/20 rounded-lg flex items-center justify-center text-[10px] min-[375px]:text-xs font-black text-amber-300 border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.2)] truncate px-1">1º GOLD</div>
                 </div>
 
                 {/* Anime 3rd Place */}
@@ -1324,7 +1324,7 @@ const ProfilePage = () => {
                   <div className="w-full aspect-[2/3] rounded-2xl border border-white/5 bg-black/40 overflow-hidden relative group shadow-md flex items-center justify-center text-center">
                     {favoriteDetails['ANIME-3'] ? (
                       <>
-                        <img src={favoriteDetails['ANIME-3'].coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="3rd Place" />
+                        <img src={favoriteDetails['ANIME-3'].coverUrl} className="w-full h-full object-cover rounded-2xl group-hover:scale-105 transition-transform duration-300" alt="3rd Place" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent flex flex-col justify-end p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
                           <p className="text-[10px] sm:text-xs font-bold text-white line-clamp-2 leading-tight">{favoriteDetails['ANIME-3'].title}</p>
                           <button 
@@ -1346,13 +1346,13 @@ const ProfilePage = () => {
                       </button>
                     )}
                   </div>
-                  <div className="h-6 w-full bg-amber-700/20 rounded-lg flex items-center justify-center text-[10px] sm:text-xs font-black text-amber-500 border border-amber-700/40">3º BRONZE</div>
+                  <div className="h-6 w-full bg-amber-700/20 rounded-lg flex items-center justify-center text-[9px] min-[375px]:text-[10px] sm:text-xs font-black text-amber-500 border border-amber-700/40 truncate px-1">3º BRONZE</div>
                 </div>
               </div>
             </div>
 
             {/* 2. MANGA PODIUM */}
-            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
+            <div className="glass-panel p-4 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-secondary/10 to-transparent rounded-full blur-2xl"></div>
               <div>
                 <h3 className="text-xl font-bold text-white flex items-center gap-2.5">
@@ -1362,13 +1362,13 @@ const ProfilePage = () => {
                 <p className="text-xs text-on-surface-variant mt-0.5">O teu pódio dos 3 melhores Mangás de sempre.</p>
               </div>
 
-              <div className="grid grid-cols-3 gap-3 sm:gap-6 pt-2 max-w-2xl mx-auto items-end">
+              <div className="grid grid-cols-3 gap-2 sm:gap-6 pt-2 max-w-2xl mx-auto items-end">
                 {/* Manga 2nd Place */}
                 <div className="flex flex-col items-center gap-2">
                   <div className="w-full aspect-[2/3] rounded-2xl border border-white/5 bg-black/40 overflow-hidden relative group shadow-md flex items-center justify-center text-center">
                     {favoriteDetails['MANGA-2'] ? (
                       <>
-                        <img src={favoriteDetails['MANGA-2'].coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="2nd Place" />
+                        <img src={favoriteDetails['MANGA-2'].coverUrl} className="w-full h-full object-cover rounded-2xl group-hover:scale-105 transition-transform duration-300" alt="2nd Place" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent flex flex-col justify-end p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
                           <p className="text-[10px] sm:text-xs font-bold text-white line-clamp-2 leading-tight">{favoriteDetails['MANGA-2'].title}</p>
                           <button 
@@ -1390,7 +1390,7 @@ const ProfilePage = () => {
                       </button>
                     )}
                   </div>
-                  <div className="h-6 w-full bg-slate-400/20 rounded-lg flex items-center justify-center text-[10px] sm:text-xs font-black text-slate-300 border border-slate-400/40">2º SILVER</div>
+                  <div className="h-6 w-full bg-slate-400/20 rounded-lg flex items-center justify-center text-[9px] min-[375px]:text-[10px] sm:text-xs font-black text-slate-300 border border-slate-400/40 truncate px-1">2º SILVER</div>
                 </div>
 
                 {/* Manga 1st Place */}
@@ -1398,7 +1398,7 @@ const ProfilePage = () => {
                   <div className="w-full aspect-[2/3] rounded-2xl border border-amber-500/30 bg-black/40 overflow-hidden relative group shadow-lg flex items-center justify-center text-center ring-2 ring-amber-500/20">
                     {favoriteDetails['MANGA-1'] ? (
                       <>
-                        <img src={favoriteDetails['MANGA-1'].coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="1st Place" />
+                        <img src={favoriteDetails['MANGA-1'].coverUrl} className="w-full h-full object-cover rounded-2xl group-hover:scale-105 transition-transform duration-300" alt="1st Place" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent flex flex-col justify-end p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
                           <p className="text-[10px] sm:text-xs font-bold text-white line-clamp-2 leading-tight">{favoriteDetails['MANGA-1'].title}</p>
                           <button 
@@ -1420,7 +1420,7 @@ const ProfilePage = () => {
                       </button>
                     )}
                   </div>
-                  <div className="h-8 w-full bg-amber-500/20 rounded-lg flex items-center justify-center text-xs font-black text-amber-300 border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.2)]">1º GOLD</div>
+                  <div className="h-8 w-full bg-amber-500/20 rounded-lg flex items-center justify-center text-[10px] min-[375px]:text-xs font-black text-amber-300 border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.2)] truncate px-1">1º GOLD</div>
                 </div>
 
                 {/* Manga 3rd Place */}
@@ -1428,7 +1428,7 @@ const ProfilePage = () => {
                   <div className="w-full aspect-[2/3] rounded-2xl border border-white/5 bg-black/40 overflow-hidden relative group shadow-md flex items-center justify-center text-center">
                     {favoriteDetails['MANGA-3'] ? (
                       <>
-                        <img src={favoriteDetails['MANGA-3'].coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="3rd Place" />
+                        <img src={favoriteDetails['MANGA-3'].coverUrl} className="w-full h-full object-cover rounded-2xl group-hover:scale-105 transition-transform duration-300" alt="3rd Place" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent flex flex-col justify-end p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
                           <p className="text-[10px] sm:text-xs font-bold text-white line-clamp-2 leading-tight">{favoriteDetails['MANGA-3'].title}</p>
                           <button 
@@ -1450,13 +1450,13 @@ const ProfilePage = () => {
                       </button>
                     )}
                   </div>
-                  <div className="h-6 w-full bg-amber-700/20 rounded-lg flex items-center justify-center text-[10px] sm:text-xs font-black text-amber-500 border border-amber-700/40">3º BRONZE</div>
+                  <div className="h-6 w-full bg-amber-700/20 rounded-lg flex items-center justify-center text-[9px] min-[375px]:text-[10px] sm:text-xs font-black text-amber-500 border border-amber-700/40 truncate px-1">3º BRONZE</div>
                 </div>
               </div>
             </div>
 
             {/* 3. STATISTICS */}
-            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
+            <div className="glass-panel p-4 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-secondary/10 to-transparent rounded-full blur-2xl"></div>
               <div>
                 <h3 className="text-xl font-bold text-white flex items-center gap-2.5">
@@ -1525,7 +1525,7 @@ const ProfilePage = () => {
             </div>
 
             {/* 4. ACHIEVEMENTS */}
-            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
+            <div className="glass-panel p-4 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-amber-500/10 to-transparent rounded-full blur-2xl"></div>
               <div className="flex justify-between items-center flex-wrap gap-2">
                 <div>

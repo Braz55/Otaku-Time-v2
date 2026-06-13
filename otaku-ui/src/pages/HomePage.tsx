@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useMedia } from '../context/MediaContext';
 import { useToast } from '../context/ToastContext';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Smartphone, Award, BookOpen, Clock, Film, PlayCircle, Shield, User, X } from 'lucide-react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
@@ -90,7 +90,11 @@ const HomePage = () => {
   const [animesDashboard, setAnimesDashboard] = useState<any[]>([]);
   const [mangasDashboard, setMangasDashboard] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const [view, setView] = useState<'home' | 'details'>('home');
+  const [externalProfile, setExternalProfile] = useState<any>(null);
+  const [loadingExternalProfile, setLoadingExternalProfile] = useState(false);
+  const [showExternalProfile, setShowExternalProfile] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [showEpList, setShowEpList] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -260,6 +264,27 @@ const HomePage = () => {
     } catch (error) {
       console.error('Erro ao eliminar comentário:', error);
       showToast('Não foi possível eliminar o comentário.', 'error');
+    }
+  };
+
+  const abrirPerfilExterno = async (userId: number) => {
+    setLoadingExternalProfile(true);
+    setShowExternalProfile(true);
+    try {
+      const res = await customFetch(`${API_BASE_URL}/user/profile/${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setExternalProfile(data);
+      } else {
+        showToast('Não foi possível obter o perfil deste utilizador.', 'error');
+        setShowExternalProfile(false);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar perfil de terceiros:', error);
+      showToast('Erro ao obter perfil do utilizador.', 'error');
+      setShowExternalProfile(false);
+    } finally {
+      setLoadingExternalProfile(false);
     }
   };
 
@@ -446,6 +471,7 @@ const HomePage = () => {
 
   const abrirDetalhes = async (id: number, isExternal = false, forcedType?: 'anime' | 'manga') => {
     setLoading(true);
+    setLoadingDetails(true);
     const targetType = forcedType || categoria;
     if (forcedType && forcedType !== categoria) {
       setCategoria(forcedType);
@@ -504,6 +530,7 @@ const HomePage = () => {
       console.error("Erro ao carregar detalhes:", error);
     } finally {
       setLoading(false);
+      setLoadingDetails(false);
     }
   };
 
@@ -886,7 +913,11 @@ const HomePage = () => {
               <div key={comment.id} className="glass-panel rounded-2xl border border-white/5 p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-full overflow-hidden bg-surface-variant flex-shrink-0">
+                    <div 
+                      className="w-9 h-9 rounded-full overflow-hidden bg-surface-variant flex-shrink-0 cursor-pointer hover:scale-105 active:scale-95 transition-all"
+                      onClick={() => abrirPerfilExterno(comment.userId)}
+                      title={`Ver perfil de ${comment.user?.nome || 'Utilizador'}`}
+                    >
                       {comment.user?.iconUrl ? (
                         <img src={comment.user.iconUrl} alt={comment.user?.nome || 'User'} className="w-full h-full object-cover" />
                       ) : (
@@ -895,8 +926,12 @@ const HomePage = () => {
                         </div>
                       )}
                     </div>
-                    <div className="min-w-0">
-                      <p className="font-bold text-white text-sm truncate">{comment.user?.nome || 'Utilizador'}</p>
+                    <div 
+                      className="min-w-0 cursor-pointer group"
+                      onClick={() => abrirPerfilExterno(comment.userId)}
+                      title={`Ver perfil de ${comment.user?.nome || 'Utilizador'}`}
+                    >
+                      <p className="font-bold text-white text-sm truncate group-hover:text-primary-light transition-colors">{comment.user?.nome || 'Utilizador'}</p>
                       <p className="text-[10px] uppercase tracking-widest text-on-surface-variant">{formatCommentDate(comment.createdAt)}</p>
                     </div>
                   </div>
@@ -2227,6 +2262,231 @@ const HomePage = () => {
             )}
           </div>
         )}
+
+      {loadingDetails && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/60 backdrop-blur-md animate-fade-in">
+          <div className={`p-8 rounded-3xl glass-panel border flex flex-col items-center max-w-sm w-full mx-4 text-center space-y-6 shadow-2xl animate-slide-up ${categoria === 'anime' ? 'border-primary/30' : 'border-secondary/30'}`}>
+            {/* Thematic loading icon */}
+            <div className="relative flex items-center justify-center w-24 h-24">
+              {/* Pulsing glow ring */}
+              <div className={`absolute inset-0 rounded-full blur-xl animate-pulse ${categoria === 'anime' ? 'bg-primary/20 shadow-[0_0_30px_rgba(106,27,154,0.4)]' : 'bg-secondary/20 shadow-[0_0_30px_rgba(194,24,91,0.4)]'}`}></div>
+              
+              {/* Outer spinning ring */}
+              <div className={`absolute inset-0 rounded-full border-4 border-t-transparent border-r-transparent animate-spin ${categoria === 'anime' ? 'border-primary' : 'border-secondary'}`} style={{ animationDuration: '1s' }}></div>
+              
+              {/* Inner spinning ring (opposite direction) */}
+              <div className={`absolute w-16 h-16 rounded-full border-4 border-b-transparent border-l-transparent animate-spin ${categoria === 'anime' ? 'border-secondary-light' : 'border-primary-light'}`} style={{ animationDuration: '1.5s', animationDirection: 'reverse' }}></div>
+              
+              {/* Center icon */}
+              <span className={`material-symbols-outlined text-3xl font-bold animate-bounce ${categoria === 'anime' ? 'text-primary-light' : 'text-secondary-light'}`}>
+                {categoria === 'anime' ? 'play_circle' : 'menu_book'}
+              </span>
+            </div>
+            
+            {/* Loading text */}
+            <div className="space-y-2">
+              <h4 className="text-xl font-bold text-white tracking-tight">
+                {categoria === 'anime' ? 'Carregando Anime...' : 'Carregando Mangá...'}
+              </h4>
+              <p className="text-on-surface-variant text-sm font-medium animate-pulse">
+                Procurando informações detalhadas...
+              </p>
+            </div>
+
+            {/* Custom Indeterminate Progress Bar */}
+            <div className="w-full h-1.5 bg-surface-variant/40 rounded-full overflow-hidden relative">
+              <div className={`animate-loading-bar rounded-full ${categoria === 'anime' ? 'bg-primary shadow-[0_0_8px_rgba(106,27,154,0.6)]' : 'bg-secondary shadow-[0_0_8px_rgba(194,24,91,0.6)]'}`}></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showExternalProfile && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="relative w-full max-w-2xl bg-surface-container rounded-[32px] border border-white/10 shadow-2xl overflow-hidden animate-slide-up max-h-[90vh] flex flex-col">
+            
+            {/* Close Button */}
+            <button 
+              onClick={() => { setShowExternalProfile(false); setExternalProfile(null); }} 
+              className="absolute top-4 right-4 z-[120] p-2 rounded-full bg-black/40 hover:bg-black/60 text-white hover:scale-105 active:scale-95 transition-all cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {loadingExternalProfile ? (
+              <div className="flex flex-col items-center justify-center py-20 space-y-4">
+                <Loader2 className={`w-10 h-10 animate-spin ${categoria === 'anime' ? 'text-primary' : 'text-secondary'}`} />
+                <p className="text-on-surface-variant text-sm font-bold animate-pulse">Carregando perfil...</p>
+              </div>
+            ) : externalProfile ? (
+              <div className="overflow-y-auto flex-1 custom-scrollbar">
+                
+                {/* Banner & Avatar Header */}
+                <div className="relative w-full min-h-[180px] flex flex-col justify-end">
+                  {externalProfile.bannerUrl ? (
+                    <img 
+                      src={externalProfile.bannerUrl} 
+                      alt="Banner" 
+                      className="absolute inset-0 w-full h-full object-cover pointer-events-none z-0"
+                      style={{ objectPosition: `center ${externalProfile.preferences?.bannerPosition ?? '50'}%` }}
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-gradient-to-tr from-secondary/20 to-primary/20 z-0 hero-gradient" />
+                  )}
+                  {/* Gradient Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-surface-container via-black/40 to-transparent z-10"></div>
+                  
+                  {/* User Avatar, Name, Account Type */}
+                  <div className="p-6 flex flex-col sm:flex-row items-center gap-4 relative z-20 text-center sm:text-left w-full">
+                    <div className="w-20 h-20 rounded-full bg-primary p-0.5 shadow-[0_0_20px_rgba(106,27,154,0.4)] flex-shrink-0 relative overflow-hidden">
+                      <div className="w-full h-full rounded-full bg-surface flex items-center justify-center text-3xl font-black text-white overflow-hidden">
+                        {externalProfile.iconUrl ? (
+                          <img src={externalProfile.iconUrl} className="w-full h-full object-cover rounded-full" alt="Avatar" />
+                        ) : (
+                          (externalProfile.nome || 'O').charAt(0).toUpperCase()
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                        <h2 className="text-xl sm:text-2xl font-black text-white truncate drop-shadow">{externalProfile.nome || 'Utilizador'}</h2>
+                        {externalProfile.tipoConta === 'ADMIN' ? (
+                          <span className="px-2 py-0.5 rounded-full bg-red-500/20 border border-red-500/40 text-red-400 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                            <Shield className="w-3 h-3" /> ADMIN
+                          </span>
+                        ) : externalProfile.tipoConta === 'pro' ? (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                            <Award className="w-3 h-3" /> PRO TIER
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-gray-500/20 border border-gray-500/40 text-gray-400 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                            <User className="w-3 h-3" /> MEMBRO
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-300 font-medium drop-shadow">Pro Member</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Main Content Area */}
+                <div className="p-6 space-y-6">
+                  
+                  {/* Statistics */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Smartphone className="w-4 h-4 text-secondary" />
+                      <span>Estatísticas de Consumo</span>
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                      {/* Completed Anime */}
+                      <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-center gap-0.5 text-center">
+                        <PlayCircle className="w-4 h-4 text-emerald-400 mx-auto" />
+                        <span className="text-lg font-black text-white mt-1">
+                          {externalProfile.statistics?.totalAnimeCompleted || 0}
+                        </span>
+                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Animes</span>
+                      </div>
+                      {/* Episodes Watched */}
+                      <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-center gap-0.5 text-center">
+                        <Film className="w-4 h-4 text-primary mx-auto" />
+                        <span className="text-lg font-black text-white mt-1">
+                          {externalProfile.statistics?.totalEpisodesWatched || 0}
+                        </span>
+                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Episódios</span>
+                      </div>
+                      {/* Manga Read */}
+                      <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-center gap-0.5 text-center">
+                        <BookOpen className="w-4 h-4 text-secondary mx-auto" />
+                        <span className="text-lg font-black text-white mt-1">
+                          {externalProfile.statistics?.totalMangaRead || 0}
+                        </span>
+                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Capítulos</span>
+                      </div>
+                      {/* Anime Time */}
+                      <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-center gap-0.5 text-center">
+                        <Clock className="w-4 h-4 text-amber-400 mx-auto" />
+                        <span className="text-lg font-black text-white mt-1 truncate">
+                          {externalProfile.statistics?.animeDaysWasted ? `${externalProfile.statistics.animeDaysWasted}d` : '0d'}
+                        </span>
+                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Tempo Anime</span>
+                      </div>
+                      {/* Manga Time */}
+                      <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-center gap-0.5 text-center">
+                        <Clock className="w-4 h-4 text-pink-400 mx-auto" />
+                        <span className="text-lg font-black text-white mt-1 truncate">
+                          {externalProfile.statistics?.mangaDaysWasted ? `${externalProfile.statistics.mangaDaysWasted}d` : '0d'}
+                        </span>
+                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Tempo Mangá</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Achievements */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Award className="w-4 h-4 text-amber-400" />
+                      <span>Conquistas Otaku ({externalProfile.achievements?.length || 0})</span>
+                    </h3>
+                    
+                    {externalProfile.achievements && externalProfile.achievements.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {externalProfile.achievements.map((ua: any) => {
+                          const ach = ua.achievement;
+                          if (!ach) return null;
+                          let borderClass = 'border-white/5 bg-black/40';
+                          if (ach.rarity === 'RARE') borderClass = 'border-cyan-500/20 bg-cyan-500/5';
+                          else if (ach.rarity === 'EPIC') borderClass = 'border-purple-500/20 bg-purple-500/5';
+                          else if (ach.rarity === 'LEGENDARY') borderClass = 'border-amber-500/20 bg-amber-500/5';
+                          else borderClass = 'border-primary/20 bg-primary/5';
+
+                          return (
+                            <div key={ua.id} className={`glass-panel p-3.5 rounded-2xl border flex items-start gap-3 transition-all ${borderClass}`}>
+                              <div className="w-12 h-12 rounded-full bg-white/5 p-1 relative flex items-center justify-center flex-shrink-0">
+                                {ach.badgeImageUrl ? (
+                                  <img src={ach.badgeImageUrl} className="w-full h-full object-contain" alt={ach.name} />
+                                ) : (
+                                  <Award className="w-6 h-6 text-primary" />
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <h5 className="font-bold text-xs sm:text-sm text-white flex items-center gap-1.5 flex-wrap">
+                                  <span>{ach.name}</span>
+                                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-black tracking-wider ${
+                                    ach.rarity === 'RARE' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' :
+                                    ach.rarity === 'EPIC' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
+                                    ach.rarity === 'LEGENDARY' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse' :
+                                    'bg-primary/20 text-primary-light border border-primary/30'
+                                  }`}>
+                                    {ach.rarity}
+                                  </span>
+                                </h5>
+                                <p className="text-[10px] text-gray-500 mt-1 line-clamp-2 leading-tight">{ach.description}</p>
+                                <span className="inline-block text-[8px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 mt-1.5">
+                                  Ganho {new Date(ua.unlockedAt).toLocaleDateString('pt-PT')}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-center py-6 bg-white/5 rounded-2xl border border-white/5 text-xs text-gray-400 italic">
+                        Este utilizador ainda não desbloqueou nenhuma conquista.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            ) : (
+              <div className="p-8 text-center text-on-surface-variant text-sm italic">
+                Erro ao obter dados do utilizador.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

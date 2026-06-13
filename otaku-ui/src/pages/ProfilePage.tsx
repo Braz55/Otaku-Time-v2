@@ -2327,10 +2327,10 @@ const ProfilePage = () => {
       {/* Edit Profile Modal (Avatar and Banner) */}
       {showEditProfileModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="glass-panel w-full max-w-lg p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-primary/10 to-transparent rounded-full blur-2xl"></div>
+          <div className="glass-panel w-full max-w-lg p-6 sm:p-8 rounded-[32px] border border-white/10 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-primary/10 to-transparent rounded-full blur-2xl pointer-events-none"></div>
             
-            <div className="space-y-2">
+            <div className="space-y-2 flex-shrink-0 mb-4">
               <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
                 <Edit3 className="w-6 h-6 text-primary-light" />
                 <span>Editar Informações de Perfil</span>
@@ -2340,121 +2340,123 @@ const ProfilePage = () => {
               </p>
             </div>
 
-            <form onSubmit={handleSaveProfile} className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Nome de Exibição</label>
-                <input 
-                  type="text" 
-                  value={editName}
-                  required
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-primary outline-none transition-all text-sm"
-                  placeholder="O teu nome no perfil"
-                />
-              </div>
-
-              {/* Hidden file inputs */}
-              <input 
-                type="file" 
-                id="avatar-upload-file"
-                accept="image/*"
-                onChange={(e) => handleFileChange(e, 'avatar')}
-                className="hidden"
-              />
-              <input 
-                type="file" 
-                id="banner-upload-file"
-                accept="image/*"
-                onChange={(e) => handleFileChange(e, 'banner')}
-                className="hidden"
-              />
-
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSaveProfile} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto space-y-6 pr-2 custom-scrollbar pb-2">
                 <div className="space-y-2">
-                  <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider flex items-center gap-1.5">Foto de Perfil</label>
-                  <button
-                    type="button"
-                    onClick={() => document.getElementById('avatar-upload-file')?.click()}
-                    className="w-full py-3 px-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold text-xs transition-all flex items-center justify-center gap-2"
-                  >
-                    <Upload className="w-4 h-4 text-primary" />
-                    <span>Importar Foto</span>
-                  </button>
-                  {editIconUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setEditIconUrl('')}
-                      className="w-full py-1 text-center text-[10px] text-red-400 font-bold hover:text-red-300 transition-colors"
-                    >
-                      Remover Foto
-                    </button>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider flex items-center gap-1.5">Banner de Perfil</label>
-                  <button
-                    type="button"
-                    onClick={() => document.getElementById('banner-upload-file')?.click()}
-                    className="w-full py-3 px-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold text-xs transition-all flex items-center justify-center gap-2"
-                  >
-                    <Upload className="w-4 h-4 text-secondary" />
-                    <span>Importar Banner</span>
-                  </button>
-                  {editBannerUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setEditBannerUrl('')}
-                      className="w-full py-1 text-center text-[10px] text-red-400 font-bold hover:text-red-300 transition-colors"
-                    >
-                      Remover Banner
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {editBannerUrl && (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs font-bold text-on-surface-variant">
-                    <span>Posição Vertical do Banner</span>
-                    <span className="text-primary-light font-mono">{editBannerPosition}%</span>
-                  </div>
+                  <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Nome de Exibição</label>
                   <input 
-                    type="range" 
-                    min="0" 
-                    max="100" 
-                    value={editBannerPosition}
-                    onChange={(e) => setEditBannerPosition(Number(e.target.value))}
-                    className="w-full accent-primary bg-black/40 h-2 rounded-lg cursor-pointer"
+                    type="text" 
+                    value={editName}
+                    required
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-primary outline-none transition-all text-sm"
+                    placeholder="O teu nome no perfil"
                   />
-                  <p className="text-[10px] text-gray-500">Desliza para centrar a melhor parte da imagem.</p>
                 </div>
-              )}
 
-              {/* Instant previews */}
-              <div className="p-4 bg-black/40 rounded-2xl border border-white/5 space-y-4">
+                {/* Hidden file inputs */}
+                <input 
+                  type="file" 
+                  id="avatar-upload-file"
+                  accept="image/*"
+                  onChange={(e) => handleFileChange(e, 'avatar')}
+                  className="hidden"
+                />
+                <input 
+                  type="file" 
+                  id="banner-upload-file"
+                  accept="image/*"
+                  onChange={(e) => handleFileChange(e, 'banner')}
+                  className="hidden"
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider flex items-center gap-1.5">Foto de Perfil</label>
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('avatar-upload-file')?.click()}
+                      className="w-full py-3 px-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold text-xs transition-all flex items-center justify-center gap-2"
+                    >
+                      <Upload className="w-4 h-4 text-primary" />
+                      <span>Importar Foto</span>
+                    </button>
+                    {editIconUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setEditIconUrl('')}
+                        className="w-full py-1 text-center text-[10px] text-red-400 font-bold hover:text-red-300 transition-colors"
+                      >
+                        Remover Foto
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider flex items-center gap-1.5">Banner de Perfil</label>
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('banner-upload-file')?.click()}
+                      className="w-full py-3 px-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold text-xs transition-all flex items-center justify-center gap-2"
+                    >
+                      <Upload className="w-4 h-4 text-secondary" />
+                      <span>Importar Banner</span>
+                    </button>
+                    {editBannerUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setEditBannerUrl('')}
+                        className="w-full py-1 text-center text-[10px] text-red-400 font-bold hover:text-red-300 transition-colors"
+                      >
+                        Remover Banner
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 {editBannerUrl && (
-                  <div className="w-full h-24 rounded-xl border border-white/10 overflow-hidden relative">
-                    <img 
-                      src={editBannerUrl} 
-                      alt="Banner Preview" 
-                      className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-                      style={{ objectPosition: `center ${editBannerPosition}%` }}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs font-bold text-on-surface-variant">
+                      <span>Posição Vertical do Banner</span>
+                      <span className="text-primary-light font-mono">{editBannerPosition}%</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="100" 
+                      value={editBannerPosition}
+                      onChange={(e) => setEditBannerPosition(Number(e.target.value))}
+                      className="w-full accent-primary bg-black/40 h-2 rounded-lg cursor-pointer"
                     />
+                    <p className="text-[10px] text-gray-500">Desliza para centrar a melhor parte da imagem.</p>
                   </div>
                 )}
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-surface border border-white/10 overflow-hidden flex items-center justify-center text-lg font-bold text-gray-400">
-                    {editIconUrl ? <img src={editIconUrl} className="w-full h-full object-cover" alt="Preview" /> : (editName ? editName.charAt(0).toUpperCase() : '?')}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-white truncate">{editName || 'Nome de Perfil'}</p>
-                    <p className="text-[10px] text-gray-500 mt-0.5">Pré-visualização do Perfil</p>
+
+                {/* Instant previews */}
+                <div className="p-4 bg-black/40 rounded-2xl border border-white/5 space-y-4">
+                  {editBannerUrl && (
+                    <div className="w-full h-24 rounded-xl border border-white/10 overflow-hidden relative">
+                      <img 
+                        src={editBannerUrl} 
+                        alt="Banner Preview" 
+                        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                        style={{ objectPosition: `center ${editBannerPosition}%` }}
+                      />
+                    </div>
+                  )}
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-surface border border-white/10 overflow-hidden flex items-center justify-center text-lg font-bold text-gray-400">
+                      {editIconUrl ? <img src={editIconUrl} className="w-full h-full object-cover" alt="Preview" /> : (editName ? editName.charAt(0).toUpperCase() : '?')}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-white truncate">{editName || 'Nome de Perfil'}</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">Pré-visualização do Perfil</p>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 border-t border-white/5 pt-4">
+              <div className="flex justify-end gap-3 border-t border-white/5 pt-4 mt-4 flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowEditProfileModal(false)}

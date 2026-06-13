@@ -25,7 +25,7 @@ const SyncIndicator: React.FC = () => {
 };
 
 const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -71,7 +71,11 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
             <div className="flex items-center gap-2">
               {isSyncing && <SyncIndicator />}
               <div className="w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary overflow-hidden cursor-pointer shadow-md shadow-primary/10 hover:scale-105 transition-transform" title="Perfil & Definições" onClick={() => navigate('/profile')}>
-                <span className="material-symbols-outlined text-lg">person</span>
+                {user?.iconUrl ? (
+                  <img src={user.iconUrl} className="w-full h-full object-cover" alt="Profile" />
+                ) : (
+                  <span className="material-symbols-outlined text-lg">person</span>
+                )}
               </div>
             </div>
           </div>

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useMedia } from '../context/MediaContext';
+import { useToast } from '../context/ToastContext';
 import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
 
@@ -16,7 +17,7 @@ interface HeaderProps {
 const SyncIndicator: React.FC = () => {
   return (
     <div className="flex items-center justify-center p-1.5" title="Sincronização em curso...">
-      <svg className="animate-spin w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M12 4V1L8 5L12 9V6C15.31 6 18 8.69 18 12C18 13.01 17.75 13.97 17.3 14.8L18.8 16.3C19.57 15.05 20 13.58 20 12C20 7.58 16.42 4 12 4Z" className="text-primary" fill="currentColor" />
         <path d="M12 18C8.69 18 6 15.31 6 12C6 10.99 6.25 10.03 6.7 9.2L5.2 7.7C4.43 8.95 4 10.42 4 12C4 16.42 7.58 20 12 20V23L16 19L12 15V18Z" className="text-secondary" fill="currentColor" />
       </svg>
@@ -24,15 +25,16 @@ const SyncIndicator: React.FC = () => {
   );
 };
 
-const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
-  const { user, logout } = useAuth();
+const Header: React.FC<HeaderProps> = ({ onShowDashboard }) => {
+  const { user } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
-  const { isViewingDetails } = useMedia();
+  const { searchTerm, setSearchTerm, isSearchOpen, setIsSearchOpen, setIsShowingFavorites } = useMedia();
+  
   const [isSyncing, setIsSyncing] = useState(false);
-
-  const isProfilePage = location.pathname === '/profile';
+  const [mobileSearchActive, setMobileSearchActive] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -56,109 +58,128 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria }) => {
     };
   }, []);
 
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchTerm(val);
+    if (val.trim()) {
+      setIsSearchOpen(true);
+      setIsShowingFavorites(false);
+      if (location.pathname !== '/') navigate('/');
+    }
+  };
+
+  const handleClearMobileSearch = () => {
+    setSearchTerm('');
+    setIsSearchOpen(false);
+    setMobileSearchActive(false);
+  };
+
   return (
     <>
       {isMobile ? (
-        <header className="sticky top-0 z-50 w-full flex flex-col shadow-2xl border-b border-white/10 bg-background">
-          {/* Barra de Cima com pt-10 para evitar colisão com a barra de notificações do Android */}
-          <div className="w-full hero-gradient px-4 pt-10 pb-3 flex justify-between items-center border-b border-white/5 bg-surface/40 backdrop-blur-xl">
-            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigate('/')}>
-              <img src="/logo.png" className="w-8 h-8 rounded-xl shadow-lg border border-white/10 object-cover" alt="Logo" />
-              <h1 className="font-display-lg text-2xl text-primary-light tracking-tight font-black">
-                Otaku-Time
-              </h1>
-            </div>
-            <div className="flex items-center gap-2">
-              {isSyncing && <SyncIndicator />}
-              <div className="w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary overflow-hidden cursor-pointer shadow-md shadow-primary/10 hover:scale-105 transition-transform" title="Perfil & Definições" onClick={() => navigate('/profile')}>
-                {user?.iconUrl ? (
-                  <img src={user.iconUrl} className="w-full h-full object-cover" alt="Profile" />
-                ) : (
-                  <span className="material-symbols-outlined text-lg">person</span>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          {/* Barra de Baixo - Segmented Control Centrado e Estendido */}
-          {!isProfilePage && (
-            <div className="w-full bg-surface/80 backdrop-blur-lg px-4 py-2.5 flex justify-center items-center">
-              <div className={`w-full max-w-sm flex gap-1 bg-surface-variant/60 p-1.5 rounded-full border border-white/10 shadow-inner transition-opacity duration-300 ${isViewingDetails ? 'opacity-80' : ''}`}>
-                <button 
-                  onClick={() => !isViewingDetails && setCategoria('anime')}
-                  disabled={isViewingDetails}
-                  className={`flex-1 py-2 rounded-full font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
-                    categoria === 'anime' 
-                      ? 'bg-primary text-on-primary shadow-lg shadow-primary/30' 
-                      : 'text-on-surface-variant/40'
-                  } ${isViewingDetails ? 'cursor-not-allowed' : 'hover:text-white active:scale-95 scale-[1.02]'}`}
-                  title={isViewingDetails ? 'Cannot change category while viewing details' : ''}
-                >
-                  <span className="material-symbols-outlined text-base">live_tv</span>
-                  <span>Anime</span>
+        /* Top App Bar Mobile */
+        <header className="fixed top-0 left-0 w-full z-50 bg-[#121317]/85 backdrop-blur-xl border-b border-white/10 flex justify-between items-center px-margin-mobile h-16">
+          {mobileSearchActive ? (
+            /* Active mobile search layout */
+            <div className="flex items-center w-full gap-3 animate-in fade-in slide-in-from-right-4 duration-300">
+              <button onClick={handleClearMobileSearch} className="text-primary active:scale-95 transition-transform">
+                <span className="material-symbols-outlined text-xl">arrow_back</span>
+              </button>
+              <input 
+                autoFocus
+                className="w-full bg-deep-gray border-none rounded-full py-1.5 px-4 text-sm text-on-surface focus:ring-1 focus:ring-primary/50 outline-none" 
+                placeholder="Pesquisar anime ou manga..." 
+                type="text"
+                value={searchTerm}
+                onChange={handleSearchChange}
+              />
+              {searchTerm && (
+                <button onClick={() => setSearchTerm('')} className="text-on-surface-variant">
+                  <span className="material-symbols-outlined text-sm">close</span>
                 </button>
-                <button 
-                  onClick={() => !isViewingDetails && setCategoria('manga')}
-                  disabled={isViewingDetails}
-                  className={`flex-1 py-2 rounded-full font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
-                    categoria === 'manga' 
-                      ? 'bg-secondary text-on-secondary shadow-lg shadow-secondary/30' 
-                      : 'text-on-surface-variant/40'
-                  } ${isViewingDetails ? 'cursor-not-allowed' : 'hover:text-white active:scale-95 scale-[1.02]'}`}
-                  title={isViewingDetails ? 'Cannot change category while viewing details' : ''}
+              )}
+            </div>
+          ) : (
+            /* Normal mobile header layout */
+            <>
+              <div className="flex items-center gap-4">
+                <button onClick={() => navigate('/profile')} className="active:scale-95 duration-200 text-primary">
+                  <span className="material-symbols-outlined">menu</span>
+                </button>
+                <h1 
+                  onClick={onShowDashboard}
+                  className="font-display-md text-[22px] font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-vibrant-purple to-electric-magenta tracking-tight cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-base">menu_book</span>
-                  <span>Manga</span>
+                  Otaku-Time
+                </h1>
+              </div>
+              <div className="flex items-center gap-3">
+                {isSyncing && <SyncIndicator />}
+                <button 
+                  onClick={() => { setMobileSearchActive(true); }}
+                  className="active:scale-95 duration-200 text-primary flex items-center justify-center"
+                >
+                  <span className="material-symbols-outlined">search</span>
                 </button>
               </div>
-            </div>
+            </>
           )}
         </header>
       ) : (
-        <header className="sticky top-0 z-50 w-full h-16 bg-surface/60 backdrop-blur-lg border-b border-white/10 shadow-2xl flex justify-between items-center px-4 md:px-margin-desktop gap-2">
-          <div className="hidden sm:flex lg:hidden items-center gap-2.5 cursor-pointer" onClick={() => navigate('/')}>
-            <img src="/logo.png" className="w-8 h-8 rounded-xl shadow-lg border border-white/10 object-cover" alt="Logo" />
-            <h1 className="font-display-md text-display-md text-primary-light tracking-tight font-black">
-              Otaku-Time
-            </h1>
-          </div>
-          
-          {!isProfilePage ? (
-            <div className={`flex gap-1 md:gap-8 bg-surface-variant/40 md:bg-transparent p-1 md:p-0 rounded-full border border-white/5 md:border-none transition-opacity duration-300 ${isViewingDetails ? 'opacity-80' : ''}`}>
-              <button 
-                onClick={() => !isViewingDetails && setCategoria('anime')}
-                disabled={isViewingDetails}
-                className={`font-label-sm md:font-label-md text-label-sm md:text-label-md px-3 md:px-4 py-1 sm:py-1.5 rounded-full transition-all ${
-                  categoria === 'anime' 
-                    ? 'bg-primary/20 text-primary font-bold border border-primary/30 shadow-md shadow-primary/10' 
-                    : 'text-on-surface-variant/40'
-                } ${isViewingDetails ? 'cursor-not-allowed' : 'hover:bg-white/5'}`}
-                title={isViewingDetails ? 'Cannot change category while viewing details' : ''}
-              >
-                Anime
-              </button>
-              <button 
-                onClick={() => !isViewingDetails && setCategoria('manga')}
-                disabled={isViewingDetails}
-                className={`font-label-sm md:font-label-md text-label-sm md:text-label-md px-3 md:px-4 py-1 sm:py-1.5 rounded-full transition-all ${
-                  categoria === 'manga' 
-                    ? 'bg-secondary/20 text-secondary font-bold border border-secondary/30 shadow-md shadow-secondary/10' 
-                    : 'text-on-surface-variant/40'
-                } ${isViewingDetails ? 'cursor-not-allowed' : 'hover:bg-white/5'}`}
-                title={isViewingDetails ? 'Cannot change category while viewing details' : ''}
-              >
-                Manga
-              </button>
+        /* TopAppBar Desktop */
+        <header className="fixed top-0 right-0 w-full md:w-[calc(100%-16rem)] z-40 bg-[#121317]/80 backdrop-blur-2xl border-b border-border-glass h-20 flex justify-between items-center px-6 md:px-margin-desktop">
+          {/* Search Bar */}
+          <div className="flex items-center flex-1 max-w-xl">
+            <div className="relative w-full focus-within:ring-2 focus-within:ring-primary/50 rounded-full transition-all">
+              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+              <input 
+                className="w-full bg-deep-gray border-none rounded-full py-2.5 pl-12 pr-4 text-sm text-on-surface focus:ring-0 placeholder:text-outline-variant outline-none" 
+                placeholder="Pesquisar anime ou manga..." 
+                type="text"
+                value={searchTerm}
+                onChange={handleSearchChange}
+              />
+              {searchTerm && (
+                <button 
+                  onClick={() => { setSearchTerm(''); if (isSearchOpen) setIsSearchOpen(false); }} 
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-white"
+                >
+                  <span className="material-symbols-outlined text-sm">close</span>
+                </button>
+              )}
             </div>
-          ) : (
-            <div />
-          )}
+          </div>
 
-          <div className="flex items-center gap-4">
+          {/* Actions Menu */}
+          <div className="flex items-center gap-6 ml-6">
             {isSyncing && <SyncIndicator />}
-            <button onClick={logout} className="p-2 text-on-surface-variant hover:text-red-400 hover:bg-white/5 rounded-full transition-colors" title="Logout">
-              <span className="material-symbols-outlined">logout</span>
+            
+            <button 
+              onClick={() => showToast("Não tens notificações pendentes.", "info")}
+              className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+            >
+              notifications
             </button>
+            
+            <button 
+              onClick={() => navigate('/profile')}
+              className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+            >
+              settings
+            </button>
+            
+            <div 
+              onClick={() => navigate('/profile')}
+              className="w-10 h-10 rounded-full overflow-hidden border-2 border-primary/30 cursor-pointer hover:border-primary transition-colors shadow-md flex-shrink-0"
+            >
+              {user?.iconUrl ? (
+                <img alt="User Profile" className="w-full h-full object-cover" src={user.iconUrl} />
+              ) : (
+                <div className="w-full h-full bg-primary/20 flex items-center justify-center text-primary">
+                  <span className="material-symbols-outlined text-lg">person</span>
+                </div>
+              )}
+            </div>
           </div>
         </header>
       )}

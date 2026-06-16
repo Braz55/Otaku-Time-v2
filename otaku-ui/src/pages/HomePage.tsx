@@ -10,11 +10,11 @@ import { useIsMobile } from '../hooks/useIsMobile';
 
 const MangaWebView = registerPlugin<any>('MangaWebView');
 
-const GENRES = [
-  "Action", "Adventure", "Comedy", "Drama", "Fantasy", 
-  "Horror", "Mecha", "Mystery", "Psychological", "Romance", 
-  "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"
-];
+// const GENRES = [
+//   "Action", "Adventure", "Comedy", "Drama", "Fantasy", 
+//   "Horror", "Mecha", "Mystery", "Psychological", "Romance", 
+//   "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"
+// ];
 
 const TRACKING_STATUS_OPTIONS = [
   { value: 'WATCHING', animeLabel: 'Watching', mangaLabel: 'Reading' },
@@ -37,10 +37,10 @@ const PRIORITY_OPTIONS = [
   { num: 10, label: 'P10', desc: 'Backlog', colorClass: 'bg-slate-600/10 border-slate-600/50 text-slate-500', starColor: 'text-slate-500', badgeClass: 'bg-slate-600/10 border-slate-600/30 text-slate-500' },
 ];
 
-const getPriorityBadgeClass = (priority?: number | null) => {
-  const opt = PRIORITY_OPTIONS.find(o => o.num === priority);
-  return opt ? opt.badgeClass : 'bg-yellow-100/10 border-yellow-100/30 text-yellow-50';
-};
+// const getPriorityBadgeClass = (priority?: number | null) => {
+//   const opt = PRIORITY_OPTIONS.find(o => o.num === priority);
+//   return opt ? opt.badgeClass : 'bg-yellow-100/10 border-yellow-100/30 text-yellow-50';
+// };
 
 const getPriorityStarColor = (priority?: number | null) => {
   const opt = PRIORITY_OPTIONS.find(o => o.num === priority);
@@ -81,7 +81,7 @@ type MediaComment = {
 const HomePage = () => {
   const { user, token } = useAuth();
   const { showToast } = useToast();
-  const { categoria, setCategoria, isShowingFavorites, setIsShowingFavorites, isSearchOpen, homeTrigger, setIsViewingDetails } = useMedia();
+  const { categoria, setCategoria, isShowingFavorites, setIsShowingFavorites, isSearchOpen, searchTerm, homeTrigger, setIsViewingDetails, triggerHome } = useMedia();
   const isMobile = useIsMobile();
   const [termoPesquisa, setTermoPesquisa] = useState('');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
@@ -124,11 +124,11 @@ const HomePage = () => {
   const [isAddingToLibrary, setIsAddingToLibrary] = useState(false);
 
   const [filtroStatus, setFiltroStatus] = useState<string>('ALL');
-  const [filtroLancamento, setFiltroLancamento] = useState<string>('ALL');
-  const [ordenacao, setOrdenacao] = useState<string>('PRIORITY');
-  const [showLancamentoMenu, setShowLancamentoMenu] = useState(false);
-  const [showOrdemMenu, setShowOrdemMenu] = useState(false);
-  const [showGenres, setShowGenres] = useState(false);
+  const [filtroLancamento] = useState<string>('ALL');
+  const [ordenacao] = useState<string>('PRIORITY');
+  // const [showLancamentoMenu, setShowLancamentoMenu] = useState(false);
+  // const [showOrdemMenu, setShowOrdemMenu] = useState(false);
+  // const [showGenres, setShowGenres] = useState(false);
 
   const getHeaders = () => ({
     'Content-Type': 'application/json',
@@ -791,6 +791,15 @@ const HomePage = () => {
     setShowAddLink(false);
   };
 
+  const eliminarLinkPessoal = async (siteName: string) => {
+    if (selectedItem.isExternal) return;
+    const links = selectedItem.linksPersonalizados ? JSON.parse(selectedItem.linksPersonalizados) : [];
+    const filtrados = links.filter((l: any) => l.site !== siteName);
+    const jsonStr = JSON.stringify(filtrados);
+    await atualizarCampo('linksPersonalizados', jsonStr);
+    showToast('Link personalizado removido.', 'success');
+  };
+
   useEffect(() => {
     consultarMinhaLista();
     carregarDashboard();
@@ -805,6 +814,37 @@ const HomePage = () => {
       setHasMoreResults(false);
     }
   }, [isSearchOpen]);
+
+  useEffect(() => {
+    if (searchTerm.trim()) {
+      setTermoPesquisa(searchTerm);
+      const delayDebounceFn = setTimeout(() => {
+        const pesquisarComTermo = async (term: string) => {
+          setLoading(true);
+          setSearchPage(1);
+          setIsShowingFavorites(false);
+          const url = `${API_BASE_URL}/${categoria}/search/${encodeURIComponent(term)}?page=1`;
+          try {
+            const response = await customFetch(url, { headers: getHeaders() });
+            const data = await response.json();
+            const items = Array.isArray(data) ? data : [];
+            setHasMoreResults(items.length === 24);
+            setResultadosPesquisa(items);
+            setSearchPage(1);
+          } catch (error) {
+            console.error("Erro ao pesquisar:", error);
+          } finally {
+            setLoading(false);
+          }
+        };
+        pesquisarComTermo(searchTerm);
+      }, 350);
+      return () => clearTimeout(delayDebounceFn);
+    } else {
+      setResultadosPesquisa([]);
+      setTermoPesquisa('');
+    }
+  }, [searchTerm, categoria]);
 
   useEffect(() => {
     setView('home');
@@ -954,361 +994,345 @@ const HomePage = () => {
     );
   };
 
+  // const totalEpsNum = selectedItem ? (categoria === 'anime' 
+  //   ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 0)) 
+  //   : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 0)))
+  // : 0;
+
   return (
-    <div className="max-w-7xl mx-auto px-1 sm:px-4 py-2 sm:py-10">
+    <div className="max-w-7xl mx-auto px-margin-mobile md:px-margin-desktop py-4 md:py-8">
       {view === 'home' ? (
-        <div className="w-full">
-          {/* Search Section */}
-          {isSearchOpen && (
-            <section className="animate-in slide-in-from-top-4 duration-500 mb-8 sm:mb-10 space-y-4 sm:space-y-6">
-              {/* Título fora da caixa em linha única */}
-              <div className="text-center px-1 sm:px-0 mt-2 sm:mt-0">
-                <h2 className="text-xl sm:text-3xl md:text-4xl font-black text-primary-light tracking-tight truncate">
-                  Search your favorite <span className={categoria === 'anime' ? 'text-primary' : 'text-secondary'}>{categoria === 'anime' ? 'Animes' : 'Mangas'}</span>
-                </h2>
+        <div className="w-full space-y-8 md:space-y-12">
+          
+          {/* Search Results Grid */}
+          {isSearchOpen ? (
+            <section className="space-y-6 animate-in fade-in duration-500">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-primary font-black animate-pulse">auto_awesome</span>
+                  <h3 className="font-headline-lg text-xl md:text-2xl text-white">
+                    Resultados da Pesquisa {selectedGenre ? `- ${selectedGenre}` : ''}
+                  </h3>
+                </div>
+                {loading && <Loader2 className="w-5 h-5 text-primary animate-spin" />}
               </div>
 
-              {/* Caixa com a barra de pesquisa e os filtros */}
-              <div className="py-4 sm:py-6 px-2 sm:px-6 md:px-12 hero-gradient rounded-2xl sm:rounded-[32px] border border-white/10 shadow-2xl relative overflow-hidden w-full">
-                <div className="absolute inset-0 bg-gradient-to-r from-secondary/15 via-secondary-light/5 to-transparent blur-3xl"></div>
-                <div className="max-w-5xl mx-auto space-y-3 sm:space-y-5 relative z-10">
-                  <div className={`glass-panel p-1 sm:p-1.5 rounded-xl sm:rounded-2xl flex items-center shadow-lg group focus-within:ring-2 ${categoria === 'anime' ? 'ring-primary/50' : 'ring-secondary/50'} transition-all bg-surface/80 backdrop-blur-xl border border-white/10 max-w-4xl mx-auto`}>
-                    <span className="material-symbols-outlined px-2 sm:px-4 text-on-surface-variant group-focus-within:text-white text-base sm:text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>search</span>
-                    <input 
-                      className="bg-transparent border-none focus:ring-0 w-full py-2 sm:py-3 text-on-surface font-body-sm sm:font-body-md text-body-sm sm:text-body-md placeholder:text-outline-variant outline-none" 
-                      placeholder={`Search for ${categoria} titles...`} 
-                      type="text"
-                      value={termoPesquisa}
-                      onChange={(e) => setTermoPesquisa(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { setSelectedGenre(null); pesquisar(); } }}
-                    />
-                    <button 
-                      onClick={() => { setSelectedGenre(null); pesquisar(); }} 
-                      className={`${categoria === 'anime' ? 'bg-primary hover:bg-primary/80 text-on-primary' : 'bg-secondary hover:bg-secondary/80 text-on-secondary'} px-4 sm:px-8 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl font-bold hover:scale-105 active:scale-95 transition-all shadow-md text-xs sm:text-sm`}
+              {/* Grid de Resultados */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6">
+                {resultadosPesquisa.length > 0 ? (
+                  resultadosPesquisa.map((item) => (
+                    <div 
+                      key={item.id} 
+                      className="group cursor-pointer space-y-2" 
+                      onClick={() => abrirDetalhes(item.id, true, categoria)}
                     >
-                      Search
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={sorteioAleatorioGlobal}
-                      className={`${categoria === 'anime' ? 'bg-secondary hover:bg-secondary/80 text-on-secondary shadow-lg shadow-secondary/20' : 'bg-primary hover:bg-primary/80 text-on-primary shadow-lg shadow-primary/20'} p-2 sm:p-3 rounded-lg sm:rounded-xl font-bold hover:scale-105 active:scale-95 transition-all shadow-md flex items-center justify-center ml-2`}
-                      title="Sorteio Aleatório Global (AniList)"
-                    >
-                      <span className="material-symbols-outlined text-base sm:text-lg">casino</span>
-                    </button>
-                  </div>
-
-                  {/* Genre Accordion for Mobile / Cloud for Desktop */}
-                  <div className="pt-1 sm:pt-2 max-w-4.5xl mx-auto px-1">
-                    {isMobile ? null : (
-                      /* VERSÃO WEB PC: Layout original com botão de expandir no mobile e lista completa no desktop */
-                      <>
-                        <div className="md:hidden flex justify-center mb-2.5">
-                          <button 
-                            onClick={() => setShowGenres(!showGenres)}
-                            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full glass-panel border ${showGenres ? (categoria === 'anime' ? 'border-secondary/50 bg-secondary/10 text-secondary shadow-[0_0_15px_rgba(194,24,91,0.2)]' : 'border-primary/50 bg-primary/10 text-primary shadow-[0_0_15px_rgba(106,27,154,0.2)]') : 'border-white/10 bg-surface-variant/40 hover:bg-surface-variant text-on-surface-variant hover:text-white'} text-[11px] font-bold shadow-md backdrop-blur-md transition-all active:scale-95`}
-                          >
-                            <span className="material-symbols-outlined text-xs text-primary">sell</span>
-                            <span>{showGenres ? 'Hide Genres' : `🏷️ Filter by Genre (${GENRES.length})`}</span>
-                            <span className={`material-symbols-outlined text-xs transition-transform duration-300 ${showGenres ? 'rotate-180' : ''}`}>expand_more</span>
-                          </button>
-                        </div>
-
-                        <div className={`flex flex-wrap justify-center gap-1 sm:gap-2 transition-all duration-300 ${showGenres ? 'max-h-[500px] opacity-100 py-1.5' : 'max-h-0 opacity-0 overflow-hidden md:max-h-[500px] md:opacity-100 md:overflow-visible md:py-1'}`}>
-                          {GENRES.map((g) => (
-                            <span 
-                              key={g} 
-                              onClick={() => { pesquisarPorGenero(g); setShowGenres(false); }} 
-                              className={`px-3 py-1 rounded-lg border text-[10px] sm:text-xs font-bold transition-all cursor-pointer shadow-sm whitespace-nowrap ${selectedGenre === g ? (categoria === 'anime' ? 'bg-primary border-primary text-on-primary shadow-[0_0_12px_rgba(194,24,91,0.4)]' : 'bg-secondary border-secondary text-on-secondary shadow-[0_0_12px_rgba(106,27,154,0.4)]') : 'bg-surface-variant/30 border-white/5 hover:bg-white/10 hover:border-white/20 text-on-surface-variant hover:text-white'}`}
-                            >
-                              {g}
-                            </span>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Content Sections */}
-          <div className="px-2 sm:px-4 md:px-10 space-y-8 sm:space-y-16 mt-2 sm:mt-8 pb-10">
-            {/* Dashboard Queue */}
-            {(!isShowingFavorites && !isSearchOpen) && (
-              <section className="space-y-8 sm:space-y-12">
-                {isMobile ? null : (
-                  <div className="text-center py-12 hero-gradient rounded-[40px] border border-white/10 shadow-2xl p-8 mb-12 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-secondary/15 via-secondary-light/5 to-transparent blur-3xl"></div>
-                    <h2 className="text-5xl md:text-7xl font-black text-secondary-light tracking-tight mb-4 relative z-10">
-                      Otaku-Time
-                    </h2>
-                    <p className="text-on-surface-variant text-lg max-w-xl mx-auto relative z-10 font-medium">
-                      Your premium portal for tracking Anime and Manga.
-                    </p>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between px-1 sm:px-0">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <span className="material-symbols-outlined text-primary text-2xl sm:text-3xl animate-pulse drop-shadow-[0_0_12px_rgba(194,24,91,0.6)]" style={{ fontVariationSettings: "'FILL' 1" }}>play_circle</span>
-                    <h3 className="font-display-lg text-2xl sm:text-3xl font-black text-primary-light tracking-tight">Up Next</h3>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                  {/* Anime Column */}
-                  <div className={`space-y-3 sm:space-y-4 ${categoria === 'anime' ? 'block' : 'hidden'} md:block`}>
-                    <h4 className="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-1.5 px-1 sm:px-0">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span> Continue Watching
-                    </h4>
-                    {animesDashboard.length > 0 ? animesDashboard.map(item => {
-                      const status = item.anime?.statusLancamento || item.statusLancamento;
-                      const proxEp = item.anime?.proximoEpisodio || item.proximoEpisodio;
-                      const numTotal = item.anime?.numEpisodiosTotal || item.numEpisodiosTotal;
-                      const totalEp = (status === 'RELEASING' && proxEp) ? proxEp - 1 : (numTotal || '?');
-                      const epQueVouVer = (item.epAtual || 0) + 1;
-                      const numDisponiveis = typeof totalEp === 'number' ? totalEp - epQueVouVer : 0;
-                      const progressoPercentual = typeof totalEp === 'number' && totalEp > 0 ? ((item.epAtual || 0) / totalEp) * 100 : (((item.epAtual || 0) / ((item.epAtual || 0) + 1)) * 100);
-                      return (
-                        <div key={item.id} className="glass-panel p-2.5 sm:p-4 rounded-2xl sm:rounded-3xl flex gap-2.5 sm:gap-4 hover:bg-white/5 transition-all group relative overflow-hidden border border-white/5 hover:border-secondary/30">
-                          <div className="w-18 sm:w-24 h-26 sm:h-32 rounded-lg sm:rounded-xl overflow-hidden flex-shrink-0 cursor-pointer" onClick={() => abrirDetalhes(item.id, false, 'anime')}>
-                            <img src={item.anime?.capaUrl || item.capaUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
+                      <div className="relative aspect-[2/3] rounded-2xl overflow-hidden glass-panel border border-white/5 hover:border-primary/50 transition-all duration-300 group-hover:scale-[1.02] group-hover:-translate-y-1 shadow-lg">
+                        <img src={item.coverImage.large} className="w-full h-full object-cover" alt="" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity"></div>
+                        
+                        {/* Hover Overlay Button (Desktop Only) */}
+                        {!isMobile && (
+                          <div className="absolute inset-0 flex items-end p-4 opacity-0 group-hover:opacity-100 transition-opacity bg-black/45">
+                            <button className="w-full py-2 rounded-xl bg-primary text-white font-label-md text-xs font-bold shadow-lg">
+                              Detalhes
+                            </button>
                           </div>
-                          <div className="flex-1 flex flex-col justify-between py-0.5 sm:py-1 min-w-0">
-                            <div className="cursor-pointer min-w-0" onClick={() => abrirDetalhes(item.id, false, 'anime')}>
-                              <h5 className="font-bold text-base sm:text-lg line-clamp-1 group-hover:text-primary-light transition-colors truncate">{item.anime?.titulo || item.titulo}</h5>
-                              <p className="text-xs sm:text-sm text-on-surface-variant font-medium flex items-center gap-1.5 mt-0.5">
-                                <span>Ep {epQueVouVer}</span>
-                                {numDisponiveis > 0 ? <span className="text-[10px] sm:text-xs text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.2 rounded-full font-bold whitespace-nowrap">+{numDisponiveis} avail</span> : ''}
-                              </p>
-                            </div>
-                            <div className="space-y-2.5 sm:space-y-3 mt-2">
-                              <div className="w-full h-1.5 sm:h-2 bg-white/10 rounded-full overflow-hidden border border-white/5 shadow-inner">
-                                <div className="h-full bg-primary shadow-md transition-all duration-500" style={{ width: `${item.epAtual > 0 ? Math.max(5, Math.min(progressoPercentual, 100)) : 0}%` }}></div>
-                              </div>
-                              <div className="flex gap-2">
-                                <button 
-                                  onClick={() => marcarComoVisto(item, 'anime')} 
-                                  disabled={savingItems[item.id]}
-                                  className="w-full py-1.5 sm:py-2 bg-primary/10 border border-primary/20 text-primary text-[11px] sm:text-xs font-bold rounded-lg sm:rounded-xl hover:bg-primary hover:text-on-primary transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  {savingItems[item.id] ? (
-                                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                                  ) : (
-                                    <span>Mark as Watched</span>
-                                  )}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
+                        )}
+                        
+                        <div className="absolute bottom-3 left-3 right-3 z-10">
+                          <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-bold mb-1.5 ${categoria === 'anime' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary'}`}>
+                            {categoria.toUpperCase()}
+                          </span>
+                          <p className="font-bold text-xs text-white line-clamp-1">{item.title.english || item.title.romaji}</p>
                         </div>
-                      );
-                    }) : <p className="text-on-surface-variant text-xs sm:text-sm italic px-1 sm:px-0">No anime in progress...</p>}
-                  </div>
-
-                  {/* Manga Column */}
-                  <div className={`space-y-3 sm:space-y-4 ${categoria === 'manga' ? 'block' : 'hidden'} md:block`}>
-                    <h4 className="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-secondary flex items-center gap-1.5 px-1 sm:px-0">
-                      <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span> Continue Reading
-                    </h4>
-                    {mangasDashboard.length > 0 ? mangasDashboard.map(item => {
-                      const status = item.manga?.statusLancamento || item.statusLancamento;
-                      const proxCap = item.manga?.proximoCapituloNumero || item.proximoCapituloNumero;
-                      const numTotal = item.manga?.numCapitulosTotal || item.numCapitulosTotal;
-                      const totalCap = (status === 'RELEASING' && proxCap) ? proxCap - 1 : (numTotal || '?');
-                      const capQueVouLer = (item.capAtual || 0) + 1;
-                      const numDisponiveis = typeof totalCap === 'number' ? totalCap - capQueVouLer : 0;
-                      const progressoPercentual = typeof totalCap === 'number' && totalCap > 0 ? ((item.capAtual || 0) / totalCap) * 100 : (((item.capAtual || 0) / ((item.capAtual || 0) + 1)) * 100);
-                      return (
-                        <div key={item.id} className="glass-panel p-2.5 sm:p-4 rounded-2xl sm:rounded-3xl flex gap-2.5 sm:gap-4 hover:bg-white/5 transition-all group relative overflow-hidden border border-white/5 hover:border-primary/30">
-                          <div className="w-18 sm:w-24 h-26 sm:h-32 rounded-lg sm:rounded-xl overflow-hidden flex-shrink-0 cursor-pointer" onClick={() => abrirDetalhes(item.id, false, 'manga')}>
-                            <img src={item.manga?.capaUrl || item.capaUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
-                          </div>
-                          <div className="flex-1 flex flex-col justify-between py-0.5 sm:py-1 min-w-0">
-                            <div className="cursor-pointer min-w-0" onClick={() => abrirDetalhes(item.id, false, 'manga')}>
-                              <h5 className="font-bold text-base sm:text-lg line-clamp-1 group-hover:text-secondary-light transition-colors truncate">{item.manga?.titulo || item.titulo}</h5>
-                              <p className="text-xs sm:text-sm text-on-surface-variant font-medium flex items-center gap-1.5 mt-0.5">
-                                <span>Ch {capQueVouLer}</span>
-                                {numDisponiveis > 0 ? <span className="text-[10px] sm:text-xs text-secondary bg-secondary/10 border border-secondary/20 px-1.5 py-0.2 rounded-full font-bold whitespace-nowrap">+{numDisponiveis} avail</span> : ''}
-                              </p>
-                            </div>
-                            <div className="space-y-2.5 sm:space-y-3 mt-2">
-                              <div className="w-full h-1.5 sm:h-2 bg-white/10 rounded-full overflow-hidden border border-white/5 shadow-inner">
-                                <div className="h-full bg-secondary shadow-md transition-all duration-500" style={{ width: `${item.capAtual > 0 ? Math.max(5, Math.min(progressoPercentual, 100)) : 0}%` }}></div>
-                              </div>
-                              <div className="flex gap-2">
-                                <button 
-                                  onClick={() => marcarComoVisto(item, 'manga')} 
-                                  disabled={savingItems[item.id]}
-                                  className="w-full py-1.5 sm:py-2 bg-secondary/10 border border-secondary/20 text-secondary text-[11px] sm:text-xs font-bold rounded-lg sm:rounded-xl hover:bg-secondary hover:text-on-secondary transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  {savingItems[item.id] ? (
-                                    <Loader2 className="w-4 h-4 animate-spin text-secondary" />
-                                  ) : (
-                                    <span>Mark as Read</span>
-                                  )}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }) : <p className="text-on-surface-variant text-xs sm:text-sm italic px-1 sm:px-0">No manga in progress...</p>}
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {/* Library Grid */}
-            {(isShowingFavorites && !isSearchOpen) && (
-              <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 relative z-50">
-                <div className="flex flex-col space-y-6 border-b border-white/10 pb-6 relative z-50">
-                  <div className="flex items-center justify-between gap-4 px-1 sm:px-0">
-                    <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                      <span className="material-symbols-outlined text-primary text-3xl sm:text-4xl md:text-5xl flex-shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>video_library</span>
-                      <div className="min-w-0">
-                        <h2 className="text-2xl sm:text-4xl md:text-5xl font-black text-primary-light tracking-tight capitalize mb-0.5 sm:mb-1 truncate">
-                          Library ({categoria})
-                        </h2>
-                        <p className="text-xs sm:text-base text-on-surface-variant font-medium">
-                          {(() => {
-                            const filtrados = resultadosDB.filter(item => {
-                              if (filtroStatus !== 'ALL' && item.status !== filtroStatus) return false;
-                              const statusLancamento = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
-                              if (filtroLancamento !== 'ALL' && statusLancamento !== filtroLancamento) return false;
-                              return true;
-                            });
-                            return `Showing ${filtrados.length} of ${resultadosDB.length} saved titles`;
-                          })()}
-                        </p>
                       </div>
                     </div>
-                    <button
-                      onClick={sorteioAleatorioBiblioteca}
-                      className={`flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-3 rounded-xl sm:rounded-2xl font-black text-[11px] sm:text-xs transition-all active:scale-95 shadow-lg flex-shrink-0 border ${
-                        categoria === 'anime' 
-                          ? 'bg-secondary/20 hover:bg-secondary text-secondary hover:text-white border-secondary/35 shadow-secondary/5' 
-                          : 'bg-primary/20 hover:bg-primary text-primary hover:text-white border-primary/35 shadow-primary/5'
-                      }`}
-                      title="Sorteio Aleatório da Biblioteca (Planeados)"
-                    >
-                      <span className="material-symbols-outlined text-sm sm:text-base">shuffle</span>
-                      <span>Sorteio Planeado</span>
-                    </button>
-                  </div>
+                  ))
+                ) : !loading && (
+                  <p className="col-span-full text-center text-on-surface-variant py-10 italic">Nenhum resultado encontrado.</p>
+                )}
+              </div>
 
-                  {/* Filters & Sorting Controls */}
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-surface-variant/20 p-1.5 sm:p-2 rounded-xl sm:rounded-2xl border border-white/5 backdrop-blur-md w-full sm:w-fit relative z-50">
-                    {/* Status Filter */}
-                    <div className="flex flex-wrap items-center gap-1 bg-background/50 p-1 rounded-lg sm:rounded-xl border border-white/5 w-full sm:w-auto justify-center">
-                      {[
-                        { id: 'ALL', label: 'All' },
-                        { id: 'WATCHING', label: categoria === 'anime' ? 'Watching' : 'Reading' },
-                        { id: 'COMPLETED', label: 'Completed' },
-                        { id: 'PLANNED', label: 'Planned' },
-                        { id: 'PAUSED', label: 'Paused' },
-                        { id: 'DROPPED', label: 'Dropped' },
-                      ].map(tab => (
-                        <button
-                          key={tab.id}
-                          onClick={() => setFiltroStatus(tab.id)}
-                          className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg text-[11px] sm:text-xs font-bold transition-all flex-1 sm:flex-initial text-center ${filtroStatus === tab.id ? (categoria === 'anime' ? 'bg-secondary/20 text-secondary border border-secondary/40 shadow-[0_0_15px_rgba(194,24,91,0.2)]' : 'bg-primary/20 text-primary border border-primary/40 shadow-[0_0_15px_rgba(106,27,154,0.2)]') : 'text-on-surface-variant hover:text-white hover:bg-white/5'}`}
+              {/* Load More Button */}
+              {hasMoreResults && (
+                <div className="flex justify-center pt-8 pb-4">
+                  <button 
+                    onClick={carregarMais} 
+                    disabled={loadingMore} 
+                    className={`px-8 py-3 rounded-2xl font-bold flex items-center gap-3 border transition-all shadow-lg ${
+                      categoria === 'anime' 
+                        ? 'bg-primary/20 hover:bg-primary border-primary/30 text-primary hover:text-on-primary' 
+                        : 'bg-secondary/20 hover:bg-secondary border-secondary/30 text-secondary hover:text-on-secondary'
+                    }`}
+                  >
+                    {loadingMore ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        A carregar...
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined">expand_more</span>
+                        Carregar Mais
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </section>
+          ) : (
+            
+            /* Dashboard Home View */
+            <div className="w-full space-y-8 md:space-y-12">
+              
+              {/* 1. Hero Banner */}
+              {(() => {
+                const dashboardItems = categoria === 'anime' ? animesDashboard : mangasDashboard;
+                const featured = dashboardItems[0];
+                
+                // Banner Static or Dynamic
+                const heroCover = featured 
+                  ? (featured.anime?.capaUrl || featured.manga?.capaUrl || featured.capaUrl) 
+                  : "https://lh3.googleusercontent.com/aida-public/AB6AXuAdtT1AIxrRwBQnzU-fRoU_CPtKD9Xg1BvY8Y0s8RmV9b72bUNwYypAj6y1bSs3zGLoHsC42HBjrc-vfOd-GCn8zJ7t7_bAD64gVr-zkqRjmztIwOu65eWLmgtjLa7JAfnvqQfYW8zyifOI02asFkKaoqhR5efMIXzhP1VCrztKNkT-VnbHIY6U8jNEjGTUgZ2KmPbTyk_yFAVbf66hQw16YdK6fz4WhziI1BJhuQPEW8mcUT8GLAug_FE1_g-JhwikhX1qCIAflXZZ";
+                
+                const heroTitle = featured ? (featured.anime?.titulo || featured.manga?.titulo || featured.titulo) : "Cyberpunk: Edgerunners";
+                const heroDesc = featured ? (featured.anime?.sinopse || featured.manga?.sinopse || featured.descricao || "Continua a acompanhar o teu anime favorito na lista.") : "Numa distopia mergulhada em corrupção e implantes cibernéticos, um talentoso miúdo de rua decide tornar-se um fora da lei.";
+                
+                return (
+                  <section className={`relative rounded-3xl overflow-hidden glass-panel rim-light group ${isMobile ? 'h-[460px]' : 'h-[360px] md:h-[400px]'}`}>
+                    <div className="absolute inset-0">
+                      <img 
+                        src={heroCover} 
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+                        alt="Hero background" 
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-r from-surface-dim via-surface-dim/60 to-transparent"></div>
+                      {isMobile && (
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#0F1014] via-transparent to-transparent"></div>
+                      )}
+                    </div>
+                    <div className="absolute bottom-0 left-0 p-6 md:p-12 max-w-2xl space-y-4 z-10">
+                      <span className="inline-block px-3 py-1 rounded-full bg-electric-magenta text-white font-label-sm text-[10px] uppercase tracking-wider font-bold">
+                        {featured ? 'EM DESTAQUE NA TUA LISTA' : 'DESTAQUE DA SEMANA'}
+                      </span>
+                      <h2 className="font-display-lg text-2xl md:text-[40px] text-white leading-tight font-black">{heroTitle}</h2>
+                      <p className="font-body-lg text-sm md:text-base text-on-surface-variant line-clamp-2 leading-relaxed">
+                        {heroDesc}
+                      </p>
+                      <div className="flex gap-3 pt-2">
+                        <button 
+                          onClick={() => featured ? abrirDetalhes(featured.id, false, categoria) : showToast("Procura por Cyberpunk na barra superior!", "info")}
+                          className="px-6 py-3 rounded-xl bg-vibrant-purple text-white font-label-md text-xs font-bold hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
                         >
-                          {tab.label}
+                          <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span> 
+                          Assistir Agora
                         </button>
-                      ))}
+                        <button 
+                          onClick={() => setIsShowingFavorites(true)}
+                          className="px-6 py-3 rounded-xl glass-panel text-white font-label-md text-xs font-bold hover:bg-white/10 transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined">add</span> Lista
+                        </button>
+                      </div>
                     </div>
+                  </section>
+                );
+              })()}
 
-                    {/* Release Status Custom Dropdown */}
-                    <div className="relative z-50 flex-1 sm:flex-initial min-w-[140px]">
-                      <button
-                        onClick={() => { setShowLancamentoMenu(!showLancamentoMenu); setShowOrdemMenu(false); }}
-                        className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-background/50 hover:bg-white/5 border border-white/5 text-[11px] sm:text-xs font-bold text-white transition-all shadow-sm w-full"
-                      >
-                        <span className="material-symbols-outlined text-xs sm:text-sm text-on-surface-variant flex-shrink-0">sensors</span>
-                        <span className="truncate">
-                          {filtroLancamento === 'ALL' ? 'Release: All' :
-                           filtroLancamento === 'RELEASING' ? 'Release: Releasing' :
-                           filtroLancamento === 'FINISHED' ? 'Release: Finished' :
-                           filtroLancamento === 'HIATUS' ? 'Release: Hiatus' : 'Release: Cancelled'}
-                        </span>
-                        <span className="material-symbols-outlined text-xs sm:text-sm text-on-surface-variant ml-auto">expand_more</span>
-                      </button>
-
-                      {showLancamentoMenu && (
-                        <>
-                          <div className="fixed inset-0 z-40" onClick={() => setShowLancamentoMenu(false)}></div>
-                          <div className="absolute top-full mt-2 left-0 w-48 bg-slate-950 border border-slate-800 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.95)] p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-200">
-                            {[
-                              { id: 'ALL', label: 'All' },
-                              { id: 'RELEASING', label: 'Releasing' },
-                              { id: 'FINISHED', label: 'Finished' },
-                              { id: 'HIATUS', label: 'Hiatus' },
-                              { id: 'CANCELLED', label: 'Cancelled' },
-                            ].map(opt => (
-                              <button
-                                key={opt.id}
-                                onClick={() => { setFiltroLancamento(opt.id); setShowLancamentoMenu(false); }}
-                                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${filtroLancamento === opt.id ? (categoria === 'anime' ? 'bg-secondary/20 text-secondary border border-secondary/30 shadow-sm' : 'bg-primary/20 text-primary border border-primary/30 shadow-sm') : 'text-on-surface-variant hover:text-white hover:bg-slate-900/50'}`}
-                              >
-                                <span>{opt.label}</span>
-                                {filtroLancamento === opt.id && (
-                                  <span className="material-symbols-outlined text-sm">check</span>
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Sorting Custom Dropdown */}
-                    <div className="relative z-50 flex-1 sm:flex-initial min-w-[140px]">
-                      <button
-                        onClick={() => { setShowOrdemMenu(!showOrdemMenu); setShowLancamentoMenu(false); }}
-                        className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-background/50 hover:bg-white/5 border border-white/5 text-[11px] sm:text-xs font-bold text-white transition-all shadow-sm w-full"
-                      >
-                        <span className="material-symbols-outlined text-xs sm:text-sm text-on-surface-variant flex-shrink-0">sort</span>
-                        <span className="truncate">
-                          {ordenacao === 'PRIORITY' ? 'Sort: Priority' :
-                           ordenacao === 'TITLE' ? 'Sort: Title (A-Z)' :
-                           ordenacao === 'PROGRESS_DESC' ? 'Sort: Progress (Most Behind)' : 'Sort: Progress (Closest to Caught Up)'}
-                        </span>
-                        <span className="material-symbols-outlined text-xs sm:text-sm text-on-surface-variant ml-auto">expand_more</span>
-                      </button>
-
-                      {showOrdemMenu && (
-                        <>
-                          <div className="fixed inset-0 z-40" onClick={() => setShowOrdemMenu(false)}></div>
-                          <div className="absolute top-full mt-2 left-0 w-48 bg-slate-950 border border-slate-800 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.95)] p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-200">
-                            {[
-                              { id: 'PRIORITY', label: 'Priority' },
-                              { id: 'TITLE', label: 'Title (A-Z)' },
-                              { id: 'PROGRESS_DESC', label: 'Progress (Most Behind)' },
-                              { id: 'PROGRESS_ASC', label: 'Progress (Closest)' },
-                            ].map(opt => (
-                              <button
-                                key={opt.id}
-                                onClick={() => { setOrdenacao(opt.id); setShowOrdemMenu(false); }}
-                                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${ordenacao === opt.id ? (categoria === 'anime' ? 'bg-secondary/20 text-secondary border border-secondary/30 shadow-sm' : 'bg-primary/20 text-primary border border-primary/30 shadow-sm') : 'text-on-surface-variant hover:text-white hover:bg-slate-900/50'}`}
-                              >
-                                <span>{opt.label}</span>
-                                {ordenacao === opt.id && (
-                                  <span className="material-symbols-outlined text-sm">check</span>
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    {loading && <Loader2 className="w-5 h-5 text-primary animate-spin ml-2" />}
-                  </div>
+              {/* 2. Navigation Controls & Filters */}
+              <section className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                {/* Anime / Manga Tab Select */}
+                <div className="flex p-1.5 glass-panel rounded-2xl w-full sm:w-auto">
+                  <button 
+                    onClick={() => setCategoria('anime')}
+                    className={`flex-1 sm:flex-none px-6 py-2 rounded-xl font-label-md text-xs font-bold transition-all cursor-pointer ${
+                      categoria === 'anime' 
+                        ? 'bg-vibrant-purple text-white shadow-lg' 
+                        : 'text-on-surface-variant hover:text-on-surface'
+                    }`}
+                  >
+                    Anime
+                  </button>
+                  <button 
+                    onClick={() => setCategoria('manga')}
+                    className={`flex-1 sm:flex-none px-6 py-2 rounded-xl font-label-md text-xs font-bold transition-all cursor-pointer ${
+                      categoria === 'manga' 
+                        ? 'bg-vibrant-purple text-white shadow-lg' 
+                        : 'text-on-surface-variant hover:text-on-surface'
+                    }`}
+                  >
+                    Manga
+                  </button>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6 pt-4 relative z-10">
+                {/* Filters Dropdown & Random casino */}
+                <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+                  <select 
+                    value={filtroStatus}
+                    onChange={(e) => setFiltroStatus(e.target.value)}
+                    className="bg-deep-gray border border-border-glass rounded-xl px-4 py-2 font-label-md text-xs font-semibold text-on-surface-variant focus:ring-primary/50 cursor-pointer outline-none flex-1 sm:flex-none min-w-[120px]"
+                  >
+                    <option value="ALL">Todos Status</option>
+                    <option value="WATCHING">{categoria === 'anime' ? 'A Ver' : 'A Ler'}</option>
+                    <option value="PLANNED">Planeado</option>
+                    <option value="COMPLETED">Completado</option>
+                    <option value="PAUSED">Pausado</option>
+                    <option value="DROPPED">Desistido</option>
+                  </select>
+                  
+                  <button 
+                    onClick={() => {
+                      const plannedCount = resultadosDB.filter(item => item.status === 'PLANNED').length;
+                      if (plannedCount > 0) {
+                        sorteioAleatorioBiblioteca();
+                      } else {
+                        sorteioAleatorioGlobal();
+                      }
+                    }}
+                    className="flex items-center gap-2 px-5 py-2 glass-panel rounded-xl font-label-md text-xs font-bold hover:bg-white/10 transition-all whitespace-nowrap active:scale-95 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-electric-magenta text-sm">casino</span> 
+                    Sorteio Aleatório
+                  </button>
+                </div>
+              </section>
+
+              {/* 3. Up Next Section */}
+              {(() => {
+                const dashboardItems = categoria === 'anime' ? animesDashboard : mangasDashboard;
+                if (dashboardItems.length === 0) return null;
+                
+                return (
+                  <section className="space-y-4 md:space-y-6">
+                    <div className="flex justify-between items-end">
+                      <div>
+                        <span className="text-vibrant-purple font-label-md text-[10px] uppercase tracking-widest block mb-1">Continuar</span>
+                        <h3 className="font-headline-lg text-lg md:text-xl text-white">Próximo Episódio</h3>
+                      </div>
+                      <button 
+                        onClick={() => { setFiltroStatus('WATCHING'); }}
+                        className="font-label-md text-xs font-semibold text-primary hover:underline cursor-pointer"
+                      >
+                        Ver tudo
+                      </button>
+                    </div>
+
+                    {isMobile ? (
+                      /* Mobile Scroll Horizontal */
+                      <div className="flex overflow-x-auto gap-4 pb-4 scrollbar-hide">
+                        {dashboardItems.map((item) => {
+                          const coverUrl = item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl;
+                          const title = item.anime?.titulo || item.manga?.titulo || item.titulo;
+                          const current = categoria === 'anime' ? (item.epAtual || 0) : (item.capAtual || 0);
+                          const epQueVouVer = current + 1;
+                          
+                          const status = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
+                          const proxNum = categoria === 'anime' ? (item.anime?.proximoEpisodio || item.proximoEpisodio) : (item.manga?.proximoCapituloNumero || item.proximoCapituloNumero);
+                          const numTotal = categoria === 'anime' ? (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal) : (item.manga?.numCapitulosTotal || item.numCapitulosTotal);
+                          const total = (status === 'RELEASING' && proxNum) ? proxNum - 1 : (numTotal || 12);
+                          const percent = typeof total === 'number' && total > 0 ? (current / total) * 100 : 0;
+
+                          return (
+                            <div 
+                              key={item.id} 
+                              className="flex-shrink-0 w-[260px] glass-panel rounded-2xl overflow-hidden rim-light group transition-all duration-300 active:scale-98 cursor-pointer"
+                              onClick={() => abrirDetalhes(item.id, false, categoria)}
+                            >
+                              <div className="relative h-36">
+                                <img src={coverUrl} className="w-full h-full object-cover" alt="" />
+                                <div className="absolute inset-0 bg-black/25"></div>
+                                <div className="absolute bottom-3 left-3 px-2 py-0.5 rounded bg-black/60 backdrop-blur-md text-[9px] font-bold text-white border border-white/5">
+                                  {categoria === 'anime' ? `EP ${epQueVouVer}` : `CAP ${epQueVouVer}`}
+                                </div>
+                              </div>
+                              <div className="p-3.5 space-y-2">
+                                <h4 className="text-white font-bold text-xs truncate">{title}</h4>
+                                <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
+                                  <div className="h-full bg-gradient-to-r from-vibrant-purple to-electric-magenta rounded-full" style={{ width: `${percent}%` }}></div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      /* Desktop Grid (3 columns) */
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {dashboardItems.slice(0, 3).map((item) => {
+                          const coverUrl = item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl;
+                          const title = item.anime?.titulo || item.manga?.titulo || item.titulo;
+                          const current = categoria === 'anime' ? (item.epAtual || 0) : (item.capAtual || 0);
+                          const epQueVouVer = current + 1;
+                          
+                          const status = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
+                          const proxNum = categoria === 'anime' ? (item.anime?.proximoEpisodio || item.proximoEpisodio) : (item.manga?.proximoCapituloNumero || item.proximoCapituloNumero);
+                          const numTotal = categoria === 'anime' ? (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal) : (item.manga?.numCapitulosTotal || item.numCapitulosTotal);
+                          const total = (status === 'RELEASING' && proxNum) ? proxNum - 1 : (numTotal || 12);
+                          const percent = typeof total === 'number' && total > 0 ? (current / total) * 100 : 0;
+                          
+                          return (
+                            <div 
+                              key={item.id} 
+                              className="glass-panel rim-light p-3.5 rounded-2xl flex gap-4 hover:border-primary/50 transition-all cursor-pointer group min-w-0"
+                              onClick={() => abrirDetalhes(item.id, false, categoria)}
+                            >
+                              <div className="w-24 h-36 rounded-xl overflow-hidden flex-shrink-0 relative">
+                                <img src={coverUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
+                                <div className="absolute bottom-0 left-0 w-full h-1 bg-white/20">
+                                  <div className="h-full bg-vibrant-purple" style={{ width: `${percent}%` }}></div>
+                                </div>
+                              </div>
+                              <div className="flex flex-col justify-between py-1.5 min-w-0 flex-1">
+                                <div className="min-w-0">
+                                  <h4 className="font-label-md text-sm text-white mb-1 group-hover:text-primary transition-colors truncate">{title}</h4>
+                                  <p className="text-xs text-on-surface-variant font-medium">
+                                    {categoria === 'anime' ? `Episódio ${epQueVouVer}` : `Capítulo ${epQueVouVer}`}
+                                  </p>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <div className="text-[10px] text-on-surface-variant flex items-center gap-1">
+                                    <span className="material-symbols-outlined text-[12px]">schedule</span>
+                                    <span>Visto {formatLastModified(item).split(' ')[0]}</span>
+                                  </div>
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); marcarComoVisto(item, categoria); }}
+                                    disabled={savingItems[item.id]}
+                                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white flex items-center justify-center active:scale-90 cursor-pointer"
+                                    title="Marcar mais um visto"
+                                  >
+                                    {savingItems[item.id] ? (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                                    ) : (
+                                      <span className="material-symbols-outlined text-sm">play_arrow</span>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
+                );
+              })()}
+
+              {/* 4. Minha Biblioteca Section */}
+              <section className="space-y-4 md:space-y-6">
+                <div className="flex justify-between items-end">
+                  <div>
+                    <span className="text-vibrant-purple font-label-md text-[10px] uppercase tracking-widest block mb-1">Coleção</span>
+                    <h3 className="font-headline-lg text-lg md:text-xl text-white">Minha Biblioteca</h3>
+                  </div>
+                  {isShowingFavorites && (
+                    <button onClick={triggerHome} className="font-label-md text-xs font-semibold text-primary hover:underline cursor-pointer">
+                      Mostrar Tudo
+                    </button>
+                  )}
+                </div>
+
+                {/* Grid de Posters */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6">
                   {(() => {
                     const filtrados = resultadosDB.filter(item => {
                       if (filtroStatus !== 'ALL' && item.status !== filtroStatus) return false;
@@ -1324,182 +1348,63 @@ const HomePage = () => {
                         const tB = (b.anime?.titulo || b.manga?.titulo || b.titulo || '').toLowerCase();
                         return tA.localeCompare(tB);
                       }
-                      if (ordenacao === 'PROGRESS_DESC' || ordenacao === 'PROGRESS_ASC') {
-                        const atualA = a.epAtual || a.capAtual || 0;
-                        const statusLancA = a.anime?.statusLancamento || a.manga?.statusLancamento || a.statusLancamento;
-                        const proxA = a.anime?.proximoEpisodio || a.manga?.proximoCapituloNumero;
-                        const totalA = a.anime?.numEpisodiosTotal || a.manga?.numCapitulosTotal || a.numEpisodiosTotal || a.numCapitulosTotal || atualA;
-                        const dispA = (statusLancA === 'RELEASING' && proxA) ? proxA - 1 : Math.max(atualA, totalA);
-                        const faltamA = Math.max(0, dispA - atualA);
-
-                        const atualB = b.epAtual || b.capAtual || 0;
-                        const statusLancB = b.anime?.statusLancamento || b.manga?.statusLancamento || b.statusLancamento;
-                        const proxB = b.anime?.proximoEpisodio || b.manga?.proximoCapituloNumero;
-                        const totalB = b.anime?.numEpisodiosTotal || b.manga?.numCapitulosTotal || b.numEpisodiosTotal || b.numCapitulosTotal || atualB;
-                        const dispB = (statusLancB === 'RELEASING' && proxB) ? proxB - 1 : Math.max(atualB, totalB);
-                        const faltamB = Math.max(0, dispB - atualB);
-
-                        return ordenacao === 'PROGRESS_DESC' ? faltamB - faltamA : faltamA - faltamB;
-                      }
                       return 0;
                     });
 
                     return filtrados.length > 0 ? (
-                      filtrados.map((item) => (
-                        <div key={item.id} className="group cursor-pointer" onClick={() => abrirDetalhes(item.id, false, categoria)}>
-                          <div className={`relative aspect-[2/3] rounded-3xl overflow-hidden shadow-xl transform transition-all duration-500 group-hover:scale-[1.03] group-hover:-translate-y-2 border border-white/10 ${categoria === 'anime' ? 'group-hover:border-secondary/60 group-hover:shadow-[0_0_30px_rgba(194,24,91,0.25)]' : 'group-hover:border-primary/60 group-hover:shadow-[0_0_30px_rgba(106,27,154,0.25)]'}`}>
-                            <img src={item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-80 group-hover:opacity-90 transition-opacity"></div>
-                            
-                            {/* Top Badges: Status & Priority */}
-                            <div className="absolute top-2 sm:top-4 left-2 sm:left-4 right-2 sm:right-4 flex items-center justify-between z-10 pointer-events-none gap-1 sm:gap-2">
-                              {/* Tracking Status Badge */}
-                              {item.status && (
-                                <span className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-bold flex items-center gap-1 sm:gap-1.5 backdrop-blur-md border shadow-lg ${
-                                  item.status === 'WATCHING' ? (categoria === 'anime' ? 'bg-secondary/30 border-secondary/50 text-secondary' : 'bg-primary/30 border-primary/50 text-primary') :
-                                  item.status === 'COMPLETED' ? 'bg-emerald-500/30 border-emerald-500/50 text-emerald-200' :
-                                  item.status === 'PAUSED' ? 'bg-amber-500/30 border-amber-500/50 text-amber-200' :
-                                  item.status === 'PLANNED' ? 'bg-blue-500/30 border-blue-500/50 text-blue-200' :
-                                  'bg-surface-variant/50 border-white/10 text-on-surface-variant'
-                                }`}>
-                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                                    item.status === 'WATCHING' ? (categoria === 'anime' ? 'bg-secondary animate-pulse shadow-[0_0_8px_rgba(194,24,91,0.8)]' : 'bg-primary animate-pulse shadow-[0_0_8px_rgba(106,27,154,0.8)]') :
-                                    item.status === 'COMPLETED' ? 'bg-emerald-400' :
-                                    item.status === 'PAUSED' ? 'bg-amber-400' :
-                                    item.status === 'PLANNED' ? 'bg-blue-400' :
-                                    'bg-on-surface-variant'
-                                  }`}></span>
-                                  <span className="truncate">
-                                    {item.status === 'WATCHING' ? (categoria === 'anime' ? 'Watching' : 'Reading') :
-                                     item.status === 'COMPLETED' ? 'Completed' :
-                                     item.status === 'PAUSED' ? 'Paused' :
-                                     item.status === 'PLANNED' ? 'Planned' : 'In Library'}
-                                  </span>
-                                </span>
-                              )}
+                      filtrados.map((item) => {
+                        const coverUrl = item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl;
+                        const title = item.anime?.titulo || item.manga?.titulo || item.titulo;
+                        const totalEps = categoria === 'anime' ? (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal || '?') : (item.manga?.numCapitulosTotal || item.numCapitulosTotal || '?');
+                        
+                        return (
+                          <div 
+                            key={item.id} 
+                            className="group cursor-pointer space-y-2"
+                            onClick={() => abrirDetalhes(item.id, false, categoria)}
+                          >
+                            <div className="relative aspect-[2/3] rounded-2xl overflow-hidden glass-panel rim-light border border-white/5 hover:border-primary/50 transition-all duration-300 shadow-md">
+                              <img src={coverUrl} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={title} />
+                              
+                              {/* Overlay Gradient */}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent"></div>
+                              
+                              {/* Top Badge (Star or Status) */}
+                              <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded bg-black/60 backdrop-blur-md text-[9px] font-bold text-white border border-white/10">
+                                {item.status === 'WATCHING' ? (categoria === 'anime' ? 'A VER' : 'A LER') : 
+                                 item.status === 'COMPLETED' ? 'COMPLETO' : 
+                                 item.status === 'PLANNED' ? 'PLANEADO' : 
+                                 item.status || 'SALVO'}
+                              </div>
 
-                              {/* Priority / Score Badge */}
-                              {item.prioridade && (
-                                <span className={`backdrop-blur-md px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-bold flex items-center gap-0.5 sm:gap-1 border shadow-lg flex-shrink-0 ${
-                                  getPriorityBadgeClass(item.prioridade)
-                                }`}>
-                                  <span className={`material-symbols-outlined text-[10px] sm:text-[12px] ${
-                                    getPriorityStarColor(item.prioridade)
-                                  }`} style={{ fontVariationSettings: "'FILL' 1" }}>star</span> #{item.prioridade}
-                                </span>
+                              {/* Desktop Hover Detalhes Overlay */}
+                              {!isMobile && (
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+                                  <button className="w-full py-2 rounded-xl bg-vibrant-purple text-white font-label-md text-xs font-bold transition-transform cursor-pointer">
+                                    Detalhes
+                                  </button>
+                                </div>
                               )}
                             </div>
-
-                            {/* Bottom Content: Title & Progress Bar */}
-                            <div className="absolute bottom-4 left-4 right-4 z-10 flex flex-col justify-end pointer-events-none">
-                              <span className={`w-fit px-2 py-0.5 rounded-lg text-[9px] font-extrabold tracking-wider mb-1.5 border ${categoria === 'anime' ? 'bg-primary/20 border-primary/30 text-primary' : 'bg-secondary/20 border-secondary/30 text-secondary'}`}>
-                                {categoria.toUpperCase()}
-                              </span>
-                              <p className={`font-bold text-sm text-white line-clamp-2 mb-2 ${categoria === 'anime' ? 'group-hover:text-primary-light' : 'group-hover:text-secondary-light'} transition-colors`}>
-                                {item.anime?.titulo || item.manga?.titulo || item.titulo}
-                              </p>
-
-                              {/* Progress Info & Bar */}
-                              {(() => {
-                                const atual = categoria === 'anime' ? (item.epAtual || 0) : (item.capAtual || 0);
-                                const status = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
-                                const proxEp = categoria === 'anime' ? (item.anime?.proximoEpisodio || item.proximoEpisodio) : (item.manga?.proximoCapituloNumero || item.proximoCapituloNumero);
-                                const numTotal = categoria === 'anime' ? (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal) : (item.manga?.numCapitulosTotal || item.numCapitulosTotal);
-                                const total = (status === 'RELEASING' && proxEp) ? proxEp - 1 : (numTotal || '?');
-                                const percent = typeof total === 'number' && total > 0 ? (atual / total) * 100 : (atual > 0 ? ((atual / (atual + 1)) * 100) : 0);
-                                return (
-                                  <div className="space-y-1.5 pt-1 border-t border-white/10">
-                                    <div className="flex justify-between items-center text-[11px] font-medium">
-                                      <span className="text-on-surface-variant flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-[12px]">timelapse</span>
-                                        Progress
-                                      </span>
-                                      <span className="text-white font-bold">
-                                        {atual} / {total}
-                                      </span>
-                                    </div>
-                                    <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden border border-white/5 backdrop-blur-sm">
-                                      <div 
-                                        className={`h-full transition-all duration-500 rounded-full ${categoria === 'anime' ? 'bg-primary shadow-md' : 'bg-secondary shadow-md'}`}
-                                        style={{ width: `${Math.max(atual > 0 ? 3 : 0, Math.min(percent, 100))}%` }}
-                                      ></div>
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-                            </div>
+                            <h5 className="font-label-md text-xs text-white truncate group-hover:text-primary transition-colors">{title}</h5>
+                            <p className="text-[10px] text-on-surface-variant font-medium">
+                              {categoria === 'anime' ? `${totalEps} Episódios` : `${totalEps} Capítulos`}
+                            </p>
                           </div>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
                       <div className="col-span-full py-16 text-center glass-panel rounded-3xl border border-white/5 space-y-4">
                         <span className="material-symbols-outlined text-5xl text-on-surface-variant">search_off</span>
-                        <p className="text-on-surface font-bold text-lg">No titles found with active filters.</p>
-                        <p className="text-on-surface-variant text-sm">Try changing or clearing the filters at the top of the page.</p>
+                        <p className="text-on-surface font-bold text-lg">Sem títulos na biblioteca com este filtro.</p>
+                        <p className="text-on-surface-variant text-sm">Adiciona títulos novos usando a pesquisa superior!</p>
                       </div>
                     );
                   })()}
                 </div>
               </section>
-            )}
-
-            {/* Search Results Grid */}
-            {isSearchOpen && (
-              <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-                    <h3 className="font-headline-lg text-headline-lg text-2xl font-bold">
-                      Search Results {selectedGenre ? `- ${selectedGenre}` : ''}
-                    </h3>
-                  </div>
-                  {loading && <Loader2 className="w-6 h-6 text-primary animate-spin" />}
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
-                  {resultadosPesquisa.length > 0 ? (
-                    resultadosPesquisa.map((item) => (
-                      <div key={item.id} className="group cursor-pointer space-y-3" onClick={() => abrirDetalhes(item.id, true)}>
-                        <div className="relative aspect-[2/3] rounded-3xl overflow-hidden shadow-lg transform transition-all duration-300 group-hover:scale-[1.02] group-hover:-translate-y-1 border border-white/5 group-hover:border-primary/50">
-                          <img src={item.coverImage.large} className="w-full h-full object-cover" alt="" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity"></div>
-                          <div className="absolute bottom-4 left-4 right-4 z-10">
-                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold mb-2 ${categoria === 'anime' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary'}`}>
-                              {categoria.toUpperCase()}
-                            </span>
-                            <p className="font-bold text-sm text-white line-clamp-1">{item.title.english || item.title.romaji}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : !loading && (
-                    <p className="col-span-full text-center text-on-surface-variant py-10 italic">No results found.</p>
-                  )}
-                </div>
-                {hasMoreResults && (
-                  <div className="flex justify-center pt-8 pb-4 animate-in fade-in duration-300">
-                    <button 
-                      onClick={carregarMais} 
-                      disabled={loadingMore} 
-                      className={`px-8 py-3 rounded-2xl font-bold flex items-center gap-3 border transition-all shadow-lg ${categoria === 'anime' ? 'bg-primary/20 hover:bg-primary border-primary/30 text-primary hover:text-on-primary shadow-[0_0_20px_rgba(194,24,91,0.2)]' : 'bg-secondary/20 hover:bg-secondary border-secondary/30 text-secondary hover:text-on-secondary shadow-[0_0_20px_rgba(106,27,154,0.2)]'}`}
-                    >
-                      {loadingMore ? (
-                        <>
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                          Loading...
-                        </>
-                      ) : (
-                        <>
-                          <span className="material-symbols-outlined">expand_more</span>
-                          Load More
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
-              </section>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       ) : (
           <div className="animate-in fade-in slide-in-from-left-4 duration-500">
@@ -1838,8 +1743,8 @@ const HomePage = () => {
                         
                         <div className="grid grid-cols-1 gap-2.5">
                           {todosLinksAndroid.map((link: any, index: number) => (
-                            <button key={index} onClick={() => abrirLink(link.url, selectedItem.titulo)} className={`w-full text-left flex items-center justify-between p-3.5 glass-panel rounded-xl transition-all group shadow-sm border border-white/5`}>
-                              <div className="flex items-center gap-3 min-w-0">
+                            <div key={index} className="w-full flex items-center justify-between p-3.5 glass-panel rounded-xl shadow-sm border border-white/5">
+                              <div onClick={() => abrirLink(link.url, selectedItem.titulo)} className="flex-1 flex items-center gap-3 min-w-0 cursor-pointer">
                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${link.tipo === 'Custom' ? 'bg-secondary/10 text-secondary' : 'bg-primary/10 text-primary'}`}>
                                   <span className="material-symbols-outlined text-sm">open_in_new</span>
                                 </div>
@@ -1851,8 +1756,15 @@ const HomePage = () => {
                                   <p className="text-[10px] text-on-surface-variant font-bold uppercase">{link.language || 'Global'}</p>
                                 </div>
                               </div>
-                              <span className={`material-symbols-outlined text-sm flex-shrink-0 ${link.tipo === 'Custom' ? 'text-on-surface-variant' : 'text-on-surface-variant'}`}>chevron_right</span>
-                            </button>
+                              <div className="flex items-center gap-2">
+                                {link.tipo === 'Custom' && (
+                                  <button onClick={(e) => { e.stopPropagation(); eliminarLinkPessoal(link.site); }} className="text-red-400 hover:text-red-300 p-1 flex items-center justify-center cursor-pointer" title="Remover link">
+                                    <span className="material-symbols-outlined text-sm">delete</span>
+                                  </button>
+                                )}
+                                <span onClick={() => abrirLink(link.url, selectedItem.titulo)} className="material-symbols-outlined text-sm flex-shrink-0 text-on-surface-variant cursor-pointer">chevron_right</span>
+                              </div>
+                            </div>
                           ))}
                           {todosLinksAndroid.length === 0 && (
                             <p className="text-on-surface-variant italic text-xs">No links available. Add one above!</p>
@@ -2007,21 +1919,28 @@ const HomePage = () => {
                             
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                               {todosLinks.map((link: any, index: number) => (
-                                <button key={index} onClick={() => abrirLink(link.url, selectedItem.titulo)} className={`w-full text-left flex items-center justify-between p-5 glass-panel hover:bg-white/5 rounded-2xl transition-all group shadow-lg border ${categoria === 'anime' ? 'border-white/5 hover:border-secondary/40 hover:shadow-[0_0_20px_rgba(194,24,91,0.15)]' : 'border-primary/50 hover:border-primary/40 hover:shadow-[0_0_20px_rgba(106,27,154,0.15)]'}`}>
-                                  <div className="flex items-center gap-4">
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${link.tipo === 'Custom' ? 'bg-secondary/10 text-secondary group-hover:bg-secondary group-hover:text-on-secondary shadow-[0_0_10px_rgba(255,176,203,0.2)]' : 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-on-primary shadow-[0_0_10px_rgba(221,184,255,0.2)]'}`}>
+                                <div key={index} className={`w-full flex items-center justify-between p-5 glass-panel rounded-2xl shadow-lg border transition-all ${categoria === 'anime' ? 'border-white/5' : 'border-primary/50'}`}>
+                                  <div onClick={() => abrirLink(link.url, selectedItem.titulo)} className="flex-1 flex items-center gap-4 cursor-pointer min-w-0">
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${link.tipo === 'Custom' ? 'bg-secondary/10 text-secondary shadow-[0_0_10px_rgba(255,176,203,0.2)]' : 'bg-primary/10 text-primary shadow-[0_0_10px_rgba(221,184,255,0.2)]'}`}>
                                       <span className="material-symbols-outlined">open_in_new</span>
                                     </div>
-                                    <div>
-                                      <p className="text-sm font-bold text-white uppercase tracking-wide flex items-center gap-2">
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-bold text-white uppercase tracking-wide flex items-center gap-2 truncate">
                                         {link.site}
-                                        {link.tipo === 'Custom' && <span className="px-2 py-0.5 bg-secondary/20 text-secondary text-[10px] rounded-full border border-secondary/30">CUSTOM</span>}
+                                        {link.tipo === 'Custom' && <span className="px-2 py-0.5 bg-secondary/20 text-secondary text-[10px] rounded-full border border-secondary/30 flex-shrink-0">CUSTOM</span>}
                                       </p>
                                       <p className="text-xs text-on-surface-variant font-bold uppercase">{link.language || 'Global'}</p>
                                     </div>
                                   </div>
-                                  <span className={`material-symbols-outlined transition-all group-hover:translate-x-1 ${link.tipo === 'Custom' ? 'text-on-surface-variant group-hover:text-secondary' : 'text-on-surface-variant group-hover:text-primary'}`}>chevron_right</span>
-                                </button>
+                                  <div className="flex items-center gap-3">
+                                    {link.tipo === 'Custom' && (
+                                      <button onClick={(e) => { e.stopPropagation(); eliminarLinkPessoal(link.site); }} className="text-red-400 hover:text-red-300 p-1.5 flex items-center justify-center cursor-pointer" title="Remover link">
+                                        <span className="material-symbols-outlined text-sm">delete</span>
+                                      </button>
+                                    )}
+                                    <span onClick={() => abrirLink(link.url, selectedItem.titulo)} className={`material-symbols-outlined cursor-pointer text-on-surface-variant hover:text-white`}>chevron_right</span>
+                                  </div>
+                                </div>
                               ))}
                               {todosLinks.length === 0 && (
                                 <p className="text-on-surface-variant italic text-sm col-span-2">No links available. Add one above!</p>

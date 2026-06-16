@@ -9,6 +9,8 @@ interface MediaContextType {
   setIsShowingFavorites: (show: boolean) => void;
   isSearchOpen: boolean;
   setIsSearchOpen: (show: boolean) => void;
+  searchTerm: string;
+  setSearchTerm: (term: string) => void;
   homeTrigger: number;
   triggerHome: () => void;
   isViewingDetails: boolean;
@@ -21,12 +23,14 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [categoria, setCategoria] = useState<Categoria>('anime');
   const [isShowingFavorites, setIsShowingFavorites] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [homeTrigger, setHomeTrigger] = useState(0);
   const [isViewingDetails, setIsViewingDetails] = useState(false);
 
   const triggerHome = () => {
     setIsShowingFavorites(false);
     setIsSearchOpen(false);
+    setSearchTerm('');
     setIsViewingDetails(false);
     setHomeTrigger(prev => prev + 1);
   };
@@ -39,6 +43,8 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setIsShowingFavorites,
       isSearchOpen,
       setIsSearchOpen,
+      searchTerm,
+      setSearchTerm,
       homeTrigger,
       triggerHome,
       isViewingDetails,

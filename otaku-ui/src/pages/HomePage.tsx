@@ -1100,7 +1100,7 @@ const HomePage = () => {
                 const heroDesc = featured ? (featured.anime?.sinopse || featured.manga?.sinopse || featured.descricao || "Continua a acompanhar o teu anime favorito na lista.") : "Numa distopia mergulhada em corrupção e implantes cibernéticos, um talentoso miúdo de rua decide tornar-se um fora da lei.";
                 
                 return (
-                  <section className={`relative rounded-3xl overflow-hidden glass-panel rim-light group ${isMobile ? 'h-[460px]' : 'h-[360px] md:h-[400px]'}`}>
+                  <section className={`relative rounded-3xl overflow-hidden glass-panel rim-light group ${isMobile ? 'h-[280px]' : 'h-[240px] md:h-[280px]'}`}>
                     <div className="absolute inset-0">
                       <img 
                         src={heroCover} 
@@ -1112,91 +1112,33 @@ const HomePage = () => {
                         <div className="absolute inset-0 bg-gradient-to-t from-[#0F1014] via-transparent to-transparent"></div>
                       )}
                     </div>
-                    <div className="absolute bottom-0 left-0 p-6 md:p-12 max-w-2xl space-y-4 z-10">
-                      <span className="inline-block px-3 py-1 rounded-full bg-electric-magenta text-white font-label-sm text-[10px] uppercase tracking-wider font-bold">
+                    <div className="absolute bottom-0 left-0 p-4 md:p-8 max-w-2xl space-y-2 z-10">
+                      <span className="inline-block px-2.5 py-0.5 rounded-full bg-electric-magenta text-white font-label-sm text-[9px] uppercase tracking-wider font-bold">
                         {featured ? 'EM DESTAQUE NA TUA LISTA' : 'DESTAQUE DA SEMANA'}
                       </span>
-                      <h2 className="font-display-lg text-2xl md:text-[40px] text-white leading-tight font-black">{heroTitle}</h2>
-                      <p className="font-body-lg text-sm md:text-base text-on-surface-variant line-clamp-2 leading-relaxed">
+                      <h2 className="font-display-lg text-lg md:text-2xl text-white leading-tight font-black">{heroTitle}</h2>
+                      <p className="font-body-lg text-xs md:text-sm text-on-surface-variant line-clamp-2 leading-relaxed">
                         {heroDesc}
                       </p>
-                      <div className="flex gap-3 pt-2">
+                      <div className="flex gap-2.5 pt-1.5">
                         <button 
                           onClick={() => featured ? abrirDetalhes(featured.id, false, categoria) : showToast("Procura por Cyberpunk na barra superior!", "info")}
-                          className="px-6 py-3 rounded-xl bg-vibrant-purple text-white font-label-md text-xs font-bold hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
+                          className="px-4 py-2 rounded-xl bg-vibrant-purple text-white font-label-md text-[11px] font-bold hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
                         >
-                          <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span> 
+                          <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span> 
                           Assistir Agora
                         </button>
                         <button 
                           onClick={() => setIsShowingFavorites(true)}
-                          className="px-6 py-3 rounded-xl glass-panel text-white font-label-md text-xs font-bold hover:bg-white/10 transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
+                          className="px-4 py-2 rounded-xl glass-panel text-white font-label-md text-[11px] font-bold hover:bg-white/10 transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
                         >
-                          <span className="material-symbols-outlined">add</span> Lista
+                          <span className="material-symbols-outlined text-sm">add</span> Lista
                         </button>
                       </div>
                     </div>
                   </section>
                 );
               })()}
-
-              {/* 2. Navigation Controls & Filters */}
-              <section className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                {/* Anime / Manga Tab Select */}
-                <div className="flex p-1.5 glass-panel rounded-2xl w-full sm:w-auto">
-                  <button 
-                    onClick={() => setCategoria('anime')}
-                    className={`flex-1 sm:flex-none px-6 py-2 rounded-xl font-label-md text-xs font-bold transition-all cursor-pointer ${
-                      categoria === 'anime' 
-                        ? 'bg-vibrant-purple text-white shadow-lg' 
-                        : 'text-on-surface-variant hover:text-on-surface'
-                    }`}
-                  >
-                    Anime
-                  </button>
-                  <button 
-                    onClick={() => setCategoria('manga')}
-                    className={`flex-1 sm:flex-none px-6 py-2 rounded-xl font-label-md text-xs font-bold transition-all cursor-pointer ${
-                      categoria === 'manga' 
-                        ? 'bg-vibrant-purple text-white shadow-lg' 
-                        : 'text-on-surface-variant hover:text-on-surface'
-                    }`}
-                  >
-                    Manga
-                  </button>
-                </div>
-
-                {/* Filters Dropdown & Random casino */}
-                <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-                  <select 
-                    value={filtroStatus}
-                    onChange={(e) => setFiltroStatus(e.target.value)}
-                    className="bg-deep-gray border border-border-glass rounded-xl px-4 py-2 font-label-md text-xs font-semibold text-on-surface-variant focus:ring-primary/50 cursor-pointer outline-none flex-1 sm:flex-none min-w-[120px]"
-                  >
-                    <option value="ALL">Todos Status</option>
-                    <option value="WATCHING">{categoria === 'anime' ? 'A Ver' : 'A Ler'}</option>
-                    <option value="PLANNED">Planeado</option>
-                    <option value="COMPLETED">Completado</option>
-                    <option value="PAUSED">Pausado</option>
-                    <option value="DROPPED">Desistido</option>
-                  </select>
-                  
-                  <button 
-                    onClick={() => {
-                      const plannedCount = resultadosDB.filter(item => item.status === 'PLANNED').length;
-                      if (plannedCount > 0) {
-                        sorteioAleatorioBiblioteca();
-                      } else {
-                        sorteioAleatorioGlobal();
-                      }
-                    }}
-                    className="flex items-center gap-2 px-5 py-2 glass-panel rounded-xl font-label-md text-xs font-bold hover:bg-white/10 transition-all whitespace-nowrap active:scale-95 cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-electric-magenta text-sm">casino</span> 
-                    Sorteio Aleatório
-                  </button>
-                </div>
-              </section>
 
               {/* 3. Up Next Section */}
               {(() => {
@@ -1211,7 +1153,12 @@ const HomePage = () => {
                         <h3 className="font-headline-lg text-lg md:text-xl text-white">Próximo Episódio</h3>
                       </div>
                       <button 
-                        onClick={() => { setFiltroStatus('WATCHING'); }}
+                        onClick={() => { 
+                          setFiltroStatus('WATCHING');
+                          setTimeout(() => {
+                            document.getElementById('biblioteca-section')?.scrollIntoView({ behavior: 'smooth' });
+                          }, 50);
+                        }}
                         className="font-label-md text-xs font-semibold text-primary hover:underline cursor-pointer"
                       >
                         Ver tudo
@@ -1321,7 +1268,7 @@ const HomePage = () => {
               )}
 
               {/* 4. Minha Biblioteca Section */}
-              <section className="space-y-6 md:space-y-8 relative z-30">
+              <section id="biblioteca-section" className="space-y-6 md:space-y-8 relative z-30">
                 {isShowingFavorites ? (
                   /* Vista Biblioteca Principal (quando ativada a partir do menu lateral) */
                   <div className="flex flex-col space-y-6 border-b border-white/10 pb-6">
@@ -1346,18 +1293,6 @@ const HomePage = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <button
-                          onClick={sorteioAleatorioBiblioteca}
-                          className={`flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-3 rounded-xl sm:rounded-2xl font-black text-[11px] sm:text-xs transition-all active:scale-95 shadow-lg flex-shrink-0 border ${
-                            categoria === 'anime' 
-                              ? 'bg-secondary/20 hover:bg-secondary text-secondary hover:text-white border-secondary/35 shadow-secondary/5' 
-                              : 'bg-primary/20 hover:bg-primary text-primary hover:text-white border-primary/35 shadow-primary/5'
-                          }`}
-                          title="Sorteio Aleatório da Biblioteca (Planeados)"
-                        >
-                          <span className="material-symbols-outlined text-sm sm:text-base">shuffle</span>
-                          <span>Sorteio Planeado</span>
-                        </button>
                         <button onClick={triggerHome} className="font-label-md text-xs font-semibold text-primary hover:underline cursor-pointer">
                           Mostrar Tudo
                         </button>
@@ -1371,18 +1306,6 @@ const HomePage = () => {
                       <span className="text-vibrant-purple font-label-md text-[10px] uppercase tracking-widest block mb-1">Coleção</span>
                       <h3 className="font-headline-lg text-lg md:text-xl text-white font-black">Minha Biblioteca</h3>
                     </div>
-                    <button
-                      onClick={sorteioAleatorioBiblioteca}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl font-bold text-[10px] sm:text-xs transition-all active:scale-95 shadow-sm border ${
-                        categoria === 'anime' 
-                          ? 'bg-secondary/20 hover:bg-secondary text-secondary hover:text-white border-secondary/30' 
-                          : 'bg-primary/20 hover:bg-primary text-primary hover:text-white border-primary/30'
-                      }`}
-                      title="Sorteio Aleatório da Biblioteca (Planeados)"
-                    >
-                      <span className="material-symbols-outlined text-xs">shuffle</span>
-                      <span>Sorteio</span>
-                    </button>
                   </div>
                 )}
 
@@ -1505,6 +1428,23 @@ const HomePage = () => {
                       </>
                     )}
                   </div>
+
+                  {/* Raffle Button */}
+                  <button 
+                    onClick={() => {
+                      const plannedCount = resultadosDB.filter(item => item.status === 'PLANNED').length;
+                      if (plannedCount > 0) {
+                        sorteioAleatorioBiblioteca();
+                      } else {
+                        sorteioAleatorioGlobal();
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-black/40 hover:bg-white/5 border border-white/5 text-[11px] sm:text-xs font-bold text-white transition-all shadow-sm cursor-pointer whitespace-nowrap active:scale-95 ml-auto sm:ml-0"
+                    title="Sorteio Aleatório (Planeados da Biblioteca ou Global)"
+                  >
+                    <span className="material-symbols-outlined text-electric-magenta text-sm">casino</span> 
+                    <span>Sorteio Aleatório</span>
+                  </button>
 
                   {loading && <Loader2 className="w-5 h-5 text-primary animate-spin ml-2" />}
                 </div>

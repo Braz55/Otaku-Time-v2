@@ -37,10 +37,10 @@ const PRIORITY_OPTIONS = [
   { num: 10, label: 'P10', desc: 'Backlog', colorClass: 'bg-slate-600/10 border-slate-600/50 text-slate-500', starColor: 'text-slate-500', badgeClass: 'bg-slate-600/10 border-slate-600/30 text-slate-500' },
 ];
 
-// const getPriorityBadgeClass = (priority?: number | null) => {
-//   const opt = PRIORITY_OPTIONS.find(o => o.num === priority);
-//   return opt ? opt.badgeClass : 'bg-yellow-100/10 border-yellow-100/30 text-yellow-50';
-// };
+const getPriorityBadgeClass = (priority?: number | null) => {
+  const opt = PRIORITY_OPTIONS.find(o => o.num === priority);
+  return opt ? opt.badgeClass : 'bg-yellow-100/10 border-yellow-100/30 text-yellow-50';
+};
 
 const getPriorityStarColor = (priority?: number | null) => {
   const opt = PRIORITY_OPTIONS.find(o => o.num === priority);
@@ -124,11 +124,10 @@ const HomePage = () => {
   const [isAddingToLibrary, setIsAddingToLibrary] = useState(false);
 
   const [filtroStatus, setFiltroStatus] = useState<string>('ALL');
-  const [filtroLancamento] = useState<string>('ALL');
-  const [ordenacao] = useState<string>('PRIORITY');
-  // const [showLancamentoMenu, setShowLancamentoMenu] = useState(false);
-  // const [showOrdemMenu, setShowOrdemMenu] = useState(false);
-  // const [showGenres, setShowGenres] = useState(false);
+  const [filtroLancamento, setFiltroLancamento] = useState<string>('ALL');
+  const [ordenacao, setOrdenacao] = useState<string>('PRIORITY');
+  const [showLancamentoMenu, setShowLancamentoMenu] = useState(false);
+  const [showOrdemMenu, setShowOrdemMenu] = useState(false);
 
   const getHeaders = () => ({
     'Content-Type': 'application/json',
@@ -1085,7 +1084,9 @@ const HomePage = () => {
             /* Dashboard Home View */
             <div className="w-full space-y-8 md:space-y-12">
               
-              {/* 1. Hero Banner */}
+              {!isShowingFavorites && (
+                <>
+                  {/* 1. Hero Banner */}
               {(() => {
                 const dashboardItems = categoria === 'anime' ? animesDashboard : mangasDashboard;
                 const featured = dashboardItems[0];
@@ -1316,23 +1317,200 @@ const HomePage = () => {
                   </section>
                 );
               })()}
+                </>
+              )}
 
               {/* 4. Minha Biblioteca Section */}
-              <section className="space-y-4 md:space-y-6">
-                <div className="flex justify-between items-end">
-                  <div>
-                    <span className="text-vibrant-purple font-label-md text-[10px] uppercase tracking-widest block mb-1">Coleção</span>
-                    <h3 className="font-headline-lg text-lg md:text-xl text-white">Minha Biblioteca</h3>
+              <section className="space-y-6 md:space-y-8 relative z-30">
+                {isShowingFavorites ? (
+                  /* Vista Biblioteca Principal (quando ativada a partir do menu lateral) */
+                  <div className="flex flex-col space-y-6 border-b border-white/10 pb-6">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                        <span className="material-symbols-outlined text-primary text-3xl sm:text-4xl md:text-5xl flex-shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>video_library</span>
+                        <div className="min-w-0">
+                          <h2 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight capitalize mb-0.5 sm:mb-1 truncate">
+                            Biblioteca ({categoria === 'anime' ? 'Anime' : 'Mangá'})
+                          </h2>
+                          <p className="text-xs sm:text-base text-on-surface-variant font-medium">
+                            {(() => {
+                              const filtrados = resultadosDB.filter(item => {
+                                if (filtroStatus !== 'ALL' && item.status !== filtroStatus) return false;
+                                const statusLancamento = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
+                                if (filtroLancamento !== 'ALL' && statusLancamento !== filtroLancamento) return false;
+                                return true;
+                              });
+                              return `A mostrar ${filtrados.length} de ${resultadosDB.length} títulos guardados`;
+                            })()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={sorteioAleatorioBiblioteca}
+                          className={`flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-3 rounded-xl sm:rounded-2xl font-black text-[11px] sm:text-xs transition-all active:scale-95 shadow-lg flex-shrink-0 border ${
+                            categoria === 'anime' 
+                              ? 'bg-secondary/20 hover:bg-secondary text-secondary hover:text-white border-secondary/35 shadow-secondary/5' 
+                              : 'bg-primary/20 hover:bg-primary text-primary hover:text-white border-primary/35 shadow-primary/5'
+                          }`}
+                          title="Sorteio Aleatório da Biblioteca (Planeados)"
+                        >
+                          <span className="material-symbols-outlined text-sm sm:text-base">shuffle</span>
+                          <span>Sorteio Planeado</span>
+                        </button>
+                        <button onClick={triggerHome} className="font-label-md text-xs font-semibold text-primary hover:underline cursor-pointer">
+                          Mostrar Tudo
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  {isShowingFavorites && (
-                    <button onClick={triggerHome} className="font-label-md text-xs font-semibold text-primary hover:underline cursor-pointer">
-                      Mostrar Tudo
+                ) : (
+                  /* Vista Secção da Biblioteca na Dashboard */
+                  <div className="flex justify-between items-end border-b border-white/10 pb-4">
+                    <div>
+                      <span className="text-vibrant-purple font-label-md text-[10px] uppercase tracking-widest block mb-1">Coleção</span>
+                      <h3 className="font-headline-lg text-lg md:text-xl text-white font-black">Minha Biblioteca</h3>
+                    </div>
+                    <button
+                      onClick={sorteioAleatorioBiblioteca}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl font-bold text-[10px] sm:text-xs transition-all active:scale-95 shadow-sm border ${
+                        categoria === 'anime' 
+                          ? 'bg-secondary/20 hover:bg-secondary text-secondary hover:text-white border-secondary/30' 
+                          : 'bg-primary/20 hover:bg-primary text-primary hover:text-white border-primary/30'
+                      }`}
+                      title="Sorteio Aleatório da Biblioteca (Planeados)"
+                    >
+                      <span className="material-symbols-outlined text-xs">shuffle</span>
+                      <span>Sorteio</span>
                     </button>
-                  )}
+                  </div>
+                )}
+
+                {/* Filters & Sorting Controls */}
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-surface-variant/10 p-2 rounded-2xl border border-white/5 backdrop-blur-md w-full sm:w-fit relative z-30">
+                  {/* Status Filter Tabs */}
+                  <div className="flex flex-wrap items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/5 w-full sm:w-auto justify-center">
+                    {[
+                      { id: 'ALL', label: 'Todos' },
+                      { id: 'WATCHING', label: categoria === 'anime' ? 'A Ver' : 'A Ler' },
+                      { id: 'COMPLETED', label: 'Completo' },
+                      { id: 'PLANNED', label: 'Planeado' },
+                      { id: 'PAUSED', label: 'Pausado' },
+                      { id: 'DROPPED', label: 'Desistido' },
+                    ].map(tab => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setFiltroStatus(tab.id)}
+                        className={`px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex-1 sm:flex-initial text-center cursor-pointer ${
+                          filtroStatus === tab.id 
+                            ? (categoria === 'anime' 
+                                ? 'bg-secondary/20 text-secondary border border-secondary/40 shadow-sm' 
+                                : 'bg-primary/20 text-primary border border-primary/40 shadow-sm') 
+                            : 'text-on-surface-variant hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Release Status Dropdown */}
+                  <div className="relative z-30 flex-1 sm:flex-initial min-w-[140px]">
+                    <button
+                      onClick={() => { setShowLancamentoMenu(!showLancamentoMenu); setShowOrdemMenu(false); }}
+                      className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-black/40 hover:bg-white/5 border border-white/5 text-[11px] sm:text-xs font-bold text-white transition-all shadow-sm w-full cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-xs sm:text-sm text-on-surface-variant flex-shrink-0">sensors</span>
+                      <span className="truncate">
+                        {filtroLancamento === 'ALL' ? 'Lançamento: Todos' :
+                         filtroLancamento === 'RELEASING' ? 'Lançamento: Em Curso' :
+                         filtroLancamento === 'FINISHED' ? 'Lançamento: Terminado' :
+                         filtroLancamento === 'HIATUS' ? 'Lançamento: Hiato' : 'Lançamento: Cancelado'}
+                      </span>
+                      <span className="material-symbols-outlined text-xs sm:text-sm text-on-surface-variant ml-auto">expand_more</span>
+                    </button>
+
+                    {showLancamentoMenu && (
+                      <>
+                        <div className="fixed inset-0 z-20" onClick={() => setShowLancamentoMenu(false)}></div>
+                        <div className="absolute top-full mt-2 left-0 w-48 bg-slate-950 border border-slate-800 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.95)] p-1.5 z-30 space-y-1 animate-in fade-in zoom-in-95 duration-200">
+                          {[
+                            { id: 'ALL', label: 'Todos' },
+                            { id: 'RELEASING', label: 'Em Curso' },
+                            { id: 'FINISHED', label: 'Terminado' },
+                            { id: 'HIATUS', label: 'Hiato' },
+                            { id: 'CANCELLED', label: 'Cancelado' },
+                          ].map(opt => (
+                            <button
+                              key={opt.id}
+                              onClick={() => { setFiltroLancamento(opt.id); setShowLancamentoMenu(false); }}
+                              className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
+                                filtroLancamento === opt.id 
+                                  ? (categoria === 'anime' ? 'bg-secondary/20 text-secondary border border-secondary/30 shadow-sm' : 'bg-primary/20 text-primary border border-primary/30 shadow-sm') 
+                                  : 'text-on-surface-variant hover:text-white hover:bg-slate-900/50'
+                              }`}
+                            >
+                              <span>{opt.label}</span>
+                              {filtroLancamento === opt.id && (
+                                <span className="material-symbols-outlined text-sm">check</span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Sorting Dropdown */}
+                  <div className="relative z-30 flex-1 sm:flex-initial min-w-[140px]">
+                    <button
+                      onClick={() => { setShowOrdemMenu(!showOrdemMenu); setShowLancamentoMenu(false); }}
+                      className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-black/40 hover:bg-white/5 border border-white/5 text-[11px] sm:text-xs font-bold text-white transition-all shadow-sm w-full cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-xs sm:text-sm text-on-surface-variant flex-shrink-0">sort</span>
+                      <span className="truncate">
+                        {ordenacao === 'PRIORITY' ? 'Ordenar: Prioridade' :
+                         ordenacao === 'TITLE' ? 'Ordenar: Nome (A-Z)' :
+                         ordenacao === 'PROGRESS_DESC' ? 'Ordenar: Mais Atrasado' : 'Ordenar: Mais Próximo'}
+                      </span>
+                      <span className="material-symbols-outlined text-xs sm:text-sm text-on-surface-variant ml-auto">expand_more</span>
+                    </button>
+
+                    {showOrdemMenu && (
+                      <>
+                        <div className="fixed inset-0 z-20" onClick={() => setShowOrdemMenu(false)}></div>
+                        <div className="absolute top-full mt-2 left-0 w-48 bg-slate-950 border border-slate-800 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.95)] p-1.5 z-30 space-y-1 animate-in fade-in zoom-in-95 duration-200">
+                          {[
+                            { id: 'PRIORITY', label: 'Prioridade' },
+                            { id: 'TITLE', label: 'Nome (A-Z)' },
+                            { id: 'PROGRESS_DESC', label: 'Mais Atrasado' },
+                            { id: 'PROGRESS_ASC', label: 'Mais Próximo' },
+                          ].map(opt => (
+                            <button
+                              key={opt.id}
+                              onClick={() => { setOrdenacao(opt.id); setShowOrdemMenu(false); }}
+                              className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
+                                ordenacao === opt.id 
+                                  ? (categoria === 'anime' ? 'bg-secondary/20 text-secondary border border-secondary/30 shadow-sm' : 'bg-primary/20 text-primary border border-primary/30 shadow-sm') 
+                                  : 'text-on-surface-variant hover:text-white hover:bg-slate-900/50'
+                              }`}
+                            >
+                              <span>{opt.label}</span>
+                              {ordenacao === opt.id && (
+                                <span className="material-symbols-outlined text-sm">check</span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {loading && <Loader2 className="w-5 h-5 text-primary animate-spin ml-2" />}
                 </div>
 
                 {/* Grid de Posters */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6 pt-4 relative z-10">
                   {(() => {
                     const filtrados = resultadosDB.filter(item => {
                       if (filtroStatus !== 'ALL' && item.status !== filtroStatus) return false;
@@ -1348,6 +1526,23 @@ const HomePage = () => {
                         const tB = (b.anime?.titulo || b.manga?.titulo || b.titulo || '').toLowerCase();
                         return tA.localeCompare(tB);
                       }
+                      if (ordenacao === 'PROGRESS_DESC' || ordenacao === 'PROGRESS_ASC') {
+                        const atualA = a.epAtual || a.capAtual || 0;
+                        const statusLancA = a.anime?.statusLancamento || a.manga?.statusLancamento || a.statusLancamento;
+                        const proxA = a.anime?.proximoEpisodio || a.manga?.proximoCapituloNumero;
+                        const totalA = a.anime?.numEpisodiosTotal || a.manga?.numCapitulosTotal || a.numEpisodiosTotal || a.numCapitulosTotal || atualA;
+                        const dispA = (statusLancA === 'RELEASING' && proxA) ? proxA - 1 : Math.max(atualA, totalA);
+                        const faltamA = Math.max(0, dispA - atualA);
+
+                        const atualB = b.epAtual || b.capAtual || 0;
+                        const statusLancB = b.anime?.statusLancamento || b.manga?.statusLancamento || b.statusLancamento;
+                        const proxB = b.anime?.proximoEpisodio || b.manga?.proximoCapituloNumero;
+                        const totalB = b.anime?.numEpisodiosTotal || b.manga?.numCapitulosTotal || b.numEpisodiosTotal || b.numCapitulosTotal || atualB;
+                        const dispB = (statusLancB === 'RELEASING' && proxB) ? proxB - 1 : Math.max(atualB, totalB);
+                        const faltamB = Math.max(0, dispB - atualB);
+
+                        return ordenacao === 'PROGRESS_DESC' ? faltamB - faltamA : faltamA - faltamB;
+                      }
                       return 0;
                     });
 
@@ -1355,41 +1550,95 @@ const HomePage = () => {
                       filtrados.map((item) => {
                         const coverUrl = item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl;
                         const title = item.anime?.titulo || item.manga?.titulo || item.titulo;
-                        const totalEps = categoria === 'anime' ? (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal || '?') : (item.manga?.numCapitulosTotal || item.numCapitulosTotal || '?');
                         
                         return (
                           <div 
                             key={item.id} 
-                            className="group cursor-pointer space-y-2"
+                            className="group cursor-pointer" 
                             onClick={() => abrirDetalhes(item.id, false, categoria)}
                           >
-                            <div className="relative aspect-[2/3] rounded-2xl overflow-hidden glass-panel rim-light border border-white/5 hover:border-primary/50 transition-all duration-300 shadow-md">
-                              <img src={coverUrl} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={title} />
+                            <div className={`relative aspect-[2/3] rounded-3xl overflow-hidden shadow-xl transform transition-all duration-500 group-hover:scale-[1.03] group-hover:-translate-y-2 border border-white/10 ${categoria === 'anime' ? 'group-hover:border-secondary/60 group-hover:shadow-[0_0_30px_rgba(194,24,91,0.25)]' : 'group-hover:border-primary/60 group-hover:shadow-[0_0_30px_rgba(106,27,154,0.25)]'}`}>
+                              <img src={coverUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={title} />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-80 group-hover:opacity-90 transition-opacity"></div>
                               
-                              {/* Overlay Gradient */}
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent"></div>
-                              
-                              {/* Top Badge (Star or Status) */}
-                              <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded bg-black/60 backdrop-blur-md text-[9px] font-bold text-white border border-white/10">
-                                {item.status === 'WATCHING' ? (categoria === 'anime' ? 'A VER' : 'A LER') : 
-                                 item.status === 'COMPLETED' ? 'COMPLETO' : 
-                                 item.status === 'PLANNED' ? 'PLANEADO' : 
-                                 item.status || 'SALVO'}
+                              {/* Top Badges: Status & Priority */}
+                              <div className="absolute top-2 sm:top-4 left-2 sm:left-4 right-2 sm:right-4 flex items-center justify-between z-10 pointer-events-none gap-1 sm:gap-2">
+                                {/* Tracking Status Badge */}
+                                {item.status && (
+                                  <span className={`px-2 py-0.5 sm:py-1 rounded-lg text-[9px] sm:text-[10px] font-bold flex items-center gap-1 backdrop-blur-md border shadow-lg ${
+                                    item.status === 'WATCHING' ? (categoria === 'anime' ? 'bg-secondary/30 border-secondary/50 text-secondary' : 'bg-primary/30 border-primary/50 text-primary') :
+                                    item.status === 'COMPLETED' ? 'bg-emerald-500/30 border-emerald-500/50 text-emerald-200' :
+                                    item.status === 'PAUSED' ? 'bg-amber-500/30 border-amber-500/50 text-amber-200' :
+                                    item.status === 'PLANNED' ? 'bg-blue-500/30 border-blue-500/50 text-blue-200' :
+                                    'bg-surface-variant/50 border-white/10 text-on-surface-variant'
+                                  }`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                      item.status === 'WATCHING' ? (categoria === 'anime' ? 'bg-secondary animate-pulse shadow-[0_0_8px_rgba(194,24,91,0.8)]' : 'bg-primary animate-pulse shadow-[0_0_8px_rgba(106,27,154,0.8)]') :
+                                      item.status === 'COMPLETED' ? 'bg-emerald-400' :
+                                      item.status === 'PAUSED' ? 'bg-amber-400' :
+                                      item.status === 'PLANNED' ? 'bg-blue-400' :
+                                      'bg-on-surface-variant'
+                                    }`}></span>
+                                    <span className="truncate">
+                                      {item.status === 'WATCHING' ? (categoria === 'anime' ? 'A Ver' : 'A Ler') :
+                                       item.status === 'COMPLETED' ? 'Completo' :
+                                       item.status === 'PAUSED' ? 'Pausado' :
+                                       item.status === 'PLANNED' ? 'Planeado' : 'Salvo'}
+                                    </span>
+                                  </span>
+                                )}
+
+                                {/* Priority Badge */}
+                                {item.prioridade && (
+                                  <span className={`backdrop-blur-md px-2 py-0.5 sm:py-1 rounded-lg text-[9px] sm:text-[10px] font-bold flex items-center gap-0.5 border shadow-lg flex-shrink-0 ${
+                                    getPriorityBadgeClass(item.prioridade)
+                                  }`}>
+                                    <span className={`material-symbols-outlined text-[10px] sm:text-[12px] ${
+                                      getPriorityStarColor(item.prioridade)
+                                    }`} style={{ fontVariationSettings: "'FILL' 1" }}>star</span> #{item.prioridade}
+                                  </span>
+                                )}
                               </div>
 
-                              {/* Desktop Hover Detalhes Overlay */}
-                              {!isMobile && (
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-                                  <button className="w-full py-2 rounded-xl bg-vibrant-purple text-white font-label-md text-xs font-bold transition-transform cursor-pointer">
-                                    Detalhes
-                                  </button>
-                                </div>
-                              )}
+                              {/* Bottom Content: Title & Progress Bar */}
+                              <div className="absolute bottom-4 left-4 right-4 z-10 flex flex-col justify-end pointer-events-none">
+                                <span className={`w-fit px-2 py-0.5 rounded-lg text-[9px] font-extrabold tracking-wider mb-1.5 border ${categoria === 'anime' ? 'bg-primary/20 border-primary/30 text-primary' : 'bg-secondary/20 border-secondary/30 text-secondary'}`}>
+                                  {categoria === 'anime' ? 'ANIME' : 'MANGÁ'}
+                                </span>
+                                <p className={`font-bold text-sm text-white line-clamp-2 mb-2 ${categoria === 'anime' ? 'group-hover:text-primary-light' : 'group-hover:text-secondary-light'} transition-colors`}>
+                                  {title}
+                                </p>
+
+                                {/* Progress Info & Bar */}
+                                {(() => {
+                                  const atual = categoria === 'anime' ? (item.epAtual || 0) : (item.capAtual || 0);
+                                  const status = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
+                                  const proxEp = categoria === 'anime' ? (item.anime?.proximoEpisodio || item.proximoEpisodio) : (item.manga?.proximoCapituloNumero || item.proximoCapituloNumero);
+                                  const numTotal = categoria === 'anime' ? (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal) : (item.manga?.numCapitulosTotal || item.numCapitulosTotal);
+                                  const total = (status === 'RELEASING' && proxEp) ? proxEp - 1 : (numTotal || '?');
+                                  const percent = typeof total === 'number' && total > 0 ? (atual / total) * 100 : (atual > 0 ? ((atual / (atual + 1)) * 100) : 0);
+                                  return (
+                                    <div className="space-y-1.5 pt-1 border-t border-white/10">
+                                      <div className="flex justify-between items-center text-[11px] font-medium">
+                                        <span className="text-on-surface-variant flex items-center gap-1">
+                                          <span className="material-symbols-outlined text-[12px]">timelapse</span>
+                                          Progresso
+                                        </span>
+                                        <span className="text-white font-bold">
+                                          {atual} / {total}
+                                        </span>
+                                      </div>
+                                      <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden border border-white/5 backdrop-blur-sm">
+                                        <div 
+                                          className={`h-full transition-all duration-500 rounded-full ${categoria === 'anime' ? 'bg-primary shadow-md' : 'bg-secondary shadow-md'}`}
+                                          style={{ width: `${Math.max(atual > 0 ? 3 : 0, Math.min(percent, 100))}%` }}
+                                        ></div>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
                             </div>
-                            <h5 className="font-label-md text-xs text-white truncate group-hover:text-primary transition-colors">{title}</h5>
-                            <p className="text-[10px] text-on-surface-variant font-medium">
-                              {categoria === 'anime' ? `${totalEps} Episódios` : `${totalEps} Capítulos`}
-                            </p>
                           </div>
                         );
                       })

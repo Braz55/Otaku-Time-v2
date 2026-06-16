@@ -25,7 +25,7 @@ const SyncIndicator: React.FC = () => {
   );
 };
 
-const Header: React.FC<HeaderProps> = ({ onShowDashboard }) => {
+const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboard }) => {
   const { user } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -128,8 +128,8 @@ const Header: React.FC<HeaderProps> = ({ onShowDashboard }) => {
       ) : (
         /* TopAppBar Desktop */
         <header className="fixed top-0 right-0 w-full md:w-[calc(100%-16rem)] z-40 bg-[#121317]/80 backdrop-blur-2xl border-b border-border-glass h-20 flex justify-between items-center px-6 md:px-margin-desktop">
-          {/* Search Bar */}
-          <div className="flex items-center flex-1 max-w-xl">
+          {/* Search Bar & Switcher */}
+          <div className="flex items-center flex-1 max-w-2xl gap-4">
             <div className="relative w-full focus-within:ring-2 focus-within:ring-primary/50 rounded-full transition-all">
               <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
               <input 
@@ -147,6 +147,24 @@ const Header: React.FC<HeaderProps> = ({ onShowDashboard }) => {
                   <span className="material-symbols-outlined text-sm">close</span>
                 </button>
               )}
+            </div>
+            
+            {/* Categoria Switcher */}
+            <div className="flex p-0.5 bg-black/40 border border-white/10 rounded-xl shrink-0">
+              <button 
+                type="button"
+                onClick={() => setCategoria('anime')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${categoria === 'anime' ? 'bg-primary text-on-primary shadow' : 'text-on-surface-variant hover:text-white'}`}
+              >
+                Anime
+              </button>
+              <button 
+                type="button"
+                onClick={() => setCategoria('manga')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${categoria === 'manga' ? 'bg-primary text-on-primary shadow' : 'text-on-surface-variant hover:text-white'}`}
+              >
+                Mangá
+              </button>
             </div>
           </div>
 

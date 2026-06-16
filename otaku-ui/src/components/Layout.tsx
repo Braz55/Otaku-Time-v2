@@ -147,7 +147,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           onShowFavorites={handleShowFavorites}
           onShowDashboard={handleShowDashboard}
         />
-        <main className="flex-1 relative z-0 w-full max-w-full overflow-x-hidden">
+        <main className="flex-1 relative z-0 w-full max-w-full overflow-x-hidden pt-16 md:pt-20">
           {children}
         </main>
       </div>

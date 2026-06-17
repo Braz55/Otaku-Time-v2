@@ -117,7 +117,7 @@ const CalendarPage = () => {
 
     return {
       text: 'AGENDADO',
-      classes: 'bg-secondary/20 text-secondary border border-secondary/30'
+      classes: 'bg-primary/20 text-primary border border-primary/30'
     };
   };
 
@@ -186,13 +186,13 @@ const CalendarPage = () => {
       {/* Content Grid: Release Cards */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
-          <RefreshCw className="w-10 h-10 animate-spin text-secondary" />
+          <RefreshCw className="w-10 h-10 animate-spin text-primary" />
           <p className="text-gray-500 text-sm">A carregar calendário de lançamentos...</p>
         </div>
       ) : (
         <>
           <h2 className="font-headline-lg-mobile text-xl md:text-2xl text-white flex items-center gap-2 mb-8 font-black">
-            <span className="w-2 h-6 bg-secondary rounded-full"></span>
+            <span className="w-2 h-6 bg-primary rounded-full"></span>
             Lançamentos de {isSameDay(selectedDate, startOfToday()) ? 'Hoje' : getFormattedWeekDay(selectedDate)}
           </h2>
 
@@ -355,7 +355,7 @@ const CalendarPage = () => {
                     </div>
                     <button 
                       onClick={() => navigate('/')}
-                      className="w-full mt-6 bg-surface-container-highest hover:bg-secondary hover:text-white border border-white/5 py-3.5 rounded-2xl font-bold text-on-surface text-xs transition-all active:scale-95 cursor-pointer shadow"
+                      className="w-full mt-6 bg-surface-container-highest hover:bg-primary hover:text-white border border-white/5 py-3.5 rounded-2xl font-bold text-on-surface text-xs transition-all active:scale-95 cursor-pointer shadow"
                     >
                       Voltar para Biblioteca
                     </button>

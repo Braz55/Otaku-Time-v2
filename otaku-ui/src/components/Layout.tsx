@@ -40,7 +40,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             Otaku-Time
           </h1>
           <p className="font-label-sm text-xs text-on-surface-variant mt-1">
-            {user?.tipoConta === 'ADMIN' ? 'Administrator' : 'Premium Member'}
+            {user?.tipoConta === 'ADMIN' ? 'Administrator' : 
+             user?.tipoConta === 'pro' ? 'Pro Member' : 'Standard Member'}
           </p>
         </div>
 
@@ -133,7 +134,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <p className="font-bold text-xs text-white truncate group-hover:text-primary-light transition-colors">
                 {user?.nome || 'Otaku'}
               </p>
-              <p className="text-[10px] text-white/70 truncate">Pro Member</p>
+              <p className="text-[10px] text-white/70 truncate">
+                {user?.tipoConta === 'ADMIN' ? 'Administrator' : 
+                 user?.tipoConta === 'pro' ? 'Pro Member' : 'Standard Member'}
+              </p>
             </div>
           </div>
         </div>

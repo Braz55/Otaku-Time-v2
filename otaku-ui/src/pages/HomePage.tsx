@@ -1067,40 +1067,53 @@ const HomePage = () => {
                 const heroDesc = featured ? (featured.anime?.sinopse || featured.manga?.sinopse || featured.descricao || "Continua a acompanhar o teu anime favorito na lista.") : "Numa distopia mergulhada em corrupção e implantes cibernéticos, um talentoso miúdo de rua decide tornar-se um fora da lei.";
                 
                 return (
-                  <section className={`relative rounded-3xl overflow-hidden glass-panel rim-light group ${isMobile ? 'h-[280px]' : 'h-[240px] md:h-[280px]'}`}>
-                    <div className="absolute inset-0">
+                  <section className={`relative rounded-3xl overflow-hidden glass-panel rim-light group ${isMobile ? 'h-[280px]' : 'h-[240px] md:h-[280px]'} flex items-center`}>
+                    {/* Ambient Glow Blurred Backdrop */}
+                    <div className="absolute inset-0 pointer-events-none z-0">
                       <img 
                         src={heroCover} 
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
-                        alt="Hero background" 
+                        className="w-full h-full object-cover scale-125 blur-3xl opacity-20 transition-transform duration-700 group-hover:scale-130" 
+                        alt="" 
                       />
-                      <div className="absolute inset-0 bg-gradient-to-r from-surface-dim via-surface-dim/60 to-transparent"></div>
-                      {isMobile && (
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#0F1014] via-transparent to-transparent"></div>
-                      )}
+                      <div className="absolute inset-0 bg-[#0F1014]/40"></div>
+                      <div className="absolute inset-0 bg-gradient-to-r from-background via-background/40 to-transparent"></div>
                     </div>
-                    <div className="absolute bottom-0 left-0 p-4 md:p-8 max-w-2xl space-y-2 z-10">
-                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-white font-label-sm text-[9px] uppercase tracking-wider font-bold ${categoria === 'anime' ? 'bg-secondary' : 'bg-primary'}`}>
-                        {featured ? 'EM DESTAQUE NA TUA LISTA' : 'DESTAQUE DA SEMANA'}
-                      </span>
-                      <h2 className="font-display-lg text-lg md:text-2xl text-white leading-tight font-black">{heroTitle}</h2>
-                      <p className="font-body-lg text-xs md:text-sm text-on-surface-variant line-clamp-2 leading-relaxed">
-                        {heroDesc}
-                      </p>
-                      <div className="flex gap-2.5 pt-1.5">
-                        <button 
-                          onClick={() => featured ? abrirDetalhes(featured.id, false, categoria) : showToast("Procura por Cyberpunk na barra superior!", "info")}
-                          className={`px-4 py-2 rounded-xl text-white font-label-md text-[11px] font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer hover:shadow-lg ${categoria === 'anime' ? 'bg-secondary hover:shadow-[0_0_20px_rgba(194,24,91,0.4)]' : 'bg-primary hover:shadow-[0_0_20px_rgba(106,27,154,0.4)]'}`}
-                        >
-                          <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span> 
-                          Assistir Agora
-                        </button>
-                        <button 
-                          onClick={() => setIsShowingFavorites(true)}
-                          className="px-4 py-2 rounded-xl glass-panel text-white font-label-md text-[11px] font-bold hover:bg-white/10 transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
-                        >
-                          <span className="material-symbols-outlined text-sm">add</span> Lista
-                        </button>
+                    
+                    {/* Flex Row Container */}
+                    <div className="relative w-full h-full flex items-center justify-between gap-6 p-5 md:p-8 z-10">
+                      {/* Left: Text Details */}
+                      <div className="flex-1 min-w-0 flex flex-col justify-center space-y-2">
+                        <span className={`w-fit px-2.5 py-0.5 rounded-full text-white font-label-sm text-[9px] uppercase tracking-wider font-bold ${categoria === 'anime' ? 'bg-primary' : 'bg-secondary'}`}>
+                          {featured ? 'EM DESTAQUE NA TUA LISTA' : 'DESTAQUE DA SEMANA'}
+                        </span>
+                        <h2 className="font-display-lg text-lg md:text-2xl text-white leading-tight font-black truncate">{heroTitle}</h2>
+                        <p className="font-body-lg text-[11px] md:text-xs text-on-surface-variant line-clamp-3 leading-relaxed max-w-xl">
+                          {heroDesc}
+                        </p>
+                        <div className="flex gap-2.5 pt-1">
+                          <button 
+                            onClick={() => featured ? abrirDetalhes(featured.id, false, categoria) : showToast("Procura por Cyberpunk na barra superior!", "info")}
+                            className={`px-4 py-2 rounded-xl text-white font-label-md text-[11px] font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer hover:shadow-lg ${categoria === 'anime' ? 'bg-secondary hover:shadow-[0_0_20px_rgba(194,24,91,0.4)]' : 'bg-primary hover:shadow-[0_0_20px_rgba(106,27,154,0.4)]'}`}
+                          >
+                            <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span> 
+                            Assistir Agora
+                          </button>
+                          <button 
+                            onClick={() => setIsShowingFavorites(true)}
+                            className="px-4 py-2 rounded-xl glass-panel text-white font-label-md text-[11px] font-bold hover:bg-white/10 transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                          >
+                            <span className="material-symbols-outlined text-sm">add</span> Lista
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {/* Right: High-Resolution Vertical Poster Card */}
+                      <div className="w-20 sm:w-28 md:w-32 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border border-white/15 flex-shrink-0 relative transition-transform duration-500 group-hover:scale-[1.03] group-hover:rotate-1">
+                        <img 
+                          src={heroCover} 
+                          className="w-full h-full object-cover" 
+                          alt="Hero cover" 
+                        />
                       </div>
                     </div>
                   </section>
@@ -1152,7 +1165,7 @@ const HomePage = () => {
                               <div className="p-3.5 space-y-2">
                                 <h4 className="text-white font-bold text-xs truncate">{title}</h4>
                                 <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden border border-white/5 backdrop-blur-sm">
-                                  <div className={`h-full rounded-full ${categoria === 'anime' ? 'bg-secondary' : 'bg-primary'}`} style={{ width: `${percent}%` }}></div>
+                                  <div className={`h-full rounded-full ${categoria === 'anime' ? 'bg-primary' : 'bg-secondary'}`} style={{ width: `${percent}%` }}></div>
                                 </div>
                               </div>
                             </div>
@@ -1193,7 +1206,7 @@ const HomePage = () => {
                                   <div className="w-full pt-1">
                                     <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden border border-white/5 backdrop-blur-sm">
                                       <div 
-                                        className={`h-full rounded-full ${categoria === 'anime' ? 'bg-secondary' : 'bg-primary'}`}
+                                        className={`h-full rounded-full ${categoria === 'anime' ? 'bg-primary' : 'bg-secondary'}`}
                                         style={{ width: `${percent}%` }}
                                       ></div>
                                     </div>

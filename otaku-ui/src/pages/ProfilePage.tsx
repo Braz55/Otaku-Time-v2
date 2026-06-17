@@ -1461,7 +1461,7 @@ const ProfilePage = () => {
                   
                   {/* Progress Bar (representing watchtime relative to milestone) */}
                   <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                    <div className="h-full bg-secondary" style={{ width: `${Math.min(((profile.statistics?.totalEpisodesWatched || 0) / 1000) * 100, 100)}%` }}></div>
+                    <div className="h-full bg-primary" style={{ width: `${Math.min(((profile.statistics?.totalEpisodesWatched || 0) / 1000) * 100, 100)}%` }}></div>
                   </div>
 
                   {/* Grid of Other stats */}

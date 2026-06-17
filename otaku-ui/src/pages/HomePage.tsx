@@ -961,7 +961,7 @@ const HomePage = () => {
   return (
     <div className="max-w-7xl mx-auto px-margin-mobile md:px-margin-desktop py-4 md:py-8">
       {view === 'home' ? (
-        <div className="w-full space-y-8 md:space-y-12">
+        <div className="w-full space-y-5 md:space-y-12">
           
           {/* Search Results Grid */}
           {isSearchOpen ? (
@@ -1035,7 +1035,7 @@ const HomePage = () => {
           ) : (
             
             /* Dashboard Home View */
-            <div className="w-full space-y-8 md:space-y-12">
+            <div className="w-full space-y-5 md:space-y-12">
               
               {!isShowingFavorites && (
                 <>
@@ -1067,7 +1067,7 @@ const HomePage = () => {
                 const heroDesc = featured ? (featured.anime?.sinopse || featured.manga?.sinopse || featured.descricao || "Continua a acompanhar o teu anime favorito na lista.") : "Numa distopia mergulhada em corrupção e implantes cibernéticos, um talentoso miúdo de rua decide tornar-se um fora da lei.";
                 
                 return (
-                  <section className={`relative rounded-3xl overflow-hidden glass-panel rim-light group ${isMobile ? 'h-[210px]' : 'h-[240px] md:h-[280px]'} flex items-center`}>
+                  <section className={`relative rounded-3xl overflow-hidden glass-panel rim-light group ${isMobile ? 'h-[190px]' : 'h-[240px] md:h-[280px]'} flex items-center`}>
                     {/* Ambient Glow Blurred Backdrop */}
                     <div className="absolute inset-0 pointer-events-none z-0">
                       <img 
@@ -1098,17 +1098,11 @@ const HomePage = () => {
                             <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span> 
                             Assistir Agora
                           </button>
-                          <button 
-                            onClick={() => setIsShowingFavorites(true)}
-                            className="px-4 py-2 rounded-xl glass-panel text-white font-label-md text-[11px] font-bold hover:bg-white/10 transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
-                          >
-                            <span className="material-symbols-outlined text-sm">add</span> Lista
-                          </button>
                         </div>
                       </div>
                       
                       {/* Right: High-Resolution Vertical Poster Card */}
-                      <div className="w-20 xs:w-24 sm:w-28 md:w-32 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border border-white/15 flex-shrink-0 relative transition-transform duration-500 group-hover:scale-[1.03] group-hover:rotate-1">
+                      <div className="w-20 xs:w-24 sm:w-28 md:w-32 lg:w-36 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border border-white/15 flex-shrink-0 relative transition-transform duration-500 group-hover:scale-[1.03] group-hover:rotate-1">
                         <img 
                           src={heroCover} 
                           className="w-full h-full object-cover" 
@@ -1135,8 +1129,8 @@ const HomePage = () => {
                     </div>
 
                     {isMobile ? (
-                      /* Mobile Scroll Horizontal - Row / Netflix Continue watching style card to prevent cover crop */
-                      <div className="flex overflow-x-auto gap-4 pb-4 scrollbar-hide">
+                      /* Mobile Scroll Horizontal - Portrait cards (taller & narrower) to prevent cover crop and fill space */
+                      <div className="flex overflow-x-auto gap-3 pb-3 scrollbar-hide">
                         {dashboardItems.map((item) => {
                           const coverUrl = item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl;
                           const title = item.anime?.titulo || item.manga?.titulo || item.titulo;
@@ -1152,30 +1146,30 @@ const HomePage = () => {
                           return (
                             <div 
                               key={item.id} 
-                              className="flex-shrink-0 w-[270px] glass-panel rounded-2xl p-2.5 flex gap-3.5 rim-light group transition-all duration-300 active:scale-98 cursor-pointer"
+                              className="flex-shrink-0 w-[120px] glass-panel rounded-2xl overflow-hidden border border-white/5 rim-light group transition-all duration-300 active:scale-98 cursor-pointer"
                               onClick={() => abrirDetalhes(item.id, false, categoria)}
                             >
-                              {/* Left: Portrait Cover Card */}
-                              <div className="w-18 h-26 rounded-xl overflow-hidden flex-shrink-0 relative border border-white/10 shadow-md">
-                                <img src={coverUrl} className="w-full h-full object-cover" alt="" />
+                              {/* Top: Portrait Cover Card (No crop) */}
+                              <div className="relative aspect-[3/4] w-full overflow-hidden border-b border-white/5">
+                                <img src={coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" />
                                 <div className="absolute inset-0 bg-black/10"></div>
-                                <div className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/75 backdrop-blur-md text-[8px] font-black text-white border border-white/5 uppercase">
+                                <div className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded bg-black/75 backdrop-blur-md text-[8px] font-black text-white border border-white/5 uppercase">
                                   {categoria === 'anime' ? `EP ${epQueVouVer}` : `CAP ${epQueVouVer}`}
                                 </div>
                               </div>
                               
-                              {/* Right: Info & Controls */}
-                              <div className="flex flex-col justify-between py-1 min-w-0 flex-1">
-                                <div className="min-w-0 space-y-1">
+                              {/* Bottom: Info & Controls */}
+                              <div className="p-2 space-y-2">
+                                <div className="space-y-1 min-w-0">
                                   <h4 className="text-white font-bold text-xs truncate group-hover:text-primary transition-colors">{title}</h4>
-                                  <div className="w-full pt-1">
-                                    <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden border border-white/5">
+                                  <div className="w-full">
+                                    <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
                                       <div className={`h-full rounded-full ${categoria === 'anime' ? 'bg-primary' : 'bg-secondary'}`} style={{ width: `${percent}%` }}></div>
                                     </div>
                                   </div>
                                 </div>
                                 
-                                <div className="flex items-center justify-between pt-1">
+                                <div className="flex items-center justify-between">
                                   <div className="text-[9px] text-on-surface-variant flex items-center gap-0.5 font-bold">
                                     <span className={`material-symbols-outlined text-[11px] ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`}>hourglass_empty</span>
                                     <span>{(() => {
@@ -1192,9 +1186,9 @@ const HomePage = () => {
                                     title="Marcar mais um visto"
                                   >
                                     {savingItems[item.id] ? (
-                                      <Loader2 className={`w-3.5 h-3.5 animate-spin ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`} />
+                                      <Loader2 className={`w-3 h-3 animate-spin ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`} />
                                     ) : (
-                                      <span className="material-symbols-outlined text-sm">play_arrow</span>
+                                      <span className="material-symbols-outlined text-[13px]">play_arrow</span>
                                     )}
                                   </button>
                                 </div>
@@ -1287,10 +1281,10 @@ const HomePage = () => {
                       <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                         <span className="material-symbols-outlined text-primary text-3xl sm:text-4xl md:text-5xl flex-shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>video_library</span>
                         <div className="min-w-0">
-                          <h2 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight capitalize mb-0.5 sm:mb-1 truncate">
+                          <h2 className="text-xl sm:text-4xl md:text-5xl font-black text-white tracking-tight capitalize mb-0.5 sm:mb-1 truncate">
                             Biblioteca ({categoria === 'anime' ? 'Anime' : 'Mangá'})
                           </h2>
-                           <p className="text-xs sm:text-base text-on-surface-variant font-medium">
+                          <p className="text-xs sm:text-base text-on-surface-variant font-medium">
                             {(() => {
                               const filtrados = resultadosDB.filter(item => {
                                 if (filtroStatus !== 'ALL' && item.status !== filtroStatus) return false;
@@ -1305,12 +1299,12 @@ const HomePage = () => {
                       </div>
                       
                       {/* Top Right action: Raffle Button */}
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         <button 
                           onClick={() => {
                             sorteioAleatorioBiblioteca();
                           }}
-                          className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl font-bold text-[11px] sm:text-xs text-white transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap ${
+                          className={`flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs text-white transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap ${
                             categoria === 'anime' 
                               ? 'bg-secondary hover:bg-secondary/90 hover:shadow-[0_0_15px_rgba(194,24,91,0.4)]' 
                               : 'bg-primary hover:bg-primary/90 hover:shadow-[0_0_15px_rgba(106,27,154,0.4)]'
@@ -1318,11 +1312,12 @@ const HomePage = () => {
                           title="Sorteio Planeado (Itens Planeados da tua Biblioteca)"
                         >
                           <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>casino</span> 
-                          <span>Sorteio Planeado</span>
+                          <span className="hidden sm:inline">Sorteio Planeado</span>
                         </button>
                       </div>
                     </div>
                   </div>
+
 
                 {/* Filters & Sorting Controls */}
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-surface-variant/10 p-2 rounded-2xl border border-white/5 backdrop-blur-md w-full sm:w-fit relative z-30">

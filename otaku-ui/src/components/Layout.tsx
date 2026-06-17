@@ -60,18 +60,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </button>
           
           <button 
-            onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/calendar'); }}
-            className={`flex items-center gap-3 px-6 py-3.5 w-full text-left font-label-md text-sm transition-all duration-300 ${
-              isCalendarActive 
-                ? 'text-primary bg-primary-container/10 border-r-4 border-primary' 
-                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest'
-            }`}
-          >
-            <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: isCalendarActive ? "'FILL' 1" : "'FILL' 0" }}>calendar_month</span>
-            <span>Calendário</span>
-          </button>
-          
-          <button 
             onClick={handleShowFavorites}
             className={`flex items-center gap-3 px-6 py-3.5 w-full text-left font-label-md text-sm transition-all duration-300 ${
               isLibraryActive 
@@ -81,6 +69,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           >
             <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: isLibraryActive ? "'FILL' 1" : "'FILL' 0" }}>library_books</span>
             <span>Biblioteca</span>
+          </button>
+
+          <button 
+            onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/calendar'); }}
+            className={`flex items-center gap-3 px-6 py-3.5 w-full text-left font-label-md text-sm transition-all duration-300 ${
+              isCalendarActive 
+                ? 'text-primary bg-primary-container/10 border-r-4 border-primary' 
+                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest'
+            }`}
+          >
+            <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: isCalendarActive ? "'FILL' 1" : "'FILL' 0" }}>calendar_month</span>
+            <span>Calendário</span>
           </button>
           
           <button 
@@ -170,6 +170,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <span className="material-symbols-outlined text-lg font-bold" style={{ fontVariationSettings: isHomeActive ? "'FILL' 1" : "'FILL' 0" }}>home</span>
             <span className="font-label-sm text-[10px] mt-0.5">Home</span>
           </button>
+
+          <button 
+            onClick={handleShowFavorites} 
+            className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${
+              isLibraryActive 
+                ? 'bg-secondary-container/20 text-primary font-bold' 
+                : 'text-on-surface-variant hover:text-primary'
+            }`}
+          >
+            <span className="material-symbols-outlined text-lg font-bold" style={{ fontVariationSettings: isLibraryActive ? "'FILL' 1" : "'FILL' 0" }}>video_library</span>
+            <span className="font-label-sm text-[10px] mt-0.5">My List</span>
+          </button>
           
           <button 
             onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/calendar'); }} 
@@ -181,18 +193,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           >
             <span className="material-symbols-outlined text-lg font-bold" style={{ fontVariationSettings: isCalendarActive ? "'FILL' 1" : "'FILL' 0" }}>event_note</span>
             <span className="font-label-sm text-[10px] mt-0.5">Agenda</span>
-          </button>
-          
-          <button 
-            onClick={handleShowFavorites} 
-            className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${
-              isLibraryActive 
-                ? 'bg-secondary-container/20 text-primary font-bold' 
-                : 'text-on-surface-variant hover:text-primary'
-            }`}
-          >
-            <span className="material-symbols-outlined text-lg font-bold" style={{ fontVariationSettings: isLibraryActive ? "'FILL' 1" : "'FILL' 0" }}>video_library</span>
-            <span className="font-label-sm text-[10px] mt-0.5">My List</span>
           </button>
           
           <button 

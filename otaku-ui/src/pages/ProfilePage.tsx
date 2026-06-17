@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { 
@@ -93,9 +93,17 @@ const ProfilePage = () => {
   const { user, logout, token, updateUser } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const isMobile = useIsMobile();
   
   const [activeTab, setActiveTab] = useState<'dashboard' | 'account' | 'admin'>('dashboard');
+
+  useEffect(() => {
+    if (location.state?.activeTab) {
+      setActiveTab(location.state.activeTab);
+      window.history.replaceState(null, '');
+    }
+  }, [location]);
   const [isUpdatingPreferences, setIsUpdatingPreferences] = useState(false);
   const [selectedPalette, setSelectedPalette] = useState(() => getCurrentPalette());
 

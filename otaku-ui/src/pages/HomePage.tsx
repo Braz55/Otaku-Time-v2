@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMedia } from '../context/MediaContext';
 import { useToast } from '../context/ToastContext';
@@ -83,6 +84,7 @@ const HomePage = () => {
   const { showToast } = useToast();
   const { categoria, setCategoria, isShowingFavorites, setIsShowingFavorites, isSearchOpen, searchTerm, homeTrigger, setIsViewingDetails, triggerHome } = useMedia();
   const isMobile = useIsMobile();
+  const location = useLocation();
   const [termoPesquisa, setTermoPesquisa] = useState('');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [resultadosPesquisa, setResultadosPesquisa] = useState<any[]>([]);
@@ -533,56 +535,6 @@ const HomePage = () => {
     }
   };
 
-  const sorteioAleatorioGlobal = async () => {
-    setLoading(true);
-    try {
-      // Track random clicks for "Roleta Russa Sobrevivida" (ID 44 for Anime, 45 for Manga)
-      const todayStr = new Date().toISOString().split('T')[0];
-      const storageKey = `random_clicks_${categoria}_${todayStr}`;
-      const currentClicks = parseInt(localStorage.getItem(storageKey) || '0') + 1;
-      localStorage.setItem(storageKey, String(currentClicks));
-      
-      if (currentClicks >= 10) {
-        const targetAchId = categoria === 'manga' ? 45 : 44;
-        customFetch(`${API_BASE_URL}/user/achievements/unlock`, {
-          method: 'POST',
-          headers: getHeaders(),
-          body: JSON.stringify({ achievementId: targetAchId })
-        }).catch(err => console.error("Error unlocking random search achievement:", err));
-      }
-
-      const randomRank = Math.floor(Math.random() * 2000) + 1;
-      const type = categoria === 'manga' ? 'MANGA' : 'ANIME';
-      const query = `
-        query ($page: Int, $type: MediaType) {
-          Page(page: $page, perPage: 1) {
-            media(type: $type, sort: POPULARITY_DESC) {
-              id
-            }
-          }
-        }
-      `;
-
-      const response = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ query, variables: { page: randomRank, type } })
-      });
-      const data = await response.json();
-      const media = data?.data?.Page?.media?.[0];
-      if (!media) {
-        showToast('Erro ao obter conteúdo aleatório. Tente novamente.', 'error');
-        return;
-      }
-
-      await abrirDetalhes(media.id, true, categoria);
-    } catch (error) {
-      console.error('Erro no sorteio global:', error);
-      showToast('Erro ao realizar o sorteio aleatório.', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const sorteioAleatorioBiblioteca = async () => {
     const candidates = resultadosDB.filter(item => item.status === 'PLANNED');
@@ -857,6 +809,14 @@ const HomePage = () => {
     };
   }, [view, setIsViewingDetails]);
 
+  useEffect(() => {
+    if (location.state?.openDetailsId) {
+      const { openDetailsId, openDetailsType } = location.state;
+      window.history.replaceState(null, '');
+      abrirDetalhes(openDetailsId, false, openDetailsType);
+    }
+  }, [location]);
+
   const renderRatingCommentsSection = () => {
     const ratingValue = overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A';
     const votes = overallRating?.total_votos_users ?? 0;
@@ -1090,6 +1050,20 @@ const HomePage = () => {
               {(() => {
                 const dashboardItems = categoria === 'anime' ? animesDashboard : mangasDashboard;
                 const featured = dashboardItems[0];
+
+                if (loading && dashboardItems.length === 0) {
+                  return (
+                    <section className={`relative rounded-3xl overflow-hidden glass-panel rim-light flex flex-col justify-center items-center ${isMobile ? 'h-[280px]' : 'h-[240px] md:h-[280px]'} bg-gradient-to-r from-surface-dim via-purple-950/20 to-surface-dim`}>
+                      <div className="flex flex-col items-center space-y-4">
+                        <div className="relative flex items-center justify-center">
+                          <div className="absolute w-16 h-16 rounded-full bg-primary/20 blur-xl animate-pulse"></div>
+                          <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                        </div>
+                        <span className="text-xs font-semibold text-primary tracking-widest uppercase animate-pulse">A carregar destaque...</span>
+                      </div>
+                    </section>
+                  );
+                }
                 
                 // Banner Static or Dynamic
                 const heroCover = featured 
@@ -1206,7 +1180,7 @@ const HomePage = () => {
                     ) : (
                       /* Desktop Grid (3 columns) */
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {dashboardItems.slice(0, 3).map((item) => {
+                        {dashboardItems.map((item) => {
                           const coverUrl = item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl;
                           const title = item.anime?.titulo || item.manga?.titulo || item.titulo;
                           const current = categoria === 'anime' ? (item.epAtual || 0) : (item.capAtual || 0);
@@ -1268,9 +1242,9 @@ const HomePage = () => {
               )}
 
               {/* 4. Minha Biblioteca Section */}
-              <section id="biblioteca-section" className="space-y-6 md:space-y-8 relative z-30">
-                {isShowingFavorites ? (
-                  /* Vista Biblioteca Principal (quando ativada a partir do menu lateral) */
+              {isShowingFavorites && (
+                <section id="biblioteca-section" className="space-y-6 md:space-y-8 relative z-30">
+                  {/* Vista Biblioteca Principal (quando ativada a partir do menu lateral) */}
                   <div className="flex flex-col space-y-6 border-b border-white/10 pb-6">
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3 sm:gap-4 min-w-0">
@@ -1299,15 +1273,6 @@ const HomePage = () => {
                       </div>
                     </div>
                   </div>
-                ) : (
-                  /* Vista Secção da Biblioteca na Dashboard */
-                  <div className="flex justify-between items-end border-b border-white/10 pb-4">
-                    <div>
-                      <span className="text-vibrant-purple font-label-md text-[10px] uppercase tracking-widest block mb-1">Coleção</span>
-                      <h3 className="font-headline-lg text-lg md:text-xl text-white font-black">Minha Biblioteca</h3>
-                    </div>
-                  </div>
-                )}
 
                 {/* Filters & Sorting Controls */}
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-surface-variant/10 p-2 rounded-2xl border border-white/5 backdrop-blur-md w-full sm:w-fit relative z-30">
@@ -1432,18 +1397,13 @@ const HomePage = () => {
                   {/* Raffle Button */}
                   <button 
                     onClick={() => {
-                      const plannedCount = resultadosDB.filter(item => item.status === 'PLANNED').length;
-                      if (plannedCount > 0) {
-                        sorteioAleatorioBiblioteca();
-                      } else {
-                        sorteioAleatorioGlobal();
-                      }
+                      sorteioAleatorioBiblioteca();
                     }}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-black/40 hover:bg-white/5 border border-white/5 text-[11px] sm:text-xs font-bold text-white transition-all shadow-sm cursor-pointer whitespace-nowrap active:scale-95 ml-auto sm:ml-0"
-                    title="Sorteio Aleatório (Planeados da Biblioteca ou Global)"
+                    title="Sorteio Planeado (Itens Planeados da tua Biblioteca)"
                   >
                     <span className="material-symbols-outlined text-electric-magenta text-sm">casino</span> 
-                    <span>Sorteio Aleatório</span>
+                    <span>Sorteio Planeado</span>
                   </button>
 
                   {loading && <Loader2 className="w-5 h-5 text-primary animate-spin ml-2" />}
@@ -1592,6 +1552,7 @@ const HomePage = () => {
                   })()}
                 </div>
               </section>
+              )}
             </div>
           )}
         </div>

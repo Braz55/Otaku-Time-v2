@@ -180,7 +180,7 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboar
             </button>
             
             <button 
-              onClick={() => navigate('/profile')}
+              onClick={() => navigate('/profile', { state: { activeTab: 'account' } })}
               className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
             >
               settings

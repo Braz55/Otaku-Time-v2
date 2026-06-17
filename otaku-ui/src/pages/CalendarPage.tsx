@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useMedia } from '../context/MediaContext';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Clock, RefreshCw, Play, BookOpen, Bookmark 
+  Clock, RefreshCw
 } from 'lucide-react';
 import { format, isSameDay, startOfToday, addDays, eachDayOfInterval } from 'date-fns';
 import { API_BASE_URL } from '../config';
@@ -21,12 +20,11 @@ interface AiringAnime {
 
 const CalendarPage = () => {
   const { token } = useAuth();
-  const { setCategoria } = useMedia();
   const navigate = useNavigate();
   const [items, setItems] = useState<AiringAnime[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(startOfToday());
-  const [activeFilter, setActiveFilter] = useState<'all' | 'anime' | 'manga'>('all');
+
   const isMobile = useIsMobile();
 
   const days = eachDayOfInterval({
@@ -37,23 +35,14 @@ const CalendarPage = () => {
   const fetchAiring = async () => {
     setLoading(true);
     try {
-      const [animeRes, mangaRes] = await Promise.all([
-        customFetch(`${API_BASE_URL}/anime`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        customFetch(`${API_BASE_URL}/manga`, { headers: { 'Authorization': `Bearer ${token}` } })
-      ]);
-      
+      const animeRes = await customFetch(`${API_BASE_URL}/anime`, { headers: { 'Authorization': `Bearer ${token}` } });
       const animeData = await animeRes.json();
-      const mangaData = await mangaRes.json();
-
+      
       const airingAnime = animeData
         .filter((a: any) => a.proximoEpisodioData !== null)
         .map((a: any) => ({ ...a, type: 'anime' as const, displayDate: a.proximoEpisodioData, displayNum: a.proximoEpisodio }));
 
-      const airingManga = mangaData
-        .filter((m: any) => m.proximoCapituloData !== null)
-        .map((m: any) => ({ ...m, type: 'manga' as const, displayDate: m.proximoCapituloData, displayNum: m.proximoCapituloNumero }));
-
-      setItems([...airingAnime, ...airingManga]);
+      setItems(airingAnime);
     } catch (error) {
       console.error("Error loading calendar:", error);
     } finally {
@@ -133,17 +122,10 @@ const CalendarPage = () => {
     };
   };
 
-  const handleFilterChange = (filter: 'all' | 'anime' | 'manga') => {
-    setActiveFilter(filter);
-    if (filter !== 'all') {
-      setCategoria(filter);
-    }
-  };
+
 
   const itemsOnSelectedDay = items.filter(item => {
-    const matchesCategory = activeFilter === 'all' || item.type === activeFilter;
-    const matchesDay = isSameDay(new Date(item.displayDate), selectedDate);
-    return matchesCategory && matchesDay;
+    return isSameDay(new Date(item.displayDate), selectedDate);
   });
 
   return (
@@ -158,39 +140,6 @@ const CalendarPage = () => {
             <h2 className="font-display-lg text-3xl md:text-display-lg font-extrabold text-white">
               Calendário de Lançamentos
             </h2>
-          </div>
-          
-          <div className="flex items-center gap-2 bg-surface-container rounded-xl p-1 border border-border-glass">
-            <button 
-              onClick={() => handleFilterChange('all')}
-              className={`px-6 py-2 rounded-lg font-bold text-sm transition-all cursor-pointer ${
-                activeFilter === 'all' 
-                  ? 'bg-primary text-on-primary shadow-md shadow-primary/20' 
-                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest'
-              }`}
-            >
-              Todos
-            </button>
-            <button 
-              onClick={() => handleFilterChange('anime')}
-              className={`px-6 py-2 rounded-lg font-bold text-sm transition-all cursor-pointer ${
-                activeFilter === 'anime' 
-                  ? 'bg-primary text-on-primary shadow-md shadow-primary/20' 
-                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest'
-              }`}
-            >
-              Anime
-            </button>
-            <button 
-              onClick={() => handleFilterChange('manga')}
-              className={`px-6 py-2 rounded-lg font-bold text-sm transition-all cursor-pointer ${
-                activeFilter === 'manga' 
-                  ? 'bg-primary text-on-primary shadow-md shadow-primary/20' 
-                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest'
-              }`}
-            >
-              Manga
-            </button>
           </div>
         </div>
       </section>
@@ -249,83 +198,56 @@ const CalendarPage = () => {
           </h2>
 
           {itemsOnSelectedDay.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {itemsOnSelectedDay.map((item) => {
                 const badge = getReleaseBadge(item);
-                const isAnime = item.type === 'anime';
                 const formattedTime = format(new Date(item.displayDate), 'HH:mm');
 
                 return (
                   <article 
                     key={`${item.type}-${item.id}`}
-                    className="glass-panel rounded-3xl overflow-hidden flex flex-col group h-full border border-white/10 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300"
+                    className="glass-panel rim-light p-4 rounded-2xl flex gap-4 hover:border-primary/50 transition-all cursor-pointer group min-w-0"
+                    onClick={() => navigate('/', { state: { openDetailsId: item.id, openDetailsType: item.type } })}
                   >
-                    <div className="relative aspect-[3/4] overflow-hidden bg-surface-container-lowest">
+                    <div className="w-24 h-36 rounded-xl overflow-hidden flex-shrink-0 relative">
                       <img 
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
                         src={item.capaUrl} 
                         alt={item.titulo} 
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80"></div>
-                      <div className="absolute top-4 left-4">
-                        <span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-lg ${badge.classes}`}>
+                      <div className="absolute top-2 left-2">
+                        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shadow-md ${badge.classes}`}>
                           {badge.text}
                         </span>
                       </div>
-                      <div className="absolute bottom-4 left-4 right-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="bg-deep-gray/80 backdrop-blur-md text-white text-[11px] px-2.5 py-1 rounded-md border border-white/10 font-medium">
-                            {isAnime ? `Episódio ${item.displayNum}` : `Capítulo ${item.displayNum}`}
+                    </div>
+                    
+                    <div className="flex flex-col justify-between py-1 min-w-0 flex-1">
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-on-surface-variant font-bold">
+                          <span className="text-vibrant-purple flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5 text-primary" />
+                            {formattedTime} (JST)
                           </span>
-                          <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold border ${isAnime ? 'bg-primary/20 text-primary border-primary/30' : 'bg-secondary/20 text-secondary border-secondary/30'}`}>
-                            {isAnime ? 'Anime' : 'Manga'}
+                          <span className="bg-deep-gray/80 backdrop-blur-md text-white px-2 py-0.5 rounded border border-white/10 font-medium">
+                            Episódio {item.displayNum}
                           </span>
                         </div>
+                        
+                        <h3 className="font-label-md text-sm text-white leading-tight font-bold group-hover:text-primary transition-colors truncate">
+                          {item.titulo}
+                        </h3>
+                        
+                        <p className="text-on-surface-variant text-[11px] leading-relaxed line-clamp-2">
+                          Acompanha o novo episódio de {item.titulo} transmitido em direto do Japão.
+                        </p>
                       </div>
-                    </div>
-                    <div className="p-6 flex flex-col flex-1">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-vibrant-purple text-label-sm font-bold flex items-center gap-1">
-                          <Clock className="w-4 h-4 text-primary" />
-                          {formattedTime} (JST)
+                      
+                      <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                        <span className="flex items-center gap-1.5 text-xs text-primary font-bold hover:underline">
+                          <span>Ver Detalhes</span>
+                          <span className="material-symbols-outlined text-sm">arrow_forward</span>
                         </span>
-                        <span className="text-on-surface-variant text-[10px] uppercase tracking-wider font-bold">
-                          {isAnime ? 'Streaming' : 'Weekly Release'}
-                        </span>
-                      </div>
-                      <h3 className="font-headline-lg text-lg text-white mb-2 leading-tight group-hover:text-primary transition-colors line-clamp-1">
-                        {item.titulo}
-                      </h3>
-                      <p className="text-on-surface-variant text-xs leading-relaxed line-clamp-2 mb-6">
-                        {isAnime 
-                          ? `Acompanha o novo episódio de ${item.titulo} transmitido em direto do Japão.` 
-                          : `Lê o mais recente capítulo de ${item.titulo} lançado oficialmente.`}
-                      </p>
-                      <div className="mt-auto pt-4 border-t border-white/15 flex items-center justify-between">
-                        {isAnime ? (
-                          <button 
-                            onClick={() => navigate(`/`)}
-                            className="flex items-center gap-2 text-primary font-bold hover:gap-3 transition-all cursor-pointer"
-                          >
-                            <span className="text-xs uppercase font-extrabold tracking-wider">Assistir Agora</span>
-                            <Play className="w-4 h-4 text-primary" />
-                          </button>
-                        ) : (
-                          <button 
-                            onClick={() => navigate(`/`)}
-                            className="flex items-center gap-2 text-primary font-bold hover:gap-3 transition-all cursor-pointer"
-                          >
-                            <span className="text-xs uppercase font-extrabold tracking-wider">Ler Online</span>
-                            <BookOpen className="w-4 h-4 text-primary" />
-                          </button>
-                        )}
-                        <button 
-                          onClick={() => navigate(`/`)}
-                          className="text-on-surface-variant hover:text-white transition-colors cursor-pointer"
-                          title="Adicionar à Lista"
-                        >
-                          <Bookmark className="w-5 h-5" />
-                        </button>
                       </div>
                     </div>
                   </article>
@@ -339,7 +261,7 @@ const CalendarPage = () => {
               </div>
               <h3 className="text-xl font-bold text-white mb-2">Sem lançamentos para este dia</h3>
               <p className="text-on-surface-variant text-sm max-w-md mx-auto leading-relaxed">
-                Nenhum anime ou manga da tua biblioteca tem novos episódios ou capítulos agendados para a data selecionada.
+                Nenhum anime da tua biblioteca tem novos episódios agendados para a data selecionada.
               </p>
             </div>
           )}
@@ -362,12 +284,11 @@ const CalendarPage = () => {
                   .slice(0, 5)
                   .map((item) => {
                     const date = new Date(item.displayDate);
-                    const isAnime = item.type === 'anime';
                     return (
                       <div 
                         key={`timeline-${item.type}-${item.id}`} 
                         className="glass-panel p-5 rounded-2xl flex items-center gap-6 group hover:border-primary/30 transition-all cursor-pointer border border-white/5"
-                        onClick={() => navigate(`/`)}
+                        onClick={() => navigate('/', { state: { openDetailsId: item.id, openDetailsType: item.type } })}
                       >
                         <div className="text-center min-w-[80px]">
                           <span className="text-electric-magenta font-black block text-sm">
@@ -383,7 +304,7 @@ const CalendarPage = () => {
                         <div className="flex-grow min-w-0">
                           <h4 className="text-white font-bold group-hover:text-primary transition-colors truncate">{item.titulo}</h4>
                           <p className="text-on-surface-variant text-xs">
-                            {isAnime ? `Episódio ${item.displayNum}` : `Capítulo ${item.displayNum}`} • {isAnime ? 'Anime' : 'Manga'}
+                            Episódio {item.displayNum} • Anime
                           </p>
                         </div>
                         <div className="shrink-0">

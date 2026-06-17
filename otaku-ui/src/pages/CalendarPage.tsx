@@ -7,7 +7,6 @@ import {
 import { format, isSameDay, startOfToday, addDays, eachDayOfInterval } from 'date-fns';
 import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
-import { useIsMobile } from '../hooks/useIsMobile';
 
 interface AiringAnime {
   id: number;
@@ -25,7 +24,7 @@ const CalendarPage = () => {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(startOfToday());
 
-  const isMobile = useIsMobile();
+
 
   const days = eachDayOfInterval({
     start: startOfToday(),
@@ -97,7 +96,7 @@ const CalendarPage = () => {
     if (item.displayNum === 1) {
       return {
         text: 'ESTREIA',
-        classes: 'bg-vibrant-purple/20 text-vibrant-purple border border-vibrant-purple/30 shadow-lg'
+        classes: 'bg-secondary/20 text-secondary border border-secondary/30 shadow-lg'
       };
     }
 
@@ -106,7 +105,7 @@ const CalendarPage = () => {
       if (diffMinutes >= -15 && diffMinutes <= 120) {
         return {
           text: 'LIVE NOW',
-          classes: 'bg-electric-magenta text-white shadow-lg animate-pulse'
+          classes: 'bg-secondary text-white shadow-lg animate-pulse'
         };
       } else if (diffMinutes > 120) {
         return {
@@ -118,7 +117,7 @@ const CalendarPage = () => {
 
     return {
       text: 'AGENDADO',
-      classes: 'bg-primary/20 text-primary border border-primary/30'
+      classes: 'bg-secondary/20 text-secondary border border-secondary/30'
     };
   };
 
@@ -134,7 +133,7 @@ const CalendarPage = () => {
       <section className="mb-12">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
-            <span className="text-electric-magenta font-label-md tracking-widest mb-2 block uppercase font-bold text-xs">
+            <span className="text-secondary font-label-md tracking-widest mb-2 block uppercase font-bold text-xs">
               Upcoming Releases
             </span>
             <h2 className="font-display-lg text-3xl md:text-display-lg font-extrabold text-white">
@@ -145,7 +144,7 @@ const CalendarPage = () => {
       </section>
 
       {/* Sticky Date Selector */}
-      <section className="mb-12 sticky top-20 z-30 py-4 bg-background/50 backdrop-blur-sm -mx-2 px-2">
+      <section className="mb-12 sticky top-[72px] md:top-[88px] z-30 py-4 bg-background/50 backdrop-blur-sm -mx-2 px-2">
         <div className="flex items-center gap-4 overflow-x-auto hide-scrollbar pb-2">
           {days.map((day) => {
             const isSelected = isSameDay(day, selectedDate);
@@ -158,7 +157,7 @@ const CalendarPage = () => {
                 <div 
                   key={day.toString()}
                   onClick={() => setSelectedDate(day)}
-                  className="flex flex-col items-center justify-center min-w-[72px] md:min-w-[100px] h-[84px] md:h-[105px] p-4 md:p-5 rounded-2xl bg-gradient-to-br from-vibrant-purple to-electric-magenta text-white shadow-[0_8px_30px_rgb(139,92,246,0.3)] cursor-pointer ring-2 ring-primary ring-offset-4 ring-offset-background scale-105 transition-all flex-shrink-0"
+                  className="flex flex-col items-center justify-center min-w-[72px] md:min-w-[100px] h-[84px] md:h-[105px] p-4 md:p-5 rounded-2xl bg-secondary text-white shadow-[0_8px_30px_rgba(194,24,91,0.3)] cursor-pointer ring-2 ring-secondary ring-offset-4 ring-offset-background scale-105 transition-all flex-shrink-0 relative z-10"
                 >
                   <span className="text-[10px] md:text-label-sm mb-1 uppercase font-bold">
                     {isToday ? 'Hoje' : weekday}
@@ -172,7 +171,7 @@ const CalendarPage = () => {
               <div 
                 key={day.toString()}
                 onClick={() => setSelectedDate(day)}
-                className="flex flex-col items-center justify-center min-w-[64px] md:min-w-[80px] h-[76px] md:h-[92px] p-3 md:p-4 rounded-2xl bg-white/5 border border-white/5 text-on-surface-variant cursor-pointer group hover:text-white hover:border-vibrant-purple/40 hover:bg-white/10 transition-all flex-shrink-0"
+                className="flex flex-col items-center justify-center min-w-[64px] md:min-w-[80px] h-[76px] md:h-[92px] p-3 md:p-4 rounded-2xl bg-white/5 border border-white/5 text-on-surface-variant cursor-pointer group hover:text-white hover:border-secondary/40 hover:bg-white/10 transition-all flex-shrink-0 relative z-0"
               >
                 <span className="text-[10px] md:text-label-sm mb-1 uppercase opacity-60 group-hover:opacity-100 transition-opacity">
                   {weekday}
@@ -187,13 +186,13 @@ const CalendarPage = () => {
       {/* Content Grid: Release Cards */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
-          <RefreshCw className="w-10 h-10 animate-spin text-primary" />
+          <RefreshCw className="w-10 h-10 animate-spin text-secondary" />
           <p className="text-gray-500 text-sm">A carregar calendário de lançamentos...</p>
         </div>
       ) : (
         <>
           <h2 className="font-headline-lg-mobile text-xl md:text-2xl text-white flex items-center gap-2 mb-8 font-black">
-            <span className="w-2 h-6 bg-vibrant-purple rounded-full"></span>
+            <span className="w-2 h-6 bg-secondary rounded-full"></span>
             Lançamentos de {isSameDay(selectedDate, startOfToday()) ? 'Hoje' : getFormattedWeekDay(selectedDate)}
           </h2>
 
@@ -206,7 +205,7 @@ const CalendarPage = () => {
                 return (
                   <article 
                     key={`${item.type}-${item.id}`}
-                    className="glass-panel rim-light p-4 rounded-2xl flex gap-4 hover:border-primary/50 transition-all cursor-pointer group min-w-0"
+                    className="glass-panel rim-light p-4 rounded-2xl flex gap-4 hover:border-secondary/50 transition-all cursor-pointer group min-w-0"
                     onClick={() => navigate('/', { state: { openDetailsId: item.id, openDetailsType: item.type } })}
                   >
                     <div className="w-24 h-36 rounded-xl overflow-hidden flex-shrink-0 relative">
@@ -225,8 +224,8 @@ const CalendarPage = () => {
                     <div className="flex flex-col justify-between py-1 min-w-0 flex-1">
                       <div className="min-w-0 space-y-1">
                         <div className="flex items-center justify-between text-[10px] text-on-surface-variant font-bold">
-                          <span className="text-vibrant-purple flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5 text-primary" />
+                          <span className="text-secondary flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5 text-secondary" />
                             {formattedTime} (JST)
                           </span>
                           <span className="bg-deep-gray/80 backdrop-blur-md text-white px-2 py-0.5 rounded border border-white/10 font-medium">
@@ -234,7 +233,7 @@ const CalendarPage = () => {
                           </span>
                         </div>
                         
-                        <h3 className="font-label-md text-sm text-white leading-tight font-bold group-hover:text-primary transition-colors truncate">
+                        <h3 className="font-label-md text-sm text-white leading-tight font-bold group-hover:text-secondary transition-colors truncate">
                           {item.titulo}
                         </h3>
                         
@@ -244,7 +243,7 @@ const CalendarPage = () => {
                       </div>
                       
                       <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                        <span className="flex items-center gap-1.5 text-xs text-primary font-bold hover:underline">
+                        <span className="flex items-center gap-1.5 text-xs text-secondary font-bold hover:underline">
                           <span>Ver Detalhes</span>
                           <span className="material-symbols-outlined text-sm">arrow_forward</span>
                         </span>
@@ -255,23 +254,22 @@ const CalendarPage = () => {
               })}
             </div>
           ) : (
-            <div className="bg-surface-container-low/50 border border-dashed border-white/10 rounded-[32px] p-20 text-center max-w-2xl mx-auto my-12">
-              <div className="bg-white/5 inline-flex p-6 rounded-full mb-6 border border-white/5 shadow-inner text-on-surface-variant">
-                <Clock className="w-10 h-10 text-gray-500" />
+            <div className="bg-surface-container-low/50 border border-dashed border-white/5 rounded-[32px] p-10 md:p-16 text-left max-w-3xl my-6 space-y-4">
+              <div className="bg-white/5 inline-flex p-4 rounded-full border border-white/5 shadow-inner text-on-surface-variant">
+                <Clock className="w-8 h-8 text-gray-500" />
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Sem lançamentos para este dia</h3>
-              <p className="text-on-surface-variant text-sm max-w-md mx-auto leading-relaxed">
+              <h3 className="text-lg font-bold text-white mb-2">Sem lançamentos para este dia</h3>
+              <p className="text-on-surface-variant text-xs leading-relaxed max-w-md">
                 Nenhum anime da tua biblioteca tem novos episódios agendados para a data selecionada.
               </p>
             </div>
           )}
 
-          {/* Timeline & Weekly Stats (Desktop only section) */}
-          {!isMobile && (
-            <section className="mt-24 grid grid-cols-1 lg:grid-cols-3 gap-12 border-t border-white/10 pt-16 animate-in fade-in duration-500">
+          {/* Timeline & Weekly Stats */}
+          <section className="mt-16 grid grid-cols-1 lg:grid-cols-3 gap-8 border-t border-white/10 pt-12 animate-in fade-in duration-500">
               <div className="lg:col-span-2">
                 <h3 className="font-headline-lg text-white mb-8 flex items-center gap-3 text-xl md:text-2xl font-black">
-                  <Clock className="w-6 h-6 text-vibrant-purple" />
+                  <Clock className="w-6 h-6 text-secondary" />
                   Próximas 24 Horas
                 </h3>
                 
@@ -287,11 +285,11 @@ const CalendarPage = () => {
                     return (
                       <div 
                         key={`timeline-${item.type}-${item.id}`} 
-                        className="glass-panel p-5 rounded-2xl flex items-center gap-6 group hover:border-primary/30 transition-all cursor-pointer border border-white/5"
+                        className="glass-panel p-5 rounded-2xl flex items-center gap-6 group hover:border-secondary/30 transition-all cursor-pointer border border-white/5"
                         onClick={() => navigate('/', { state: { openDetailsId: item.id, openDetailsType: item.type } })}
                       >
                         <div className="text-center min-w-[80px]">
-                          <span className="text-electric-magenta font-black block text-sm">
+                          <span className="text-secondary font-black block text-sm">
                             {format(date, 'HH:mm')}
                           </span>
                           <span className="text-on-surface-variant text-[9px] uppercase tracking-widest font-bold">
@@ -302,7 +300,7 @@ const CalendarPage = () => {
                           <img alt={item.titulo} className="w-full h-full object-cover group-hover:scale-105 transition-transform" src={item.capaUrl} />
                         </div>
                         <div className="flex-grow min-w-0">
-                          <h4 className="text-white font-bold group-hover:text-primary transition-colors truncate">{item.titulo}</h4>
+                          <h4 className="text-white font-bold group-hover:text-secondary transition-colors truncate">{item.titulo}</h4>
                           <p className="text-on-surface-variant text-xs">
                             Episódio {item.displayNum} • Anime
                           </p>
@@ -322,7 +320,7 @@ const CalendarPage = () => {
               </div>
 
               <div className="lg:col-span-1">
-                <div className="glass-panel bg-surface-container rounded-3xl p-8 border border-white/10 sticky top-28">
+                <div className="glass-panel bg-surface-container rounded-3xl p-8 border border-white/10 lg:sticky lg:top-28">
                   <h3 className="font-headline-lg text-white mb-6 text-xl font-black">Resumo da Semana</h3>
                   <div className="space-y-6 text-sm">
                     <div className="flex items-center justify-between">
@@ -331,7 +329,7 @@ const CalendarPage = () => {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-on-surface-variant">Sua Lista (Hoje)</span>
-                      <span className="text-primary font-black text-lg">
+                      <span className="text-secondary font-black text-lg">
                         {items.filter(i => isSameDay(new Date(i.displayDate), startOfToday())).length}
                       </span>
                     </div>
@@ -341,7 +339,7 @@ const CalendarPage = () => {
                       <div className="space-y-4">
                         {items.slice(0, 2).map((item, idx) => (
                           <div key={`summary-${idx}`} className="flex items-center gap-3">
-                            <div className={`w-1.5 h-8 rounded-full ${idx === 0 ? 'bg-electric-magenta' : 'bg-vibrant-purple'}`}></div>
+                            <div className={`w-1.5 h-8 rounded-full ${idx === 0 ? 'bg-secondary' : 'bg-secondary/60'}`}></div>
                             <div className="min-w-0">
                               <p className="text-white font-medium text-xs truncate">{item.titulo}</p>
                               <p className="text-on-surface-variant text-[10px] font-bold">
@@ -357,7 +355,7 @@ const CalendarPage = () => {
                     </div>
                     <button 
                       onClick={() => navigate('/')}
-                      className="w-full mt-6 bg-surface-container-highest hover:bg-primary hover:text-on-primary border border-white/5 py-3.5 rounded-2xl font-bold text-on-surface text-xs transition-all active:scale-95 cursor-pointer shadow"
+                      className="w-full mt-6 bg-surface-container-highest hover:bg-secondary hover:text-white border border-white/5 py-3.5 rounded-2xl font-bold text-on-surface text-xs transition-all active:scale-95 cursor-pointer shadow"
                     >
                       Voltar para Biblioteca
                     </button>
@@ -365,7 +363,6 @@ const CalendarPage = () => {
                 </div>
               </div>
             </section>
-          )}
         </>
       )}
     </div>

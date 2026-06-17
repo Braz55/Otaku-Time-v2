@@ -36,7 +36,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <aside className="hidden md:flex flex-col h-screen w-64 fixed left-0 top-0 bg-surface-dim border-r border-border-glass backdrop-blur-xl z-50 py-8">
         {/* Brand Header */}
         <div className="px-6 mb-8 cursor-pointer" onClick={handleShowDashboard}>
-          <h1 className="font-display-md text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-vibrant-purple to-electric-magenta tracking-tighter">
+          <h1 className="font-display-md text-3xl font-extrabold text-primary tracking-tighter">
             Otaku-Time
           </h1>
           <p className="font-label-sm text-xs text-on-surface-variant mt-1">
@@ -99,7 +99,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="px-4 mt-auto space-y-4">
           <button 
             onClick={() => navigate('/profile')} 
-            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-vibrant-purple to-electric-magenta font-label-md text-xs font-bold text-white shadow-lg active:scale-95 transition-transform"
+            className="w-full py-3.5 rounded-xl bg-secondary font-label-md text-xs font-bold text-white shadow-lg active:scale-95 transition-transform"
           >
             Upgrade Pro
           </button>

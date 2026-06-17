@@ -989,14 +989,7 @@ const HomePage = () => {
                         <img src={item.coverImage.large} className="w-full h-full object-cover" alt="" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity"></div>
                         
-                        {/* Hover Overlay Button (Desktop Only) */}
-                        {!isMobile && (
-                          <div className="absolute inset-0 flex items-end p-4 opacity-0 group-hover:opacity-100 transition-opacity bg-black/45">
-                            <button className="w-full py-2 rounded-xl bg-primary text-white font-label-md text-xs font-bold shadow-lg">
-                              Detalhes
-                            </button>
-                          </div>
-                        )}
+
                         
                         <div className="absolute bottom-3 left-3 right-3 z-10">
                           <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-bold mb-1.5 ${categoria === 'anime' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary'}`}>
@@ -1053,13 +1046,13 @@ const HomePage = () => {
 
                 if (loading && dashboardItems.length === 0) {
                   return (
-                    <section className={`relative rounded-3xl overflow-hidden glass-panel rim-light flex flex-col justify-center items-center ${isMobile ? 'h-[280px]' : 'h-[240px] md:h-[280px]'} bg-gradient-to-r from-surface-dim via-purple-950/20 to-surface-dim`}>
+                    <section className={`relative rounded-3xl overflow-hidden glass-panel rim-light flex flex-col justify-center items-center ${isMobile ? 'h-[280px]' : 'h-[240px] md:h-[280px]'} bg-surface-variant/10 border border-white/5 backdrop-blur-md`}>
                       <div className="flex flex-col items-center space-y-4">
                         <div className="relative flex items-center justify-center">
-                          <div className="absolute w-16 h-16 rounded-full bg-primary/20 blur-xl animate-pulse"></div>
-                          <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                          <div className={`absolute w-16 h-16 rounded-full blur-xl animate-pulse ${categoria === 'anime' ? 'bg-secondary/20' : 'bg-primary/20'}`}></div>
+                          <Loader2 className={`w-10 h-10 animate-spin ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`} />
                         </div>
-                        <span className="text-xs font-semibold text-primary tracking-widest uppercase animate-pulse">A carregar destaque...</span>
+                        <span className={`text-xs font-semibold tracking-widest uppercase animate-pulse ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`}>A carregar destaque...</span>
                       </div>
                     </section>
                   );
@@ -1087,7 +1080,7 @@ const HomePage = () => {
                       )}
                     </div>
                     <div className="absolute bottom-0 left-0 p-4 md:p-8 max-w-2xl space-y-2 z-10">
-                      <span className="inline-block px-2.5 py-0.5 rounded-full bg-electric-magenta text-white font-label-sm text-[9px] uppercase tracking-wider font-bold">
+                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-white font-label-sm text-[9px] uppercase tracking-wider font-bold ${categoria === 'anime' ? 'bg-secondary' : 'bg-primary'}`}>
                         {featured ? 'EM DESTAQUE NA TUA LISTA' : 'DESTAQUE DA SEMANA'}
                       </span>
                       <h2 className="font-display-lg text-lg md:text-2xl text-white leading-tight font-black">{heroTitle}</h2>
@@ -1097,7 +1090,7 @@ const HomePage = () => {
                       <div className="flex gap-2.5 pt-1.5">
                         <button 
                           onClick={() => featured ? abrirDetalhes(featured.id, false, categoria) : showToast("Procura por Cyberpunk na barra superior!", "info")}
-                          className="px-4 py-2 rounded-xl bg-vibrant-purple text-white font-label-md text-[11px] font-bold hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                          className={`px-4 py-2 rounded-xl text-white font-label-md text-[11px] font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer hover:shadow-lg ${categoria === 'anime' ? 'bg-secondary hover:shadow-[0_0_20px_rgba(194,24,91,0.4)]' : 'bg-primary hover:shadow-[0_0_20px_rgba(106,27,154,0.4)]'}`}
                         >
                           <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span> 
                           Assistir Agora
@@ -1123,20 +1116,9 @@ const HomePage = () => {
                   <section className="space-y-4 md:space-y-6">
                     <div className="flex justify-between items-end">
                       <div>
-                        <span className="text-vibrant-purple font-label-md text-[10px] uppercase tracking-widest block mb-1">Continuar</span>
-                        <h3 className="font-headline-lg text-lg md:text-xl text-white">Próximo Episódio</h3>
+                        <span className={`font-label-md text-[10px] uppercase tracking-widest block mb-1 ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`}>Continuar</span>
+                        <h3 className="font-headline-lg text-lg md:text-xl text-white font-black">Próximo Episódio</h3>
                       </div>
-                      <button 
-                        onClick={() => { 
-                          setFiltroStatus('WATCHING');
-                          setTimeout(() => {
-                            document.getElementById('biblioteca-section')?.scrollIntoView({ behavior: 'smooth' });
-                          }, 50);
-                        }}
-                        className="font-label-md text-xs font-semibold text-primary hover:underline cursor-pointer"
-                      >
-                        Ver tudo
-                      </button>
                     </div>
 
                     {isMobile ? (
@@ -1169,8 +1151,8 @@ const HomePage = () => {
                               </div>
                               <div className="p-3.5 space-y-2">
                                 <h4 className="text-white font-bold text-xs truncate">{title}</h4>
-                                <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
-                                  <div className="h-full bg-gradient-to-r from-vibrant-purple to-electric-magenta rounded-full" style={{ width: `${percent}%` }}></div>
+                                <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden border border-white/5 backdrop-blur-sm">
+                                  <div className={`h-full rounded-full ${categoria === 'anime' ? 'bg-secondary' : 'bg-primary'}`} style={{ width: `${percent}%` }}></div>
                                 </div>
                               </div>
                             </div>
@@ -1200,21 +1182,32 @@ const HomePage = () => {
                             >
                               <div className="w-24 h-36 rounded-xl overflow-hidden flex-shrink-0 relative">
                                 <img src={coverUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
-                                <div className="absolute bottom-0 left-0 w-full h-1 bg-white/20">
-                                  <div className="h-full bg-vibrant-purple" style={{ width: `${percent}%` }}></div>
-                                </div>
                               </div>
                               <div className="flex flex-col justify-between py-1.5 min-w-0 flex-1">
-                                <div className="min-w-0">
+                                <div className="min-w-0 space-y-1">
                                   <h4 className="font-label-md text-sm text-white mb-1 group-hover:text-primary transition-colors truncate">{title}</h4>
                                   <p className="text-xs text-on-surface-variant font-medium">
                                     {categoria === 'anime' ? `Episódio ${epQueVouVer}` : `Capítulo ${epQueVouVer}`}
                                   </p>
+                                  {/* Progress bar moved to details column */}
+                                  <div className="w-full pt-1">
+                                    <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden border border-white/5 backdrop-blur-sm">
+                                      <div 
+                                        className={`h-full rounded-full ${categoria === 'anime' ? 'bg-secondary' : 'bg-primary'}`}
+                                        style={{ width: `${percent}%` }}
+                                      ></div>
+                                    </div>
+                                  </div>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <div className="text-[10px] text-on-surface-variant flex items-center gap-1">
-                                    <span className="material-symbols-outlined text-[12px]">schedule</span>
-                                    <span>Visto {formatLastModified(item).split(' ')[0]}</span>
+                                  <div className="text-[10px] text-on-surface-variant flex items-center gap-1 font-bold">
+                                    <span className={`material-symbols-outlined text-[12px] ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`}>hourglass_empty</span>
+                                    <span>{(() => {
+                                      const left = total > current ? total - current : 0;
+                                      return left === 1 
+                                        ? (categoria === 'anime' ? 'Falta 1 ep' : 'Falta 1 cap')
+                                        : (categoria === 'anime' ? `Faltam ${left} eps` : `Faltam ${left} caps`);
+                                    })()}</span>
                                   </div>
                                   <button 
                                     onClick={(e) => { e.stopPropagation(); marcarComoVisto(item, categoria); }}
@@ -1223,7 +1216,7 @@ const HomePage = () => {
                                     title="Marcar mais um visto"
                                   >
                                     {savingItems[item.id] ? (
-                                      <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                                      <Loader2 className={`w-3.5 h-3.5 animate-spin ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`} />
                                     ) : (
                                       <span className="material-symbols-outlined text-sm">play_arrow</span>
                                     )}
@@ -1402,7 +1395,7 @@ const HomePage = () => {
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-black/40 hover:bg-white/5 border border-white/5 text-[11px] sm:text-xs font-bold text-white transition-all shadow-sm cursor-pointer whitespace-nowrap active:scale-95 ml-auto sm:ml-0"
                     title="Sorteio Planeado (Itens Planeados da tua Biblioteca)"
                   >
-                    <span className="material-symbols-outlined text-electric-magenta text-sm">casino</span> 
+                    <span className={`material-symbols-outlined text-sm ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`}>casino</span> 
                     <span>Sorteio Planeado</span>
                   </button>
 
@@ -2400,7 +2393,7 @@ const HomePage = () => {
                       style={{ objectPosition: `center ${externalProfile.preferences?.bannerPosition ?? '50'}%` }}
                     />
                   ) : (
-                    <div className="absolute inset-0 bg-gradient-to-tr from-secondary/20 to-primary/20 z-0 hero-gradient" />
+                    <div className="absolute inset-0 bg-surface-container-highest z-0" />
                   )}
                   {/* Gradient Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-surface-container via-black/40 to-transparent z-10"></div>

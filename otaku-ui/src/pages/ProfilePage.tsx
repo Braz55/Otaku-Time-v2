@@ -1301,7 +1301,7 @@ const ProfilePage = () => {
               style={{ objectPosition: `center ${profile?.preferences?.bannerPosition ?? '50'}%` }}
             />
           ) : (
-            <div className="absolute inset-0 bg-gradient-to-tr from-vibrant-purple/20 via-electric-magenta/15 to-transparent blur-3xl hero-gradient" />
+            <div className="absolute inset-0 bg-surface-container-highest opacity-40 blur-3xl" />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-surface-dim via-surface-dim/40 to-transparent"></div>
           {isMobile && (
@@ -1321,7 +1321,7 @@ const ProfilePage = () => {
             </div>
             <button 
               onClick={() => setShowEditProfileModal(true)}
-              className="absolute -bottom-2 -right-2 bg-vibrant-purple text-white p-2.5 rounded-xl shadow-lg border-2 border-surface-dim hover:scale-110 active:scale-95 transition-all cursor-pointer z-20 flex items-center justify-center"
+              className="absolute -bottom-2 -right-2 bg-primary text-white p-2.5 rounded-xl shadow-lg border-2 border-surface-dim hover:scale-110 active:scale-95 transition-all cursor-pointer z-20 flex items-center justify-center"
               title="Alterar imagens de perfil"
             >
               <Edit3 className="w-4 h-4" />
@@ -1339,7 +1339,7 @@ const ProfilePage = () => {
                   <Shield className="w-3.5 h-3.5" /> ADMIN
                 </span>
               ) : user?.tipoConta === 'pro' ? (
-                <span className="bg-electric-magenta/20 text-electric-magenta px-3 py-1 rounded-full text-label-sm font-bold border border-electric-magenta/30 shadow-sm flex items-center gap-1">
+                <span className="bg-secondary/20 text-secondary px-3 py-1 rounded-full text-label-sm font-bold border border-secondary/30 shadow-sm flex items-center gap-1">
                   <Award className="w-3.5 h-3.5" /> PRO TIER
                 </span>
               ) : (
@@ -1461,7 +1461,7 @@ const ProfilePage = () => {
                   
                   {/* Progress Bar (representing watchtime relative to milestone) */}
                   <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-vibrant-purple to-electric-magenta" style={{ width: `${Math.min(((profile.statistics?.totalEpisodesWatched || 0) / 1000) * 100, 100)}%` }}></div>
+                    <div className="h-full bg-secondary" style={{ width: `${Math.min(((profile.statistics?.totalEpisodesWatched || 0) / 1000) * 100, 100)}%` }}></div>
                   </div>
 
                   {/* Grid of Other stats */}
@@ -1570,7 +1570,7 @@ const ProfilePage = () => {
                 {/* Header with category selector */}
                 <div className="flex justify-between items-center mb-10 flex-wrap gap-3">
                   <div>
-                    <span className="text-vibrant-purple font-label-md text-[10px] uppercase tracking-widest block mb-0.5">Destaques</span>
+                    <span className={`font-label-md text-[10px] uppercase tracking-widest block mb-0.5 ${favoritePodiumType === 'ANIME' ? 'text-secondary' : 'text-primary'}`}>Destaques</span>
                     <h3 className="font-headline-lg text-lg md:text-xl text-white">Favoritos de Ouro</h3>
                   </div>
                   
@@ -1729,7 +1729,7 @@ const ProfilePage = () => {
             {/* Appearance Theme Card */}
             <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
               <h3 className="font-headline-lg text-lg md:text-xl text-white flex items-center gap-2.5 mb-2">
-                <Heart className="w-5 h-5 text-vibrant-purple" />
+                <Heart className="w-5 h-5 text-secondary" />
                 <span>Aparência</span>
               </h3>
               
@@ -1743,7 +1743,7 @@ const ProfilePage = () => {
                     }`}
                   >
                     <div className="w-full h-10 rounded-lg bg-surface-container-lowest flex items-center justify-center">
-                      <div className="w-5 h-5 rounded-full bg-vibrant-purple shadow-[0_0_10px_rgba(139,92,246,0.6)]"></div>
+                      <div className="w-5 h-5 rounded-full bg-primary shadow-[0_0_10px_rgba(106,27,154,0.6)]"></div>
                     </div>
                     <p className="text-xs font-bold text-white">Cyber Dark</p>
                   </div>

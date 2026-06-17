@@ -244,4 +244,35 @@ h1, h2, h3, h4, h5, h6 {
   .mask-fade-edges {
     mask-image: linear-gradient(to right, transparent, black 50px, black calc(100% - 50px), transparent);
   }
+
+  /* Safe Area Inset Custom Utilities */
+  .safe-pt {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .safe-pb {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .safe-h-nav-top {
+    height: calc(4rem + env(safe-area-inset-top, 0px));
+  }
+  .safe-h-nav-bottom {
+    height: calc(4rem + env(safe-area-inset-bottom, 0px));
+  }
+  .main-content-padding {
+    padding-top: calc(4rem + env(safe-area-inset-top, 0px));
+  }
+  @media (min-width: 768px) {
+    .main-content-padding {
+      padding-top: 5rem;
+    }
+  }
+  .main-container-pb {
+    padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+  }
+  @media (min-width: 768px) {
+    .main-container-pb {
+      padding-bottom: 2rem;
+    }
+  }
 }
+

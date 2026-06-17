@@ -31,7 +31,7 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboar
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
-  const { searchTerm, setSearchTerm, isSearchOpen, setIsSearchOpen, setIsShowingFavorites } = useMedia();
+  const { searchTerm, setSearchTerm, isSearchOpen, setIsSearchOpen, setIsShowingFavorites, isViewingDetails } = useMedia();
   
   const [isSyncing, setIsSyncing] = useState(false);
   const [mobileSearchActive, setMobileSearchActive] = useState(false);
@@ -78,53 +78,74 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboar
     <>
       {isMobile ? (
         /* Top App Bar Mobile */
-        <header className="fixed top-0 left-0 w-full z-50 bg-[#121317]/85 backdrop-blur-xl border-b border-white/10 flex justify-between items-center px-margin-mobile h-16">
-          {mobileSearchActive ? (
-            /* Active mobile search layout */
-            <div className="flex items-center w-full gap-3 animate-in fade-in slide-in-from-right-4 duration-300">
-              <button onClick={handleClearMobileSearch} className="text-primary active:scale-95 transition-transform">
-                <span className="material-symbols-outlined text-xl">arrow_back</span>
-              </button>
-              <input 
-                autoFocus
-                className="w-full bg-deep-gray border-none rounded-full py-1.5 px-4 text-sm text-on-surface focus:ring-1 focus:ring-primary/50 outline-none" 
-                placeholder="Pesquisar anime ou manga..." 
-                type="text"
-                value={searchTerm}
-                onChange={handleSearchChange}
-              />
-              {searchTerm && (
-                <button onClick={() => setSearchTerm('')} className="text-on-surface-variant">
-                  <span className="material-symbols-outlined text-sm">close</span>
+        <header className="fixed top-0 left-0 w-full z-50 bg-[#121317]/85 backdrop-blur-xl border-b border-white/10 flex flex-col justify-end px-margin-mobile safe-h-nav-top">
+          <div className="flex justify-between items-center h-16 w-full gap-2">
+            {mobileSearchActive ? (
+              /* Active mobile search layout */
+              <div className="flex items-center w-full gap-3 animate-in fade-in slide-in-from-right-4 duration-300">
+                <button onClick={handleClearMobileSearch} className="text-primary active:scale-95 transition-transform">
+                  <span className="material-symbols-outlined text-xl">arrow_back</span>
                 </button>
-              )}
-            </div>
-          ) : (
-            /* Normal mobile header layout */
-            <>
-              <div className="flex items-center gap-4">
-                <button onClick={() => navigate('/profile')} className="active:scale-95 duration-200 text-primary">
-                  <span className="material-symbols-outlined">menu</span>
-                </button>
-                <h1 
-                  onClick={onShowDashboard}
-                  className="font-display-md text-[22px] font-extrabold text-primary tracking-tight cursor-pointer"
-                >
-                  Otaku-Time
-                </h1>
+                <input 
+                  autoFocus
+                  className="w-full bg-deep-gray border-none rounded-full py-1.5 px-4 text-sm text-on-surface focus:ring-1 focus:ring-primary/50 outline-none" 
+                  placeholder="Pesquisar anime ou manga..." 
+                  type="text"
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                />
+                {searchTerm && (
+                  <button onClick={() => setSearchTerm('')} className="text-on-surface-variant">
+                    <span className="material-symbols-outlined text-sm">close</span>
+                  </button>
+                )}
               </div>
-              <div className="flex items-center gap-3">
-                {isSyncing && <SyncIndicator />}
-                <button 
-                  onClick={() => { setMobileSearchActive(true); }}
-                  className="active:scale-95 duration-200 text-primary flex items-center justify-center"
-                >
-                  <span className="material-symbols-outlined">search</span>
-                </button>
-              </div>
-            </>
-          )}
+            ) : (
+              /* Normal mobile header layout */
+              <>
+                <div className="flex items-center gap-2 min-w-0">
+                  <button onClick={() => navigate('/profile')} className="active:scale-95 duration-200 text-primary flex-shrink-0 p-1 flex items-center justify-center">
+                    <span className="material-symbols-outlined !text-[22px]">menu</span>
+                  </button>
+                  <h1 
+                    onClick={onShowDashboard}
+                    className="font-display-md text-base sm:text-lg font-extrabold text-primary tracking-tight cursor-pointer truncate flex-shrink-0"
+                  >
+                    Otaku-Time
+                  </h1>
+                  
+                  {/* Category Switcher Mobile */}
+                  <div className={`flex p-0.5 bg-black/40 border border-white/10 rounded-lg shrink-0 ml-1 sm:ml-2 ${isViewingDetails ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}`}>
+                    <button 
+                      type="button"
+                      onClick={() => setCategoria('anime')}
+                      className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${categoria === 'anime' ? 'bg-primary text-on-primary shadow' : 'text-on-surface-variant'}`}
+                    >
+                      Anime
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setCategoria('manga')}
+                      className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${categoria === 'manga' ? 'bg-primary text-on-primary shadow' : 'text-on-surface-variant'}`}
+                    >
+                      Mangá
+                    </button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  {isSyncing && <SyncIndicator />}
+                  <button 
+                    onClick={() => { setMobileSearchActive(true); }}
+                    className="active:scale-95 duration-200 text-primary flex-shrink-0 p-1 flex items-center justify-center"
+                  >
+                    <span className="material-symbols-outlined !text-[22px]">search</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </header>
+
       ) : (
         /* TopAppBar Desktop */
         <header className="fixed top-0 right-0 w-full md:w-[calc(100%-16rem)] z-40 bg-[#121317]/80 backdrop-blur-2xl border-b border-border-glass h-20 flex justify-between items-center px-6 md:px-margin-desktop">
@@ -150,7 +171,7 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboar
             </div>
             
             {/* Categoria Switcher */}
-            <div className="flex p-0.5 bg-black/40 border border-white/10 rounded-xl shrink-0">
+            <div className={`flex p-0.5 bg-black/40 border border-white/10 rounded-xl shrink-0 ${isViewingDetails ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}`}>
               <button 
                 type="button"
                 onClick={() => setCategoria('anime')}

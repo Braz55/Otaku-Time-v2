@@ -82,7 +82,7 @@ type MediaComment = {
 const HomePage = () => {
   const { user, token } = useAuth();
   const { showToast } = useToast();
-  const { categoria, setCategoria, isShowingFavorites, setIsShowingFavorites, isSearchOpen, searchTerm, homeTrigger, setIsViewingDetails, triggerHome } = useMedia();
+  const { categoria, setCategoria, isShowingFavorites, setIsShowingFavorites, isSearchOpen, searchTerm, homeTrigger, setIsViewingDetails } = useMedia();
   const isMobile = useIsMobile();
   const location = useLocation();
   const [termoPesquisa, setTermoPesquisa] = useState('');
@@ -1067,7 +1067,7 @@ const HomePage = () => {
                 const heroDesc = featured ? (featured.anime?.sinopse || featured.manga?.sinopse || featured.descricao || "Continua a acompanhar o teu anime favorito na lista.") : "Numa distopia mergulhada em corrupção e implantes cibernéticos, um talentoso miúdo de rua decide tornar-se um fora da lei.";
                 
                 return (
-                  <section className={`relative rounded-3xl overflow-hidden glass-panel rim-light group ${isMobile ? 'h-[280px]' : 'h-[240px] md:h-[280px]'} flex items-center`}>
+                  <section className={`relative rounded-3xl overflow-hidden glass-panel rim-light group ${isMobile ? 'h-[210px]' : 'h-[240px] md:h-[280px]'} flex items-center`}>
                     {/* Ambient Glow Blurred Backdrop */}
                     <div className="absolute inset-0 pointer-events-none z-0">
                       <img 
@@ -1087,7 +1087,7 @@ const HomePage = () => {
                           {featured ? 'EM DESTAQUE NA TUA LISTA' : 'DESTAQUE DA SEMANA'}
                         </span>
                         <h2 className="font-display-lg text-lg md:text-2xl text-white leading-tight font-black truncate">{heroTitle}</h2>
-                        <p className="font-body-lg text-[11px] md:text-xs text-on-surface-variant line-clamp-3 leading-relaxed max-w-xl">
+                        <p className="font-body-lg text-[11px] md:text-xs text-on-surface-variant line-clamp-2 md:line-clamp-3 leading-relaxed max-w-xl">
                           {heroDesc}
                         </p>
                         <div className="flex gap-2.5 pt-1">
@@ -1108,7 +1108,7 @@ const HomePage = () => {
                       </div>
                       
                       {/* Right: High-Resolution Vertical Poster Card */}
-                      <div className="w-20 sm:w-28 md:w-32 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border border-white/15 flex-shrink-0 relative transition-transform duration-500 group-hover:scale-[1.03] group-hover:rotate-1">
+                      <div className="w-20 xs:w-24 sm:w-28 md:w-32 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border border-white/15 flex-shrink-0 relative transition-transform duration-500 group-hover:scale-[1.03] group-hover:rotate-1">
                         <img 
                           src={heroCover} 
                           className="w-full h-full object-cover" 
@@ -1135,7 +1135,7 @@ const HomePage = () => {
                     </div>
 
                     {isMobile ? (
-                      /* Mobile Scroll Horizontal */
+                      /* Mobile Scroll Horizontal - Row / Netflix Continue watching style card to prevent cover crop */
                       <div className="flex overflow-x-auto gap-4 pb-4 scrollbar-hide">
                         {dashboardItems.map((item) => {
                           const coverUrl = item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl;
@@ -1152,20 +1152,51 @@ const HomePage = () => {
                           return (
                             <div 
                               key={item.id} 
-                              className="flex-shrink-0 w-[260px] glass-panel rounded-2xl overflow-hidden rim-light group transition-all duration-300 active:scale-98 cursor-pointer"
+                              className="flex-shrink-0 w-[270px] glass-panel rounded-2xl p-2.5 flex gap-3.5 rim-light group transition-all duration-300 active:scale-98 cursor-pointer"
                               onClick={() => abrirDetalhes(item.id, false, categoria)}
                             >
-                              <div className="relative h-36">
+                              {/* Left: Portrait Cover Card */}
+                              <div className="w-18 h-26 rounded-xl overflow-hidden flex-shrink-0 relative border border-white/10 shadow-md">
                                 <img src={coverUrl} className="w-full h-full object-cover" alt="" />
-                                <div className="absolute inset-0 bg-black/25"></div>
-                                <div className="absolute bottom-3 left-3 px-2 py-0.5 rounded bg-black/60 backdrop-blur-md text-[9px] font-bold text-white border border-white/5">
+                                <div className="absolute inset-0 bg-black/10"></div>
+                                <div className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/75 backdrop-blur-md text-[8px] font-black text-white border border-white/5 uppercase">
                                   {categoria === 'anime' ? `EP ${epQueVouVer}` : `CAP ${epQueVouVer}`}
                                 </div>
                               </div>
-                              <div className="p-3.5 space-y-2">
-                                <h4 className="text-white font-bold text-xs truncate">{title}</h4>
-                                <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden border border-white/5 backdrop-blur-sm">
-                                  <div className={`h-full rounded-full ${categoria === 'anime' ? 'bg-primary' : 'bg-secondary'}`} style={{ width: `${percent}%` }}></div>
+                              
+                              {/* Right: Info & Controls */}
+                              <div className="flex flex-col justify-between py-1 min-w-0 flex-1">
+                                <div className="min-w-0 space-y-1">
+                                  <h4 className="text-white font-bold text-xs truncate group-hover:text-primary transition-colors">{title}</h4>
+                                  <div className="w-full pt-1">
+                                    <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden border border-white/5">
+                                      <div className={`h-full rounded-full ${categoria === 'anime' ? 'bg-primary' : 'bg-secondary'}`} style={{ width: `${percent}%` }}></div>
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-center justify-between pt-1">
+                                  <div className="text-[9px] text-on-surface-variant flex items-center gap-0.5 font-bold">
+                                    <span className={`material-symbols-outlined text-[11px] ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`}>hourglass_empty</span>
+                                    <span>{(() => {
+                                      const left = total > current ? total - current : 0;
+                                      return left === 1 
+                                        ? (categoria === 'anime' ? 'Falta 1 ep' : 'Falta 1 cap')
+                                        : (categoria === 'anime' ? `Faltam ${left} eps` : `Faltam ${left} caps`);
+                                    })()}</span>
+                                  </div>
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); marcarComoVisto(item, categoria); }}
+                                    disabled={savingItems[item.id]}
+                                    className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-white flex items-center justify-center active:scale-90 cursor-pointer"
+                                    title="Marcar mais um visto"
+                                  >
+                                    {savingItems[item.id] ? (
+                                      <Loader2 className={`w-3.5 h-3.5 animate-spin ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`} />
+                                    ) : (
+                                      <span className="material-symbols-outlined text-sm">play_arrow</span>
+                                    )}
+                                  </button>
                                 </div>
                               </div>
                             </div>
@@ -1259,7 +1290,7 @@ const HomePage = () => {
                           <h2 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight capitalize mb-0.5 sm:mb-1 truncate">
                             Biblioteca ({categoria === 'anime' ? 'Anime' : 'Mangá'})
                           </h2>
-                          <p className="text-xs sm:text-base text-on-surface-variant font-medium">
+                           <p className="text-xs sm:text-base text-on-surface-variant font-medium">
                             {(() => {
                               const filtrados = resultadosDB.filter(item => {
                                 if (filtroStatus !== 'ALL' && item.status !== filtroStatus) return false;
@@ -1272,9 +1303,22 @@ const HomePage = () => {
                           </p>
                         </div>
                       </div>
+                      
+                      {/* Top Right action: Raffle Button */}
                       <div className="flex items-center gap-3">
-                        <button onClick={triggerHome} className="font-label-md text-xs font-semibold text-primary hover:underline cursor-pointer">
-                          Mostrar Tudo
+                        <button 
+                          onClick={() => {
+                            sorteioAleatorioBiblioteca();
+                          }}
+                          className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl font-bold text-[11px] sm:text-xs text-white transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap ${
+                            categoria === 'anime' 
+                              ? 'bg-secondary hover:bg-secondary/90 hover:shadow-[0_0_15px_rgba(194,24,91,0.4)]' 
+                              : 'bg-primary hover:bg-primary/90 hover:shadow-[0_0_15px_rgba(106,27,154,0.4)]'
+                          }`}
+                          title="Sorteio Planeado (Itens Planeados da tua Biblioteca)"
+                        >
+                          <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>casino</span> 
+                          <span>Sorteio Planeado</span>
                         </button>
                       </div>
                     </div>
@@ -1399,18 +1443,6 @@ const HomePage = () => {
                       </>
                     )}
                   </div>
-
-                  {/* Raffle Button */}
-                  <button 
-                    onClick={() => {
-                      sorteioAleatorioBiblioteca();
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-black/40 hover:bg-white/5 border border-white/5 text-[11px] sm:text-xs font-bold text-white transition-all shadow-sm cursor-pointer whitespace-nowrap active:scale-95 ml-auto sm:ml-0"
-                    title="Sorteio Planeado (Itens Planeados da tua Biblioteca)"
-                  >
-                    <span className={`material-symbols-outlined text-sm ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`}>casino</span> 
-                    <span>Sorteio Planeado</span>
-                  </button>
 
                   {loading && <Loader2 className="w-5 h-5 text-primary animate-spin ml-2" />}
                 </div>

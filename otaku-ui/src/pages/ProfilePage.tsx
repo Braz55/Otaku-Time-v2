@@ -1348,7 +1348,7 @@ const ProfilePage = () => {
                 </span>
               )}
             </div>
-            <p className="font-body-md text-on-surface-variant max-w-2xl text-xs md:text-sm leading-relaxed truncate">
+            <p className="font-body-md text-on-surface-variant max-w-2xl text-xs md:text-sm leading-relaxed">
               {profile?.preferences?.bio || "Artesão de playlists e maratonista profissional. Em busca do próximo título que vai mudar a minha vida."}
             </p>
             {profile?.subscription?.status === 'ACTIVE' && (
@@ -1379,8 +1379,8 @@ const ProfilePage = () => {
       </section>
 
       {/* 2. Navigation Tabs under Banner */}
-      <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop mt-8">
-        <div className="flex gap-2.5 border-b border-white/10 pb-4 overflow-x-auto w-full no-scrollbar">
+      <div className="max-w-container-max mx-auto mt-8">
+        <div className="flex gap-2.5 border-b border-white/10 pb-4 overflow-x-auto w-full no-scrollbar px-margin-mobile md:px-margin-desktop">
           <button 
             onClick={() => setActiveTab('dashboard')} 
             className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all whitespace-nowrap cursor-pointer ${

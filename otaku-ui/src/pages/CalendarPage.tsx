@@ -15,6 +15,7 @@ interface AiringAnime {
   displayNum: number;
   displayDate: string;
   type: 'anime' | 'manga';
+  prioridade?: number | null;
 }
 
 const CalendarPage = () => {
@@ -276,7 +277,9 @@ const CalendarPage = () => {
                 <div className="space-y-4">
                   {items.filter(item => {
                     const itemDate = new Date(item.displayDate);
-                    return itemDate >= startOfToday();
+                    const now = new Date();
+                    const next24 = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+                    return itemDate >= now && itemDate <= next24;
                   })
                   .sort((a, b) => new Date(a.displayDate).getTime() - new Date(b.displayDate).getTime())
                   .slice(0, 5)
@@ -337,17 +340,28 @@ const CalendarPage = () => {
                     <div>
                       <p className="text-[10px] text-on-surface-variant mb-4 uppercase tracking-widest font-black">Mais Aguardados</p>
                       <div className="space-y-4">
-                        {items.slice(0, 2).map((item, idx) => (
-                          <div key={`summary-${idx}`} className="flex items-center gap-3">
-                            <div className={`w-1.5 h-8 rounded-full ${idx === 0 ? 'bg-secondary' : 'bg-secondary/60'}`}></div>
-                            <div className="min-w-0">
-                              <p className="text-white font-medium text-xs truncate">{item.titulo}</p>
-                              <p className="text-on-surface-variant text-[10px] font-bold">
-                                {getFormattedWeekDay(new Date(item.displayDate))}, {format(new Date(item.displayDate), 'HH:mm')}
-                              </p>
+                        {(() => {
+                          const mostAnticipated = [...items]
+                            .sort((a, b) => {
+                              const pA = a.prioridade || 999;
+                              const pB = b.prioridade || 999;
+                              if (pA !== pB) return pA - pB;
+                              return new Date(a.displayDate).getTime() - new Date(b.displayDate).getTime();
+                            })
+                            .slice(0, 2);
+
+                          return mostAnticipated.map((item, idx) => (
+                            <div key={`summary-${idx}`} className="flex items-center gap-3">
+                              <div className={`w-1.5 h-8 rounded-full ${idx === 0 ? 'bg-secondary' : 'bg-secondary/60'}`}></div>
+                              <div className="min-w-0">
+                                <p className="text-white font-medium text-xs truncate">{item.titulo}</p>
+                                <p className="text-on-surface-variant text-[10px] font-bold">
+                                  {getFormattedWeekDay(new Date(item.displayDate))}, {format(new Date(item.displayDate), 'HH:mm')}
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ));
+                        })()}
                         {items.length === 0 && (
                           <p className="text-on-surface-variant text-xs italic">Sem destaques.</p>
                         )}

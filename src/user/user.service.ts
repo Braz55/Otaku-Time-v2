@@ -568,10 +568,54 @@ export class UserService {
       });
     }
 
+    const userRatings = await this.prisma.userRating.findMany({
+      where: { userId },
+      select: { score: true }
+    });
+
+    const totalRated = userRatings.length;
+    const averageScore = totalRated > 0 
+      ? parseFloat((userRatings.reduce((sum, r) => sum + r.score, 0) / totalRated).toFixed(1))
+      : 0.0;
+
+    const animeCounts = await this.prisma.userAnime.groupBy({
+      by: ['status'],
+      where: { userId },
+      _count: true,
+    });
+    
+    const mangaCounts = await this.prisma.userManga.groupBy({
+      by: ['status'],
+      where: { userId },
+      _count: true,
+    });
+
+    const animeStats = {
+      watching: animeCounts.find(c => c.status === 'WATCHING')?._count ?? 0,
+      planned: animeCounts.find(c => c.status === 'PLANNED')?._count ?? 0,
+      completed: animeCounts.find(c => c.status === 'COMPLETED')?._count ?? 0,
+      paused: animeCounts.find(c => c.status === 'PAUSED')?._count ?? 0,
+      dropped: animeCounts.find(c => c.status === 'DROPPED')?._count ?? 0,
+    };
+
+    const mangaStats = {
+      reading: mangaCounts.find(c => c.status === 'WATCHING')?._count ?? 0,
+      planned: mangaCounts.find(c => c.status === 'PLANNED')?._count ?? 0,
+      completed: mangaCounts.find(c => c.status === 'COMPLETED')?._count ?? 0,
+      paused: mangaCounts.find(c => c.status === 'PAUSED')?._count ?? 0,
+      dropped: mangaCounts.find(c => c.status === 'DROPPED')?._count ?? 0,
+    };
+
     const { password, ...profile } = user;
     return {
       ...profile,
-      topFavorites: topFavoritesWithDetails
+      topFavorites: topFavoritesWithDetails,
+      statsSummary: {
+        averageScore,
+        totalRated,
+        anime: animeStats,
+        manga: mangaStats,
+      }
     };
   }
 

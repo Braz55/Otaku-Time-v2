@@ -5,7 +5,7 @@ import { useToast } from '../context/ToastContext';
 import { 
   Database, RefreshCw, AlertCircle, User, Shield, 
   Smartphone, Download, Upload, Copy, Check, Award, Heart, 
-  Edit3, Trash2, Plus, Search, BookOpen, Clock, Film, Share2 
+  Edit3, Trash2, Plus, Search, BookOpen, Clock, Film, BarChart3 
 } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 import { Capacitor } from '@capacitor/core';
@@ -123,6 +123,7 @@ const ProfilePage = () => {
   // Edit Profile Avatar/Banner state
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [editName, setEditName] = useState('');
+  const [editBio, setEditBio] = useState('');
   const [editIconUrl, setEditIconUrl] = useState('');
   const [editBannerUrl, setEditBannerUrl] = useState('');
   const [editBannerPosition, setEditBannerPosition] = useState<number>(50);
@@ -210,6 +211,8 @@ const ProfilePage = () => {
 
   // Favorites Podium Search state
   const [showFavoritesModal, setShowFavoritesModal] = useState(false);
+  const [showDetailedStatsModal, setShowDetailedStatsModal] = useState(false);
+  const [activeStatsTab, setActiveStatsTab] = useState<'anime' | 'manga'>('anime');
   const [selectedRank, setSelectedRank] = useState<number>(1);
   const [favSearchType, setFavSearchType] = useState<'anime' | 'manga'>('anime');
   const [favSearchTerm, setFavSearchTerm] = useState('');
@@ -322,43 +325,6 @@ const ProfilePage = () => {
       return `Há ${diffDays} dias`;
     } catch {
       return 'Recentemente';
-    }
-  };
-
-  const handleShareProfile = async () => {
-    const shareText = `Vê o meu perfil no Otaku-Time! Sou o ${user?.nome || 'Otaku'}.`;
-    const shareUrl = window.location.href;
-
-    if (Capacitor.isNativePlatform()) {
-      try {
-        await Share.share({
-          title: 'Otaku-Time Perfil',
-          text: shareText,
-          url: shareUrl,
-          dialogTitle: 'Partilhar Perfil'
-        });
-      } catch (err) {
-        console.error(err);
-      }
-    } else {
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            title: 'Otaku-Time Perfil',
-            text: shareText,
-            url: shareUrl
-          });
-        } catch (err) {
-          console.error(err);
-        }
-      } else {
-        try {
-          await navigator.clipboard.writeText(shareUrl);
-          showToast('Link do perfil copiado para a área de transferência!', 'success');
-        } catch (err) {
-          showToast('Não foi possível partilhar ou copiar o link.', 'error');
-        }
-      }
     }
   };
 
@@ -768,6 +734,7 @@ const ProfilePage = () => {
       setEditIconUrl(profile.iconUrl || '');
       setEditBannerUrl(profile.bannerUrl || '');
       setEditBannerPosition(profile.preferences?.bannerPosition ?? 50);
+      setEditBio(profile.preferences?.bio || '');
     }
   }, [user, profile]);
 
@@ -785,7 +752,8 @@ const ProfilePage = () => {
 
     const updatedPreferences = {
       ...profile?.preferences,
-      bannerPosition: editBannerPosition
+      bannerPosition: editBannerPosition,
+      bio: editBio
     };
 
     try {
@@ -1319,13 +1287,6 @@ const ProfilePage = () => {
                 user?.nome ? user.nome.charAt(0).toUpperCase() : 'O'
               )}
             </div>
-            <button 
-              onClick={() => setShowEditProfileModal(true)}
-              className="absolute -bottom-2 -right-2 bg-primary text-white p-2.5 rounded-xl shadow-lg border-2 border-surface-dim hover:scale-110 active:scale-95 transition-all cursor-pointer z-20 flex items-center justify-center"
-              title="Alterar imagens de perfil"
-            >
-              <Edit3 className="w-4 h-4" />
-            </button>
           </div>
 
           {/* User Details */}
@@ -1348,9 +1309,11 @@ const ProfilePage = () => {
                 </span>
               )}
             </div>
-            <p className="font-body-md text-on-surface-variant max-w-2xl text-xs md:text-sm leading-relaxed">
-              {profile?.preferences?.bio || "Artesão de playlists e maratonista profissional. Em busca do próximo título que vai mudar a minha vida."}
-            </p>
+            {profile?.preferences?.bio && (
+              <p className="font-body-md text-on-surface-variant max-w-2xl text-xs md:text-sm leading-relaxed">
+                {profile.preferences.bio}
+              </p>
+            )}
             {profile?.subscription?.status === 'ACTIVE' && (
               <p className="text-xs text-amber-400 font-bold flex items-center justify-center md:justify-start gap-1 drop-shadow mt-1">
                 <Clock className="w-3.5 h-3.5 text-amber-500 animate-pulse" /> Premium válido até {new Date(profile.subscription.currentPeriodEnd).toLocaleDateString('pt-PT')}
@@ -1360,13 +1323,6 @@ const ProfilePage = () => {
 
           {/* Quick Actions */}
           <div className="flex gap-3 md:mb-2 shrink-0 w-full sm:w-auto justify-center">
-            <button 
-              onClick={handleShareProfile}
-              className="flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-surface-container-highest/50 backdrop-blur-md border border-white/10 hover:bg-white/10 text-white font-label-md text-xs font-bold transition-all active:scale-95 cursor-pointer shadow"
-            >
-              <Share2 className="w-4 h-4" />
-              <span>Partilhar</span>
-            </button>
             <button 
               onClick={() => setShowEditProfileModal(true)}
               className="flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-primary text-on-primary font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-all active:scale-95 cursor-pointer text-xs"
@@ -1480,9 +1436,20 @@ const ProfilePage = () => {
                     </div>
                     <div className="p-4 bg-surface-container-low rounded-2xl border border-border-glass">
                       <p className="text-on-surface-variant text-[10px] uppercase tracking-wider mb-1 font-bold">Média Score</p>
-                      <p className="text-xl font-headline-lg text-white font-extrabold">8.4</p>
+                      <p className="text-xl font-headline-lg text-white font-extrabold">
+                        {profile.statsSummary?.averageScore ? profile.statsSummary.averageScore.toFixed(1) : '0.0'}
+                      </p>
                     </div>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowDetailedStatsModal(true)}
+                    className="w-full mt-2 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                  >
+                    <BarChart3 className="w-4 h-4 text-primary" />
+                    <span>Ver Estatísticas Detalhadas</span>
+                  </button>
                 </div>
               </div>
 
@@ -1562,7 +1529,7 @@ const ProfilePage = () => {
             <div className="col-span-12 lg:col-span-8 space-y-6 md:space-y-8">
               
               {/* Favorites Podium Card */}
-              <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 shadow-xl relative overflow-hidden min-h-[420px]">
+              <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 shadow-xl relative overflow-hidden min-h-[300px] sm:min-h-[420px]">
                 <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none">
                   <span className="material-symbols-outlined text-[150px]">stars</span>
                 </div>
@@ -1594,7 +1561,7 @@ const ProfilePage = () => {
                 </div>
 
                 {/* Podium Grid */}
-                <div className="grid grid-cols-3 gap-3 sm:gap-8 items-end h-[340px] max-w-2xl mx-auto pt-2">
+                <div className="grid grid-cols-3 gap-3 sm:gap-8 items-end h-[200px] min-[400px]:h-[240px] sm:h-[340px] max-w-2xl mx-auto pt-2">
                   {renderPodiumPosition(2)}
                   {renderPodiumPosition(1)}
                   {renderPodiumPosition(3)}
@@ -2463,6 +2430,17 @@ const ProfilePage = () => {
                 />
               </div>
 
+              <div className="space-y-2">
+                <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Frase do Perfil (Biografia)</label>
+                <textarea 
+                  value={editBio}
+                  onChange={(e) => setEditBio(e.target.value)}
+                  className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-primary outline-none transition-all text-sm resize-none h-20"
+                  placeholder="Escreve uma frase ou biografia curta..."
+                  maxLength={150}
+                />
+              </div>
+
               {/* Hidden file inputs */}
               <input 
                 type="file" 
@@ -3153,6 +3131,232 @@ const ProfilePage = () => {
                 <span className="material-symbols-outlined text-xs">check</span>
                 <span>Confirmar</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detailed Statistics Modal */}
+      {showDetailedStatsModal && (
+        <div className="fixed inset-0 z-[100] overflow-y-auto p-4 pb-32 sm:pb-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300 flex justify-center items-start sm:items-center">
+          <div className="glass-panel w-full max-w-lg p-6 sm:p-8 rounded-[32px] border border-white/10 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 my-auto text-left">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-primary/10 to-transparent rounded-full blur-2xl pointer-events-none"></div>
+            
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                <BarChart3 className="w-6 h-6 text-primary-light" />
+                <span>Estatísticas Detalhadas</span>
+              </h3>
+              <button 
+                type="button" 
+                onClick={() => setShowDetailedStatsModal(false)}
+                className="text-gray-400 hover:text-white transition-colors cursor-pointer text-sm font-bold bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-xl border border-white/5"
+              >
+                Fechar
+              </button>
+            </div>
+
+            {/* Tab selector */}
+            <div className="flex p-1 bg-black/40 border border-white/10 rounded-2xl mb-6">
+              <button 
+                type="button"
+                onClick={() => setActiveStatsTab('anime')}
+                className={`flex-1 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${activeStatsTab === 'anime' ? 'bg-primary text-on-primary shadow' : 'text-on-surface-variant hover:text-white'}`}
+              >
+                Estatísticas de Anime
+              </button>
+              <button 
+                type="button"
+                onClick={() => setActiveStatsTab('manga')}
+                className={`flex-1 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${activeStatsTab === 'manga' ? 'bg-secondary text-on-secondary shadow' : 'text-on-surface-variant hover:text-white'}`}
+              >
+                Estatísticas de Mangá
+              </button>
+            </div>
+
+            {/* Content area */}
+            <div className="space-y-6">
+              {activeStatsTab === 'anime' ? (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                  {/* Time and count breakdown */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-black/40 rounded-2xl border border-white/5">
+                      <p className="text-gray-400 text-[10px] uppercase tracking-wider font-bold">Tempo Assistido</p>
+                      <p className="text-lg sm:text-xl font-extrabold text-white mt-1">
+                        {profile.statistics?.animeDaysWasted ? Number(profile.statistics.animeDaysWasted).toFixed(1) : '0.0'} dias
+                      </p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">
+                        ~{profile.statistics?.animeDaysWasted ? (Number(profile.statistics.animeDaysWasted) * 24).toFixed(0) : '0'} horas
+                      </p>
+                    </div>
+                    <div className="p-4 bg-black/40 rounded-2xl border border-white/5">
+                      <p className="text-gray-400 text-[10px] uppercase tracking-wider font-bold">Episódios Vistos</p>
+                      <p className="text-lg sm:text-xl font-extrabold text-white mt-1">
+                        {profile.statistics?.totalEpisodesWatched || 0} eps
+                      </p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">Total de episódios</p>
+                    </div>
+                  </div>
+
+                  {/* Status counts progress bars */}
+                  <div className="space-y-3 bg-black/30 p-4 rounded-2xl border border-white/5">
+                    <p className="text-xs font-bold text-white uppercase tracking-wider mb-2">Divisão por Estado</p>
+                    
+                    {/* Watching */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-primary">A Assistir</span>
+                        <span className="text-white">{profile.statsSummary?.anime?.watching || 0}</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full bg-primary" style={{ width: `${Math.min(((profile.statsSummary?.anime?.watching || 0) / Math.max(profile.statistics?.totalAnimeCompleted || 1, 1)) * 100, 100)}%` }}></div>
+                      </div>
+                    </div>
+
+                    {/* Completed */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-green-400">Completados</span>
+                        <span className="text-white">{profile.statsSummary?.anime?.completed || 0}</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full bg-green-400" style={{ width: `${Math.min(((profile.statsSummary?.anime?.completed || 0) / Math.max(profile.statistics?.totalAnimeCompleted || 1, 1)) * 100, 100)}%` }}></div>
+                      </div>
+                    </div>
+
+                    {/* Planned */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-yellow-400">Planeados</span>
+                        <span className="text-white">{profile.statsSummary?.anime?.planned || 0}</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full bg-yellow-400" style={{ width: `${Math.min(((profile.statsSummary?.anime?.planned || 0) / Math.max(profile.statistics?.totalAnimeCompleted || 1, 1)) * 100, 100)}%` }}></div>
+                      </div>
+                    </div>
+
+                    {/* Paused */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-cyan-400">Em Pausa</span>
+                        <span className="text-white">{profile.statsSummary?.anime?.paused || 0}</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full bg-cyan-400" style={{ width: `${Math.min(((profile.statsSummary?.anime?.paused || 0) / Math.max(profile.statistics?.totalAnimeCompleted || 1, 1)) * 100, 100)}%` }}></div>
+                      </div>
+                    </div>
+
+                    {/* Dropped */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-red-400">Desistidos</span>
+                        <span className="text-white">{profile.statsSummary?.anime?.dropped || 0}</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full bg-red-400" style={{ width: `${Math.min(((profile.statsSummary?.anime?.dropped || 0) / Math.max(profile.statistics?.totalAnimeCompleted || 1, 1)) * 100, 100)}%` }}></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                  {/* Time and count breakdown */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-black/40 rounded-2xl border border-white/5">
+                      <p className="text-gray-400 text-[10px] uppercase tracking-wider font-bold">Tempo Lido</p>
+                      <p className="text-lg sm:text-xl font-extrabold text-white mt-1">
+                        {profile.statistics?.mangaDaysWasted ? Number(profile.statistics.mangaDaysWasted).toFixed(1) : '0.0'} dias
+                      </p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">
+                        ~{profile.statistics?.mangaDaysWasted ? (Number(profile.statistics.mangaDaysWasted) * 24).toFixed(0) : '0'} horas
+                      </p>
+                    </div>
+                    <div className="p-4 bg-black/40 rounded-2xl border border-white/5">
+                      <p className="text-gray-400 text-[10px] uppercase tracking-wider font-bold">Capítulos Lidos</p>
+                      <p className="text-lg sm:text-xl font-extrabold text-white mt-1">
+                        {profile.statistics?.totalMangaRead || 0} caps
+                      </p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">Total de capítulos</p>
+                    </div>
+                  </div>
+
+                  {/* Status counts progress bars */}
+                  <div className="space-y-3 bg-black/30 p-4 rounded-2xl border border-white/5">
+                    <p className="text-xs font-bold text-white uppercase tracking-wider mb-2">Divisão por Estado</p>
+                    
+                    {/* Reading */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-secondary">A Ler</span>
+                        <span className="text-white">{profile.statsSummary?.manga?.reading || 0}</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full bg-secondary" style={{ width: `${Math.min(((profile.statsSummary?.manga?.reading || 0) / Math.max(profile.statistics?.totalMangaRead || 1, 1)) * 100, 100)}%` }}></div>
+                      </div>
+                    </div>
+
+                    {/* Completed */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-green-400">Completados</span>
+                        <span className="text-white">{profile.statsSummary?.manga?.completed || 0}</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full bg-green-400" style={{ width: `${Math.min(((profile.statsSummary?.manga?.completed || 0) / Math.max(profile.statistics?.totalMangaRead || 1, 1)) * 100, 100)}%` }}></div>
+                      </div>
+                    </div>
+
+                    {/* Planned */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-yellow-400">Planeados</span>
+                        <span className="text-white">{profile.statsSummary?.manga?.planned || 0}</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full bg-yellow-400" style={{ width: `${Math.min(((profile.statsSummary?.manga?.planned || 0) / Math.max(profile.statistics?.totalMangaRead || 1, 1)) * 100, 100)}%` }}></div>
+                      </div>
+                    </div>
+
+                    {/* Paused */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-cyan-400">Em Pausa</span>
+                        <span className="text-white">{profile.statsSummary?.manga?.paused || 0}</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full bg-cyan-400" style={{ width: `${Math.min(((profile.statsSummary?.manga?.paused || 0) / Math.max(profile.statistics?.totalMangaRead || 1, 1)) * 100, 100)}%` }}></div>
+                      </div>
+                    </div>
+
+                    {/* Dropped */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-red-400">Desistidos</span>
+                        <span className="text-white">{profile.statsSummary?.manga?.dropped || 0}</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full bg-red-400" style={{ width: `${Math.min(((profile.statsSummary?.manga?.dropped || 0) / Math.max(profile.statistics?.totalMangaRead || 1, 1)) * 100, 100)}%` }}></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* General Ratings metrics */}
+              <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-gray-400 text-[10px] uppercase tracking-wider font-bold">Classificação Média</p>
+                  <p className="text-2xl font-extrabold text-white mt-1">
+                    {profile.statsSummary?.averageScore ? profile.statsSummary.averageScore.toFixed(1) : '0.0'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-[10px] uppercase tracking-wider font-bold">Títulos Avaliados</p>
+                  <p className="text-2xl font-extrabold text-white mt-1">
+                    {profile.statsSummary?.totalRated || 0}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>

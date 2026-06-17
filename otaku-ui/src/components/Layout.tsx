@@ -31,7 +31,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isProfileActive = location.pathname === '/profile';
 
   return (
-    <div className="min-h-screen bg-[#0F1014] text-on-background selection:bg-primary selection:text-on-primary font-body-md flex max-w-full overflow-x-hidden">
+    <div className="min-h-screen bg-background text-on-background selection:bg-primary selection:text-on-primary font-body-md flex max-w-full overflow-x-hidden">
       {/* SideNavBar (Desktop Only) */}
       <aside className="hidden md:flex flex-col h-screen w-64 fixed left-0 top-0 bg-surface-dim border-r border-border-glass backdrop-blur-xl z-50 py-8">
         {/* Brand Header */}
@@ -157,7 +157,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </div>
 
       {/* BottomNavBar (Mobile Only) */}
-      <nav className="md:hidden fixed bottom-0 left-0 w-full z-50 bg-[#0d0e12]/90 backdrop-blur-md border-t border-border-glass safe-h-nav-bottom flex flex-col justify-start px-4 rounded-t-xl shadow-[0_-4px_20px_rgba(139,92,246,0.1)]">
+      <nav className="md:hidden fixed bottom-0 left-0 w-full z-50 bg-surface-container/90 backdrop-blur-md border-t border-border-glass safe-h-nav-bottom flex flex-col justify-start px-4 rounded-t-xl shadow-[0_-4px_20px_rgba(139,92,246,0.1)]">
         <div className="flex justify-around items-center h-16 w-full">
           <button 
             onClick={handleShowDashboard} 

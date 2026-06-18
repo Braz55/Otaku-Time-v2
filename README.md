@@ -55,6 +55,31 @@ Resolves inconsistencies from external portals using a 3-layer system:
 * ES2020 Compatibility: The Vite frontend build and TypeScript target have been adjusted to es2020, ensuring full compatibility with older Android WebViews.
 * Cache-Busting & Loader: Added an interceptor script in index.html to clean up obsolete static assets saved in cache after new updates, alongside a premium animated loading screen.
 
+### 9. Global Ratings & Comments System (Community)
+* Dynamic Evaluations: Users can submit custom ratings on animes and mangas, recalculating the average global score dynamically on the NestJS backend.
+* Community Comments: Detailed user commenting functionality. Comment threads are populated and linked per work, visible to all registered users on the media details page.
+
+### 10. Fun Achievement & Badge System
+* Dynamic Achievements: Fun badges dynamically unlocked when users hit milestones. Includes image URL badges, descriptions, and rarity tiers (Common, Rare, Epic, Legendary).
+* Database Seeding: Embedded automated seed utility in administration tools to easily populate standard achievements.
+
+### 11. PRO Tier & Gift Code Subscriptions
+* Code Redemption: Users can upgrade their accounts to the "PREMIUM" status by redeeming active Gift Codes.
+* Expiration Control: Fully managed subscriptions with automated current period ending controls.
+
+### 12. Complete Administrative Dashboard
+* System Overview: Admin panel endpoints to view total users, subscription tiers, and overall system stats.
+* Code Management: Secure commands to generate custom duration Gift Codes, limit usage, set custom expiration dates, and list/manage subscriptions and active/unlocked achievements.
+
+### 13. Social Sharing & Public Profiles
+* User Interconnection: Allows users to visit and view other members' profiles (`/user/profile/:id`) including their public libraries, statistics, and top lists.
+* Top 3 Favorites: Pin up to 3 Anime/Manga titles directly in a highlighted top list visible to anyone visiting the profile.
+* Custom Phrase: Profile status features where users can write a customized phrase/status shown under their banner.
+
+### 14. Keep-Alive Middleware & Smart Syncing
+* Auto-Wake Service: Dynamic ping middleware triggered automatically on client navigation keeping the NestJS server active on Render to avoid cold starts.
+* Background Sync: Checks and syncs with the AniList database every 4 hours automatically.
+
 ---
 
 ## System Architecture
@@ -118,8 +143,10 @@ classDiagram
         +String theme
         +Boolean showAdultContent
         +Int tokenVersion
-        +UserAnime[] animes
-        +UserManga[] mangas
+        +String tipoConta
+        +String iconUrl
+        +String bannerUrl
+        +Json preferences
     }
 
     class Anime {
@@ -139,6 +166,18 @@ classDiagram
         +DateTime updatedAt
     }
 
+    class UserAnime {
+        +Int id
+        +Int epAtual
+        +TrackingStatus status
+        +Int prioridade
+        +String linksPersonalizados
+        +Int userId
+        +Int animeId
+        +Boolean wasDropped
+        +DateTime updatedAt
+    }
+
     class Manga {
         +Int id
         +String titulo
@@ -154,17 +193,6 @@ classDiagram
         +DateTime updatedAt
     }
 
-    class UserAnime {
-        +Int id
-        +Int epAtual
-        +TrackingStatus status
-        +Int prioridade
-        +String linksPersonalizados
-        +Int userId
-        +Int animeId
-        +DateTime updatedAt
-    }
-
     class UserManga {
         +Int id
         +Float capAtual
@@ -173,13 +201,150 @@ classDiagram
         +String linksPersonalizados
         +Int userId
         +Int mangaId
+        +Boolean wasDropped
         +DateTime updatedAt
+    }
+
+    class ChatSession {
+        +Int id
+        +String titulo
+        +DateTime createdAt
+        +DateTime updatedAt
+        +Int userId
+    }
+
+    class ChatMessage {
+        +Int id
+        +String role
+        +String content
+        +DateTime createdAt
+        +Int sessionId
+    }
+
+    class SyncLog {
+        +Int id
+        +DateTime timestamp
+        +String status
+        +String details
+    }
+
+    class UserTopFavorite {
+        +Int id
+        +Int userId
+        +Int anilistMediaId
+        +MediaType mediaType
+        +Int rankPosition
+    }
+
+    class UserStatistics {
+        +Int userId
+        +Int totalAnimeCompleted
+        +Int totalEpisodesWatched
+        +Int totalMangaRead
+        +Float animeDaysWasted
+        +Float mangaDaysWasted
+    }
+
+    class Achievement {
+        +Int id
+        +String name
+        +String description
+        +String badgeImageUrl
+        +String rarity
+    }
+
+    class UserAchievement {
+        +Int userId
+        +Int achievementId
+        +DateTime unlockedAt
+    }
+
+    class UserSubscription {
+        +Int id
+        +Int userId
+        +String planType
+        +SubscriptionStatus status
+        +DateTime startDate
+        +DateTime currentPeriodEnd
+        +String externalSubscriptionId
+    }
+
+    class GiftCode {
+        +Int id
+        +String code
+        +Int durationDays
+        +Boolean isUsed
+        +Int redeemedByUserId
+        +DateTime redeemedAt
+        +DateTime expiresAt
+    }
+
+    class Media {
+        +Int id
+        +Float avaliacao_base
+        +Int total_votos_users
+        +Float soma_notas_users
+        +Float avaliacao_geral
+    }
+
+    class UserRating {
+        +Int id
+        +Int userId
+        +Int mediaId
+        +Float score
+    }
+
+    class Comment {
+        +Int id
+        +Int userId
+        +Int mediaId
+        +String text
+        +Int likes
+        +DateTime createdAt
+    }
+
+    class TrackingStatus {
+        <<enumeration>>
+        WATCHING
+        PLANNED
+        COMPLETED
+        PAUSED
+        DROPPED
+    }
+
+    class MediaType {
+        <<enumeration>>
+        ANIME
+        MANGA
+    }
+
+    class SubscriptionStatus {
+        <<enumeration>>
+        ACTIVE
+        CANCELED
+        EXPIRED
+        PAST_DUE
     }
 
     User "1" --> "*" UserAnime : has
     User "1" --> "*" UserManga : has
+    User "1" --> "*" ChatSession : has
+    User "1" --> "*" UserTopFavorite : has
+    User "1" --> "0..1" UserStatistics : has
+    User "1" --> "*" UserAchievement : has
+    User "1" --> "0..1" UserSubscription : has
+    User "1" --> "*" GiftCode : redeems
+    User "1" --> "*" UserRating : rates
+    User "1" --> "*" Comment : comments
+
     Anime "1" --> "*" UserAnime : associated
     Manga "1" --> "*" UserManga : associated
+
+    ChatSession "1" --> "*" ChatMessage : contains
+
+    Achievement "1" --> "*" UserAchievement : earned_by
+    Media "1" --> "*" UserRating : rated_by
+    Media "1" --> "*" Comment : has
 ```
 
 ---
@@ -194,7 +359,9 @@ Otaku-Time-v2/
 │   ├── anime/               # AniList metadata and calendar
 │   ├── manga/               # MangaUpdates, MangaDex, and AniList integration
 │   ├── sync/                # Release updates synchronization logic
-│   └── user/ & auth/        # User management (login without email requirement)
+│   ├── rating/              # Global rating evaluation endpoints
+│   ├── comment/             # Global comment and community interaction
+│   └── user/ & auth/        # User management, subscription tier, and achievements
 ├── otaku-ui/                # React + Vite + Capacitor Frontend (Tailwind v4)
 │   ├── android/             # Native Android project built by Capacitor
 │   ├── src/                 

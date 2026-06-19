@@ -6,6 +6,7 @@ import { useMedia } from '../context/MediaContext';
 import { useToast } from '../context/ToastContext';
 import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface HeaderProps {
   categoria: 'anime' | 'manga';
@@ -28,6 +29,7 @@ const SyncIndicator: React.FC = () => {
 const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboard }) => {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -78,7 +80,7 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboar
     <>
       {isMobile ? (
         /* Top App Bar Mobile */
-        <header className="fixed top-0 left-0 w-full z-50 bg-[#121317]/85 backdrop-blur-xl border-b border-white/10 flex flex-col justify-end px-margin-mobile safe-h-nav-top">
+        <header className="fixed top-0 left-0 w-full z-50 bg-background/85 backdrop-blur-xl border-b border-border-glass flex flex-col justify-end px-margin-mobile safe-h-nav-top">
           <div className="flex justify-between items-center h-16 w-full gap-2">
             {mobileSearchActive ? (
               /* Active mobile search layout */
@@ -89,7 +91,7 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboar
                 <input 
                   autoFocus
                   className="w-full bg-deep-gray border-none rounded-full py-1.5 px-4 text-sm text-on-surface focus:ring-1 focus:ring-primary/50 outline-none" 
-                  placeholder="Pesquisar anime ou manga..." 
+                  placeholder={t("Pesquisar anime ou manga...")} 
                   type="text"
                   value={searchTerm}
                   onChange={handleSearchChange}
@@ -121,14 +123,14 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboar
                       onClick={() => setCategoria('anime')}
                       className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${categoria === 'anime' ? 'bg-primary text-on-primary shadow' : 'text-on-surface-variant'}`}
                     >
-                      Anime
+                      {t("Anime")}
                     </button>
                     <button 
                       type="button"
                       onClick={() => setCategoria('manga')}
                       className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${categoria === 'manga' ? 'bg-primary text-on-primary shadow' : 'text-on-surface-variant'}`}
                     >
-                      Mangá
+                      {t("Mangá")}
                     </button>
                   </div>
                 </div>
@@ -148,14 +150,14 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboar
 
       ) : (
         /* TopAppBar Desktop */
-        <header className="fixed top-0 right-0 w-full md:w-[calc(100%-16rem)] z-40 bg-[#121317]/80 backdrop-blur-2xl border-b border-border-glass h-20 flex justify-between items-center px-6 md:px-margin-desktop">
+        <header className="fixed top-0 right-0 w-full md:w-[calc(100%-16rem)] z-40 bg-background/80 backdrop-blur-2xl border-b border-border-glass h-20 flex justify-between items-center px-6 md:px-margin-desktop">
           {/* Search Bar & Switcher */}
           <div className="flex items-center flex-1 max-w-2xl gap-4">
             <div className="relative w-full focus-within:ring-2 focus-within:ring-primary/50 rounded-full transition-all">
               <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
               <input 
                 className="w-full bg-deep-gray border-none rounded-full py-2.5 pl-12 pr-4 text-sm text-on-surface focus:ring-0 placeholder:text-outline-variant outline-none" 
-                placeholder="Pesquisar anime ou manga..." 
+                placeholder={t("Pesquisar anime ou manga...")} 
                 type="text"
                 value={searchTerm}
                 onChange={handleSearchChange}
@@ -177,14 +179,14 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboar
                 onClick={() => setCategoria('anime')}
                 className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${categoria === 'anime' ? 'bg-primary text-on-primary shadow' : 'text-on-surface-variant hover:text-white'}`}
               >
-                Anime
+                {t("Anime")}
               </button>
               <button 
                 type="button"
                 onClick={() => setCategoria('manga')}
                 className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${categoria === 'manga' ? 'bg-primary text-on-primary shadow' : 'text-on-surface-variant hover:text-white'}`}
               >
-                Mangá
+                {t("Mangá")}
               </button>
             </div>
           </div>
@@ -194,7 +196,7 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboar
             {isSyncing && <SyncIndicator />}
             
             <button 
-              onClick={() => showToast("Não tens notificações pendentes.", "info")}
+              onClick={() => showToast(t("Não tens notificações pendentes."), "info")}
               className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
             >
               notifications

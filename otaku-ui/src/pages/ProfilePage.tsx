@@ -14,6 +14,7 @@ import { Share } from '@capacitor/share';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { getCurrentPalette, savePalette, PALETTES } from '../services/paletteService';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { useTranslation } from '../hooks/useTranslation';
 
 const formatDate = (dateStr: string) => {
   try {
@@ -92,6 +93,7 @@ const getRarityBadge = (rarity?: string) => {
 const ProfilePage = () => {
   const { user, logout, token, updateUser } = useAuth();
   const { showToast } = useToast();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -1628,15 +1630,15 @@ const ProfilePage = () => {
             <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
               <h3 className="font-headline-lg text-lg md:text-xl text-white flex items-center gap-2.5 mb-2">
                 <Smartphone className="w-5 h-5 text-secondary" />
-                <span>Preferências</span>
+                 <span>{t("Preferências")}</span>
               </h3>
               
               <div className="space-y-6">
                 {/* Language Select */}
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="font-bold text-sm text-white">Idioma do App</p>
-                    <p className="text-xs text-on-surface-variant">Escolhe o idioma preferido da tua interface.</p>
+                    <p className="font-bold text-sm text-white">{t("Idioma do App")}</p>
+                    <p className="text-xs text-on-surface-variant">{t("Escolhe o idioma preferido da tua interface.")}</p>
                   </div>
                   <select 
                     value={user?.preferredLanguage || 'PT'} 
@@ -1652,8 +1654,8 @@ const ProfilePage = () => {
                 {/* Notifications Switch */}
                 <div className="flex items-center justify-between gap-4 pt-4 border-t border-border-glass">
                   <div>
-                    <p className="font-bold text-sm text-white">Notificações Push</p>
-                    <p className="text-xs text-on-surface-variant">Alertas sobre novos episódios em exibição.</p>
+                    <p className="font-bold text-sm text-white">{t("Notificações Push")}</p>
+                    <p className="text-xs text-on-surface-variant">{t("Alertas sobre novos episódios em exibição.")}</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input 
@@ -1670,8 +1672,8 @@ const ProfilePage = () => {
                 {/* Privacy Option */}
                 <div className="flex items-center justify-between gap-4 pt-4 border-t border-border-glass">
                   <div>
-                    <p className="font-bold text-sm text-white">Filtro de Conteúdo (NSFW)</p>
-                    <p className="text-xs text-on-surface-variant">Ocultar resultados adultos na pesquisa global.</p>
+                    <p className="font-bold text-sm text-white">{t("Filtro de Conteúdo (NSFW)")}</p>
+                    <p className="text-xs text-on-surface-variant">{t("Ocultar resultados adultos na pesquisa global.")}</p>
                   </div>
                   <div className="flex p-0.5 bg-surface-container-low border border-border-glass rounded-xl">
                     <button 

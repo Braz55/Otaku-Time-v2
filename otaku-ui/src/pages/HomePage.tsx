@@ -8,6 +8,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { useTranslation } from '../hooks/useTranslation';
 
 const MangaWebView = registerPlugin<any>('MangaWebView');
 
@@ -82,6 +83,7 @@ type MediaComment = {
 const HomePage = () => {
   const { user, token } = useAuth();
   const { showToast } = useToast();
+  const { t } = useTranslation();
   const { categoria, setCategoria, isShowingFavorites, setIsShowingFavorites, isSearchOpen, searchTerm, homeTrigger, setIsViewingDetails } = useMedia();
   const isMobile = useIsMobile();
   const location = useLocation();
@@ -1052,7 +1054,7 @@ const HomePage = () => {
                           <div className={`absolute w-16 h-16 rounded-full blur-xl animate-pulse ${categoria === 'anime' ? 'bg-secondary/20' : 'bg-primary/20'}`}></div>
                           <Loader2 className={`w-10 h-10 animate-spin ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`} />
                         </div>
-                        <span className={`text-xs font-semibold tracking-widest uppercase animate-pulse ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`}>A carregar destaque...</span>
+                        <span className={`text-xs font-semibold tracking-widest uppercase animate-pulse ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`}>{t("A carregar destaque...")}</span>
                       </div>
                     </section>
                   );
@@ -1084,7 +1086,7 @@ const HomePage = () => {
                       {/* Left: Text Details */}
                       <div className="flex-1 min-w-0 flex flex-col justify-center space-y-2">
                         <span className={`w-fit px-2.5 py-0.5 rounded-full text-white font-label-sm text-[9px] uppercase tracking-wider font-bold ${categoria === 'anime' ? 'bg-primary' : 'bg-secondary'}`}>
-                          {featured ? 'EM DESTAQUE NA TUA LISTA' : 'DESTAQUE DA SEMANA'}
+                          {featured ? t('EM DESTAQUE NA TUA LISTA') : t('DESTAQUE DA SEMANA')}
                         </span>
                         <h2 className="font-display-lg text-lg md:text-2xl text-white leading-tight font-black truncate">{heroTitle}</h2>
                         <p className="font-body-lg text-[11px] md:text-xs text-on-surface-variant line-clamp-2 md:line-clamp-3 leading-relaxed max-w-xl">
@@ -1092,11 +1094,11 @@ const HomePage = () => {
                         </p>
                         <div className="flex gap-2.5 pt-1">
                           <button 
-                            onClick={() => featured ? abrirDetalhes(featured.id, false, categoria) : showToast("Procura por Cyberpunk na barra superior!", "info")}
+                            onClick={() => featured ? abrirDetalhes(featured.id, false, categoria) : showToast(t("Procura por Cyberpunk na barra superior!"), "info")}
                             className={`px-4 py-2 rounded-xl text-white font-label-md text-[11px] font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer hover:shadow-lg ${categoria === 'anime' ? 'bg-secondary hover:shadow-[0_0_20px_rgba(194,24,91,0.4)]' : 'bg-primary hover:shadow-[0_0_20px_rgba(106,27,154,0.4)]'}`}
                           >
                             <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>info</span> 
-                            Ver Detalhes
+                            {t("Ver Detalhes")}
                           </button>
                         </div>
                       </div>
@@ -1123,8 +1125,8 @@ const HomePage = () => {
                   <section className="space-y-4 md:space-y-6">
                     <div className="flex justify-between items-end">
                       <div>
-                        <span className={`font-label-md text-[10px] uppercase tracking-widest block mb-1 ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`}>Continuar</span>
-                        <h3 className="font-headline-lg text-lg md:text-xl text-white font-black">Próximo Episódio</h3>
+                        <span className={`font-label-md text-[10px] uppercase tracking-widest block mb-1 ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`}>{t("Continuar")}</span>
+                        <h3 className="font-headline-lg text-lg md:text-xl text-white font-black">{t(categoria === 'anime' ? 'Próximo Episódio' : 'Próximo Capítulo')}</h3>
                       </div>
                     </div>
 

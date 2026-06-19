@@ -7,6 +7,7 @@ import {
 import { format, isSameDay, startOfToday, addDays, eachDayOfInterval } from 'date-fns';
 import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface AiringAnime {
   id: number;
@@ -20,6 +21,7 @@ interface AiringAnime {
 
 const CalendarPage = () => {
   const { token } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [items, setItems] = useState<AiringAnime[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,8 +57,11 @@ const CalendarPage = () => {
   }, []);
 
   const getWeekdayLabel = (day: Date) => {
-    if (isSameDay(day, startOfToday())) return 'HOJE';
+    if (isSameDay(day, startOfToday())) return t('HOJE');
     const english = format(day, 'EEE'); // 'Mon', 'Tue', 'Wed', etc.
+    if (t("Segunda") !== "Segunda") {
+      return english.toUpperCase();
+    }
     const mapping: Record<string, string> = {
       'Mon': 'SEG',
       'Tue': 'TER',
@@ -71,6 +76,9 @@ const CalendarPage = () => {
 
   const getFormattedWeekDay = (date: Date) => {
     const dayNameEn = format(date, 'EEEE');
+    if (t("Segunda") !== "Segunda") {
+      return dayNameEn;
+    }
     const mapping: Record<string, string> = {
       'Monday': 'Segunda-feira',
       'Tuesday': 'Terça-feira',
@@ -138,7 +146,7 @@ const CalendarPage = () => {
               Upcoming Releases
             </span>
             <h2 className="font-display-lg text-3xl md:text-display-lg font-extrabold text-white">
-              Calendário de Lançamentos
+              {t("Calendário de Lançamentos")}
             </h2>
           </div>
         </div>
@@ -188,13 +196,13 @@ const CalendarPage = () => {
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
           <RefreshCw className="w-10 h-10 animate-spin text-primary" />
-          <p className="text-gray-500 text-sm">A carregar calendário de lançamentos...</p>
+          <p className="text-gray-500 text-sm">{t("A carregar calendário de lançamentos...")}</p>
         </div>
       ) : (
         <>
           <h2 className="font-headline-lg-mobile text-xl md:text-2xl text-white flex items-center gap-2 mb-8 font-black">
             <span className="w-2 h-6 bg-primary rounded-full"></span>
-            Lançamentos de {isSameDay(selectedDate, startOfToday()) ? 'Hoje' : getFormattedWeekDay(selectedDate)}
+            {t("Lançamentos de")} {isSameDay(selectedDate, startOfToday()) ? t('Hoje') : getFormattedWeekDay(selectedDate)}
           </h2>
 
           {itemsOnSelectedDay.length > 0 ? (
@@ -230,7 +238,7 @@ const CalendarPage = () => {
                             {formattedTime} (JST)
                           </span>
                           <span className="bg-deep-gray/80 backdrop-blur-md text-white px-2 py-0.5 rounded border border-white/10 font-medium">
-                            Episódio {item.displayNum}
+                            {item.type === 'anime' ? t('Episódio') : t('Capítulo')} {item.displayNum}
                           </span>
                         </div>
                         
@@ -239,13 +247,15 @@ const CalendarPage = () => {
                         </h3>
                         
                         <p className="text-on-surface-variant text-[11px] leading-relaxed line-clamp-2">
-                          Acompanha o novo episódio de {item.titulo} transmitido em direto do Japão.
+                          {item.type === 'anime' 
+                            ? `${t("Acompanha o novo episódio de")} ${item.titulo} ${t("transmitido em direto do Japão.")}` 
+                            : `${t("Acompanha o novo capítulo de")} ${item.titulo} ${t("disponibilizado online.")}`}
                         </p>
                       </div>
                       
                       <div className="flex items-center justify-between pt-2 border-t border-white/5">
                         <span className="flex items-center gap-1.5 text-xs text-secondary font-bold hover:underline">
-                          <span>Ver Detalhes</span>
+                          <span>{t("Ver Detalhes")}</span>
                           <span className="material-symbols-outlined text-sm">arrow_forward</span>
                         </span>
                       </div>
@@ -259,9 +269,9 @@ const CalendarPage = () => {
               <div className="bg-white/5 inline-flex p-4 rounded-full border border-white/5 shadow-inner text-on-surface-variant">
                 <Clock className="w-8 h-8 text-gray-500" />
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">Sem lançamentos para este dia</h3>
+              <h3 className="text-lg font-bold text-white mb-2">{t("Sem lançamentos para este dia")}</h3>
               <p className="text-on-surface-variant text-xs leading-relaxed max-w-md">
-                Nenhum anime da tua biblioteca tem novos episódios agendados para a data selecionada.
+                {t("Nenhum anime da tua biblioteca tem novos episódios agendados para a data selecionada.")}
               </p>
             </div>
           )}
@@ -271,7 +281,7 @@ const CalendarPage = () => {
               <div className="lg:col-span-2">
                 <h3 className="font-headline-lg text-white mb-8 flex items-center gap-3 text-xl md:text-2xl font-black">
                   <Clock className="w-6 h-6 text-secondary" />
-                  Próximas 24 Horas
+                  {t("Próximas 24 Horas")}
                 </h3>
                 
                 <div className="space-y-4">
@@ -296,7 +306,7 @@ const CalendarPage = () => {
                             {format(date, 'HH:mm')}
                           </span>
                           <span className="text-on-surface-variant text-[9px] uppercase tracking-widest font-bold">
-                            {isSameDay(date, startOfToday()) ? 'Hoje' : format(date, 'dd/MM')}
+                            {isSameDay(date, startOfToday()) ? t('Hoje') : format(date, 'dd/MM')}
                           </span>
                         </div>
                         <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-white/10">
@@ -305,40 +315,40 @@ const CalendarPage = () => {
                         <div className="flex-grow min-w-0">
                           <h4 className="text-white font-bold group-hover:text-secondary transition-colors truncate">{item.titulo}</h4>
                           <p className="text-on-surface-variant text-xs">
-                            Episódio {item.displayNum} • Anime
+                            {item.type === 'anime' ? t('Episódio') : t('Capítulo')} {item.displayNum} • {item.type === 'anime' ? t('Anime') : t('Mangá')}
                           </p>
                         </div>
                         <div className="shrink-0">
                           <span className="bg-surface-container-highest text-on-surface border border-white/5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">
-                            Agendado
+                            {t("Agendado")}
                           </span>
                         </div>
                       </div>
                     );
                   })}
                   {items.length === 0 && (
-                    <p className="text-on-surface-variant text-xs italic py-4">Sem lançamentos futuros agendados nos próximos dias.</p>
+                    <p className="text-on-surface-variant text-xs italic py-4">{t("Sem lançamentos futuros agendados nos próximos dias.")}</p>
                   )}
                 </div>
               </div>
 
               <div className="lg:col-span-1">
                 <div className="glass-panel bg-surface-container rounded-3xl p-8 border border-white/10 lg:sticky lg:top-28">
-                  <h3 className="font-headline-lg text-white mb-6 text-xl font-black">Resumo da Semana</h3>
+                  <h3 className="font-headline-lg text-white mb-6 text-xl font-black">{t("Resumo da Semana")}</h3>
                   <div className="space-y-6 text-sm">
                     <div className="flex items-center justify-between">
-                      <span className="text-on-surface-variant">Total de Lançamentos</span>
+                      <span className="text-on-surface-variant">{t("Total de Lançamentos")}</span>
                       <span className="text-white font-black text-lg">{items.length}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-on-surface-variant">Sua Lista (Hoje)</span>
+                      <span className="text-on-surface-variant">{t("Sua Lista (Hoje)")}</span>
                       <span className="text-secondary font-black text-lg">
                         {items.filter(i => isSameDay(new Date(i.displayDate), startOfToday())).length}
                       </span>
                     </div>
                     <div className="h-[1px] bg-white/10"></div>
                     <div>
-                      <p className="text-[10px] text-on-surface-variant mb-4 uppercase tracking-widest font-black">Mais Aguardados</p>
+                      <p className="text-[10px] text-on-surface-variant mb-4 uppercase tracking-widest font-black">{t("Mais Aguardados")}</p>
                       <div className="space-y-4">
                         {(() => {
                           const mostAnticipated = [...items]
@@ -363,7 +373,7 @@ const CalendarPage = () => {
                           ));
                         })()}
                         {items.length === 0 && (
-                          <p className="text-on-surface-variant text-xs italic">Sem destaques.</p>
+                          <p className="text-on-surface-variant text-xs italic">{t("Sem destaques.")}</p>
                         )}
                       </div>
                     </div>
@@ -371,7 +381,7 @@ const CalendarPage = () => {
                       onClick={() => navigate('/')}
                       className="w-full mt-6 bg-surface-container-highest hover:bg-primary hover:text-white border border-white/5 py-3.5 rounded-2xl font-bold text-on-surface text-xs transition-all active:scale-95 cursor-pointer shadow"
                     >
-                      Voltar para Biblioteca
+                      {t("Voltar para Biblioteca")}
                     </button>
                   </div>
                 </div>

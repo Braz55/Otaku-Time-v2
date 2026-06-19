@@ -1,0 +1,144 @@
+import { useAuth } from '../context/AuthContext';
+
+const dictionary: Record<string, string> = {
+  // Navigation / Layout
+  "Biblioteca": "Library",
+  "Calendário": "Calendar",
+  "Perfil": "Profile",
+  "Terminar Sessão": "Log Out",
+  "Upgrade Pro": "Upgrade Pro",
+  "Membro Pro": "Pro Member",
+  "Membro Grátis": "Free Member",
+  "A carregar...": "Loading...",
+  "My List": "My List",
+  "Agenda": "Agenda",
+  "Me": "Me",
+  "Standard Member": "Standard Member",
+  "Pro Member": "Pro Member",
+  "Administrator": "Administrator",
+
+  // Header
+  "Pesquisar anime ou manga...": "Search anime or manga...",
+  "Anime": "Anime",
+  "Mangá": "Manga",
+  "Não tens notificações pendentes.": "You have no pending notifications.",
+
+  // HomePage / Dashboard
+  "A carregar destaque...": "Loading highlight...",
+  "EM DESTAQUE NA TUA LISTA": "FEATURED ON YOUR LIST",
+  "DESTAQUE DA SEMANA": "WEEKLY HIGHLIGHT",
+  "Ver Detalhes": "View Details",
+  "Continuar": "Continue",
+  "Próximo Episódio": "Next Episode",
+  "Próximo Capítulo": "Next Chapter",
+  "Procura por Cyberpunk na barra superior!": "Search for Cyberpunk in the top bar!",
+  
+  // Library / Details Page / Add to List
+  "Adicionar à Lista": "Add to List",
+  "Remover da Lista": "Remove from List",
+  "Filtrar por Status": "Filter by Status",
+  "Ordenar por": "Sort by",
+  "Pesquisa global...": "Global search...",
+  "Sem itens encontrados": "No items found",
+  "Adicionar à Biblioteca": "Add to Library",
+  "Lançamento: Todos": "Release: All",
+  "Lançamento: Em Curso": "Release: Releasing",
+  "Lançamento: Terminado": "Release: Finished",
+  "Lançamento: Hiato": "Release: Hiatus",
+  "Lançamento: Cancelado": "Release: Cancelled",
+  "Todos": "All",
+  "Em Curso": "Releasing",
+  "Terminado": "Finished",
+  "Hiato": "Hiatus",
+  "Cancelado": "Cancelled",
+  "Ordenar: Prioridade": "Sort: Priority",
+  "Ordenar: Nome (A-Z)": "Sort: Name (A-Z)",
+  "Ordenar: Mais Atrasado": "Sort: Most Behind",
+  "Ordenar: Mais Próximo": "Sort: Closest to Catch Up",
+  "Prioridade": "Priority",
+  "Nome (A-Z)": "Name (A-Z)",
+  "Mais Atrasado": "Most Behind",
+  "Mais Próximo": "Closest to Catch Up",
+  "Assistindo": "Watching",
+  "Lendo": "Reading",
+  "Planeado": "Planned",
+  "Completado": "Completed",
+  "Pausado": "Paused",
+  "Abandonado": "Dropped",
+  
+  // Profile
+  "Preferências": "Preferences",
+  "Idioma do App": "App Language",
+  "Escolhe o idioma preferido da tua interface.": "Choose your preferred interface language.",
+  "Notificações Push": "Push Notifications",
+  "Alertas sobre novos episódios em exibição.": "Alerts for new airing episodes.",
+  "Filtro de Conteúdo (NSFW)": "Content Filter (NSFW)",
+  "Ocultar resultados adultos na pesquisa global.": "Hide adult content in global search.",
+  "Minha Conta": "My Account",
+  "Nome de Utilizador": "Username",
+  "Email": "Email",
+  "Alterar Palavra-passe": "Change Password",
+  "Salvar Alterações": "Save Changes",
+  "Plano Atual": "Current Plan",
+  "Redimir Código": "Redeem Code",
+  "Insere o teu código de subscrição premium": "Enter your premium subscription code",
+  "Redimir": "Redeem",
+  "Código promocional": "Promo code",
+  
+  // Calendar
+  "Não existem lançamentos agendados para a tua lista.": "There are no scheduled releases for your list.",
+  "Hoje": "Today",
+  "Amanhã": "Tomorrow",
+  "Ontem": "Yesterday",
+  "Segunda": "Monday",
+  "Terça": "Tuesday",
+  "Quarta": "Wednesday",
+  "Quinta": "Thursday",
+  "Sexta": "Friday",
+  "Sábado": "Saturday",
+  "Domingo": "Sunday",
+  "Calendário de Lançamentos": "Release Calendar",
+  "Lançamentos de": "Releases for",
+  "A carregar calendário de lançamentos...": "Loading release calendar...",
+  "Sem lançamentos para este dia": "No releases for this day",
+  "Nenhum anime da tua biblioteca tem novos episódios agendados para a data selecionada.": "No anime in your library has new episodes scheduled for the selected date.",
+  "Próximas 24 Horas": "Next 24 Hours",
+  "Resumo da Semana": "Weekly Summary",
+  "Total de Lançamentos": "Total Releases",
+  "Sua Lista (Hoje)": "Your List (Today)",
+  "Mais Aguardados": "Most Anticipated",
+  "Sem destaques.": "No highlights.",
+  "Voltar para Biblioteca": "Back to Library",
+  "Acompanha o novo episódio de": "Follow the new episode of",
+  "transmitido em direto do Japão.": "broadcast live from Japan.",
+  "Acompanha o novo capítulo de": "Follow the new chapter of",
+  "disponibilizado online.": "released online.",
+  "Episódio": "Episode",
+  "Capítulo": "Chapter",
+  "Agendado": "Scheduled",
+  "Sem lançamentos futuros agendados nos próximos dias.": "No upcoming releases scheduled in the next few days.",
+  "HOJE": "TODAY"
+};
+
+// Inverse mappings for when keys are in English but need to show in Portuguese if lang === 'PT'
+const ptDictionary: Record<string, string> = {
+  "My List": "Minha Lista",
+  "Me": "Eu",
+  "Standard Member": "Membro Padrão",
+  "Pro Member": "Membro Pro",
+  "Administrator": "Administrador"
+};
+
+export const useTranslation = () => {
+  const { user } = useAuth();
+  const lang = user?.preferredLanguage || 'PT';
+
+  const t = (text: string): string => {
+    if (lang === 'PT') {
+      return ptDictionary[text] || text;
+    }
+    return dictionary[text] || text;
+  };
+
+  return { t, lang };
+};

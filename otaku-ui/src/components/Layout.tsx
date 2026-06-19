@@ -3,6 +3,7 @@ import { useMedia } from '../context/MediaContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Header from './Header';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -11,6 +12,7 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { isShowingFavorites, setIsShowingFavorites, isSearchOpen, setIsSearchOpen, triggerHome } = useMedia();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -40,8 +42,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             Otaku-Time
           </h1>
           <p className="font-label-sm text-xs text-on-surface-variant mt-1">
-            {user?.tipoConta === 'ADMIN' ? 'Administrator' : 
-             user?.tipoConta === 'pro' ? 'Pro Member' : 'Standard Member'}
+            {t(user?.tipoConta === 'ADMIN' ? 'Administrator' : 
+              user?.tipoConta === 'pro' ? 'Pro Member' : 'Standard Member')}
           </p>
         </div>
 
@@ -56,7 +58,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             }`}
           >
             <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: isHomeActive ? "'FILL' 1" : "'FILL' 0" }}>home</span>
-            <span>Home</span>
+             <span>{t("Home")}</span>
           </button>
           
           <button 
@@ -68,7 +70,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             }`}
           >
             <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: isLibraryActive ? "'FILL' 1" : "'FILL' 0" }}>library_books</span>
-            <span>Biblioteca</span>
+             <span>{t("Biblioteca")}</span>
           </button>
 
           <button 
@@ -80,7 +82,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             }`}
           >
             <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: isCalendarActive ? "'FILL' 1" : "'FILL' 0" }}>calendar_month</span>
-            <span>Calendário</span>
+             <span>{t("Calendário")}</span>
           </button>
           
           <button 
@@ -92,7 +94,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             }`}
           >
             <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: isProfileActive ? "'FILL' 1" : "'FILL' 0" }}>person</span>
-            <span>Perfil</span>
+             <span>{t("Perfil")}</span>
           </button>
         </nav>
 
@@ -102,7 +104,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             onClick={() => navigate('/profile')} 
             className="w-full py-3.5 rounded-xl bg-secondary font-label-md text-xs font-bold text-white shadow-lg active:scale-95 transition-transform"
           >
-            Upgrade Pro
+             {t("Upgrade Pro")}
           </button>
 
           {/* User Profile Card */}
@@ -135,8 +137,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 {user?.nome || 'Otaku'}
               </p>
               <p className="text-[10px] text-white/70 truncate">
-                {user?.tipoConta === 'ADMIN' ? 'Administrator' : 
-                 user?.tipoConta === 'pro' ? 'Pro Member' : 'Standard Member'}
+                {t(user?.tipoConta === 'ADMIN' ? 'Administrator' : 
+                  user?.tipoConta === 'pro' ? 'Pro Member' : 'Standard Member')}
               </p>
             </div>
           </div>
@@ -168,7 +170,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             }`}
           >
             <span className="material-symbols-outlined text-lg font-bold" style={{ fontVariationSettings: isHomeActive ? "'FILL' 1" : "'FILL' 0" }}>home</span>
-            <span className="font-label-sm text-[10px] mt-0.5">Home</span>
+             <span className="font-label-sm text-[10px] mt-0.5">{t("Home")}</span>
           </button>
 
           <button 
@@ -180,7 +182,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             }`}
           >
             <span className="material-symbols-outlined text-lg font-bold" style={{ fontVariationSettings: isLibraryActive ? "'FILL' 1" : "'FILL' 0" }}>video_library</span>
-            <span className="font-label-sm text-[10px] mt-0.5">My List</span>
+             <span className="font-label-sm text-[10px] mt-0.5">{t("My List")}</span>
           </button>
           
           <button 
@@ -192,7 +194,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             }`}
           >
             <span className="material-symbols-outlined text-lg font-bold" style={{ fontVariationSettings: isCalendarActive ? "'FILL' 1" : "'FILL' 0" }}>event_note</span>
-            <span className="font-label-sm text-[10px] mt-0.5">Agenda</span>
+             <span className="font-label-sm text-[10px] mt-0.5">{t("Agenda")}</span>
           </button>
           
           <button 
@@ -204,7 +206,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             }`}
           >
             <span className="material-symbols-outlined text-lg font-bold" style={{ fontVariationSettings: isProfileActive ? "'FILL' 1" : "'FILL' 0" }}>account_circle</span>
-            <span className="font-label-sm text-[10px] mt-0.5">Me</span>
+             <span className="font-label-sm text-[10px] mt-0.5">{t("Me")}</span>
           </button>
         </div>
       </nav>

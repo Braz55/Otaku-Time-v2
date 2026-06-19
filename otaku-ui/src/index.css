@@ -234,6 +234,8 @@ h1, h2, h3, h4, h5, h6 {
   .light .bg-gray-800,
   .light .bg-gray-800\/50,
   .light .bg-gray-900,
+  .light .bg-deep-gray,
+  .light .bg-deep-gray\/80,
   .light .hover\:bg-gray-800\/50:hover,
   .light .hover\:bg-slate-900\/50:hover {
     background-color: var(--surface-container-high);

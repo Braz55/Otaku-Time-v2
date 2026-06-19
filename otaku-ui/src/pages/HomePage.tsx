@@ -1095,8 +1095,8 @@ const HomePage = () => {
                             onClick={() => featured ? abrirDetalhes(featured.id, false, categoria) : showToast("Procura por Cyberpunk na barra superior!", "info")}
                             className={`px-4 py-2 rounded-xl text-white font-label-md text-[11px] font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer hover:shadow-lg ${categoria === 'anime' ? 'bg-secondary hover:shadow-[0_0_20px_rgba(194,24,91,0.4)]' : 'bg-primary hover:shadow-[0_0_20px_rgba(106,27,154,0.4)]'}`}
                           >
-                            <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span> 
-                            Assistir Agora
+                            <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>info</span> 
+                            Ver Detalhes
                           </button>
                         </div>
                       </div>

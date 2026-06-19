@@ -493,3 +493,9 @@ adb reverse tcp:3001 tcp:3001
   ```bash
   npx prisma db push
   ```
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

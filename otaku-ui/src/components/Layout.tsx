@@ -31,6 +31,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isCalendarActive = location.pathname === '/calendar';
   const isLibraryActive = location.pathname === '/' && isShowingFavorites && !isSearchOpen;
   const isProfileActive = location.pathname === '/profile';
+  const isExploreActive = location.pathname === '/explore';
 
   return (
     <div className="min-h-screen bg-background text-on-background selection:bg-primary selection:text-on-primary font-body-md flex max-w-full overflow-x-hidden">
@@ -59,6 +60,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           >
             <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: isHomeActive ? "'FILL' 1" : "'FILL' 0" }}>home</span>
              <span>{t("Home")}</span>
+          </button>
+
+          <button 
+            onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/explore'); }}
+            className={`flex items-center gap-3 px-6 py-3.5 w-full text-left font-label-md text-sm transition-all duration-300 ${
+              isExploreActive 
+                ? 'text-primary bg-primary-container/10 border-r-4 border-primary' 
+                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest'
+            }`}
+          >
+            <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: isExploreActive ? "'FILL' 1" : "'FILL' 0" }}>explore</span>
+             <span>{t("Explorar")}</span>
           </button>
           
           <button 
@@ -171,6 +184,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           >
             <span className="material-symbols-outlined text-lg font-bold" style={{ fontVariationSettings: isHomeActive ? "'FILL' 1" : "'FILL' 0" }}>home</span>
              <span className="font-label-sm text-[10px] mt-0.5">{t("Home")}</span>
+          </button>
+
+          <button 
+            onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/explore'); }} 
+            className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${
+              isExploreActive 
+                ? 'bg-secondary-container/20 text-primary font-bold' 
+                : 'text-on-surface-variant hover:text-primary'
+            }`}
+          >
+            <span className="material-symbols-outlined text-lg font-bold" style={{ fontVariationSettings: isExploreActive ? "'FILL' 1" : "'FILL' 0" }}>explore</span>
+             <span className="font-label-sm text-[10px] mt-0.5">{t("Explorar")}</span>
           </button>
 
           <button 

@@ -644,4 +644,15 @@ export class AnimeService {
       console.error('Error recalculating user statistics/achievements:', e);
     }
   }
+
+  async getGenreTags() {
+    return this.prisma.genreTag.findMany({
+      orderBy: [
+        { type: 'asc' },
+        { category: 'asc' },
+        { subcategory: 'asc' },
+        { name: 'asc' }
+      ]
+    });
+  }
 }

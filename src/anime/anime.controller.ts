@@ -8,6 +8,12 @@ export class AnimeController {
   constructor(private readonly animeService: AnimeService) {}
 
   @UseGuards(JwtAuthGuard)
+  @Get('genres-and-tags')
+  getGenresAndTags() {
+    return this.animeService.getGenreTags();
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post('import')
   importAnime(@Body() body: { nome: string; anilistId?: number }, @Request() req) {
     return this.animeService.importFromAniList(body.nome, req.user.userId, body.anilistId);

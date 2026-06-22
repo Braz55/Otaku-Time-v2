@@ -10,6 +10,20 @@ import { customFetch } from '../services/apiBridge';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useTranslation } from '../hooks/useTranslation';
 
+const getGenresList = (generos: any): { name: string; weight: number }[] => {
+  if (!generos) return [];
+  if (typeof generos === 'string') {
+    return generos.split(',').map((g: string) => g.trim()).filter(Boolean).map((name: string) => ({ name, weight: 100 }));
+  }
+  if (typeof generos === 'object') {
+    return Object.entries(generos).map(([name, weight]) => ({
+      name,
+      weight: typeof weight === 'number' ? weight : 100
+    })).sort((a, b) => b.weight - a.weight);
+  }
+  return [];
+};
+
 const MangaWebView = registerPlugin<any>('MangaWebView');
 
 const TRACKING_STATUS_OPTIONS = [
@@ -177,7 +191,10 @@ const DetailsPage = () => {
             titulo: data.title?.english || data.title?.romaji || 'Unknown Title',
             capaUrl: data.coverImage?.large,
             descricao: data.description ? data.description.replace(/<[^>]*>?/gm, '') : "No description available.",
-            generos: [...(data.genres || []), ...(data.tags ? data.tags.map((t: any) => t.name) : [])].join(', '),
+            generos: {
+              ...((data.genres || []).reduce((acc: any, g: string) => ({ ...acc, [g]: 100 }), {})),
+              ...((data.tags || []).reduce((acc: any, t: any) => ({ ...acc, [t.name]: t.rank ?? 100 }), {}))
+            },
             statusLancamento: data.status,
             numEpisodiosTotal: data.episodes,
             numCapitulosTotal: data.chapters,
@@ -750,13 +767,9 @@ const DetailsPage = () => {
 
               {/* 2. Géneros */}
               <div className="flex flex-wrap gap-1.5 pt-1 border-t border-white/5">
-                {Array.from(new Set<string>(
-                  (selectedItem.generos ? selectedItem.generos.split(',') : [])
-                    .map((g: string) => g.trim())
-                    .filter(Boolean)
-                )).map((g: string) => (
-                  <span key={g} className={`px-3 py-1 bg-white/5 rounded-lg text-[11px] font-bold text-on-surface border tracking-wider ${mediaType === 'anime' ? 'border-secondary/30' : 'border-primary/30'}`}>
-                    {g}
+                {getGenresList(selectedItem.generos).map((g) => (
+                  <span key={g.name} className={`px-3 py-1 bg-white/5 rounded-lg text-[11px] font-bold text-on-surface border tracking-wider flex items-center gap-1 ${mediaType === 'anime' ? 'border-secondary/30' : 'border-primary/30'}`}>
+                    {g.name}
                   </span>
                 ))}
               </div>
@@ -1122,13 +1135,9 @@ const DetailsPage = () => {
                       </div>
                     )}
                     <div className="flex flex-wrap gap-2">
-                      {Array.from(new Set<string>(
-                        (selectedItem.generos ? selectedItem.generos.split(',') : [])
-                          .map((g: string) => g.trim())
-                          .filter(Boolean)
-                      )).map((g: string) => (
-                        <span key={g} className={`px-4 py-1.5 bg-white/5 backdrop-blur-md rounded-full text-xs font-bold text-on-surface border tracking-wider transition-all hover:scale-105 ${mediaType === 'anime' ? 'border-secondary/30 hover:bg-secondary/20 hover:border-secondary/60 hover:text-secondary shadow-[0_0_10px_rgba(194,24,91,0.1)]' : 'border-primary/30 hover:bg-primary/20 hover:border-primary/60 hover:text-primary shadow-[0_0_10px_rgba(106,27,154,0.1)]'}`}>
-                          {g}
+                      {getGenresList(selectedItem.generos).map((g) => (
+                        <span key={g.name} className={`px-4 py-1.5 bg-white/5 backdrop-blur-md rounded-full text-xs font-bold text-on-surface border tracking-wider transition-all hover:scale-105 flex items-center gap-1.5 ${mediaType === 'anime' ? 'border-secondary/30 hover:bg-secondary/20 hover:border-secondary/60 hover:text-secondary shadow-[0_0_10px_rgba(194,24,91,0.1)]' : 'border-primary/30 hover:bg-primary/20 hover:border-primary/60 hover:text-primary shadow-[0_0_10px_rgba(106,27,154,0.1)]'}`}>
+                          {g.name}
                         </span>
                       ))}
                     </div>

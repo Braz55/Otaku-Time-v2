@@ -3,6 +3,21 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 
+function buildGenerosDict(genres: string[] | undefined, tags: { name: string; rank?: number }[] | undefined): Record<string, number> {
+  const dict: Record<string, number> = {};
+  if (genres) {
+    genres.forEach(g => {
+      dict[g.trim()] = 100;
+    });
+  }
+  if (tags) {
+    tags.forEach(t => {
+      dict[t.name.trim()] = t.rank !== undefined ? t.rank : 100;
+    });
+  }
+  return dict;
+}
+
 @Injectable()
 export class UserService {
   constructor(private readonly prisma: PrismaService) {}
@@ -150,7 +165,7 @@ export class UserService {
           status
           description
           genres
-          tags { name }
+          tags { name rank }
           episodes
           countryOfOrigin
           format
@@ -171,7 +186,7 @@ export class UserService {
           status
           description
           genres
-          tags { name }
+          tags { name rank }
           chapters
           countryOfOrigin
           format
@@ -194,8 +209,7 @@ export class UserService {
       for (const item of animes) {
         const metadata = await this.getAniListAnimeById(item.animeId);
         
-        const topTags = metadata?.tags ? metadata.tags.slice(0, 5).map((tag: any) => tag.name).join(', ') : '';
-        const generosComTags = metadata ? `${metadata.genres ? metadata.genres.join(', ') : ''}, ${topTags}` : '';
+        const generosDict = metadata ? buildGenerosDict(metadata.genres, metadata.tags?.slice(0, 5)) : {};
         const descricaoLimpa = metadata?.description ? metadata.description.replace(/<[^>]*>?/gm, '') : "Sem descrição.";
 
         // Garantir que o anime global existe
@@ -205,7 +219,7 @@ export class UserService {
             titulo: metadata ? (metadata.title.english || metadata.title.romaji) : item.titulo,
             statusLancamento: metadata ? metadata.status : undefined,
             capaUrl: metadata ? metadata.coverImage?.large : undefined,
-            generos: generosComTags || undefined,
+            generos: metadata ? generosDict : undefined,
             descricao: metadata ? descricaoLimpa : undefined,
             numEpisodiosTotal: metadata ? metadata.episodes : undefined,
             paisOrigem: metadata ? metadata.countryOfOrigin : undefined,
@@ -217,7 +231,7 @@ export class UserService {
             titulo: metadata ? (metadata.title.english || metadata.title.romaji) : item.titulo,
             statusLancamento: metadata ? metadata.status : 'UNKNOWN',
             capaUrl: metadata ? metadata.coverImage?.large : '',
-            generos: generosComTags,
+            generos: generosDict,
             descricao: descricaoLimpa,
             numEpisodiosTotal: metadata ? metadata.episodes : null,
             paisOrigem: metadata ? metadata.countryOfOrigin : null,
@@ -254,8 +268,7 @@ export class UserService {
       for (const item of mangas) {
         const metadata = await this.getAniListMangaById(item.mangaId);
 
-        const topTags = metadata?.tags ? metadata.tags.slice(0, 5).map((tag: any) => tag.name).join(', ') : '';
-        const generosComTags = metadata ? `${metadata.genres ? metadata.genres.join(', ') : ''}, ${topTags}` : '';
+        const generosDict = metadata ? buildGenerosDict(metadata.genres, metadata.tags?.slice(0, 5)) : {};
         const descricaoLimpa = metadata?.description ? metadata.description.replace(/<[^>]*>?/gm, '') : "Sem descrição.";
 
         // Garantir que o manga global existe
@@ -265,7 +278,7 @@ export class UserService {
             titulo: metadata ? (metadata.title.english || metadata.title.romaji) : item.titulo,
             statusLancamento: metadata ? metadata.status : undefined,
             capaUrl: metadata ? metadata.coverImage?.large : undefined,
-            generos: generosComTags || undefined,
+            generos: metadata ? generosDict : undefined,
             descricao: metadata ? descricaoLimpa : undefined,
             numCapitulosTotal: metadata ? metadata.chapters : undefined,
             paisOrigem: metadata ? metadata.countryOfOrigin : undefined,
@@ -277,7 +290,7 @@ export class UserService {
             titulo: metadata ? (metadata.title.english || metadata.title.romaji) : item.titulo,
             statusLancamento: metadata ? metadata.status : 'UNKNOWN',
             capaUrl: metadata ? metadata.coverImage?.large : '',
-            generos: generosComTags,
+            generos: generosDict,
             descricao: descricaoLimpa,
             numCapitulosTotal: metadata ? metadata.chapters : null,
             paisOrigem: metadata ? metadata.countryOfOrigin : null,

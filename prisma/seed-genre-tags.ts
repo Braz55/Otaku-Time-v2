@@ -44,14 +44,20 @@ async function main() {
 
   const usedTags = new Set<string>();
   
-  function processField(fieldValue: string | null) {
+  function processField(fieldValue: any) {
     if (!fieldValue) return;
-    fieldValue.split(',').forEach(part => {
-      const trimmed = part.trim();
-      if (trimmed) {
-        usedTags.add(trimmed.toLowerCase());
-      }
-    });
+    if (typeof fieldValue === 'string') {
+      fieldValue.split(',').forEach(part => {
+        const trimmed = part.trim();
+        if (trimmed) {
+          usedTags.add(trimmed.toLowerCase());
+        }
+      });
+    } else if (typeof fieldValue === 'object') {
+      Object.keys(fieldValue).forEach(key => {
+        usedTags.add(key.toLowerCase());
+      });
+    }
   }
 
   animes.forEach(a => processField(a.generos));

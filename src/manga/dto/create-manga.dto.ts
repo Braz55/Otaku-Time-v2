@@ -3,7 +3,7 @@ export class CreateMangaDto {
   statusLancamento!: string;
   numCapitulosTotal?: number;
   capaUrl?: string;
-  generos!: string; // Como definiste no Prisma
+  generos!: any; // Como definiste no Prisma
   descricao?: string;
   statusLeitura?: string;
   capAtual?: number;

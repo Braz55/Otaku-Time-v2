@@ -14,13 +14,28 @@ async function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function buildGenerosDict(genres, tags) {
+  const dict = {};
+  if (genres) {
+    genres.forEach(g => {
+      dict[g.trim()] = 100;
+    });
+  }
+  if (tags) {
+    tags.forEach(t => {
+      dict[t.name.trim()] = t.rank !== undefined ? t.rank : 100;
+    });
+  }
+  return dict;
+}
+
 // GraphQL Query helper
 async function fetchAniListInfo(id, type) {
   const query = `
     query ($id: Int) {
       Media(id: $id, type: ${type}) {
         genres
-        tags { name }
+        tags { name rank }
       }
     }
   `;
@@ -59,17 +74,15 @@ async function main() {
     
     const mediaInfo = await fetchAniListInfo(anime.id, 'ANIME');
     if (mediaInfo) {
-      const topTags = mediaInfo.tags ? mediaInfo.tags.slice(0, 10).map(tag => tag.name).join(', ') : '';
-      const genresStr = mediaInfo.genres ? mediaInfo.genres.join(', ') : '';
-      const merged = [genresStr, topTags].map(s => s.trim()).filter(Boolean).join(', ');
+      const generosDict = buildGenerosDict(mediaInfo.genres, mediaInfo.tags ? mediaInfo.tags.slice(0, 10) : undefined);
       
       await prisma.anime.update({
         where: { id: anime.id },
         data: {
-          generos: merged
+          generos: generosDict
         }
       });
-      console.log(`  -> Saved genres (merged): "${merged}"`);
+      console.log(`  -> Saved genres (dictionary):`, JSON.stringify(generosDict));
     } else {
       console.log(`  -> Failed to fetch info from AniList.`);
     }
@@ -87,17 +100,15 @@ async function main() {
     
     const mediaInfo = await fetchAniListInfo(manga.id, 'MANGA');
     if (mediaInfo) {
-      const topTags = mediaInfo.tags ? mediaInfo.tags.slice(0, 10).map(tag => tag.name).join(', ') : '';
-      const genresStr = mediaInfo.genres ? mediaInfo.genres.join(', ') : '';
-      const merged = [genresStr, topTags].map(s => s.trim()).filter(Boolean).join(', ');
+      const generosDict = buildGenerosDict(mediaInfo.genres, mediaInfo.tags ? mediaInfo.tags.slice(0, 10) : undefined);
       
       await prisma.manga.update({
         where: { id: manga.id },
         data: {
-          generos: merged
+          generos: generosDict
         }
       });
-      console.log(`  -> Saved genres (merged): "${merged}"`);
+      console.log(`  -> Saved genres (dictionary):`, JSON.stringify(generosDict));
     } else {
       console.log(`  -> Failed to fetch info from AniList.`);
     }

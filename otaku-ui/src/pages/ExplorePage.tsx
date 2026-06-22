@@ -70,12 +70,24 @@ const ExplorePage = () => {
   const [onlyShowMyLibrary, setOnlyShowMyLibrary] = useState(false);
 
   // Sorting State
-  const [sortOrder, setSortOrder] = useState('TRENDING_DESC');
+  const [sortOrder, setSortOrder] = useState('RECOMMENDED');
+
+  // If user selects genres or tags while sortOrder is 'RECOMMENDED', automatically switch to 'TRENDING_DESC'
+  useEffect(() => {
+    if (sortOrder === 'RECOMMENDED' && (selectedGenres.length > 0 || selectedTags.length > 0)) {
+      setSortOrder('TRENDING_DESC');
+    }
+  }, [selectedGenres, selectedTags, sortOrder]);
 
   // Modal / Dropdown UI States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isGenreDropdownOpen, setIsGenreDropdownOpen] = useState(false);
   const genreDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Refs to preserve state
+  const isRestoringRef = useRef(false);
+  const prevCategoryRef = useRef<string | null>(null);
+  const stateRef = useRef<any>(null);
 
   // Fetch metadata on mount
   const fetchMetadata = async () => {
@@ -172,8 +184,127 @@ const ExplorePage = () => {
     fetchLocalLibrary();
   }, [categoria, token]);
 
-  // Reset filters on category switch
+  // Clear saved explore state if not returning from details page
   useEffect(() => {
+    const prevPath = sessionStorage.getItem('otaku_prev_path') || '';
+    const cameFromDetails = prevPath.startsWith('/details/');
+    console.log("[Explore] Mounted. prevPath:", prevPath, "cameFromDetails:", cameFromDetails);
+    if (!cameFromDetails) {
+      console.log("[Explore] Clearing saved states because we did not come from Details.");
+      sessionStorage.removeItem('otaku_explore_state_anime');
+      sessionStorage.removeItem('otaku_explore_state_manga');
+    }
+  }, []);
+
+  // Keep stateRef updated with the latest state
+  useEffect(() => {
+    stateRef.current = {
+      categoria,
+      selectedGenres,
+      selectedTags,
+      year,
+      season,
+      format,
+      country,
+      airingStatus,
+      sourceMaterial,
+      hideMyLibrary,
+      onlyShowMyLibrary,
+      sortOrder,
+      page,
+      results,
+      loadingMetadata,
+      scrollPosition: window.scrollY
+    };
+  }, [
+    categoria,
+    selectedGenres,
+    selectedTags,
+    year,
+    season,
+    format,
+    country,
+    airingStatus,
+    sourceMaterial,
+    hideMyLibrary,
+    onlyShowMyLibrary,
+    sortOrder,
+    page,
+    results,
+    loadingMetadata
+  ]);
+
+  // Save state on unmount
+  useEffect(() => {
+    return () => {
+      if (stateRef.current) {
+        if (!stateRef.current.loadingMetadata) {
+          stateRef.current.scrollPosition = window.scrollY;
+          const activeCat = stateRef.current.categoria;
+          console.log("[Explore] Component unmounting. Saving state for:", activeCat, stateRef.current);
+          sessionStorage.setItem(`otaku_explore_state_${activeCat}`, JSON.stringify(stateRef.current));
+        } else {
+          console.log("[Explore] Component unmounting but metadata is still loading. Skipping save to prevent overwriting.");
+        }
+      }
+    };
+  }, []);
+
+  // Handle category switch and state restoration
+  useEffect(() => {
+    if (loadingMetadata) {
+      console.log("[Explore] metadata still loading, skipping restore");
+      return;
+    }
+
+    // 1. Save previous category state if it's changing
+    if (prevCategoryRef.current && prevCategoryRef.current !== categoria) {
+      if (stateRef.current) {
+        stateRef.current.scrollPosition = window.scrollY;
+        console.log("[Explore] Category changing. Saving state for:", prevCategoryRef.current, stateRef.current);
+        sessionStorage.setItem(`otaku_explore_state_${prevCategoryRef.current}`, JSON.stringify(stateRef.current));
+      }
+    }
+    prevCategoryRef.current = categoria;
+
+    // 2. Try to load the state for the new category
+    const saved = sessionStorage.getItem(`otaku_explore_state_${categoria}`);
+    if (saved) {
+      try {
+        const state = JSON.parse(saved);
+        console.log("[Explore] Found saved state for:", categoria, state);
+        
+        isRestoringRef.current = true;
+        
+        setSelectedGenres(state.selectedGenres || []);
+        setSelectedTags(state.selectedTags || []);
+        setYear(state.year || 'Any');
+        setSeason(state.season || 'Any');
+        setFormat(state.format || 'Any');
+        setCountry(state.country || 'Any');
+        setAiringStatus(state.airingStatus || 'Any');
+        setSourceMaterial(state.sourceMaterial || 'Any');
+        setHideMyLibrary(state.hideMyLibrary || false);
+        setOnlyShowMyLibrary(state.onlyShowMyLibrary || false);
+        setSortOrder(state.sortOrder || 'TRENDING_DESC');
+        setPage(state.page || 1);
+        setResults(state.results || []);
+        
+        // Restore scroll position after React renders the cards
+        setTimeout(() => {
+          console.log("[Explore] Restoring scroll position to:", state.scrollPosition);
+          window.scrollTo(0, state.scrollPosition || 0);
+          isRestoringRef.current = false;
+        }, 150);
+        
+        return; // Skip default fetching
+      } catch (e) {
+        console.error("[Explore] Error restoring state:", e);
+      }
+    }
+
+    console.log("[Explore] No state saved. Performing default search for:", categoria);
+    // If no state was restored, perform a clean default search
     setSelectedGenres([]);
     setSelectedTags([]);
     setYear('Any');
@@ -181,7 +312,15 @@ const ExplorePage = () => {
     setFormat('Any');
     setAiringStatus('Any');
     setCountry('Any');
-  }, [categoria]);
+    setSourceMaterial('Any');
+    setHideMyLibrary(false);
+    setOnlyShowMyLibrary(false);
+    setSortOrder('RECOMMENDED');
+    setPage(1);
+    setResults([]);
+    fetchResults(true);
+
+  }, [categoria, loadingMetadata]);
 
   // Handle click outside to close custom genre dropdown
   useEffect(() => {
@@ -194,16 +333,10 @@ const ExplorePage = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Trigger search when category (Anime <-> Manga) changes or on initial load
-  useEffect(() => {
-    if (!loadingMetadata) {
-      fetchResults(true);
-    }
-  }, [categoria, loadingMetadata]);
-
   // Trigger search when sort order changes
   useEffect(() => {
     if (!loadingMetadata) {
+      if (isRestoringRef.current) return;
       fetchResults(true);
     }
   }, [sortOrder]);
@@ -217,6 +350,7 @@ const ExplorePage = () => {
 
   useEffect(() => {
     if (page > 1) {
+      if (isRestoringRef.current) return;
       fetchResults(false);
     }
   }, [page]);
@@ -320,6 +454,12 @@ const ExplorePage = () => {
 
   // Handle card click
   const handleCardClick = (id: number) => {
+    if (stateRef.current) {
+      stateRef.current.scrollPosition = window.scrollY;
+      const activeCat = stateRef.current.categoria;
+      console.log("[Explore] Card clicked. Saving state for:", activeCat, stateRef.current);
+      sessionStorage.setItem(`otaku_explore_state_${activeCat}`, JSON.stringify(stateRef.current));
+    }
     navigate(`/details/${categoria}/${id}?external=true`);
   };
 
@@ -653,19 +793,47 @@ const ExplorePage = () => {
           </div>
         </div>
 
-        {/* Right: Sort selector (Trending, Popularity, Score, Start Date) */}
-        <div className="flex items-center gap-2 self-end sm:self-auto flex-shrink-0">
-          <ArrowUpDown size={14} className="text-white/40" />
-          <select 
-            value={sortOrder} 
-            onChange={(e) => setSortOrder(e.target.value)}
-            className="bg-surface-container border border-border-glass text-white rounded-xl px-3 py-2 text-xs font-bold focus:outline-none cursor-pointer transition-colors shadow-sm"
-          >
-            <option value="TRENDING_DESC" className="bg-surface-dim text-white">{t("Em Alta")}</option>
-            <option value="POPULARITY_DESC" className="bg-surface-dim text-white">{t("Mais Populares")}</option>
-            <option value="SCORE_DESC" className="bg-surface-dim text-white">{t("Mais Bem Avaliados")}</option>
-            <option value="START_DATE_DESC" className="bg-surface-dim text-white">{t("Mais Recentes")}</option>
-          </select>
+        {/* Right: Feito para si Toggle + Sort selector */}
+        <div className="flex items-center gap-4 self-end sm:self-auto flex-shrink-0">
+          
+          {/* Feito para si Toggle */}
+          <label className="flex items-center gap-2.5 cursor-pointer select-none bg-surface-container border border-border-glass hover:bg-surface-container-high rounded-xl px-3.5 py-2 text-xs font-bold transition-all shadow-sm">
+            <span className="text-white">{t("Feito para si")}</span>
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={sortOrder === 'RECOMMENDED'}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedGenres([]);
+                    setSelectedTags([]);
+                    setSortOrder('RECOMMENDED');
+                  } else {
+                    setSortOrder('TRENDING_DESC');
+                  }
+                }}
+                className="sr-only peer"
+              />
+              <div className="w-8 h-4 bg-white/10 rounded-full transition-colors peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-4"></div>
+            </div>
+          </label>
+
+          {/* Sort Selector */}
+          {sortOrder !== 'RECOMMENDED' && (
+            <div className="flex items-center gap-2 animate-fade-in">
+              <ArrowUpDown size={14} className="text-white/40" />
+              <select 
+                value={sortOrder} 
+                onChange={(e) => setSortOrder(e.target.value)}
+                className="bg-surface-container border border-border-glass text-white rounded-xl px-3 py-2 text-xs font-bold focus:outline-none cursor-pointer transition-colors shadow-sm"
+              >
+                <option value="TRENDING_DESC" className="bg-surface-dim text-white">{t("Em Alta")}</option>
+                <option value="POPULARITY_DESC" className="bg-surface-dim text-white">{t("Mais Populares")}</option>
+                <option value="SCORE_DESC" className="bg-surface-dim text-white">{t("Mais Bem Avaliados")}</option>
+                <option value="START_DATE_DESC" className="bg-surface-dim text-white">{t("Mais Recentes")}</option>
+              </select>
+            </div>
+          )}
         </div>
 
       </div>

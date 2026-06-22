@@ -3,7 +3,7 @@ import React from 'react';
 interface MediaCardProps {
   titulo: string;
   capaUrl: string;
-  generos?: string;
+  generos?: any;
   ranking?: number;
   progresso?: string;
   onClick: () => void;

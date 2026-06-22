@@ -40,6 +40,21 @@ const AndroidBackButtonListener = () => {
   return null;
 };
 
+// Componente para rastrear o caminho anterior (prevPath)
+const PathTracker = ({ children }: { children: React.ReactNode }) => {
+  const location = useLocation();
+
+  const currentPath = sessionStorage.getItem('otaku_current_path');
+  if (currentPath !== location.pathname) {
+    if (currentPath) {
+      sessionStorage.setItem('otaku_prev_path', currentPath);
+    }
+    sessionStorage.setItem('otaku_current_path', location.pathname);
+  }
+
+  return <>{children}</>;
+};
+
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -66,10 +81,11 @@ function App() {
 
   return (
     <Router>
-      <AndroidBackButtonListener />
-      <Routes>
-        <Route 
-          path="/" 
+      <PathTracker>
+        <AndroidBackButtonListener />
+        <Routes>
+          <Route 
+            path="/" 
           element={
             <ProtectedRoute>
               <HomePage />
@@ -120,6 +136,7 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
+      </PathTracker>
     </Router>
   );
 }

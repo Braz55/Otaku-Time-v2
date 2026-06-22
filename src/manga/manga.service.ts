@@ -1,6 +1,32 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+function buildGenerosDict(genres: string[] | undefined, tags: { name: string; rank?: number }[] | undefined): Record<string, number> {
+  const dict: Record<string, number> = {};
+  if (genres) {
+    genres.forEach(g => {
+      dict[g.trim()] = 100;
+    });
+  }
+  if (tags) {
+    tags.forEach(t => {
+      dict[t.name.trim()] = t.rank !== undefined ? t.rank : 100;
+    });
+  }
+  return dict;
+}
+
+function hasGenreOrTag(generos: any, target: string): boolean {
+  if (!generos) return false;
+  if (typeof generos === 'string') {
+    return generos.toLowerCase().includes(target.toLowerCase());
+  }
+  if (typeof generos === 'object') {
+    return Object.keys(generos).some(key => key.toLowerCase() === target.toLowerCase());
+  }
+  return false;
+}
+
 @Injectable()
 export class MangaService {
   constructor(private readonly prisma: PrismaService) {}
@@ -296,7 +322,7 @@ export class MangaService {
             status
             chapters
             genres
-            tags { name }
+            tags { name rank }
             countryOfOrigin
             format
             source
@@ -329,7 +355,7 @@ export class MangaService {
           status
           chapters
           genres
-          tags { name }
+          tags { name rank }
           countryOfOrigin
           format
           source
@@ -456,8 +482,7 @@ export class MangaService {
     const existingManga = await this.prisma.manga.findUnique({ where: { id: aniListData.id } });
     const initialTotalCaps = existingManga?.numCapitulosTotal ?? (aniListData.chapters || null);
 
-    const topTags = aniListData.tags ? aniListData.tags.slice(0, 10).map((tag: any) => tag.name).join(', ') : '';
-    const genresStr = aniListData.genres ? aniListData.genres.join(', ') : '';
+    const generosDict = buildGenerosDict(aniListData.genres, aniListData.tags?.slice(0, 10));
 
     manga = await this.prisma.manga.upsert({
       where: { id: aniListData.id },
@@ -465,7 +490,7 @@ export class MangaService {
         numCapitulosTotal: initialTotalCaps,
         capaUrl: aniListData.coverImage.large, 
         linksExternos: linksJSON,
-        generos: [genresStr, topTags].map(s => s.trim()).filter(Boolean).join(', '),
+        generos: generosDict,
         paisOrigem: aniListData.countryOfOrigin,
         formato: aniListData.format,
         materialOrigem: aniListData.source,
@@ -474,7 +499,7 @@ export class MangaService {
         id: aniListData.id, 
         titulo: title, 
         statusLancamento: aniListData.status, 
-        generos: [genresStr, topTags].map(s => s.trim()).filter(Boolean).join(', '),
+        generos: generosDict,
         paisOrigem: aniListData.countryOfOrigin,
         formato: aniListData.format,
         materialOrigem: aniListData.source,
@@ -528,8 +553,7 @@ export class MangaService {
     try {
       const aniListData = await this.searchAniListById(mangaId);
       if (aniListData) {
-        const topTags = aniListData.tags ? aniListData.tags.slice(0, 10).map((tag: any) => tag.name).join(', ') : '';
-        const genresStr = aniListData.genres ? aniListData.genres.join(', ') : '';
+        const generosDict = buildGenerosDict(aniListData.genres, aniListData.tags?.slice(0, 10));
         const linksJSON = aniListData.externalLinks ? JSON.stringify(aniListData.externalLinks) : null;
         
         await this.prisma.manga.update({
@@ -537,7 +561,7 @@ export class MangaService {
           data: {
             capaUrl: aniListData.coverImage.large, 
             linksExternos: linksJSON,
-            generos: [genresStr, topTags].map(s => s.trim()).filter(Boolean).join(', '),
+            generos: generosDict,
           }
         });
 
@@ -765,7 +789,7 @@ export class MangaService {
       // 4. Isekai Trash: Se viu 5+ animes do género "Isekai"
       // Reutiliza o array 'animes' em memória em vez de fazer nova consulta redundante
       const completedAnimes = animes.filter(ua => ua.status === 'COMPLETED');
-      const isekaiCount = completedAnimes.filter(ua => ua.anime.generos?.toLowerCase().includes('isekai')).length;
+      const isekaiCount = completedAnimes.filter(ua => hasGenreOrTag(ua.anime.generos, 'isekai')).length;
       if (isekaiCount >= 5) {
         await awardAchievement(2);
       }
@@ -777,14 +801,14 @@ export class MangaService {
       }
 
       // 6-9: A Vítima do Camião-kun (Isekai - Anime)
-      const allIsekaiAnimesCount = animes.filter(ua => ua.anime.generos?.toLowerCase().includes('isekai')).length;
+      const allIsekaiAnimesCount = animes.filter(ua => hasGenreOrTag(ua.anime.generos, 'isekai')).length;
       if (allIsekaiAnimesCount >= 3) await awardAchievement(6);
       if (allIsekaiAnimesCount >= 6) await awardAchievement(7);
       if (allIsekaiAnimesCount >= 12) await awardAchievement(8);
       if (allIsekaiAnimesCount >= 18) await awardAchievement(9);
 
       // 10-13: Isekai de Bolso (Isekai - Mangá)
-      const allIsekaiMangasCount = mangas.filter(um => um.manga.generos?.toLowerCase().includes('isekai')).length;
+      const allIsekaiMangasCount = mangas.filter(um => hasGenreOrTag(um.manga.generos, 'isekai')).length;
       if (allIsekaiMangasCount >= 3) await awardAchievement(10);
       if (allIsekaiMangasCount >= 6) await awardAchievement(11);
       if (allIsekaiMangasCount >= 12) await awardAchievement(12);
@@ -825,7 +849,7 @@ export class MangaService {
       // 24-27: Protagonista em Bulking (Sports/Action - Anime)
       const completedBulkingAnimes = animes.filter(ua => 
         ua.status === 'COMPLETED' && 
-        (ua.anime.generos?.toLowerCase().includes('sports') || ua.anime.generos?.toLowerCase().includes('action') || ua.anime.generos?.toLowerCase().includes('desporto') || ua.anime.generos?.toLowerCase().includes('ação'))
+        (hasGenreOrTag(ua.anime.generos, 'sports') || hasGenreOrTag(ua.anime.generos, 'action') || hasGenreOrTag(ua.anime.generos, 'desporto') || hasGenreOrTag(ua.anime.generos, 'ação'))
       ).length;
       if (completedBulkingAnimes >= 3) await awardAchievement(24);
       if (completedBulkingAnimes >= 6) await awardAchievement(25);
@@ -835,7 +859,7 @@ export class MangaService {
       // 28-31: Protagonista em Bulking (Sports/Action - Mangá)
       const completedBulkingMangas = mangas.filter(um => 
         um.status === 'COMPLETED' && 
-        (um.manga.generos?.toLowerCase().includes('sports') || um.manga.generos?.toLowerCase().includes('action') || um.manga.generos?.toLowerCase().includes('desporto') || um.manga.generos?.toLowerCase().includes('ação'))
+        (hasGenreOrTag(um.manga.generos, 'sports') || hasGenreOrTag(um.manga.generos, 'action') || hasGenreOrTag(um.manga.generos, 'desporto') || hasGenreOrTag(um.manga.generos, 'ação'))
       ).length;
       if (completedBulkingMangas >= 3) await awardAchievement(28);
       if (completedBulkingMangas >= 6) await awardAchievement(29);
@@ -845,7 +869,7 @@ export class MangaService {
       // 32-35: Síndrome de Shoujo (Romance/Drama - Anime)
       const completedRomanceAnimes = animes.filter(ua => 
         ua.status === 'COMPLETED' && 
-        (ua.anime.generos?.toLowerCase().includes('romance') || ua.anime.generos?.toLowerCase().includes('drama') || ua.anime.generos?.toLowerCase().includes('shoujo'))
+        (hasGenreOrTag(ua.anime.generos, 'romance') || hasGenreOrTag(ua.anime.generos, 'drama') || hasGenreOrTag(ua.anime.generos, 'shoujo'))
       ).length;
       if (completedRomanceAnimes >= 3) await awardAchievement(32);
       if (completedRomanceAnimes >= 6) await awardAchievement(33);
@@ -855,7 +879,7 @@ export class MangaService {
       // 36-39: Síndrome de Shoujo (Romance/Drama - Mangá)
       const completedRomanceMangas = mangas.filter(um => 
         um.status === 'COMPLETED' && 
-        (um.manga.generos?.toLowerCase().includes('romance') || um.manga.generos?.toLowerCase().includes('drama') || um.manga.generos?.toLowerCase().includes('shoujo'))
+        (hasGenreOrTag(um.manga.generos, 'romance') || hasGenreOrTag(um.manga.generos, 'drama') || hasGenreOrTag(um.manga.generos, 'shoujo'))
       ).length;
       if (completedRomanceMangas >= 3) await awardAchievement(36);
       if (completedRomanceMangas >= 6) await awardAchievement(37);

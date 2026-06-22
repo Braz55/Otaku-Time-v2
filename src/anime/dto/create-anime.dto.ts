@@ -1,7 +1,7 @@
 export class CreateAnimeDto {
   titulo!: string;
   statusLancamento!: string;
-  generos!: string;
+  generos!: any;
   userId!: number;
 
   // Campos opcionais (com ?) não precisam do !

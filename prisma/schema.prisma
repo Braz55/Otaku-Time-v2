@@ -47,7 +47,7 @@ model Anime {
   titulo              String
   statusLancamento    String?
   descricao           String?
-  generos             String?
+  generos             Json?
   capaUrl             String?
   numEpisodiosTotal   Int?
   proximoEpisodio     Int?        // Número do próximo episódio (se disponível)
@@ -85,7 +85,7 @@ model Manga {
   statusLancamento      String?
   numCapitulosTotal     Float?
   capaUrl               String?
-  generos               String?
+  generos               Json?
   paisOrigem            String?
   formato               String?
   materialOrigem        String?

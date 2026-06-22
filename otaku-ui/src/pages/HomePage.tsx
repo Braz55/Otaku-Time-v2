@@ -514,7 +514,7 @@ const HomePage = () => {
           titulo: data.title?.english || data.title?.romaji || 'Unknown Title',
           capaUrl: data.coverImage?.large,
           descricao: data.description ? data.description.replace(/<[^>]*>?/gm, '') : "No description available.",
-          generos: data.genres ? data.genres.join(', ') : (data.tags ? data.tags.map((t: any) => t.name).join(', ') : ''),
+          generos: [...(data.genres || []), ...(data.tags ? data.tags.map((t: any) => t.name) : [])].join(', '),
           statusLancamento: data.status,
           numEpisodiosTotal: data.episodes,
           numCapitulosTotal: data.chapters,
@@ -1670,9 +1670,13 @@ const HomePage = () => {
 
                   {/* 2. Géneros */}
                   <div className="flex flex-wrap gap-1.5 pt-1 border-t border-white/5">
-                    {selectedItem.generos?.split(',').map((g: string) => (
+                    {Array.from(new Set<string>(
+                      (selectedItem.generos ? selectedItem.generos.split(',') : [])
+                        .map((g: string) => g.trim())
+                        .filter(Boolean)
+                    )).map((g: string) => (
                       <span key={g} className={`px-3 py-1 bg-white/5 rounded-lg text-[11px] font-bold text-on-surface border tracking-wider ${categoria === 'anime' ? 'border-secondary/30' : 'border-primary/30'}`}>
-                        {g.trim()}
+                        {g}
                       </span>
                     ))}
                   </div>
@@ -2040,9 +2044,13 @@ const HomePage = () => {
                           </div>
                         )}
                         <div className="flex flex-wrap gap-2">
-                          {selectedItem.generos?.split(',').map((g: string) => (
+                          {Array.from(new Set<string>(
+                            (selectedItem.generos ? selectedItem.generos.split(',') : [])
+                              .map((g: string) => g.trim())
+                              .filter(Boolean)
+                          )).map((g: string) => (
                             <span key={g} className={`px-4 py-1.5 bg-white/5 backdrop-blur-md rounded-full text-xs font-bold text-on-surface border tracking-wider transition-all hover:scale-105 ${categoria === 'anime' ? 'border-secondary/30 hover:bg-secondary/20 hover:border-secondary/60 hover:text-secondary shadow-[0_0_10px_rgba(194,24,91,0.1)]' : 'border-primary/30 hover:bg-primary/20 hover:border-primary/60 hover:text-primary shadow-[0_0_10px_rgba(106,27,154,0.1)]'}`}>
-                              {g.trim()}
+                              {g}
                             </span>
                           ))}
                         </div>

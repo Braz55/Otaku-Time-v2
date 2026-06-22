@@ -296,6 +296,7 @@ export class MangaService {
             status
             chapters
             genres
+            tags { name }
             description
             coverImage { large }
             externalLinks { url site type language }
@@ -325,6 +326,7 @@ export class MangaService {
           status
           chapters
           genres
+          tags { name }
           description
           coverImage { large }
           externalLinks { url site type language }
@@ -448,18 +450,22 @@ export class MangaService {
     const existingManga = await this.prisma.manga.findUnique({ where: { id: aniListData.id } });
     const initialTotalCaps = existingManga?.numCapitulosTotal ?? (aniListData.chapters || null);
 
+    const topTags = aniListData.tags ? aniListData.tags.slice(0, 10).map((tag: any) => tag.name).join(', ') : '';
+    const genresStr = aniListData.genres ? aniListData.genres.join(', ') : '';
+
     manga = await this.prisma.manga.upsert({
       where: { id: aniListData.id },
       update: { 
         numCapitulosTotal: initialTotalCaps,
         capaUrl: aniListData.coverImage.large, 
-        linksExternos: linksJSON 
+        linksExternos: linksJSON,
+        generos: [genresStr, topTags].map(s => s.trim()).filter(Boolean).join(', '),
       },
       create: { 
         id: aniListData.id, 
         titulo: title, 
         statusLancamento: aniListData.status, 
-        generos: aniListData.genres.join(', '), 
+        generos: [genresStr, topTags].map(s => s.trim()).filter(Boolean).join(', '),
         descricao: aniListData.description?.replace(/<[^>]*>?/gm, ''), 
         numCapitulosTotal: initialTotalCaps, 
         capaUrl: aniListData.coverImage.large,
@@ -510,13 +516,16 @@ export class MangaService {
     try {
       const aniListData = await this.searchAniListById(mangaId);
       if (aniListData) {
+        const topTags = aniListData.tags ? aniListData.tags.slice(0, 10).map((tag: any) => tag.name).join(', ') : '';
+        const genresStr = aniListData.genres ? aniListData.genres.join(', ') : '';
         const linksJSON = aniListData.externalLinks ? JSON.stringify(aniListData.externalLinks) : null;
         
         await this.prisma.manga.update({
           where: { id: mangaId },
           data: {
             capaUrl: aniListData.coverImage.large, 
-            linksExternos: linksJSON
+            linksExternos: linksJSON,
+            generos: [genresStr, topTags].map(s => s.trim()).filter(Boolean).join(', '),
           }
         });
 

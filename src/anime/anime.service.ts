@@ -122,8 +122,8 @@ export class AnimeService {
     const aniListData = anilistId ? await this.searchAniListById(anilistId) : await this.searchAniList(nomeAnime, userId);
     if (!aniListData) throw new Error('Anime não encontrado na AniList');
 
-    const topTags = aniListData.tags ? aniListData.tags.slice(0, 5).map((tag: any) => tag.name).join(', ') : '';
-    const generosComTags = `${aniListData.genres ? aniListData.genres.join(', ') : ''}, ${topTags}`;
+    const topTags = aniListData.tags ? aniListData.tags.slice(0, 10).map((tag: any) => tag.name).join(', ') : '';
+    const genresStr = aniListData.genres ? aniListData.genres.join(', ') : '';
     const descricaoLimpa = aniListData.description ? aniListData.description.replace(/<[^>]*>?/gm, '') : "Sem descrição.";
     const linksJSON = aniListData.externalLinks ? JSON.stringify(aniListData.externalLinks) : null;
 
@@ -136,13 +136,14 @@ export class AnimeService {
         linksExternos: linksJSON,
         proximoEpisodio: aniListData.nextAiringEpisode?.episode,
         proximoEpisodioData: aniListData.nextAiringEpisode ? new Date(aniListData.nextAiringEpisode.airingAt * 1000) : null,
+        generos: [genresStr, topTags].map(s => s.trim()).filter(Boolean).join(', '),
       },
       create: {
         id: aniListData.id,
         titulo: aniListData.title.english || aniListData.title.romaji,
         statusLancamento: aniListData.status,
         descricao: descricaoLimpa,
-        generos: generosComTags,
+        generos: [genresStr, topTags].map(s => s.trim()).filter(Boolean).join(', '),
         capaUrl: aniListData.coverImage.large,
         numEpisodiosTotal: aniListData.episodes,
         temporada: aniListData.season,
@@ -189,8 +190,8 @@ export class AnimeService {
     try {
       const aniListData = await this.searchAniListById(animeId);
       if (aniListData) {
-        const topTags = aniListData.tags ? aniListData.tags.slice(0, 5).map((tag: any) => tag.name).join(', ') : '';
-        const generosComTags = `${aniListData.genres ? aniListData.genres.join(', ') : ''}, ${topTags}`;
+        const topTags = aniListData.tags ? aniListData.tags.slice(0, 10).map((tag: any) => tag.name).join(', ') : '';
+        const genresStr = aniListData.genres ? aniListData.genres.join(', ') : '';
         const descricaoLimpa = aniListData.description ? aniListData.description.replace(/<[^>]*>?/gm, '') : "Sem descrição.";
         const linksJSON = aniListData.externalLinks ? JSON.stringify(aniListData.externalLinks) : null;
 
@@ -203,6 +204,7 @@ export class AnimeService {
             linksExternos: linksJSON,
             proximoEpisodio: aniListData.nextAiringEpisode?.episode,
             proximoEpisodioData: aniListData.nextAiringEpisode ? new Date(aniListData.nextAiringEpisode.airingAt * 1000) : null,
+            generos: [genresStr, topTags].map(s => s.trim()).filter(Boolean).join(', '),
           }
         });
 

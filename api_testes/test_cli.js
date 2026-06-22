@@ -15,6 +15,7 @@ async function searchMangaList(nome) {
           id
           title { english romaji }
           genres
+          tags { name }
           description
           status
           chapters
@@ -46,6 +47,7 @@ async function searchAniListById(id) {
         status
         chapters
         genres
+        tags { name }
         description
         coverImage { large }
         externalLinks { url site type language }
@@ -299,6 +301,13 @@ async function runSyncTrace(anilistId) {
   console.log(`Manga Title: "${title}"`);
   console.log(`Status on AniList: ${manga.status}`);
   console.log(`Chapters on AniList: ${manga.chapters || 'Not specified'}`);
+  
+  // ---> AQUI: Extração e impressão das Tags para tu veres <---
+  const tagsList = manga.tags && manga.tags.length > 0 
+    ? manga.tags.map(t => t.name).join(', ') 
+    : 'Nenhuma tag encontrada';
+  console.log(`Géneros: ${manga.genres.join(', ') || 'Nenhum'}`);
+  console.log(`Tags: ${tagsList}`);
 
   let latest = null;
   let source = 'AniList';
@@ -389,6 +398,9 @@ function askForMangaName() {
     results.forEach((manga, index) => {
       const title = manga.title.english || manga.title.romaji;
       console.log(`[${index + 1}] ${title} (ID AniList: ${manga.id})`);
+      // AQUI: Também mostra um preview das tags na listagem de pesquisa inicial
+      const tagPreview = manga.tags ? manga.tags.map(t => t.name).slice(0, 3).join(', ') : '';
+      if (tagPreview) console.log(`    Tags: ${tagPreview}...`);
     });
 
     function askForSelection() {

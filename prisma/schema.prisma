@@ -245,3 +245,13 @@ model Comment {
 
   @@map("User_Comment")
 }
+
+model GenreTag {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
+  type        String  // 'GENRE' ou 'TAG'
+  category    String
+  subcategory String
+  isAdult     Boolean @default(false)
+  isExposed   Boolean @default(false)
+}

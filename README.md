@@ -80,6 +80,21 @@ Resolves inconsistencies from external portals using a 3-layer system:
 * Auto-Wake Service: Dynamic ping middleware triggered automatically on client navigation keeping the NestJS server active on Render to avoid cold starts.
 * Background Sync: Checks and syncs with the AniList database every 4 hours automatically.
 
+### 15. Advanced Explore Catalog (Anime & Manga)
+* **Hybrid Multiselect Filters**: Custom dropdown to filter titles by multiple genres concurrently, combined with an advanced tag selector modal categorizing hundreds of thematic tags (e.g., formats, themes, casts).
+* **Targeted Search Parameters**: Custom query filters for release years, airing seasons, formats (TV, movie, special, OVA, ONA, manga, novel, one-shot), publishing status, and country of origin.
+* **Local Library Exclusion**: Checkbox filters to isolate the search by hiding titles already present in the user's library or only showing active library items.
+* **Flexible Sorting Options**: Fast sort orders including Em Alta (Trending), Mais Populares (Popularity), Mais Bem Avaliados (Score), and Mais Recentes (Start Date).
+
+### 16. Personalized Thematic Recommendations ("Feito para si" - DIBI Engine)
+* **DIBI (Dynamic Interest-Based Diversified Interleaving) Engine**: The platform dynamically builds a personalized recommendation feed for the user's Explore page.
+* **Isolated Tastes Profile**: Tastes are extracted separately for Anime and Manga libraries to ensure targeted recommendations (e.g. action anime vs. boys' love manga).
+* **Thematic Co-Occurrence Clustering**: Tastes are automatically clustered into combinations based on user reading/watching habits (e.g. `["Boys' Love", "Drama", "Mafia", "Male Protagonist"]`), querying AniList with multi-tag combinations.
+* **Local Overlap Re-ranking**: Candidates retrieved from the API are dynamically re-ranked based on how many profile tags they overlap, prioritizing exact sub-genre matches.
+* **Country Preference Support**: The engine automatically detects the user's most read/watched country of origin (e.g. `'KR'` for Korean manhwa) and filters the recommendations accordingly.
+* **Premium UX Toggle**: A "Feito para si" sliding toggle switch is added to the page, connected by default, automatically clearing tags when selected and adjusting the layout dynamically.
+* **Scroll & State Retention**: State and scroll position are preserved only when navigating between the Explore page and the details page, resetting fresh when arriving from other navigation routes.
+
 ---
 
 ## System Architecture
@@ -116,6 +131,25 @@ flowchart TD
     BE_Render -->|Chapters & Seasons| BakaUpdates
     BE_Render -->|Chapter Fallback| MangaDex
 ```
+
+### Recommendation Engine (DIBI Algorithm)
+
+```mermaid
+graph TD
+    A["User Library: Completed/Watching"] --> B["Separate by Media Type: Anime vs Manga"]
+    B --> C["Extract Tag & Genre Weights"]
+    B --> C2["Count paisOrigem to get Preferred Country"]
+    C --> D["Identify Top Anchor Tastes"]
+    D --> E["Build Thematic Co-occurrence Profiles"]
+    E --> F1["Pool 1: Profile 1 + Preferred Country"]
+    E --> F2["Pool 2: Profile 2 + Preferred Country"]
+    E --> F3["Pool 3: Profile 3 + Preferred Country"]
+    C2 --> F1 & F2 & F3 & F4["Pool 4: Global Trending + Preferred Country"]
+    E --> F5["Pool 5: Unexplored Taste / Discovery"]
+    F1 & F2 & F3 --> G["Local Overlap Re-ranking"]
+    G & F4 & F5 --> H["Filter out items in User Library"]
+    H --> I["Interleave Pools: round-robin sequence"]
+    I --> J["Final Personal Feed: Explore Page"]
 
 ### Technologies Used
 
@@ -154,7 +188,7 @@ classDiagram
         +String titulo
         +String statusLancamento
         +String descricao
-        +String generos
+        +Json generos
         +String capaUrl
         +Int numEpisodiosTotal
         +Int proximoEpisodio
@@ -163,6 +197,7 @@ classDiagram
         +String temporada
         +Int ano
         +String linksExternos
+        +String paisOrigem
         +DateTime updatedAt
     }
 
@@ -184,12 +219,13 @@ classDiagram
         +String statusLancamento
         +Float numCapitulosTotal
         +String capaUrl
-        +String generos
+        +Json generos
         +String autor
         +String descricao
         +DateTime proximoCapituloData
         +Float proximoCapituloNumero
         +String linksExternos
+        +String paisOrigem
         +DateTime updatedAt
     }
 
@@ -301,6 +337,16 @@ classDiagram
         +String text
         +Int likes
         +DateTime createdAt
+    }
+
+    class GenreTag {
+        +Int id
+        +String name
+        +String type
+        +String category
+        +String subcategory
+        +Boolean isAdult
+        +Boolean isExposed
     }
 
     class TrackingStatus {

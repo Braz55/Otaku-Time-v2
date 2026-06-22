@@ -418,24 +418,32 @@ const HomePage = () => {
       const mangas = await mangaRes.json();
 
       if (Array.isArray(animes)) {
-        setAnimesDashboard(animes.filter(a => {
-          if (a.status !== 'WATCHING') return false;
-          const status = a.anime?.statusLancamento || a.statusLancamento;
-          const proxEp = a.anime?.proximoEpisodio || a.proximoEpisodio;
-          const numTotal = a.anime?.numEpisodiosTotal || a.numEpisodiosTotal;
-          const maxDisp = (status === 'RELEASING' && proxEp) ? proxEp - 1 : (numTotal || 9999);
-          return (a.epAtual || 0) < maxDisp;
-        }));
+        setAnimesDashboard(
+          animes
+            .filter(a => {
+              if (a.status !== 'WATCHING') return false;
+              const status = a.anime?.statusLancamento || a.statusLancamento;
+              const proxEp = a.anime?.proximoEpisodio || a.proximoEpisodio;
+              const numTotal = a.anime?.numEpisodiosTotal || a.numEpisodiosTotal;
+              const maxDisp = (status === 'RELEASING' && proxEp) ? proxEp - 1 : (numTotal || 9999);
+              return (a.epAtual || 0) < maxDisp;
+            })
+            .sort((a, b) => (a.prioridade || 999) - (b.prioridade || 999))
+        );
       }
       if (Array.isArray(mangas)) {
-        setMangasDashboard(mangas.filter(m => {
-          if (m.status !== 'WATCHING') return false;
-          const status = m.manga?.statusLancamento || m.statusLancamento;
-          const proxCap = m.manga?.proximoCapituloNumero || m.proximoCapituloNumero;
-          const numTotal = m.manga?.numCapitulosTotal || m.numCapitulosTotal;
-          const maxDisp = (status === 'RELEASING' && proxCap) ? proxCap - 1 : (numTotal || 9999);
-          return (m.capAtual || 0) < maxDisp;
-        }));
+        setMangasDashboard(
+          mangas
+            .filter(m => {
+              if (m.status !== 'WATCHING') return false;
+              const status = m.manga?.statusLancamento || m.statusLancamento;
+              const proxCap = m.manga?.proximoCapituloNumero || m.proximoCapituloNumero;
+              const numTotal = m.manga?.numCapitulosTotal || m.numCapitulosTotal;
+              const maxDisp = (status === 'RELEASING' && proxCap) ? proxCap - 1 : (numTotal || 9999);
+              return (m.capAtual || 0) < maxDisp;
+            })
+            .sort((a, b) => (a.prioridade || 999) - (b.prioridade || 999))
+        );
       }
     } catch (error) {
       console.error("Erro ao carregar dashboard:", error);
@@ -821,7 +829,6 @@ const HomePage = () => {
 
   const renderRatingCommentsSection = () => {
     const ratingValue = overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A';
-    const votes = overallRating?.total_votos_users ?? 0;
 
     return (
       <div className={`space-y-6 pt-8 border-t border-white/5 ${isMobile ? '' : 'mt-4'}`}>
@@ -833,7 +840,7 @@ const HomePage = () => {
           <div className={`px-4 py-2 rounded-2xl border flex items-center gap-2 ${categoria === 'anime' ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-secondary/10 border-secondary/30 text-secondary'}`}>
             <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
             <span className="font-black">{ratingValue}</span>
-            <span className="text-xs text-on-surface-variant">/ 10 ({votes} {votes === 1 ? 'voto' : 'votos'})</span>
+            <span className="text-xs text-on-surface-variant">/ 10</span>
           </div>
         </div>
 
@@ -1996,7 +2003,6 @@ const HomePage = () => {
                         <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-2xl border mb-6 font-black ${categoria === 'anime' ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-secondary/10 border-secondary/30 text-secondary'}`}>
                           <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
                           {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'} / 10
-                          <span className="text-xs font-bold text-on-surface-variant">({overallRating?.total_votos_users ?? 0} votos)</span>
                         </div>
                         {categoria === 'manga' && (
                           <div className="flex items-center gap-3 mb-6">
@@ -2194,7 +2200,6 @@ const HomePage = () => {
                           <p className={`font-bold text-lg ${categoria === 'anime' ? 'text-primary' : 'text-secondary'}`}>
                             {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'} / 10
                           </p>
-                          <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest">{overallRating?.total_votos_users ?? 0} votos</p>
                         </div>
                       </div>
                       {renderRatingCommentsSection()}

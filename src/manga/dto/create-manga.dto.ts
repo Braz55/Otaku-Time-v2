@@ -4,7 +4,6 @@ export class CreateMangaDto {
   numCapitulosTotal?: number;
   capaUrl?: string;
   generos!: string; // Como definiste no Prisma
-  autor?: string;
   descricao?: string;
   statusLeitura?: string;
   capAtual?: number;

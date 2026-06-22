@@ -55,6 +55,9 @@ model Anime {
   dataLancamento      DateTime?
   temporada           String?
   ano                 Int?
+  paisOrigem          String?
+  formato             String?
+  materialOrigem      String?
   linksExternos       String?     // JSON string com os links oficiais (MangaPlus, Lezhin, etc.)
   utilizadores        UserAnime[]
   updatedAt           DateTime    @default(now()) @updatedAt
@@ -83,7 +86,9 @@ model Manga {
   numCapitulosTotal     Float?
   capaUrl               String?
   generos               String?
-  autor                 String?
+  paisOrigem            String?
+  formato               String?
+  materialOrigem        String?
   descricao             String?
   proximoCapituloData   DateTime? // Data prevista para o próximo capítulo
   proximoCapituloNumero Float?    // Número do próximo capítulo

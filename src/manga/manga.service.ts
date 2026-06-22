@@ -297,6 +297,9 @@ export class MangaService {
             chapters
             genres
             tags { name }
+            countryOfOrigin
+            format
+            source
             description
             coverImage { large }
             externalLinks { url site type language }
@@ -327,6 +330,9 @@ export class MangaService {
           chapters
           genres
           tags { name }
+          countryOfOrigin
+          format
+          source
           description
           coverImage { large }
           externalLinks { url site type language }
@@ -460,12 +466,18 @@ export class MangaService {
         capaUrl: aniListData.coverImage.large, 
         linksExternos: linksJSON,
         generos: [genresStr, topTags].map(s => s.trim()).filter(Boolean).join(', '),
+        paisOrigem: aniListData.countryOfOrigin,
+        formato: aniListData.format,
+        materialOrigem: aniListData.source,
       },
       create: { 
         id: aniListData.id, 
         titulo: title, 
         statusLancamento: aniListData.status, 
         generos: [genresStr, topTags].map(s => s.trim()).filter(Boolean).join(', '),
+        paisOrigem: aniListData.countryOfOrigin,
+        formato: aniListData.format,
+        materialOrigem: aniListData.source,
         descricao: aniListData.description?.replace(/<[^>]*>?/gm, ''), 
         numCapitulosTotal: initialTotalCaps, 
         capaUrl: aniListData.coverImage.large,

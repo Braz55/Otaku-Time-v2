@@ -14,6 +14,40 @@ export class AnimeController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('explore')
+  explore(
+    @Request() req,
+    @Query('type') type?: 'ANIME' | 'MANGA',
+    @Query('genres') genres?: string,
+    @Query('tags') tags?: string,
+    @Query('year') year?: string,
+    @Query('season') season?: string,
+    @Query('format') format?: string,
+    @Query('status') status?: string,
+    @Query('source') source?: string,
+    @Query('country') country?: string,
+    @Query('sort') sort?: string,
+    @Query('page') page?: string,
+  ) {
+    const genresArr = genres ? genres.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+    const tagsArr = tags ? tags.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+    return this.animeService.explore(
+      type || 'ANIME',
+      genresArr,
+      tagsArr,
+      year ? +year : undefined,
+      season,
+      format,
+      status,
+      source,
+      country,
+      sort || 'TRENDING_DESC',
+      page ? +page : 1,
+      req.user.userId,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post('import')
   importAnime(@Body() body: { nome: string; anilistId?: number }, @Request() req) {
     return this.animeService.importFromAniList(body.nome, req.user.userId, body.anilistId);

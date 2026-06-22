@@ -30,6 +30,9 @@ export class AnimeService {
             episodes
             season
             seasonYear
+            countryOfOrigin
+            format
+            source
             externalLinks { url site type language }
             nextAiringEpisode {
               airingAt
@@ -71,6 +74,9 @@ export class AnimeService {
           episodes
           season
           seasonYear
+          countryOfOrigin
+          format
+          source
           externalLinks { url site type language }
           nextAiringEpisode {
             airingAt
@@ -137,6 +143,9 @@ export class AnimeService {
         proximoEpisodio: aniListData.nextAiringEpisode?.episode,
         proximoEpisodioData: aniListData.nextAiringEpisode ? new Date(aniListData.nextAiringEpisode.airingAt * 1000) : null,
         generos: [genresStr, topTags].map(s => s.trim()).filter(Boolean).join(', '),
+        paisOrigem: aniListData.countryOfOrigin,
+        formato: aniListData.format,
+        materialOrigem: aniListData.source,
       },
       create: {
         id: aniListData.id,
@@ -148,6 +157,9 @@ export class AnimeService {
         numEpisodiosTotal: aniListData.episodes,
         temporada: aniListData.season,
         ano: aniListData.seasonYear,
+        paisOrigem: aniListData.countryOfOrigin,
+        formato: aniListData.format,
+        materialOrigem: aniListData.source,
         linksExternos: linksJSON,
         proximoEpisodio: aniListData.nextAiringEpisode?.episode,
         proximoEpisodioData: aniListData.nextAiringEpisode ? new Date(aniListData.nextAiringEpisode.airingAt * 1000) : null,
@@ -654,5 +666,120 @@ export class AnimeService {
         { name: 'asc' }
       ]
     });
+  }
+
+  async explore(
+    type: 'ANIME' | 'MANGA' = 'ANIME',
+    genres?: string[],
+    tags?: string[],
+    year?: number,
+    season?: string,
+    format?: string,
+    status?: string,
+    source?: string,
+    country?: string,
+    sort: string = 'TRENDING_DESC',
+    page: number = 1,
+    userId?: number
+  ) {
+    let isAdult: boolean | undefined = false;
+    if (userId) {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (user && user.showAdultContent) {
+        isAdult = undefined;
+      }
+    }
+
+    const query = `
+      query (
+        $genres: [String], 
+        $tags: [String], 
+        $sort: [MediaSort], 
+        $page: Int, 
+        $isAdult: Boolean, 
+        $type: MediaType, 
+        $seasonYear: Int, 
+        $season: MediaSeason, 
+        $format: MediaFormat, 
+        $status: MediaStatus, 
+        $source: MediaSource,
+        $country: CountryCode
+      ) {
+        Page(page: $page, perPage: 24) {
+          media(
+            genre_in: $genres, 
+            tag_in: $tags, 
+            type: $type, 
+            sort: $sort, 
+            isAdult: $isAdult, 
+            seasonYear: $seasonYear, 
+            season: $season, 
+            format: $format, 
+            status: $status, 
+            source: $source,
+            countryOfOrigin: $country
+          ) {
+            id
+            title { english romaji native }
+            coverImage { large }
+            genres
+            tags { name }
+            averageScore
+            description
+            episodes
+            chapters
+            status
+          }
+        }
+      }
+    `;
+
+    const variables: any = {
+      type,
+      sort: [sort],
+      page,
+      isAdult
+    };
+
+    if (genres && genres.length > 0) {
+      variables.genres = genres;
+    }
+    if (tags && tags.length > 0) {
+      variables.tags = tags;
+    }
+    if (year) {
+      variables.seasonYear = year;
+    }
+    if (season && season !== 'Any') {
+      variables.season = season;
+    }
+    if (format && format !== 'Any') {
+      variables.format = format;
+    }
+    if (status && status !== 'Any') {
+      variables.status = status;
+    }
+    if (source && source !== 'Any') {
+      variables.source = source;
+    }
+    if (country && country !== 'Any') {
+      variables.country = country;
+    }
+
+    try {
+      const response = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ query, variables })
+      });
+      const result = await response.json() as any;
+      return result?.data?.Page?.media || [];
+    } catch (error) {
+      console.error('Error in explore query:', error);
+      return [];
+    }
   }
 }

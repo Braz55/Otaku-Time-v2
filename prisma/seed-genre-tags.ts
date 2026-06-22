@@ -92,6 +92,15 @@ async function main() {
     });
   });
 
+  // Whitelist of core tags allowed to be exposed in the main search slider (if present in the DB)
+  const EXPOSED_TAGS_WHITELIST = [
+    'Shounen', 'Seinen', 'Shoujo', 'Josei',
+    'Anti-Hero', 'Female Protagonist', 'Male Protagonist', 'Ensemble Cast', 'Primarily Adult Cast',
+    'Isekai', 'Cyberpunk', 'Post-Apocalyptic', 'Space', 'Time Loop', 'Historical',
+    "Girls' Love", 'Harem', 'Love Triangle', 'Tragedy', 'Revenge', 'Magic', 'Super Power', 
+    'School', 'Work', 'Music', 'Mecha', 'Vampire', 'Demons', 'Zombies', 'Otaku Culture', 'Martial Arts', 'Swordplay'
+  ].map(tag => tag.toLowerCase());
+
   // Add all 423 tags grouped in categories
   Object.entries(groupedTags).forEach(([mainCat, subCats]) => {
     Object.entries(subCats as Record<string, Array<{ name: string; isAdult: boolean }>>).forEach(([subCat, tagsList]) => {
@@ -99,7 +108,9 @@ async function main() {
         // Avoid duplicate if genre has same name as tag
         if (GENRES.includes(t.name)) return;
 
-        const isExposed = usedTags.has(t.name.toLowerCase());
+        const isUsed = usedTags.has(t.name.toLowerCase());
+        const isExposed = isUsed && EXPOSED_TAGS_WHITELIST.includes(t.name.toLowerCase());
+        
         itemsToInsert.push({
           name: t.name,
           type: 'TAG',

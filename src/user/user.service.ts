@@ -152,6 +152,9 @@ export class UserService {
           genres
           tags { name }
           episodes
+          countryOfOrigin
+          format
+          source
         }
       }
     `;
@@ -170,6 +173,9 @@ export class UserService {
           genres
           tags { name }
           chapters
+          countryOfOrigin
+          format
+          source
         }
       }
     `;
@@ -202,6 +208,9 @@ export class UserService {
             generos: generosComTags || undefined,
             descricao: metadata ? descricaoLimpa : undefined,
             numEpisodiosTotal: metadata ? metadata.episodes : undefined,
+            paisOrigem: metadata ? metadata.countryOfOrigin : undefined,
+            formato: metadata ? metadata.format : undefined,
+            materialOrigem: metadata ? metadata.source : undefined,
           },
           create: {
             id: item.animeId,
@@ -210,7 +219,10 @@ export class UserService {
             capaUrl: metadata ? metadata.coverImage?.large : '',
             generos: generosComTags,
             descricao: descricaoLimpa,
-            numEpisodiosTotal: metadata ? metadata.episodes : null
+            numEpisodiosTotal: metadata ? metadata.episodes : null,
+            paisOrigem: metadata ? metadata.countryOfOrigin : null,
+            formato: metadata ? metadata.format : null,
+            materialOrigem: metadata ? metadata.source : null
           }
         });
 
@@ -256,6 +268,9 @@ export class UserService {
             generos: generosComTags || undefined,
             descricao: metadata ? descricaoLimpa : undefined,
             numCapitulosTotal: metadata ? metadata.chapters : undefined,
+            paisOrigem: metadata ? metadata.countryOfOrigin : undefined,
+            formato: metadata ? metadata.format : undefined,
+            materialOrigem: metadata ? metadata.source : undefined,
           },
           create: {
             id: item.mangaId,
@@ -264,7 +279,10 @@ export class UserService {
             capaUrl: metadata ? metadata.coverImage?.large : '',
             generos: generosComTags,
             descricao: descricaoLimpa,
-            numCapitulosTotal: metadata ? metadata.chapters : null
+            numCapitulosTotal: metadata ? metadata.chapters : null,
+            paisOrigem: metadata ? metadata.countryOfOrigin : null,
+            formato: metadata ? metadata.format : null,
+            materialOrigem: metadata ? metadata.source : null
           }
         });
 

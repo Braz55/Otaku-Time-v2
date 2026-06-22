@@ -40,6 +40,7 @@ model User {
   redeemedCodes     GiftCode[]
   ratings           UserRating[]
   comments          Comment[]
+  customLists       CustomList[]
 }
 
 model Anime {
@@ -60,6 +61,7 @@ model Anime {
   materialOrigem      String?
   linksExternos       String?     // JSON string com os links oficiais (MangaPlus, Lezhin, etc.)
   utilizadores        UserAnime[]
+  customListItems     CustomListItem[]
   updatedAt           DateTime    @default(now()) @updatedAt
 }
 
@@ -94,6 +96,7 @@ model Manga {
   proximoCapituloNumero Float?    // Número do próximo capítulo
   linksExternos         String?     // JSON string com os links oficiais
   utilizadores          UserManga[]
+  customListItems       CustomListItem[]
   updatedAt             DateTime    @default(now()) @updatedAt
 }
 
@@ -259,4 +262,35 @@ model GenreTag {
   subcategory String
   isAdult     Boolean @default(false)
   isExposed   Boolean @default(false)
+}
+
+model CustomList {
+  id          Int              @id @default(autoincrement())
+  name        String
+  description String?
+  coverUrl    String?
+  isPublic    Boolean          @default(false)
+  criteria    Json?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @default(now()) @updatedAt
+  userId      Int
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       CustomListItem[]
+}
+
+model CustomListItem {
+  id             Int        @id @default(autoincrement())
+  listId         Int
+  anilistMediaId Int
+  mediaType      MediaType
+  position       Int
+  addedAt        DateTime   @default(now())
+  animeId        Int?
+  mangaId        Int?
+  list           CustomList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  anime          Anime?     @relation(fields: [animeId], references: [id], onDelete: SetNull)
+  manga          Manga?     @relation(fields: [mangaId], references: [id], onDelete: SetNull)
+
+  @@unique([listId, anilistMediaId, mediaType])
+  @@index([listId, position])
 }

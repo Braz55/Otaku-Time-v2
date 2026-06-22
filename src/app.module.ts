@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module';
 import { SyncModule } from './sync/sync.module';
 import { RatingModule } from './rating/rating.module';
 import { CommentModule } from './comment/comment.module';
+import { ListModule } from './list/list.module';
 import { KeepAwakeService } from './keep-awake.service';
 import { KeepAwakeMiddleware } from './keep-awake.middleware';
 
@@ -24,6 +25,7 @@ import { KeepAwakeMiddleware } from './keep-awake.middleware';
     SyncModule,
     RatingModule,
     CommentModule,
+    ListModule,
   ],
   controllers: [AppController],
   providers: [AppService, KeepAwakeService],

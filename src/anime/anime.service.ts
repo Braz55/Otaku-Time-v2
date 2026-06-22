@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ListService } from '../list/list.service';
 
 function buildGenerosDict(genres: string[] | undefined, tags: { name: string; rank?: number }[] | undefined): Record<string, number> {
   const dict: Record<string, number> = {};
@@ -29,7 +30,10 @@ function hasGenreOrTag(generos: any, target: string): boolean {
 
 @Injectable()
 export class AnimeService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly listService: ListService,
+  ) {}
 
   // Busca dados detalhados da AniList por Nome
   async searchAniList(nomeAnime: string, userId?: number) {
@@ -142,6 +146,9 @@ export class AnimeService {
       this.backgroundUpdateAnime(anime.id, userId).catch(err => {
         console.error('Error in backgroundUpdateAnime:', err);
       });
+      this.listService.checkAndAddToDynamicLists(userId, anime.id, 'ANIME').catch(err => {
+        console.error('Error syncing dynamic anime lists:', err);
+      });
 
       const rating = await this.prisma.media.findUnique({ where: { id: anime.id } });
       return {
@@ -211,6 +218,9 @@ export class AnimeService {
       update: {},
       create: { userId, animeId: anime.id, status: 'PLANNED', epAtual: 0 },
       include: { anime: true }
+    });
+    this.listService.checkAndAddToDynamicLists(userId, anime.id, 'ANIME').catch(err => {
+      console.error('Error syncing dynamic anime lists:', err);
     });
     this.recalculateUserStats(userId).catch(err => {
       console.error('Error recalculating user stats in background:', err);

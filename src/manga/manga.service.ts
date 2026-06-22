@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ListService } from '../list/list.service';
 
 function buildGenerosDict(genres: string[] | undefined, tags: { name: string; rank?: number }[] | undefined): Record<string, number> {
   const dict: Record<string, number> = {};
@@ -29,7 +30,10 @@ function hasGenreOrTag(generos: any, target: string): boolean {
 
 @Injectable()
 export class MangaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly listService: ListService,
+  ) {}
 
   // PLAN A: Baka-Updates (MangaUpdates)
   async getLatestChapterFromBakaUpdates(title: string, mangaObj?: any): Promise<{ chapter: number | null, breakdown?: { label: string, chapters: number }[] }> {
@@ -463,6 +467,9 @@ export class MangaService {
       this.backgroundUpdateManga(manga.id, userId).catch(err => {
         console.error('Error in backgroundUpdateManga:', err);
       });
+      this.listService.checkAndAddToDynamicLists(userId, manga.id, 'MANGA').catch(err => {
+        console.error('Error syncing dynamic manga lists:', err);
+      });
 
       const rating = await this.prisma.media.findUnique({ where: { id: manga.id } });
       return {
@@ -530,6 +537,9 @@ export class MangaService {
       update: {},
       create: { userId, mangaId: manga.id, status: 'PLANNED', capAtual: 0, prioridade: 5 },
       include: { manga: true }
+    });
+    this.listService.checkAndAddToDynamicLists(userId, manga.id, 'MANGA').catch(err => {
+      console.error('Error syncing dynamic manga lists:', err);
     });
 
     this.recalculateUserStats(userId).catch(err => {

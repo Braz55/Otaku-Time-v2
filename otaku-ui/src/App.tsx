@@ -9,6 +9,8 @@ import ProfilePage from './pages/ProfilePage';
 import ExplorePage from './pages/ExplorePage';
 import LibraryPage from './pages/LibraryPage';
 import DetailsPage from './pages/DetailsPage';
+import ListsPage from './pages/ListsPage';
+import ListDetailsPage from './pages/ListDetailsPage';
 import Layout from './components/Layout';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
@@ -121,6 +123,22 @@ function App() {
           element={
             <ProtectedRoute>
               <LibraryPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/lists" 
+          element={
+            <ProtectedRoute>
+              <ListsPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/lists/:id" 
+          element={
+            <ProtectedRoute>
+              <ListDetailsPage />
             </ProtectedRoute>
           } 
         />

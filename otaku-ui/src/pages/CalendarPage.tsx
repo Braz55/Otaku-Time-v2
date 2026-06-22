@@ -215,7 +215,7 @@ const CalendarPage = () => {
                   <article 
                     key={`${item.type}-${item.id}`}
                     className="glass-panel rim-light p-4 rounded-2xl flex gap-4 hover:border-secondary/50 transition-all cursor-pointer group min-w-0"
-                    onClick={() => navigate('/', { state: { openDetailsId: item.id, openDetailsType: item.type } })}
+                    onClick={() => navigate(`/details/${item.type}/${item.id}`)}
                   >
                     <div className="w-24 h-36 rounded-xl overflow-hidden flex-shrink-0 relative">
                       <img 
@@ -299,7 +299,7 @@ const CalendarPage = () => {
                       <div 
                         key={`timeline-${item.type}-${item.id}`} 
                         className="glass-panel p-5 rounded-2xl flex items-center gap-6 group hover:border-secondary/30 transition-all cursor-pointer border border-white/5"
-                        onClick={() => navigate('/', { state: { openDetailsId: item.id, openDetailsType: item.type } })}
+                        onClick={() => navigate(`/details/${item.type}/${item.id}`)}
                       >
                         <div className="text-center min-w-[80px]">
                           <span className="text-secondary font-black block text-sm">

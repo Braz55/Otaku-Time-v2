@@ -7,6 +7,8 @@ import RegisterPage from './pages/RegisterPage';
 import CalendarPage from './pages/CalendarPage';
 import ProfilePage from './pages/ProfilePage';
 import ExplorePage from './pages/ExplorePage';
+import LibraryPage from './pages/LibraryPage';
+import DetailsPage from './pages/DetailsPage';
 import Layout from './components/Layout';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
@@ -95,6 +97,22 @@ function App() {
           element={
             <ProtectedRoute>
               <ProfilePage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/library" 
+          element={
+            <ProtectedRoute>
+              <LibraryPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/details/:mediaType/:id" 
+          element={
+            <ProtectedRoute>
+              <DetailsPage />
             </ProtectedRoute>
           } 
         />

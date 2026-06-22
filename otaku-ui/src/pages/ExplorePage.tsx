@@ -320,7 +320,7 @@ const ExplorePage = () => {
 
   // Handle card click
   const handleCardClick = (id: number) => {
-    navigate('/', { state: { openDetailsId: id, openDetailsType: categoria } });
+    navigate(`/details/${categoria}/${id}?external=true`);
   };
 
   return (

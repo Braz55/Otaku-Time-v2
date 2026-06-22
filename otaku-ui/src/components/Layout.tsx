@@ -10,7 +10,7 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { isShowingFavorites, setIsShowingFavorites, isSearchOpen, setIsSearchOpen, triggerHome } = useMedia();
+  const { setIsShowingFavorites, isSearchOpen, setIsSearchOpen, triggerHome } = useMedia();
   const { user } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -19,17 +19,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const handleShowFavorites = () => {
     setIsShowingFavorites(true);
     setIsSearchOpen(false);
-    if (location.pathname !== '/') navigate('/');
+    navigate('/library');
   };
 
   const handleShowDashboard = () => {
     triggerHome();
-    if (location.pathname !== '/') navigate('/');
+    navigate('/');
   };
 
-  const isHomeActive = location.pathname === '/' && !isShowingFavorites && !isSearchOpen;
+  const isHomeActive = location.pathname === '/' && !isSearchOpen;
   const isCalendarActive = location.pathname === '/calendar';
-  const isLibraryActive = location.pathname === '/' && isShowingFavorites && !isSearchOpen;
+  const isLibraryActive = location.pathname === '/library';
   const isProfileActive = location.pathname === '/profile';
   const isExploreActive = location.pathname === '/explore';
 

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowDown, ArrowLeft, ArrowUp, Eye, EyeOff, Loader2, Save, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Eye, EyeOff, Loader2, Save, Trash2, Upload } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import GenreTagPicker from '../components/GenreTagPicker';
 
 type ListItem = {
   id: number;
@@ -25,8 +26,6 @@ type CustomList = {
   items: ListItem[];
 };
 
-const splitValues = (value: string) => value.split(',').map(v => v.trim()).filter(Boolean);
-
 const ListDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
   const { token } = useAuth();
@@ -35,13 +34,19 @@ const ListDetailsPage = () => {
   const [list, setList] = useState<CustomList | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Metadata for genre/tag picker
+  const [metadata, setMetadata] = useState<any[]>([]);
+  const [loadingMetadata, setLoadingMetadata] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
   const [form, setForm] = useState({
     name: '',
     description: '',
     coverUrl: '',
     isPublic: false,
-    genres: '',
-    tags: '',
+    selectedGenres: [] as string[],
+    selectedTags: [] as string[],
     includeAnime: true,
     includeManga: true,
   });
@@ -58,8 +63,8 @@ const ListDetailsPage = () => {
       description: data.description || '',
       coverUrl: data.coverUrl || '',
       isPublic: Boolean(data.isPublic),
-      genres: (criteria.genres || []).join(', '),
-      tags: (criteria.tags || []).join(', '),
+      selectedGenres: criteria.genres || [],
+      selectedTags: criteria.tags || [],
       includeAnime: !criteria.mediaTypes?.length || criteria.mediaTypes.includes('ANIME'),
       includeManga: !criteria.mediaTypes?.length || criteria.mediaTypes.includes('MANGA'),
     });
@@ -83,17 +88,96 @@ const ListDetailsPage = () => {
     }
   };
 
+  const fetchMetadata = async () => {
+    setLoadingMetadata(true);
+    try {
+      const res = await customFetch(`${API_BASE_URL}/anime/genres-and-tags`, { headers });
+      if (res.ok) {
+        setMetadata(await res.json());
+      }
+    } catch (error) {
+      console.error("Error loading metadata:", error);
+    } finally {
+      setLoadingMetadata(false);
+    }
+  };
+
   useEffect(() => {
-    if (token) loadList();
+    if (token) {
+      loadList();
+      fetchMetadata();
+    }
   }, [token, id]);
+
+  // Compress/resize image using Canvas before converting to base64
+  const compressImage = (file: File, maxWidth: number, maxHeight: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(event.target?.result as string);
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(dataUrl);
+        };
+        img.onerror = (err) => reject(err);
+      };
+      reader.onerror = (err) => reject(err);
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Por favor, seleciona um ficheiro de imagem válido.', 'warning');
+      return;
+    }
+
+    try {
+      const compressed = await compressImage(file, 800, 450);
+      setForm(prev => ({ ...prev, coverUrl: compressed }));
+      showToast('Capa carregada e comprimida!', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Erro ao processar imagem.', 'error');
+    }
+  };
 
   const saveList = async () => {
     if (!id || saving) return;
     setSaving(true);
     try {
       const criteria = {
-        genres: splitValues(form.genres),
-        tags: splitValues(form.tags),
+        genres: form.selectedGenres,
+        tags: form.selectedTags,
         mediaTypes: [
           ...(form.includeAnime ? ['ANIME'] : []),
           ...(form.includeManga ? ['MANGA'] : []),
@@ -211,9 +295,69 @@ const ListDetailsPage = () => {
           <h3 className="text-white font-black">Editar lista</h3>
           <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-primary" />
           <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={3} className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-primary resize-none" />
-          <input value={form.coverUrl} onChange={e => setForm({ ...form, coverUrl: e.target.value })} placeholder="URL da capa" className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-primary" />
-          <input value={form.genres} onChange={e => setForm({ ...form, genres: e.target.value })} placeholder="Géneros" className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-primary" />
-          <input value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="Tags" className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-primary" />
+          <div className="space-y-2">
+            <input 
+              type="file" 
+              id="cover-upload-file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <div className="flex gap-2">
+              <input 
+                value={form.coverUrl} 
+                onChange={e => setForm({ ...form, coverUrl: e.target.value })} 
+                placeholder="URL da capa ou importa um ficheiro" 
+                className="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-primary" 
+              />
+              <button
+                type="button"
+                onClick={() => document.getElementById('cover-upload-file')?.click()}
+                className="px-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 active:scale-95"
+              >
+                <Upload className="w-4 h-4 text-primary" />
+                <span>Importar</span>
+              </button>
+            </div>
+          </div>
+
+          {loadingMetadata ? (
+            <div className="py-4 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+          ) : (
+            <GenreTagPicker
+              metadata={metadata}
+              selectedGenres={form.selectedGenres}
+              selectedTags={form.selectedTags}
+              isOpen={pickerOpen}
+              onOpen={() => setPickerOpen(true)}
+              onClose={() => setPickerOpen(false)}
+              onToggleGenre={(name) => {
+                setForm(prev => {
+                  const exist = prev.selectedGenres.includes(name);
+                  return {
+                    ...prev,
+                    selectedGenres: exist 
+                      ? prev.selectedGenres.filter(g => g !== name) 
+                      : [...prev.selectedGenres, name]
+                  };
+                });
+              }}
+              onToggleTag={(name) => {
+                setForm(prev => {
+                  const exist = prev.selectedTags.includes(name);
+                  return {
+                    ...prev,
+                    selectedTags: exist 
+                      ? prev.selectedTags.filter(t => t !== name) 
+                      : [...prev.selectedTags, name]
+                  };
+                });
+              }}
+              onClear={() => {
+                setForm(prev => ({ ...prev, selectedGenres: [], selectedTags: [] }));
+              }}
+            />
+          )}
           <div className="grid grid-cols-3 gap-2">
             {[
               ['includeAnime', 'Anime'],

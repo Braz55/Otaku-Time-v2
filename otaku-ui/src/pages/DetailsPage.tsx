@@ -3,7 +3,7 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMedia } from '../context/MediaContext';
 import { useToast } from '../context/ToastContext';
-import { Loader2, Smartphone, Award, BookOpen, Clock, Film, PlayCircle, Shield, User, X, ListPlus } from 'lucide-react';
+import { Loader2, Smartphone, Award, BookOpen, Clock, Film, PlayCircle, Shield, User, X } from 'lucide-react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
@@ -12,15 +12,49 @@ import { useTranslation } from '../hooks/useTranslation';
 
 const getGenresList = (generos: any): { name: string; weight: number }[] => {
   if (!generos) return [];
+  
+  // 1. If it's a string (e.g. comma-separated genres)
   if (typeof generos === 'string') {
     return generos.split(',').map((g: string) => g.trim()).filter(Boolean).map((name: string) => ({ name, weight: 100 }));
   }
-  if (typeof generos === 'object') {
-    return Object.entries(generos).map(([name, weight]) => ({
-      name,
-      weight: typeof weight === 'number' ? weight : 100
-    })).sort((a, b) => b.weight - a.weight);
+  
+  // 2. If it's an array (e.g. list of tags/genres)
+  if (Array.isArray(generos)) {
+    const list = generos.map((item: any) => {
+      if (typeof item === 'object' && item !== null) {
+        const parsedWeight = Number(item.weight ?? item.rank ?? 100);
+        return {
+          name: item.name || '',
+          weight: isNaN(parsedWeight) ? 100 : parsedWeight
+        };
+      }
+      return { name: String(item), weight: 100 };
+    }).filter(g => g.name).sort((a, b) => b.weight - a.weight);
+
+    const filtered = list.filter(g => g.weight >= 80);
+    if (filtered.length === 0) {
+      return list.slice(0, 5);
+    }
+    return filtered.slice(0, 12);
   }
+  
+  // 3. If it's a key-value object (e.g. { Genre: weight })
+  if (typeof generos === 'object') {
+    const list = Object.entries(generos).map(([name, weight]) => {
+      const parsedWeight = Number(weight);
+      return {
+        name,
+        weight: isNaN(parsedWeight) ? 100 : parsedWeight
+      };
+    }).sort((a, b) => b.weight - a.weight);
+
+    const filtered = list.filter(g => g.weight >= 80);
+    if (filtered.length === 0) {
+      return list.slice(0, 5);
+    }
+    return filtered.slice(0, 12);
+  }
+  
   return [];
 };
 
@@ -127,10 +161,7 @@ const DetailsPage = () => {
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isSubmittingRating, setIsSubmittingRating] = useState(false);
   const [isAddingToLibrary, setIsAddingToLibrary] = useState(false);
-  const [showListPicker, setShowListPicker] = useState(false);
-  const [customLists, setCustomLists] = useState<any[]>([]);
-  const [loadingCustomLists, setLoadingCustomLists] = useState(false);
-  const [addingToListId, setAddingToListId] = useState<number | null>(null);
+
 
   const [externalProfile, setExternalProfile] = useState<any>(null);
   const [loadingExternalProfile, setLoadingExternalProfile] = useState(false);
@@ -142,47 +173,6 @@ const DetailsPage = () => {
   });
 
   const getMediaId = (item = selectedItem) => item?.mangaId || item?.animeId || item?.id;
-
-  const abrirSeletorListas = async () => {
-    if (!token || !selectedItem || !mediaType) return;
-    setShowListPicker(true);
-    setLoadingCustomLists(true);
-    try {
-      const res = await customFetch(`${API_BASE_URL}/lists`, { headers: getHeaders() });
-      if (!res.ok) throw new Error('Erro ao carregar listas');
-      setCustomLists(await res.json());
-    } catch (error) {
-      console.error('Erro ao carregar listas:', error);
-      showToast('Não foi possível carregar as listas.', 'error');
-    } finally {
-      setLoadingCustomLists(false);
-    }
-  };
-
-  const adicionarAListaPersonalizada = async (listId: number) => {
-    if (!selectedItem || !mediaType) return;
-    const mediaId = getMediaId();
-    if (!mediaId) return;
-    setAddingToListId(listId);
-    try {
-      const res = await customFetch(`${API_BASE_URL}/lists/${listId}/items`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({
-          anilistMediaId: mediaId,
-          mediaType: mediaType.toUpperCase(),
-        }),
-      });
-      if (!res.ok) throw new Error('Erro ao adicionar à lista');
-      showToast('Adicionado à lista.', 'success');
-      setShowListPicker(false);
-    } catch (error) {
-      console.error('Erro ao adicionar à lista:', error);
-      showToast('Não foi possível adicionar à lista.', 'error');
-    } finally {
-      setAddingToListId(null);
-    }
-  };
 
   // Load details and configurations
   useEffect(() => {
@@ -860,15 +850,7 @@ const DetailsPage = () => {
                   Actions & Progress
                 </h3>
 
-                {!selectedItem.isExternal && (
-                  <button
-                    onClick={abrirSeletorListas}
-                    className="w-full bg-secondary/15 hover:bg-secondary/25 text-secondary border border-secondary/30 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm active:scale-95"
-                  >
-                    <ListPlus className="w-4 h-4" />
-                    Adicionar a uma lista
-                  </button>
-                )}
+
 
                 {selectedItem.isExternal ? (
                   <button 
@@ -1353,15 +1335,7 @@ const DetailsPage = () => {
                 <div className="space-y-6">
                   <div className={`glass-panel p-8 rounded-[32px] border ${mediaType === 'anime' ? 'border-secondary/20 shadow-[0_0_50px_rgba(194,24,91,0.08)]' : 'border-primary/20 shadow-[0_0_50px_rgba(106,27,154,0.08)]'}`}>
                     <h4 className="text-lg font-bold mb-6 flex items-center gap-2">Quick Actions</h4>
-                    {!selectedItem.isExternal && (
-                      <button
-                        onClick={abrirSeletorListas}
-                        className="w-full mb-4 bg-secondary/15 hover:bg-secondary/25 text-secondary border border-secondary/30 py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 active:scale-95"
-                      >
-                        <ListPlus className="w-5 h-5" />
-                        Adicionar a uma lista
-                      </button>
-                    )}
+
                     {selectedItem.isExternal ? (
                       <button 
                         onClick={() => { adicionarAoBanco(selectedItem.titulo, selectedItem.id); }} 
@@ -1526,52 +1500,7 @@ const DetailsPage = () => {
         )}
       </div>
 
-      {showListPicker && (
-        <div className="fixed inset-0 z-[105] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="relative w-full max-w-lg bg-surface-container rounded-3xl border border-white/10 shadow-2xl overflow-hidden">
-            <button
-              onClick={() => setShowListPicker(false)}
-              className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black/40 hover:bg-black/60 text-white transition-all"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <div className="p-6 border-b border-white/10">
-              <h3 className="text-xl font-black text-white flex items-center gap-2">
-                <ListPlus className="w-5 h-5 text-secondary" />
-                Adicionar a uma lista
-              </h3>
-              <p className="text-on-surface-variant text-sm mt-1 line-clamp-1">{selectedItem?.titulo}</p>
-            </div>
-            <div className="max-h-[60vh] overflow-y-auto custom-scrollbar p-4 space-y-2">
-              {loadingCustomLists ? (
-                <div className="py-12 flex justify-center">
-                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                </div>
-              ) : customLists.length === 0 ? (
-                <div className="py-10 text-center text-on-surface-variant text-sm">
-                  Ainda não tens listas. Cria uma em Listas.
-                </div>
-              ) : customLists.map(list => (
-                <button
-                  key={list.id}
-                  onClick={() => adicionarAListaPersonalizada(list.id)}
-                  disabled={addingToListId === list.id}
-                  className="w-full flex items-center gap-3 p-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-left transition-all disabled:opacity-60"
-                >
-                  <div className="w-14 h-14 rounded-xl overflow-hidden bg-surface-container-highest flex-shrink-0">
-                    {list.coverUrl ? <img src={list.coverUrl} alt={list.name} className="w-full h-full object-cover" /> : null}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-black text-white truncate">{list.name}</p>
-                    <p className="text-xs text-on-surface-variant truncate">{list.description || 'Sem descrição.'}</p>
-                  </div>
-                  {addingToListId === list.id ? <Loader2 className="w-5 h-5 animate-spin text-primary" /> : <span className="material-symbols-outlined text-primary">add</span>}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {loadingDetails && (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/60 backdrop-blur-md animate-fade-in">

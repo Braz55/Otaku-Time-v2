@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, ListPlus, Loader2, Plus, Sparkles } from 'lucide-react';
+import { Eye, EyeOff, ListPlus, Loader2, Plus, Sparkles, Upload } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import GenreTagPicker from '../components/GenreTagPicker';
 
 type CustomList = {
   id: number;
@@ -16,8 +17,6 @@ type CustomList = {
   _count?: { items: number };
 };
 
-const splitValues = (value: string) => value.split(',').map(v => v.trim()).filter(Boolean);
-
 const ListsPage = () => {
   const { token } = useAuth();
   const { showToast } = useToast();
@@ -25,13 +24,19 @@ const ListsPage = () => {
   const [lists, setLists] = useState<CustomList[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+
+  // Metadata for genre/tag picker
+  const [metadata, setMetadata] = useState<any[]>([]);
+  const [loadingMetadata, setLoadingMetadata] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
   const [form, setForm] = useState({
     name: '',
     description: '',
     coverUrl: '',
     isPublic: false,
-    genres: '',
-    tags: '',
+    selectedGenres: [] as string[],
+    selectedTags: [] as string[],
     includeAnime: true,
     includeManga: true,
   });
@@ -55,17 +60,96 @@ const ListsPage = () => {
     }
   };
 
+  const fetchMetadata = async () => {
+    setLoadingMetadata(true);
+    try {
+      const res = await customFetch(`${API_BASE_URL}/anime/genres-and-tags`, { headers });
+      if (res.ok) {
+        setMetadata(await res.json());
+      }
+    } catch (error) {
+      console.error("Error loading metadata:", error);
+    } finally {
+      setLoadingMetadata(false);
+    }
+  };
+
   useEffect(() => {
-    if (token) loadLists();
+    if (token) {
+      loadLists();
+      fetchMetadata();
+    }
   }, [token]);
+
+  // Compress/resize image using Canvas before converting to base64
+  const compressImage = (file: File, maxWidth: number, maxHeight: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(event.target?.result as string);
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(dataUrl);
+        };
+        img.onerror = (err) => reject(err);
+      };
+      reader.onerror = (err) => reject(err);
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Por favor, seleciona um ficheiro de imagem válido.', 'warning');
+      return;
+    }
+
+    try {
+      const compressed = await compressImage(file, 800, 450);
+      setForm(prev => ({ ...prev, coverUrl: compressed }));
+      showToast('Capa carregada e comprimida!', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Erro ao processar imagem.', 'error');
+    }
+  };
 
   const createList = async () => {
     if (!form.name.trim() || creating) return;
     setCreating(true);
     try {
       const criteria = {
-        genres: splitValues(form.genres),
-        tags: splitValues(form.tags),
+        genres: form.selectedGenres,
+        tags: form.selectedTags,
         mediaTypes: [
           ...(form.includeAnime ? ['ANIME'] : []),
           ...(form.includeManga ? ['MANGA'] : []),
@@ -118,9 +202,70 @@ const ListsPage = () => {
 
           <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Nome" className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-primary" />
           <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Descrição" rows={3} className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-primary resize-none" />
-          <input value={form.coverUrl} onChange={e => setForm({ ...form, coverUrl: e.target.value })} placeholder="URL da capa" className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-primary" />
-          <input value={form.genres} onChange={e => setForm({ ...form, genres: e.target.value })} placeholder="Géneros automáticos, separados por vírgulas" className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-primary" />
-          <input value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="Tags automáticas, separadas por vírgulas" className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-primary" />
+          
+          <div className="space-y-2">
+            <input 
+              type="file" 
+              id="cover-upload-file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <div className="flex gap-2">
+              <input 
+                value={form.coverUrl} 
+                onChange={e => setForm({ ...form, coverUrl: e.target.value })} 
+                placeholder="URL da capa ou importa um ficheiro" 
+                className="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-primary" 
+              />
+              <button
+                type="button"
+                onClick={() => document.getElementById('cover-upload-file')?.click()}
+                className="px-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 active:scale-95"
+              >
+                <Upload className="w-4 h-4 text-primary" />
+                <span>Importar</span>
+              </button>
+            </div>
+          </div>
+
+          {loadingMetadata ? (
+            <div className="py-4 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+          ) : (
+            <GenreTagPicker
+              metadata={metadata}
+              selectedGenres={form.selectedGenres}
+              selectedTags={form.selectedTags}
+              isOpen={pickerOpen}
+              onOpen={() => setPickerOpen(true)}
+              onClose={() => setPickerOpen(false)}
+              onToggleGenre={(name) => {
+                setForm(prev => {
+                  const exist = prev.selectedGenres.includes(name);
+                  return {
+                    ...prev,
+                    selectedGenres: exist 
+                      ? prev.selectedGenres.filter(g => g !== name) 
+                      : [...prev.selectedGenres, name]
+                  };
+                });
+              }}
+              onToggleTag={(name) => {
+                setForm(prev => {
+                  const exist = prev.selectedTags.includes(name);
+                  return {
+                    ...prev,
+                    selectedTags: exist 
+                      ? prev.selectedTags.filter(t => t !== name) 
+                      : [...prev.selectedTags, name]
+                  };
+                });
+              }}
+              onClear={() => {
+                setForm(prev => ({ ...prev, selectedGenres: [], selectedTags: [] }));
+              }}
+            />
+          )}
 
           <div className="grid grid-cols-3 gap-2">
             {[

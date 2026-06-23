@@ -32,7 +32,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isLibraryActive = location.pathname === '/library';
   const isProfileActive = location.pathname === '/profile';
   const isExploreActive = location.pathname === '/explore';
-  const isListsActive = location.pathname.startsWith('/lists');
+
 
   return (
     <div className="min-h-screen bg-background text-on-background selection:bg-primary selection:text-on-primary font-body-md flex max-w-full overflow-x-hidden">
@@ -99,18 +99,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
              <span>{t("Calendário")}</span>
           </button>
 
-          <button 
-            onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/lists'); }}
-            className={`flex items-center gap-3 px-6 py-3.5 w-full text-left font-label-md text-sm transition-all duration-300 ${
-              isListsActive 
-                ? 'text-primary bg-primary-container/10 border-r-4 border-primary' 
-                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest'
-            }`}
-          >
-            <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: isListsActive ? "'FILL' 1" : "'FILL' 0" }}>playlist_add_check</span>
-             <span>{t("Listas")}</span>
-          </button>
-          
+
           <button 
             onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/profile'); }}
             className={`flex items-center gap-3 px-6 py-3.5 w-full text-left font-label-md text-sm transition-all duration-300 ${
@@ -235,18 +224,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
              <span className="font-label-sm text-[10px] mt-0.5">{t("Agenda")}</span>
           </button>
 
-          <button 
-            onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/lists'); }} 
-            className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${
-              isListsActive 
-                ? 'bg-secondary-container/20 text-primary font-bold' 
-                : 'text-on-surface-variant hover:text-primary'
-            }`}
-          >
-            <span className="material-symbols-outlined text-lg font-bold" style={{ fontVariationSettings: isListsActive ? "'FILL' 1" : "'FILL' 0" }}>playlist_add_check</span>
-             <span className="font-label-sm text-[10px] mt-0.5">{t("Listas")}</span>
-          </button>
-          
+
           <button 
             onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/profile'); }} 
             className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${

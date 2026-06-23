@@ -7,6 +7,21 @@ import { Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
 import { useTranslation } from '../hooks/useTranslation';
+import GenreTagPicker from '../components/GenreTagPicker';
+
+const getGenresList = (generos: any): { name: string; weight: number }[] => {
+  if (!generos) return [];
+  if (typeof generos === 'string') {
+    return generos.split(',').map((g: string) => g.trim()).filter(Boolean).map((name: string) => ({ name, weight: 100 }));
+  }
+  if (typeof generos === 'object') {
+    return Object.entries(generos).map(([name, weight]) => ({
+      name,
+      weight: typeof weight === 'number' ? weight : 100
+    })).sort((a, b) => b.weight - a.weight);
+  }
+  return [];
+};
 
 const PRIORITY_OPTIONS = [
   { num: 1, label: 'P1', desc: 'Highest', colorClass: 'bg-amber-500/20 border-amber-500 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)]', starColor: 'text-amber-500', badgeClass: 'bg-amber-500/20 border-amber-500/50 text-amber-400' },
@@ -48,6 +63,12 @@ const LibraryPage = () => {
   const [showLancamentoMenu, setShowLancamentoMenu] = useState(false);
   const [showOrdemMenu, setShowOrdemMenu] = useState(false);
 
+  // Genre/Tag selector states
+  const [metadata, setMetadata] = useState<any[]>([]);
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
   const getHeaders = () => ({
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${token}`
@@ -76,8 +97,22 @@ const LibraryPage = () => {
     }
   };
 
+  const fetchMetadata = async () => {
+    try {
+      const res = await customFetch(`${API_BASE_URL}/anime/genres-and-tags`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setMetadata(await res.json());
+      }
+    } catch (error) {
+      console.error("Error loading metadata:", error);
+    }
+  };
+
   useEffect(() => {
     consultarMinhaLista();
+    fetchMetadata();
   }, [categoria]);
 
   const sorteioAleatorioBiblioteca = async () => {
@@ -149,6 +184,15 @@ const LibraryPage = () => {
                       if (filtroStatus !== 'ALL' && item.status !== filtroStatus) return false;
                       const statusLancamento = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
                       if (filtroLancamento !== 'ALL' && statusLancamento !== filtroLancamento) return false;
+                      
+                      if (selectedGenres.length > 0 || selectedTags.length > 0) {
+                        const media = item.anime || item.manga;
+                        if (!media || !media.generos) return false;
+                        const itemGenres = getGenresList(media.generos).map(g => g.name.toLowerCase());
+                        const wanted = [...selectedGenres, ...selectedTags].map(w => w.toLowerCase());
+                        if (!wanted.every(w => itemGenres.includes(w))) return false;
+                      }
+                      
                       return true;
                     });
                     return `A mostrar ${filtrados.length} de ${resultadosDB.length} títulos guardados`;
@@ -267,7 +311,73 @@ const LibraryPage = () => {
                 </div>
               )}
             </div>
+
+            <div className="relative flex-1 sm:flex-initial">
+              <button
+                onClick={() => setPickerOpen(true)}
+                className="flex items-center justify-between gap-1.5 px-3 py-2 bg-black/40 border border-white/5 rounded-xl text-on-surface-variant hover:text-white transition-all text-xs font-bold w-full cursor-pointer min-h-[38px] active:scale-95"
+              >
+                <span className="material-symbols-outlined text-sm">style</span>
+                <span className="truncate">
+                  {(selectedGenres.length === 0 && selectedTags.length === 0) 
+                    ? 'Géneros & Tags' 
+                    : `Filtros (${selectedGenres.length + selectedTags.length})`}
+                </span>
+                <span className="material-symbols-outlined text-xs">keyboard_arrow_down</span>
+              </button>
+            </div>
+
           </div>
+        </div>
+
+        {(selectedGenres.length > 0 || selectedTags.length > 0) && (
+          <div className="flex flex-wrap items-center gap-1.5 py-1 z-20 relative">
+            {selectedGenres.map(genre => (
+              <span key={genre} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/20 border border-primary/30 text-primary-light text-[11px] font-bold">
+                {genre}
+                <button onClick={() => setSelectedGenres(prev => prev.filter(g => g !== genre))} className="p-0.5 rounded-full hover:bg-white/10 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[12px] block leading-none">close</span>
+                </button>
+              </span>
+            ))}
+            {selectedTags.map(tag => (
+              <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#00b0ff]/20 border border-[#00b0ff]/30 text-sky-300 text-[11px] font-bold">
+                {tag}
+                <button onClick={() => setSelectedTags(prev => prev.filter(t => t !== tag))} className="p-0.5 rounded-full hover:bg-white/10 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[12px] block leading-none">close</span>
+                </button>
+              </span>
+            ))}
+            <button onClick={() => { setSelectedGenres([]); setSelectedTags([]); }} className="text-xs text-on-surface-variant hover:text-white font-bold px-2 py-1 transition-colors">
+              Limpar Todos
+            </button>
+          </div>
+        )}
+
+        <div>
+          <GenreTagPicker
+            metadata={metadata}
+            selectedGenres={selectedGenres}
+            selectedTags={selectedTags}
+            isOpen={pickerOpen}
+            onOpen={() => setPickerOpen(true)}
+            onClose={() => setPickerOpen(false)}
+            onToggleGenre={(name) => {
+              setSelectedGenres(prev => 
+                prev.includes(name) ? prev.filter(g => g !== name) : [...prev, name]
+              );
+            }}
+            onToggleTag={(name) => {
+              setSelectedTags(prev => 
+                prev.includes(name) ? prev.filter(t => t !== name) : [...prev, name]
+              );
+            }}
+            onClear={() => {
+              setSelectedGenres([]);
+              setSelectedTags([]);
+            }}
+            hideInlineTrigger={true}
+          />
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6 relative z-10">
@@ -282,6 +392,15 @@ const LibraryPage = () => {
                 if (filtroStatus !== 'ALL' && item.status !== filtroStatus) return false;
                 const statusLancamento = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
                 if (filtroLancamento !== 'ALL' && statusLancamento !== filtroLancamento) return false;
+                
+                if (selectedGenres.length > 0 || selectedTags.length > 0) {
+                  const media = item.anime || item.manga;
+                  if (!media || !media.generos) return false;
+                  const itemGenres = getGenresList(media.generos).map(g => g.name.toLowerCase());
+                  const wanted = [...selectedGenres, ...selectedTags].map(w => w.toLowerCase());
+                  if (!wanted.every(w => itemGenres.includes(w))) return false;
+                }
+                
                 return true;
               });
 

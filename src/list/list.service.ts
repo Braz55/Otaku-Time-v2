@@ -122,10 +122,11 @@ export class ListService {
   }
 
   private normalizeCriteria(criteria: CreateListDto['criteria']): Prisma.InputJsonValue | typeof Prisma.JsonNull {
-    const genres = [...new Set((criteria?.genres || []).map(v => v.trim()).filter(Boolean))];
-    const tags = [...new Set((criteria?.tags || []).map(v => v.trim()).filter(Boolean))];
-    const mediaTypes = [...new Set((criteria?.mediaTypes || []).filter(v => v === 'ANIME' || v === 'MANGA'))];
-    if (!genres.length && !tags.length && !mediaTypes.length) return Prisma.JsonNull;
+    if (!criteria) return Prisma.JsonNull;
+    const genres = [...new Set((criteria.genres || []).map(v => v.trim()).filter(Boolean))];
+    const tags = [...new Set((criteria.tags || []).map(v => v.trim()).filter(Boolean))];
+    const mediaTypes = [...new Set((criteria.mediaTypes || []).filter(v => v === 'ANIME' || v === 'MANGA'))];
+    if (!genres.length && !tags.length) return Prisma.JsonNull;
     return { genres, tags, mediaTypes };
   }
 

@@ -46,3 +46,8 @@ Para evitar que utilizadores externos gastem tokens ou sobrecarreguem o servidor
 * **Frontend:** Remover a página de chat e respetivas rotas/ícones de navegação.
 * **Backend:** Eliminar o `ChatModule`, controllers, services e endpoints `/chat`.
 * **Base de Dados:** Limpar as tabelas `ChatSession` e `ChatMessage` do schema Prisma e base de dados.
+
+### Passo 4: Distinção entre Anime Série / Filme e Agregação por Temporadas
+Planear e implementar a diferenciação de formatos e o agrupamento de sequelas:
+* **Diferenciação de Formato:** Criar uma distinção clara entre séries de TV/OVA/ONA (múltiplos episódios) e filmes/Movies (um único episódio/filme), adaptando os controlos e estatísticas de progresso no frontend e backend.
+* **Agregação por Franquia/Temporadas:** Agrupar ou associar títulos relacionados que pertencem à mesma franquia ou a diferentes temporadas (e.g. Temporada 1, Temporada 2, Filmes prequela/sequela), organizando a biblioteca de forma mais agregada e intuitiva.

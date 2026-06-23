@@ -15,6 +15,8 @@ import Layout from './components/Layout';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { applyPalette, getCurrentPalette } from './services/paletteService';
+import { API_BASE_URL } from './config';
+import { customFetch } from './services/apiBridge';
 
 // Listener para o botão físico / gesto de voltar no Android
 const AndroidBackButtonListener = () => {
@@ -64,7 +66,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 function App() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
 
   useEffect(() => {
     // Aplicar a paleta de cores guardada no localStorage
@@ -80,6 +82,14 @@ function App() {
       document.documentElement.classList.add('dark');
     }
   }, [user?.theme]);
+
+  useEffect(() => {
+    if (token) {
+      customFetch(`${API_BASE_URL}/sync/start`, { method: 'POST' }).catch(err => {
+        console.error('Error starting auto-sync on load:', err);
+      });
+    }
+  }, [token]);
 
   return (
     <Router>

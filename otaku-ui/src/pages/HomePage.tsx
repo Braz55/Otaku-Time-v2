@@ -178,6 +178,33 @@ const HomePage = () => {
   }, [categoria, homeTrigger]);
 
   useEffect(() => {
+    if (!token) return;
+    let isMounted = true;
+    let previousSyncing = false;
+
+    const checkSync = async () => {
+      try {
+        const res = await customFetch(`${API_BASE_URL}/sync/status`);
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          if (previousSyncing && !data.isSyncing) {
+            carregarDashboard();
+          }
+          previousSyncing = data.isSyncing;
+        }
+      } catch (err) {
+        console.error('Error checking sync status:', err);
+      }
+    };
+
+    const interval = setInterval(checkSync, 5000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [token]);
+
+  useEffect(() => {
     if (!isSearchOpen) {
       setTermoPesquisa('');
       setSelectedGenre(null);

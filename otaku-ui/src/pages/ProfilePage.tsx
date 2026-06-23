@@ -1164,7 +1164,7 @@ const ProfilePage = () => {
   const triggerManualReleaseSync = async () => {
     setReleaseSyncError(null);
     try {
-      const res = await customFetch(`${API_BASE_URL}/sync/start`, { method: 'POST' });
+      const res = await customFetch(`${API_BASE_URL}/sync/start?bypass=true`, { method: 'POST' });
       if (!res.ok) {
         setReleaseSyncError('Falha ao ligar ao servidor. Verifique se o backend está a correr.');
         return;

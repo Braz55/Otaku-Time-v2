@@ -1,4 +1,4 @@
-import { Controller, Get, Post } from '@nestjs/common';
+import { Controller, Get, Post, Query } from '@nestjs/common';
 import { SyncService } from './sync.service';
 
 @Controller('sync')
@@ -11,9 +11,10 @@ export class SyncController {
   }
 
   @Post('start')
-  async startSync() {
+  async startSync(@Query('bypass') bypass?: string) {
+    const bypassCooldown = bypass === 'true';
     // Inicia em background para não bloquear a resposta HTTP
-    this.syncService.runAutoSync();
+    this.syncService.runAutoSync(bypassCooldown, 30 * 60 * 1000);
     return { message: 'Background sync started successfully' };
   }
 }

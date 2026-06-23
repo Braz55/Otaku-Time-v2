@@ -187,9 +187,13 @@ export class MangaService {
       // Verificar se existe na DB local antes de atualizar
       const existe = await this.prisma.manga.findUnique({ where: { id: anilistId } });
       if (existe) {
+        const updateData: any = { numCapitulosTotal: latest };
+        if (existe.statusLancamento === 'RELEASING') {
+          updateData.proximoCapituloNumero = latest + 1;
+        }
         await this.prisma.manga.update({
           where: { id: anilistId },
-          data: { numCapitulosTotal: latest }
+          data: updateData
         });
       } else {
         console.log(`[Sync] Manga "${title}" (ID ${anilistId}) is an external item not saved in local DB. Progress obtained: ${latest} (${source})`);

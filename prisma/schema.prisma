@@ -76,6 +76,7 @@ model UserAnime {
   user       User           @relation(fields: [userId], references: [id])
   anime      Anime          @relation(fields: [animeId], references: [id])
   wasDropped Boolean        @default(false)
+  lastProgressUpdate DateTime?
   updatedAt  DateTime       @default(now()) @updatedAt
 
   @@unique([userId, animeId])
@@ -111,6 +112,7 @@ model UserManga {
   user       User           @relation(fields: [userId], references: [id])
   manga      Manga          @relation(fields: [mangaId], references: [id])
   wasDropped Boolean        @default(false)
+  lastProgressUpdate DateTime?
   updatedAt  DateTime       @default(now()) @updatedAt
 
   @@unique([userId, mangaId])

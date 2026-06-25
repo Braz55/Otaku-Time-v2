@@ -298,14 +298,17 @@ const ProfilePage = () => {
         allItems = [...allItems, ...mangas.map((item: any) => ({ ...item, mediaType: 'manga' }))];
       }
       
-      // Sort by updatedAt descending
-      allItems.sort((a, b) => {
-        const dateA = new Date(a.updatedAt || a.updated_at || 0).getTime();
-        const dateB = new Date(b.updatedAt || b.updated_at || 0).getTime();
+      // Filter out items that have no progress updates (lastProgressUpdate is null/undefined)
+      const progressUpdatedItems = allItems.filter(item => item.lastProgressUpdate);
+      
+      // Sort by lastProgressUpdate descending
+      progressUpdatedItems.sort((a, b) => {
+        const dateA = new Date(a.lastProgressUpdate).getTime();
+        const dateB = new Date(b.lastProgressUpdate).getTime();
         return dateB - dateA;
       });
       
-      setRecentActivities(allItems.slice(0, 3));
+      setRecentActivities(progressUpdatedItems.slice(0, 3));
     } catch (err) {
       console.error('Error fetching recent activity:', err);
     }
@@ -1600,7 +1603,7 @@ const ProfilePage = () => {
                               <span className="font-bold text-white hover:underline cursor-pointer" onClick={() => navigate('/')}>{title}</span>
                             </p>
                             <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider mt-0.5">
-                              {getRelativeTime(act.updatedAt || act.updated_at)}
+                              {getRelativeTime(act.lastProgressUpdate)}
                             </p>
                           </div>
                           

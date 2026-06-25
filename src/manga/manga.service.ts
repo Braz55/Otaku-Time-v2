@@ -706,6 +706,11 @@ export class MangaService {
         novosDados.capAtual = atual.manga.numCapitulosTotal;
       }
     }
+
+    if (novosDados.capAtual !== undefined && novosDados.capAtual > atual.capAtual) {
+      novosDados.lastProgressUpdate = new Date();
+    }
+
     const updated = await this.prisma.userManga.update({ where: { id }, data: novosDados, include: { manga: true } });
     this.recalculateUserStats(updated.userId).catch(err => {
       console.error('Error recalculating user stats in background:', err);

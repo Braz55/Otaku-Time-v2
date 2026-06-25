@@ -17,6 +17,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
 
   const [pendingNavigation, setPendingNavigation] = React.useState<{ path: string; action?: () => void } | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = React.useState(false);
 
   React.useEffect(() => {
     const handleShowModal = (e: Event) => {
@@ -161,7 +162,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         {/* Upgrade Pro & User profile at bottom of sidebar */}
         <div className="px-4 mt-auto space-y-4">
           <button 
-            onClick={() => safeNavigate('/profile')} 
+            onClick={() => setShowUpgradeModal(true)} 
             className="w-full py-3.5 rounded-xl bg-secondary font-label-md text-xs font-bold text-white shadow-lg active:scale-95 transition-transform"
           >
              {t("Upgrade Pro")}
@@ -331,6 +332,36 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 Sair sem guardar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showUpgradeModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-sm bg-surface-container rounded-[24px] border border-white/10 shadow-2xl p-6 overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col items-center text-center">
+            
+            {/* Background glowing effects to make it feel premium */}
+            <div className="absolute -top-10 -left-10 w-32 h-32 bg-primary/20 rounded-full blur-2xl pointer-events-none" />
+            <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-secondary/20 rounded-full blur-2xl pointer-events-none" />
+
+            <div className="w-12 h-12 rounded-full bg-secondary/15 flex items-center justify-center text-secondary mb-4 relative z-10 border border-secondary/20">
+              <span className="material-symbols-outlined text-2xl font-bold">workspace_premium</span>
+            </div>
+            
+            <h3 className="font-display-md text-lg font-extrabold text-white mb-2 relative z-10">
+              {t("Upgrade Pro")}
+            </h3>
+            
+            <p className="text-xs text-on-surface-variant leading-relaxed mb-6 relative z-10">
+              {t("Esta funcionalidade estará disponível em breve! Fica atento às próximas novidades do Otaku Time.")}
+            </p>
+
+            <button
+              onClick={() => setShowUpgradeModal(false)}
+              className="w-full py-3 rounded-xl bg-primary hover:bg-primary-light text-on-primary font-black text-xs transition-all active:scale-95 text-center cursor-pointer shadow-lg relative z-10"
+            >
+              {t("Fechar")}
+            </button>
           </div>
         </div>
       )}

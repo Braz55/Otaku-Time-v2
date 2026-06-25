@@ -416,6 +416,11 @@ export class AnimeService {
         novosDados.epAtual = atual.anime.numEpisodiosTotal;
       }
     }
+
+    if (novosDados.epAtual !== undefined && novosDados.epAtual > atual.epAtual) {
+      novosDados.lastProgressUpdate = new Date();
+    }
+
     const updated = await this.prisma.userAnime.update({ where: { id }, data: novosDados, include: { anime: true } });
     this.recalculateUserStats(updated.userId).catch(err => {
       console.error('Error recalculating user stats in background:', err);

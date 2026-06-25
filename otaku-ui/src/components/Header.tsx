@@ -16,12 +16,19 @@ interface HeaderProps {
 }
 
 const SyncIndicator: React.FC = () => {
+  const { t } = useTranslation();
   return (
-    <div className="flex items-center justify-center p-1.5" title="Sincronização em curso...">
+    <div className="group relative flex items-center justify-center p-1.5 cursor-pointer outline-none" tabIndex={0}>
       <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M12 4V1L8 5L12 9V6C15.31 6 18 8.69 18 12C18 13.01 17.75 13.97 17.3 14.8L18.8 16.3C19.57 15.05 20 13.58 20 12C20 7.58 16.42 4 12 4Z" className="text-primary" fill="currentColor" />
         <path d="M12 18C8.69 18 6 15.31 6 12C6 10.99 6.25 10.03 6.7 9.2L5.2 7.7C4.43 8.95 4 10.42 4 12C4 16.42 7.58 20 12 20V23L16 19L12 15V18Z" className="text-secondary" fill="currentColor" />
       </svg>
+
+      {/* Premium Tooltip */}
+      <div className="absolute right-0 top-full mt-2 w-48 p-2.5 rounded-xl bg-surface-container border border-white/10 shadow-2xl text-[10px] font-bold text-white leading-normal text-center pointer-events-none opacity-0 scale-95 origin-top-right group-hover:opacity-100 group-hover:scale-100 group-focus:opacity-100 group-focus:scale-100 group-active:opacity-100 group-active:scale-100 transition-all duration-200 z-50">
+        <div className="absolute -top-1 right-3.5 w-2.5 h-2.5 bg-surface-container border-t border-l border-white/10 rotate-45" />
+        {t("A carregar os conteúdos mais recentes...")}
+      </div>
     </div>
   );
 };

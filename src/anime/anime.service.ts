@@ -146,9 +146,6 @@ export class AnimeService {
       this.backgroundUpdateAnime(anime.id, userId).catch(err => {
         console.error('Error in backgroundUpdateAnime:', err);
       });
-      this.listService.checkAndAddToDynamicLists(userId, anime.id, 'ANIME').catch(err => {
-        console.error('Error syncing dynamic anime lists:', err);
-      });
 
       const rating = await this.prisma.media.findUnique({ where: { id: anime.id } });
       return {
@@ -218,9 +215,6 @@ export class AnimeService {
       update: {},
       create: { userId, animeId: anime.id, status: 'PLANNED', epAtual: 0 },
       include: { anime: true }
-    });
-    this.listService.checkAndAddToDynamicLists(userId, anime.id, 'ANIME').catch(err => {
-      console.error('Error syncing dynamic anime lists:', err);
     });
     this.recalculateUserStats(userId).catch(err => {
       console.error('Error recalculating user stats in background:', err);

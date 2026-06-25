@@ -27,12 +27,22 @@ const AndroidBackButtonListener = () => {
     if (!Capacitor.isNativePlatform()) return;
 
     const subscription = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
-      if (location.pathname === '/') {
-        CapacitorApp.exitApp();
-      } else if (canGoBack) {
-        navigate(-1);
+      const executeBack = () => {
+        if (location.pathname === '/') {
+          CapacitorApp.exitApp();
+        } else if (canGoBack) {
+          navigate(-1);
+        } else {
+          navigate('/');
+        }
+      };
+
+      if ((window as any).hasUnsavedChanges) {
+        window.dispatchEvent(new CustomEvent('show-unsaved-changes-modal', {
+          detail: { action: executeBack }
+        }));
       } else {
-        navigate('/');
+        executeBack();
       }
     });
 

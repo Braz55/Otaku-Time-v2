@@ -31,6 +31,12 @@ Implementámos dois botões de sorteio com ícones e comportamentos distintos no
 ### 6. Serviço de Auto-Ping (Keep-Awake)
 * **Keep-Awake Dinâmico:** Implementado um serviço que mantém o backend ativo durante 2 horas, acionado automaticamente a partir de ambas as plataformas cliente (Web e Android/Capacitor) para evitar cold starts durante o uso.
 
+### 7. Reativação e Expansão de Listas Personalizadas (Coleções Manuais)
+* **Navegação Integrada:** Links adicionados ao menu lateral (Desktop) e à barra inferior (Mobile) usando o ícone `format_list_bulleted`.
+* **Gestão na Página de Detalhes:** Adicionado botão e modal interativo "GERIR NAS LISTAS" na página de detalhes de cada anime/manga.
+* **Pesquisa e Ordenação Manual:** Inclusão de um campo de pesquisa e adição direta de itens da biblioteca na página de detalhes da lista. Drag & Drop (HTML5) para reordenação manual na Web e setas de ordenação para mobilidade.
+* **Salvamento Diferido & Bloqueador de Navegação:** Botão "Guardar Alterações" ativado dinamicamente para salvar reordenações/edições de uma só vez. Alerta de navegação implementado usando `window.hasUnsavedChanges` no Layout, botões internos e retrocesso físico Android (Capacitor) para evitar perda de dados sem depender do problemático hook `useBlocker` do React Router.
+
 ---
 
 ## 🔮 Próximos Passos (Planeamento)

@@ -16,15 +16,47 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const [pendingNavigation, setPendingNavigation] = React.useState<{ path: string; action?: () => void } | null>(null);
+
+  React.useEffect(() => {
+    const handleShowModal = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      setPendingNavigation({
+        path: '',
+        action: customEvent.detail?.action
+      });
+    };
+    window.addEventListener('show-unsaved-changes-modal', handleShowModal);
+    return () => {
+      window.removeEventListener('show-unsaved-changes-modal', handleShowModal);
+    };
+  }, []);
+
+  const safeNavigate = (path: string, action?: () => void) => {
+    if ((window as any).hasUnsavedChanges) {
+      setPendingNavigation({ path, action });
+      return;
+    }
+    if (action) {
+      action();
+    } else {
+      navigate(path);
+    }
+  };
+
   const handleShowFavorites = () => {
-    setIsShowingFavorites(true);
-    setIsSearchOpen(false);
-    navigate('/library');
+    safeNavigate('/library', () => {
+      setIsShowingFavorites(true);
+      setIsSearchOpen(false);
+      navigate('/library');
+    });
   };
 
   const handleShowDashboard = () => {
-    triggerHome();
-    navigate('/');
+    safeNavigate('/', () => {
+      triggerHome();
+      navigate('/');
+    });
   };
 
   const isHomeActive = location.pathname === '/' && !isSearchOpen;
@@ -32,6 +64,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isLibraryActive = location.pathname === '/library';
   const isProfileActive = location.pathname === '/profile';
   const isExploreActive = location.pathname === '/explore';
+  const isListsActive = location.pathname.startsWith('/lists');
 
 
   return (
@@ -64,7 +97,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </button>
 
           <button 
-            onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/explore'); }}
+            onClick={() => safeNavigate('/explore', () => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/explore'); })}
             className={`flex items-center gap-3 px-6 py-3.5 w-full text-left font-label-md text-sm transition-all duration-300 ${
               isExploreActive 
                 ? 'text-primary bg-primary-container/10 border-r-4 border-primary' 
@@ -88,7 +121,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </button>
 
           <button 
-            onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/calendar'); }}
+            onClick={() => safeNavigate('/lists', () => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/lists'); })}
+            className={`flex items-center gap-3 px-6 py-3.5 w-full text-left font-label-md text-sm transition-all duration-300 ${
+              isListsActive 
+                ? 'text-primary bg-primary-container/10 border-r-4 border-primary' 
+                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest'
+            }`}
+          >
+            <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: isListsActive ? "'FILL' 1" : "'FILL' 0" }}>format_list_bulleted</span>
+             <span>{t("Listas")}</span>
+          </button>
+
+          <button 
+            onClick={() => safeNavigate('/calendar', () => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/calendar'); })}
             className={`flex items-center gap-3 px-6 py-3.5 w-full text-left font-label-md text-sm transition-all duration-300 ${
               isCalendarActive 
                 ? 'text-primary bg-primary-container/10 border-r-4 border-primary' 
@@ -101,7 +146,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
 
           <button 
-            onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/profile'); }}
+            onClick={() => safeNavigate('/profile', () => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/profile'); })}
             className={`flex items-center gap-3 px-6 py-3.5 w-full text-left font-label-md text-sm transition-all duration-300 ${
               isProfileActive 
                 ? 'text-primary bg-primary-container/10 border-r-4 border-primary' 
@@ -116,7 +161,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         {/* Upgrade Pro & User profile at bottom of sidebar */}
         <div className="px-4 mt-auto space-y-4">
           <button 
-            onClick={() => navigate('/profile')} 
+            onClick={() => safeNavigate('/profile')} 
             className="w-full py-3.5 rounded-xl bg-secondary font-label-md text-xs font-bold text-white shadow-lg active:scale-95 transition-transform"
           >
              {t("Upgrade Pro")}
@@ -124,7 +169,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
           {/* User Profile Card */}
           <div 
-            onClick={() => navigate('/profile')}
+            onClick={() => safeNavigate('/profile')}
             className="relative overflow-hidden rounded-xl p-3.5 flex items-center gap-3 cursor-pointer group border border-white/5 shadow-lg min-h-[64px]"
           >
             {user?.bannerUrl ? (
@@ -189,7 +234,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </button>
 
           <button 
-            onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/explore'); }} 
+            onClick={() => safeNavigate('/explore', () => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/explore'); })} 
             className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${
               isExploreActive 
                 ? 'bg-secondary-container/20 text-primary font-bold' 
@@ -211,9 +256,21 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <span className="material-symbols-outlined text-lg font-bold" style={{ fontVariationSettings: isLibraryActive ? "'FILL' 1" : "'FILL' 0" }}>video_library</span>
              <span className="font-label-sm text-[10px] mt-0.5">{t("My List")}</span>
           </button>
+
+          <button 
+            onClick={() => safeNavigate('/lists', () => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/lists'); })} 
+            className={`flex flex-col items-center justify-center rounded-xl px-2 py-1 active:scale-90 duration-150 ${
+              isListsActive 
+                ? 'bg-secondary-container/20 text-primary font-bold' 
+                : 'text-on-surface-variant hover:text-primary'
+            }`}
+          >
+            <span className="material-symbols-outlined text-lg font-bold" style={{ fontVariationSettings: isListsActive ? "'FILL' 1" : "'FILL' 0" }}>format_list_bulleted</span>
+             <span className="font-label-sm text-[10px] mt-0.5">{t("Listas")}</span>
+          </button>
           
           <button 
-            onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/calendar'); }} 
+            onClick={() => safeNavigate('/calendar', () => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/calendar'); })} 
             className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${
               isCalendarActive 
                 ? 'bg-secondary-container/20 text-primary font-bold' 
@@ -226,7 +283,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
 
           <button 
-            onClick={() => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/profile'); }} 
+            onClick={() => safeNavigate('/profile', () => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/profile'); })} 
             className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${
               isProfileActive 
                 ? 'bg-secondary-container/20 text-primary font-bold' 
@@ -238,6 +295,45 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </button>
         </div>
       </nav>
+
+      {pendingNavigation && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-sm bg-surface-container rounded-[24px] border border-white/10 shadow-2xl p-6 overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col">
+            <div className="flex items-center gap-3 mb-3">
+              <span className="material-symbols-outlined text-error text-2xl">warning</span>
+              <h3 className="font-display-md text-lg font-extrabold text-white">Alterações não guardadas</h3>
+            </div>
+            
+            <p className="text-xs text-on-surface-variant leading-relaxed">
+              Tens alterações não guardadas nesta lista. Tens a certeza que queres sair sem guardar? As tuas alterações serão perdidas.
+            </p>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setPendingNavigation(null)}
+                className="flex-1 py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition-all active:scale-95 text-center cursor-pointer font-black"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  const { path, action } = pendingNavigation;
+                  (window as any).hasUnsavedChanges = false;
+                  setPendingNavigation(null);
+                  if (action) {
+                    action();
+                  } else {
+                    navigate(path);
+                  }
+                }}
+                className="flex-1 py-3 rounded-xl bg-error text-white font-black text-xs transition-all active:scale-95 text-center cursor-pointer shadow-lg"
+              >
+                Sair sem guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

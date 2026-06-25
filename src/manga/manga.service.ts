@@ -471,9 +471,6 @@ export class MangaService {
       this.backgroundUpdateManga(manga.id, userId).catch(err => {
         console.error('Error in backgroundUpdateManga:', err);
       });
-      this.listService.checkAndAddToDynamicLists(userId, manga.id, 'MANGA').catch(err => {
-        console.error('Error syncing dynamic manga lists:', err);
-      });
 
       const rating = await this.prisma.media.findUnique({ where: { id: manga.id } });
       return {
@@ -541,9 +538,6 @@ export class MangaService {
       update: {},
       create: { userId, mangaId: manga.id, status: 'PLANNED', capAtual: 0, prioridade: 5 },
       include: { manga: true }
-    });
-    this.listService.checkAndAddToDynamicLists(userId, manga.id, 'MANGA').catch(err => {
-      console.error('Error syncing dynamic manga lists:', err);
     });
 
     this.recalculateUserStats(userId).catch(err => {

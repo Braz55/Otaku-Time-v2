@@ -167,6 +167,78 @@ const DetailsPage = () => {
   const [loadingExternalProfile, setLoadingExternalProfile] = useState(false);
   const [showExternalProfile, setShowExternalProfile] = useState(false);
 
+  // States and functions for custom lists
+  const [showListsModal, setShowListsModal] = useState(false);
+  const [lists, setLists] = useState<any[]>([]);
+  const [loadingLists, setLoadingLists] = useState(false);
+
+  const handleOpenListsModal = async () => {
+    setShowListsModal(true);
+    setLoadingLists(true);
+    try {
+      const res = await customFetch(`${API_BASE_URL}/lists`, { headers: getHeaders() });
+      if (res.ok) {
+        setLists(await res.json());
+      } else {
+        showToast('Erro ao carregar listas.', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Erro ao carregar listas.', 'error');
+    } finally {
+      setLoadingLists(false);
+    }
+  };
+
+  const toggleItemInList = async (listId: number, isCurrentlyInList: boolean) => {
+    const currentAnilistId = getMediaId();
+    const currentMediaType = mediaType?.toUpperCase() as 'ANIME' | 'MANGA';
+    if (!currentAnilistId || !currentMediaType) return;
+
+    try {
+      if (isCurrentlyInList) {
+        const res = await customFetch(`${API_BASE_URL}/lists/${listId}/items/${currentMediaType}/${currentAnilistId}`, {
+          method: 'DELETE',
+          headers: getHeaders(),
+        });
+        if (res.ok) {
+          const updatedList = await res.json();
+          setLists(prev => prev.map(l => l.id === listId ? {
+            ...l,
+            items: updatedList.items.map((i: any) => ({ anilistMediaId: i.anilistMediaId, mediaType: i.mediaType })),
+            _count: { items: updatedList.items.length }
+          } : l));
+          showToast('Item removido da lista!', 'success');
+        } else {
+          throw new Error('Failed to remove');
+        }
+      } else {
+        const res = await customFetch(`${API_BASE_URL}/lists/${listId}/items`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({
+            anilistMediaId: currentAnilistId,
+            mediaType: currentMediaType,
+          }),
+        });
+        if (res.ok) {
+          const updatedList = await res.json();
+          setLists(prev => prev.map(l => l.id === listId ? {
+            ...l,
+            items: updatedList.items.map((i: any) => ({ anilistMediaId: i.anilistMediaId, mediaType: i.mediaType })),
+            _count: { items: updatedList.items.length }
+          } : l));
+          showToast('Item adicionado à lista!', 'success');
+        } else {
+          throw new Error('Failed to add');
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Erro ao atualizar a lista.', 'error');
+    }
+  };
+
   const getHeaders = () => ({
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${token}`
@@ -1008,6 +1080,14 @@ const DetailsPage = () => {
                       </p>
                     </div>
 
+                    <button 
+                      onClick={handleOpenListsModal}
+                      className="w-full bg-surface-variant/40 hover:bg-surface-variant border border-white/5 text-white py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-xs active:scale-95 shadow-sm"
+                    >
+                      <span className="material-symbols-outlined text-sm">format_list_bulleted</span>
+                      GERIR NAS LISTAS
+                    </button>
+
                     {/* Remove Button */}
                     {showDeleteConfirm ? (
                       <div className="p-4 rounded-2xl bg-error/10 border border-error/30 animate-in fade-in zoom-in-95 duration-300 space-y-3 shadow-md">
@@ -1424,10 +1504,19 @@ const DetailsPage = () => {
                             </div>
                           </div>
                         ) : (
-                          <button onClick={() => setShowDeleteConfirm(true)} className="w-full bg-error/10 hover:bg-error text-error hover:text-on-error py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 text-sm mt-4 shadow-sm border border-error/20">
-                            <span className="material-symbols-outlined text-[20px]">delete</span>
-                            REMOVE FROM LIBRARY
-                          </button>
+                          <>
+                            <button 
+                              onClick={handleOpenListsModal}
+                              className="w-full bg-surface-variant/30 hover:bg-surface-variant/50 border border-white/10 text-white py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 text-sm mt-4 active:scale-95 shadow-sm"
+                            >
+                              <span className="material-symbols-outlined text-[20px]">format_list_bulleted</span>
+                              GERIR NAS LISTAS
+                            </button>
+                            <button onClick={() => setShowDeleteConfirm(true)} className="w-full bg-error/10 hover:bg-error text-error hover:text-on-error py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 text-sm mt-4 shadow-sm border border-error/20">
+                              <span className="material-symbols-outlined text-[20px]">delete</span>
+                              REMOVE FROM LIBRARY
+                            </button>
+                          </>
                         )}
                       </div>
                     )}
@@ -1526,6 +1615,83 @@ const DetailsPage = () => {
             <div className="w-full h-1.5 bg-surface-variant/40 rounded-full overflow-hidden relative">
               <div className={`animate-loading-bar rounded-full ${mediaType === 'anime' ? 'bg-primary shadow-[0_0_8px_rgba(106,27,154,0.6)]' : 'bg-secondary shadow-[0_0_8px_rgba(194,24,91,0.6)]'}`}></div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showListsModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="relative w-full max-w-md bg-surface-container rounded-[24px] border border-white/10 shadow-2xl p-6 overflow-hidden animate-slide-up flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display-md text-xl font-extrabold text-white flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">format_list_bulleted</span>
+                Adicionar às Listas
+              </h3>
+              <button 
+                onClick={() => setShowListsModal(false)}
+                className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-on-surface-variant hover:text-white transition-all animate-none flex items-center justify-center"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <p className="text-xs text-on-surface-variant mb-5">
+              Adiciona ou remove <span className="text-white font-bold">{selectedItem.titulo}</span> das tuas coleções personalizadas.
+            </p>
+
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar min-h-[180px]">
+              {loadingLists ? (
+                <div className="flex flex-col items-center justify-center py-10 space-y-3">
+                  <Loader2 className={`w-8 h-8 animate-spin ${mediaType === 'anime' ? 'text-primary' : 'text-secondary'}`} />
+                  <p className="text-xs text-on-surface-variant font-bold">A carregar listas...</p>
+                </div>
+              ) : lists.length === 0 ? (
+                <p className="text-center py-10 text-xs text-on-surface-variant">
+                  Não tens nenhuma lista personalizada. Cria uma na página de Listas!
+                </p>
+              ) : (
+                lists.map(list => {
+                  const isCurrentlyInList = list.items?.some((i: any) => i.anilistMediaId === getMediaId() && i.mediaType === (mediaType?.toUpperCase()));
+                  
+                  return (
+                    <div 
+                      key={list.id} 
+                      className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 transition-colors ${
+                        isCurrentlyInList 
+                          ? (mediaType === 'anime' ? 'bg-primary/10 border-primary/30' : 'bg-secondary/10 border-secondary/30')
+                          : 'bg-white/5 border-white/10'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm text-white truncate">{list.name}</p>
+                        <p className="text-[10px] text-on-surface-variant mt-0.5">
+                          {list._count?.items || 0} itens
+                        </p>
+                      </div>
+                      
+                      <button
+                        onClick={() => toggleItemInList(list.id, isCurrentlyInList)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all active:scale-95 ${
+                          isCurrentlyInList
+                            ? 'bg-error/20 hover:bg-error text-error hover:text-white border border-error/30'
+                            : (mediaType === 'anime' ? 'bg-primary text-on-primary hover:bg-primary/80 shadow-md' : 'bg-secondary text-on-secondary hover:bg-secondary/80 shadow-md')
+                        }`}
+                      >
+                        {isCurrentlyInList ? 'Remover' : 'Adicionar'}
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            
+            <button
+              onClick={() => { setShowListsModal(false); navigate('/lists'); }}
+              className="mt-6 w-full py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 active:scale-95"
+            >
+              <span className="material-symbols-outlined text-sm">list</span>
+              Ir para Gerir Listas
+            </button>
           </div>
         </div>
       )}

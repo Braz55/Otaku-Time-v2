@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMedia } from '../context/MediaContext';
@@ -68,6 +68,96 @@ const LibraryPage = () => {
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  const stateRef = useRef({
+    filtroStatus,
+    filtroLancamento,
+    ordenacao,
+    selectedGenres,
+    selectedTags,
+    scrollPosition: 0
+  });
+
+  const prevCategoryRef = useRef<string | null>(null);
+
+  // Keep stateRef updated
+  useEffect(() => {
+    stateRef.current = {
+      filtroStatus,
+      filtroLancamento,
+      ordenacao,
+      selectedGenres,
+      selectedTags,
+      scrollPosition: window.scrollY
+    };
+  }, [filtroStatus, filtroLancamento, ordenacao, selectedGenres, selectedTags]);
+
+  // Clear saved library state if not returning from details page
+  useEffect(() => {
+    const prevPath = sessionStorage.getItem('otaku_prev_path') || '';
+    const cameFromDetails = prevPath.startsWith('/details/');
+    if (!cameFromDetails) {
+      sessionStorage.removeItem('otaku_library_state_anime');
+      sessionStorage.removeItem('otaku_library_state_manga');
+    }
+  }, []);
+
+  // Save state on unmount
+  useEffect(() => {
+    return () => {
+      if (stateRef.current) {
+        stateRef.current.scrollPosition = window.scrollY;
+        const activeCat = prevCategoryRef.current || categoria;
+        sessionStorage.setItem(`otaku_library_state_${activeCat}`, JSON.stringify(stateRef.current));
+      }
+    };
+  }, [categoria]);
+
+  // Handle category switch and state restoration
+  useEffect(() => {
+    // 1. Save previous category state if it's changing
+    if (prevCategoryRef.current && prevCategoryRef.current !== categoria) {
+      if (stateRef.current) {
+        stateRef.current.scrollPosition = window.scrollY;
+        sessionStorage.setItem(`otaku_library_state_${prevCategoryRef.current}`, JSON.stringify(stateRef.current));
+      }
+    }
+    prevCategoryRef.current = categoria;
+
+    // 2. Try to load the state for the new category
+    const saved = sessionStorage.getItem(`otaku_library_state_${categoria}`);
+    if (saved) {
+      try {
+        const state = JSON.parse(saved);
+        setFiltroStatus(state.filtroStatus || 'ALL');
+        setFiltroLancamento(state.filtroLancamento || 'ALL');
+        setOrdenacao(state.ordenacao || 'PRIORITY');
+        setSelectedGenres(state.selectedGenres || []);
+        setSelectedTags(state.selectedTags || []);
+        (window as any)._pendingLibraryScroll = state.scrollPosition || 0;
+      } catch (e) {
+        console.error("Error restoring library state:", e);
+      }
+    } else {
+      setFiltroStatus('ALL');
+      setFiltroLancamento('ALL');
+      setOrdenacao('PRIORITY');
+      setSelectedGenres([]);
+      setSelectedTags([]);
+      (window as any)._pendingLibraryScroll = 0;
+    }
+  }, [categoria]);
+
+  // Restore scroll position after results are loaded
+  useEffect(() => {
+    if (resultadosDB.length > 0 && (window as any)._pendingLibraryScroll) {
+      const scrollY = (window as any)._pendingLibraryScroll;
+      (window as any)._pendingLibraryScroll = 0;
+      setTimeout(() => {
+        window.scrollTo(0, scrollY);
+      }, 100);
+    }
+  }, [resultadosDB]);
 
   const getHeaders = () => ({
     'Content-Type': 'application/json',
@@ -186,9 +276,9 @@ const LibraryPage = () => {
                       if (filtroLancamento !== 'ALL' && statusLancamento !== filtroLancamento) return false;
                       
                       if (selectedGenres.length > 0 || selectedTags.length > 0) {
-                        const media = item.anime || item.manga;
-                        if (!media || !media.generos) return false;
-                        const itemGenres = getGenresList(media.generos).map(g => g.name.toLowerCase());
+                        const generos = item.generos || item.anime?.generos || item.manga?.generos;
+                        if (!generos) return false;
+                        const itemGenres = getGenresList(generos).map(g => g.name.toLowerCase());
                         const wanted = [...selectedGenres, ...selectedTags].map(w => w.toLowerCase());
                         if (!wanted.every(w => itemGenres.includes(w))) return false;
                       }
@@ -394,9 +484,9 @@ const LibraryPage = () => {
                 if (filtroLancamento !== 'ALL' && statusLancamento !== filtroLancamento) return false;
                 
                 if (selectedGenres.length > 0 || selectedTags.length > 0) {
-                  const media = item.anime || item.manga;
-                  if (!media || !media.generos) return false;
-                  const itemGenres = getGenresList(media.generos).map(g => g.name.toLowerCase());
+                  const generos = item.generos || item.anime?.generos || item.manga?.generos;
+                  if (!generos) return false;
+                  const itemGenres = getGenresList(generos).map(g => g.name.toLowerCase());
                   const wanted = [...selectedGenres, ...selectedTags].map(w => w.toLowerCase());
                   if (!wanted.every(w => itemGenres.includes(w))) return false;
                 }

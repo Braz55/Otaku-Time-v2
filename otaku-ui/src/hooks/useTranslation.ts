@@ -34,6 +34,7 @@ const dictionary: Record<string, string> = {
   "A ver mais no momento": "Watching the most now",
   "A ler mais no momento": "Reading the most now",
   "A apanhar pó na lista": "Gathering dust in your list",
+  "Sugestão da tua lista": "Suggestion from your list",
   "DESTAQUE DA SEMANA": "WEEKLY HIGHLIGHT",
   "Ver Detalhes": "View Details",
   "Continuar": "Continue",

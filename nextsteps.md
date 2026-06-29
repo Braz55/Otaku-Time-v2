@@ -57,3 +57,9 @@ Para evitar que utilizadores externos gastem tokens ou sobrecarreguem o servidor
 Planear e implementar a diferenciação de formatos e o agrupamento de sequelas:
 * **Diferenciação de Formato:** Criar uma distinção clara entre séries de TV/OVA/ONA (múltiplos episódios) e filmes/Movies (um único episódio/filme), adaptando os controlos e estatísticas de progresso no frontend e backend.
 * **Agregação por Franquia/Temporadas:** Agrupar ou associar títulos relacionados que pertencem à mesma franquia ou a diferentes temporadas (e.g. Temporada 1, Temporada 2, Filmes prequela/sequela), organizando a biblioteca de forma mais agregada e intuitiva.
+
+### Passo 5: Sistema de Notificações Dinâmicas
+Implementar um sistema de notificações real para substituir o toast estático atual:
+* **Base de Dados:** Criar a tabela `Notification` para registar notificações individuais dos utilizadores (título, mensagem, tipo, lida/não lida, link/rota e data de criação).
+* **Backend:** Endpoints para obter, marcar como lidas e apagar notificações. Integração com o cron de sincronização para gerar alertas de novos episódios/capítulos para conteúdos que o utilizador está a acompanhar (estado `WATCHING`).
+* **Frontend:** Substituir o botão/toast simples de notificações no cabeçalho por um menu dropdown interativo que exibe a contagem de alertas não lidos, listagem organizada e ações para limpar ou ler as notificações.

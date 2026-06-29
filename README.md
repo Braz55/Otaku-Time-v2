@@ -105,6 +105,7 @@ Resolves inconsistencies from external portals using a 3-layer system:
 ### 18. Dynamic 50/50 Highlights Engine (Destaques Inteligentes)
 * **Probability-Based Hero**: The HomePage hero highlight features a 50/50 probability system that selects either a recently active item (from the profile's recent activity) or an "Up Next" high-priority item that has been gathering dust (not updated in a long time).
 * **Dynamic Badges**: Displays contextual tags depending on why it's highlighted: "A ver mais no momento" / "A ler mais no momento" for recent activity, or "A apanhar pó na lista" for long-neglected high-priority works.
+* **Empty List Fallback**: If the user has no active items in progress (watching/reading), the hero banner falls back to suggesting a random work from their library list (prioritizing `PLANNED` and `PAUSED` items) with the badge `"Sugestão da tua lista"`.
 
 ### 19. User Recent Activity Feed (Atividade Recente)
 * **Automatic Activity Logs**: Whenever you increment your watched episodes or read chapters, the system updates `lastProgressUpdate` in the database.

@@ -31,9 +31,29 @@ const HomePage = () => {
   const escolherDestaque = (
     profileRecent: any[],
     dashboardItems: any[],
+    allLibraryItems: any[],
     type: 'anime' | 'manga'
   ) => {
-    if (dashboardItems.length === 0) return null;
+    const libraryItemsArray = Array.isArray(allLibraryItems) ? allLibraryItems : [];
+    if (dashboardItems.length === 0) {
+      // User is not actively watching/reading anything.
+      // Suggest a random item from their library that is not completed/dropped.
+      let candidates = libraryItemsArray.filter(item => 
+        item.status === 'PLANNED' || item.status === 'PAUSED'
+      );
+      if (candidates.length === 0) {
+        candidates = libraryItemsArray.filter(item => item.status !== 'COMPLETED' && item.status !== 'DROPPED');
+      }
+      if (candidates.length === 0) {
+        candidates = libraryItemsArray;
+      }
+      
+      if (candidates.length > 0) {
+        const randomIndex = Math.floor(Math.random() * candidates.length);
+        return { ...candidates[randomIndex], highlightReason: 'random_library' };
+      }
+      return null;
+    }
 
     const roll = Math.random();
     const isRecent = roll < 0.5;
@@ -144,8 +164,8 @@ const HomePage = () => {
         .slice(0, 3);
 
       // Select and set highlights
-      const featuredAnime = escolherDestaque(combinedRecent, filteredAnimes, 'anime');
-      const featuredManga = escolherDestaque(combinedRecent, filteredMangas, 'manga');
+      const featuredAnime = escolherDestaque(combinedRecent, filteredAnimes, allAnimes, 'anime');
+      const featuredManga = escolherDestaque(combinedRecent, filteredMangas, allMangas, 'manga');
 
       setAnimeDashboardData({ items: filteredAnimes, featured: featuredAnime });
       setMangaDashboardData({ items: filteredMangas, featured: featuredManga });
@@ -405,7 +425,9 @@ const HomePage = () => {
               : "https://lh3.googleusercontent.com/aida-public/AB6AXuAdtT1AIxrRwBQnzU-fRoU_CPtKD9Xg1BvY8Y0s8RmV9b72bUNwYypAj6y1bSs3zGLoHsC42HBjrc-vfOd-GCn8zJ7t7_bAD64gVr-zkqRjmztIwOu65eWLmgtjLa7JAfnvqQfYW8zyifOI02asFkKaoqhR5efMIXzhP1VCrztKNkT-VnbHIY6U8jNEjGTUgZ2KmPbTyk_yFAVbf66hQw16YdK6fz4WhziI1BJhuQPEW8mcUT8GLAug_FE1_g-JhwikhX1qCIAflXZZ";
             
             const heroTitle = featured ? (featured.anime?.titulo || featured.manga?.titulo || featured.titulo) : "Cyberpunk: Edgerunners";
-            const heroDesc = featured ? (featured.anime?.sinopse || featured.manga?.sinopse || featured.descricao || "Continua a acompanhar o teu anime favorito na lista.") : "Numa distopia mergulhada em corrupção e implantes cibernéticos, um talentoso miúdo de rua decide tornar-se um fora da lei.";
+            const heroDesc = featured 
+              ? (featured.anime?.sinopse || featured.manga?.sinopse || featured.anime?.descricao || featured.manga?.descricao || featured.descricao || "Continua a acompanhar o teu anime favorito na lista.") 
+              : "Numa distopia mergulhada em corrupção e implantes cibernéticos, um talentoso miúdo de rua decide tornar-se um fora da lei.";
             
             return (
               <section className={`relative rounded-3xl overflow-hidden glass-panel rim-light group ${isMobile ? 'h-[190px]' : 'h-[240px] md:h-[280px]'} flex items-center`}>
@@ -427,7 +449,9 @@ const HomePage = () => {
                           ? (categoria === 'anime' ? t('A ver mais no momento') : t('A ler mais no momento'))
                           : featured.highlightReason === 'dust'
                             ? t('A apanhar pó na lista')
-                            : t('EM DESTAQUE NA TUA LISTA'))
+                            : featured.highlightReason === 'random_library'
+                              ? t('Sugestão da tua lista')
+                              : t('EM DESTAQUE NA TUA LISTA'))
                         : t('DESTAQUE DA SEMANA')}
                     </span>
                     <h2 className="font-display-lg text-lg md:text-2xl text-white leading-tight font-black truncate">{heroTitle}</h2>

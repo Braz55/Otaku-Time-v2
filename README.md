@@ -1,4 +1,4 @@
-# Otaku Time Pro (v2.5)
+# Otaku Time Pro (v2.6)
 
 **Your smart, cloud-based, and centralized Anime & Manga tracker.**
 
@@ -14,7 +14,7 @@ Production Applications:
 
 ---
 
-## Main Features & Updates (v2.5)
+## Main Features & Updates (v2.6)
 
 ### 1. Cloud Ecosystem & Automated Deployment (Neon DB + Render)
 * PostgreSQL Database (Neon DB): Transition from local SQLite to remote PostgreSQL, featuring optimized connection pooling and secure SSL certificates to ensure resilience and stability.
@@ -94,6 +94,29 @@ Resolves inconsistencies from external portals using a 3-layer system:
 * **Country Preference Support**: The engine automatically detects the user's most read/watched country of origin (e.g. `'KR'` for Korean manhwa) and filters the recommendations accordingly.
 * **Premium UX Toggle**: A "Feito para si" sliding toggle switch is added to the page, connected by default, automatically clearing tags when selected and adjusting the layout dynamically.
 * **Scroll & State Retention**: State and scroll position are preserved only when navigating between the Explore page and the details page, resetting fresh when arriving from other navigation routes.
+
+### 17. Custom Lists System (Sistema de Listas Customizadas)
+* **Custom Collections**: Create, manage, and delete custom personalized lists (e.g. "Favorites", "Weekend Marathon", "Top Recommendations") to catalog your library beyond standard statuses.
+* **Manual Reordering**: Supports manual custom reordering of list items, featuring HTML5 drag-and-drop on Web and custom sorting control arrows on mobile (Android/Capacitor).
+* **Details Integration**: Quick add/remove trigger directly from any media details page via an interactive modal/picker.
+* **Public/Private Visibility**: Choose whether your custom lists are public (visible on your public profile page) or private.
+* **Library Filtering**: Allows filtering titles in the library/dashboard by selecting a custom list.
+
+### 18. Dynamic 50/50 Highlights Engine (Destaques Inteligentes)
+* **Probability-Based Hero**: The HomePage hero highlight features a 50/50 probability system that selects either a recently active item (from the profile's recent activity) or an "Up Next" high-priority item that has been gathering dust (not updated in a long time).
+* **Dynamic Badges**: Displays contextual tags depending on why it's highlighted: "A ver mais no momento" / "A ler mais no momento" for recent activity, or "A apanhar pó na lista" for long-neglected high-priority works.
+
+### 19. User Recent Activity Feed (Atividade Recente)
+* **Automatic Activity Logs**: Whenever you increment your watched episodes or read chapters, the system updates `lastProgressUpdate` in the database.
+* **Profile Activity Feed**: Displays the 3 most recently updated items on the profile page, complete with relative time formats (e.g., "Updated 2 hours ago").
+
+### 20. Reformulated Thematic Picker Card (GenreTagPicker)
+* **Visual Overhaul**: Redesigned and modularized tag selection experience using the new `GenreTagPicker` component with modern glassmorphism, responsive chip wrapping, and optimized touch zones.
+* **Android UI Fixes**: Solves list wrapping, page scaling, and viewport height issues on mobile Android screens.
+
+### 21. Synchronization & Stability Improvements
+* **Resilient Sync Services**: Optimized AniList database synchronization routes, resolving request loops and redundant checks.
+* **Auto-Wake Integration**: Refined ping middleware coordinates between web client / Capacitor client and NestJS backend to keep Render database pools hot and responsive.
 
 ---
 
@@ -211,6 +234,7 @@ classDiagram
         +Int userId
         +Int animeId
         +Boolean wasDropped
+        +DateTime lastProgressUpdate
         +DateTime updatedAt
     }
 
@@ -239,6 +263,7 @@ classDiagram
         +Int userId
         +Int mangaId
         +Boolean wasDropped
+        +DateTime lastProgressUpdate
         +DateTime updatedAt
     }
 
@@ -350,6 +375,29 @@ classDiagram
         +Boolean isExposed
     }
 
+    class CustomList {
+        +Int id
+        +String name
+        +String description
+        +String coverUrl
+        +Boolean isPublic
+        +Json criteria
+        +DateTime createdAt
+        +DateTime updatedAt
+        +Int userId
+    }
+
+    class CustomListItem {
+        +Int id
+        +Int listId
+        +Int anilistMediaId
+        +MediaType mediaType
+        +Int position
+        +DateTime addedAt
+        +Int animeId
+        +Int mangaId
+    }
+
     class TrackingStatus {
         <<enumeration>>
         WATCHING
@@ -392,6 +440,11 @@ classDiagram
     Achievement "1" --> "*" UserAchievement : earned_by
     Media "1" --> "*" UserRating : rated_by
     Media "1" --> "*" Comment : has
+
+    User "1" --> "*" CustomList : has
+    CustomList "1" --> "*" CustomListItem : contains
+    Anime "1" --> "*" CustomListItem : associated
+    Manga "1" --> "*" CustomListItem : associated
 ```
 
 ---
@@ -405,6 +458,7 @@ Otaku-Time-v2/
 ├── src/                     # NestJS Backend
 │   ├── anime/               # AniList metadata and calendar
 │   ├── manga/               # MangaUpdates, MangaDex, and AniList integration
+│   ├── list/                # Custom user lists backend module
 │   ├── sync/                # Release updates synchronization logic
 │   ├── rating/              # Global rating evaluation endpoints
 │   ├── comment/             # Global comment and community interaction
@@ -412,7 +466,8 @@ Otaku-Time-v2/
 ├── otaku-ui/                # React + Vite + Capacitor Frontend (Tailwind v4)
 │   ├── android/             # Native Android project built by Capacitor
 │   ├── src/                 
-│   │   ├── pages/           # Dashboard, Library, Calendar, Profile, and Details
+│   │   ├── components/      # Reusable UI components (GenreTagPicker, Layout, etc.)
+│   │   ├── pages/           # Dashboard, Library, Calendar, Profile, Details, Lists, ListDetails
 │   │   ├── services/        
 │   │   │   └── apiBridge.ts # Communication helper with CORS bypass for Capacitor
 │   │   └── context/         # Global navigation, themes, and category states

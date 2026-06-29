@@ -1,4 +1,4 @@
-# Otaku Time Pro (v2.6)
+# Otaku Time Pro (v3.0)
 
 **Your smart, cloud-based, and centralized Anime & Manga tracker.**
 
@@ -6,7 +6,7 @@ Otaku Time Pro is a complete Fullstack ecosystem designed to **register, organiz
 
 The platform automates release time zones for episodes, tracks chapters across multiple portals, and features a highly customizable and fluid interface.
 
-In this repository, you will find the **otaku_Time.apk** file, which is the pre-compiled Android application ready for installation.
+In this repository's root folder, you will find the **otakutime_v3.apk** file, which is the pre-compiled Android application ready for installation.
 
 Production Applications:
 * Frontend Web & API: [https://otaku-time-v2.onrender.com](https://otaku-time-v2.onrender.com)
@@ -14,7 +14,7 @@ Production Applications:
 
 ---
 
-## Main Features & Updates (v2.6)
+## Main Features & Updates (v3.0)
 
 ### 1. Cloud Ecosystem & Automated Deployment (Neon DB + Render)
 * PostgreSQL Database (Neon DB): Transition from local SQLite to remote PostgreSQL, featuring optimized connection pooling and secure SSL certificates to ensure resilience and stability.

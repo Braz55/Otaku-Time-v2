@@ -8,7 +8,9 @@ export class BackfillStatsService implements OnModuleInit {
   constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit() {
-    this.logger.log('Starting statistics backfill migration for existing users...');
+    this.logger.log(
+      'Starting statistics backfill migration for existing users...',
+    );
     try {
       await this.runBackfill();
       this.logger.log('Statistics backfill migration completed successfully.');
@@ -27,11 +29,23 @@ export class BackfillStatsService implements OnModuleInit {
     });
 
     for (const user of users) {
-      const totalAnimeCompleted = user.animes.filter(a => a.status === 'COMPLETED').length;
-      const totalEpisodesWatched = user.animes.reduce((sum, a) => sum + (a.epAtual || 0), 0);
-      const totalMangaRead = user.mangas.reduce((sum, m) => sum + Math.floor(m.capAtual || 0), 0);
-      const animeDaysWasted = parseFloat(((totalEpisodesWatched * 24) / 1440).toFixed(2));
-      const mangaDaysWasted = parseFloat(((totalMangaRead * 10) / 1440).toFixed(2));
+      const totalAnimeCompleted = user.animes.filter(
+        (a) => a.status === 'COMPLETED',
+      ).length;
+      const totalEpisodesWatched = user.animes.reduce(
+        (sum, a) => sum + (a.epAtual || 0),
+        0,
+      );
+      const totalMangaRead = user.mangas.reduce(
+        (sum, m) => sum + Math.floor(m.capAtual || 0),
+        0,
+      );
+      const animeDaysWasted = parseFloat(
+        ((totalEpisodesWatched * 24) / 1440).toFixed(2),
+      );
+      const mangaDaysWasted = parseFloat(
+        ((totalMangaRead * 10) / 1440).toFixed(2),
+      );
 
       await this.prisma.userStatistics.upsert({
         where: { userId: user.id },

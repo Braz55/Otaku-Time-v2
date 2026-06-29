@@ -18,4 +18,3 @@ export class SyncController {
     return { message: 'Background sync started successfully' };
   }
 }
-

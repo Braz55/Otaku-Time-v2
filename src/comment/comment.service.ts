@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -8,7 +13,9 @@ export class CommentService {
   // Cria um comentário associado a um mediaId e userId
   async createComment(userId: number, mediaId: number, text: string) {
     if (!text || text.trim() === '') {
-      throw new BadRequestException('O texto do comentário não pode estar vazio.');
+      throw new BadRequestException(
+        'O texto do comentário não pode estar vazio.',
+      );
     }
 
     return this.prisma.comment.create({
@@ -75,7 +82,9 @@ export class CommentService {
     }
 
     if (comment.userId !== userId) {
-      throw new ForbiddenException('Não tem permissão para eliminar este comentário.');
+      throw new ForbiddenException(
+        'Não tem permissão para eliminar este comentário.',
+      );
     }
 
     return this.prisma.comment.delete({

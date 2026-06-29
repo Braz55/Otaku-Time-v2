@@ -5,7 +5,8 @@ import { useToast } from '../context/ToastContext';
 import { 
   Database, RefreshCw, AlertCircle, User, Shield, 
   Smartphone, Download, Upload, Copy, Check, Award, Heart, 
-  Edit3, Trash2, Plus, Search, BookOpen, Clock, Film, BarChart3 
+  Edit3, Trash2, Plus, Search, BookOpen, Clock, Film, BarChart3,
+  ChevronDown, ChevronUp
 } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 import { Capacitor } from '@capacitor/core';
@@ -279,6 +280,7 @@ const ProfilePage = () => {
   // New Profile Redesign States
   const [favoritePodiumType, setFavoritePodiumType] = useState<'ANIME' | 'MANGA'>('ANIME');
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [visibleActivitiesCount, setVisibleActivitiesCount] = useState(3);
 
   const fetchRecentActivity = async () => {
     if (!token) return;
@@ -308,7 +310,7 @@ const ProfilePage = () => {
         return dateB - dateA;
       });
       
-      setRecentActivities(progressUpdatedItems.slice(0, 3));
+      setRecentActivities(progressUpdatedItems);
     } catch (err) {
       console.error('Error fetching recent activity:', err);
     }
@@ -1583,36 +1585,60 @@ const ProfilePage = () => {
                 
                 <div className="space-y-3.5">
                   {recentActivities.length > 0 ? (
-                    recentActivities.map((act: any) => {
-                      const cover = act.capaUrl || act.anime?.capaUrl || act.manga?.capaUrl;
-                      const title = act.titulo || act.anime?.titulo || act.manga?.titulo;
-                      const current = act.mediaType === 'anime' ? act.epAtual : act.capAtual;
-                      const isAnime = act.mediaType === 'anime';
-                      
-                      return (
-                        <div key={act.id} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 border border-white/[0.02] transition-colors group">
-                          <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 relative border border-white/5">
-                            <img src={cover} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="" />
+                    <>
+                      {recentActivities.slice(0, visibleActivitiesCount).map((act: any) => {
+                        const cover = act.capaUrl || act.anime?.capaUrl || act.manga?.capaUrl;
+                        const title = act.titulo || act.anime?.titulo || act.manga?.titulo;
+                        const current = act.mediaType === 'anime' ? act.epAtual : act.capAtual;
+                        const isAnime = act.mediaType === 'anime';
+                        
+                        return (
+                          <div key={act.id} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 border border-white/[0.02] transition-colors group">
+                            <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 relative border border-white/5">
+                              <img src={cover} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="" />
+                            </div>
+                            
+                            <div className="flex-grow min-w-0">
+                              <p className="text-sm text-white font-medium truncate leading-snug">
+                                {isAnime ? 'Viu o episódio' : 'Leu o capítulo'}{' '}
+                                <span className={isAnime ? 'text-primary font-bold' : 'text-secondary font-bold'}>{current}</span>
+                                {' de '}
+                                <span className="font-bold text-white hover:underline cursor-pointer" onClick={() => navigate('/')}>{title}</span>
+                              </p>
+                              <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider mt-0.5">
+                                {getRelativeTime(act.lastProgressUpdate)}
+                              </p>
+                            </div>
+                            
+                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border uppercase ${isAnime ? 'bg-primary/10 text-primary border-primary/20' : 'bg-secondary/10 text-secondary border-secondary/20'}`}>
+                              {act.mediaType}
+                            </span>
                           </div>
-                          
-                          <div className="flex-grow min-w-0">
-                            <p className="text-sm text-white font-medium truncate leading-snug">
-                              {isAnime ? 'Viu o episódio' : 'Leu o capítulo'}{' '}
-                              <span className={isAnime ? 'text-primary font-bold' : 'text-secondary font-bold'}>{current}</span>
-                              {' de '}
-                              <span className="font-bold text-white hover:underline cursor-pointer" onClick={() => navigate('/')}>{title}</span>
-                            </p>
-                            <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider mt-0.5">
-                              {getRelativeTime(act.lastProgressUpdate)}
-                            </p>
-                          </div>
-                          
-                          <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border uppercase ${isAnime ? 'bg-primary/10 text-primary border-primary/20' : 'bg-secondary/10 text-secondary border-secondary/20'}`}>
-                            {act.mediaType}
-                          </span>
+                        );
+                      })}
+                      {recentActivities.length > 3 && (
+                        <div className="flex gap-2 mt-2 w-full">
+                          {visibleActivitiesCount < recentActivities.length && (
+                            <button
+                              onClick={() => setVisibleActivitiesCount(prev => prev + 5)}
+                              className="flex-grow py-2 px-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer"
+                            >
+                              <span>Ver Mais (+{Math.min(5, recentActivities.length - visibleActivitiesCount)})</span>
+                              <ChevronDown className="w-4 h-4" />
+                            </button>
+                          )}
+                          {visibleActivitiesCount > 3 && (
+                            <button
+                              onClick={() => setVisibleActivitiesCount(3)}
+                              className={`${visibleActivitiesCount >= recentActivities.length ? 'w-full' : 'px-4'} py-2 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white/60 hover:text-white transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer`}
+                            >
+                              <span>Ver Menos</span>
+                              <ChevronUp className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
-                      );
-                    })
+                      )}
+                    </>
                   ) : (
                     <p className="text-center py-8 text-xs text-on-surface-variant italic">
                       Ainda sem atividade registada. Começa a consumir da tua biblioteca!

@@ -20,13 +20,71 @@ const HomePage = () => {
   const [termoPesquisa, setTermoPesquisa] = useState('');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [resultadosPesquisa, setResultadosPesquisa] = useState<any[]>([]);
-  const [animesDashboard, setAnimesDashboard] = useState<any[]>([]);
-  const [mangasDashboard, setMangasDashboard] = useState<any[]>([]);
+  const [animeDashboardData, setAnimeDashboardData] = useState<{ items: any[]; featured: any }>({ items: [], featured: null });
+  const [mangaDashboardData, setMangaDashboardData] = useState<{ items: any[]; featured: any }>({ items: [], featured: null });
   const [loading, setLoading] = useState(false);
   const [searchPage, setSearchPage] = useState(1);
   const [hasMoreResults, setHasMoreResults] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [savingItems, setSavingItems] = useState<Record<number, boolean>>({});
+
+  const escolherDestaque = (
+    profileRecent: any[],
+    dashboardItems: any[],
+    type: 'anime' | 'manga'
+  ) => {
+    if (dashboardItems.length === 0) return null;
+
+    const roll = Math.random();
+    const isRecent = roll < 0.5;
+
+    if (isRecent) {
+      // Option A: 1 of the 3 most recently updated items that match the current category and are in progress
+      const recentCandidates = profileRecent.filter(item => 
+        item.mediaType === type && 
+        dashboardItems.some(d => d.id === item.id)
+      );
+
+      if (recentCandidates.length > 0) {
+        const randomIndex = Math.floor(Math.random() * recentCandidates.length);
+        const selected = recentCandidates[randomIndex];
+        const found = dashboardItems.find(d => d.id === selected.id);
+        if (found) {
+          return { ...found, highlightReason: 'recent' };
+        }
+        return { ...selected, highlightReason: 'recent' };
+      }
+
+      // Fallback: top 3 recently updated active items of the current category
+      const activeRecentCandidates = [...dashboardItems]
+        .filter(item => item.lastProgressUpdate)
+        .sort((a, b) => new Date(b.lastProgressUpdate).getTime() - new Date(a.lastProgressUpdate).getTime())
+        .slice(0, 3);
+
+      if (activeRecentCandidates.length > 0) {
+        const randomIndex = Math.floor(Math.random() * activeRecentCandidates.length);
+        return { ...activeRecentCandidates[randomIndex], highlightReason: 'recent' };
+      }
+    }
+
+    // Option B: High priority (prioridade <= 3) but oldest update (gathering dust in Up Next)
+    let dustCandidates = dashboardItems.filter(item => item.prioridade && item.prioridade <= 3);
+
+    if (dustCandidates.length === 0) {
+      dustCandidates = dashboardItems;
+    }
+
+    if (dustCandidates.length > 0) {
+      const sortedDust = [...dustCandidates].sort((a, b) => {
+        const dateA = new Date(a.lastProgressUpdate || a.updatedAt).getTime();
+        const dateB = new Date(b.lastProgressUpdate || b.updatedAt).getTime();
+        return dateA - dateB;
+      });
+      return { ...sortedDust[0], highlightReason: 'dust' };
+    }
+
+    return dashboardItems[0] ? { ...dashboardItems[0], highlightReason: 'normal' } : null;
+  };
 
   const getHeaders = () => ({
     'Content-Type': 'application/json',
@@ -44,34 +102,53 @@ const HomePage = () => {
       const animes = await animeRes.json();
       const mangas = await mangaRes.json();
 
+      let allAnimes: any[] = [];
+      let allMangas: any[] = [];
+      let filteredAnimes: any[] = [];
+      let filteredMangas: any[] = [];
+
       if (Array.isArray(animes)) {
-        setAnimesDashboard(
-          animes
-            .filter(a => {
-              if (a.status !== 'WATCHING') return false;
-              const status = a.anime?.statusLancamento || a.statusLancamento;
-              const proxEp = a.anime?.proximoEpisodio || a.proximoEpisodio;
-              const numTotal = a.anime?.numEpisodiosTotal || a.numEpisodiosTotal;
-              const maxDisp = (status === 'RELEASING' && proxEp) ? proxEp - 1 : (numTotal || 9999);
-              return (a.epAtual || 0) < maxDisp;
-            })
-            .sort((a, b) => (a.prioridade || 999) - (b.prioridade || 999))
-        );
+        allAnimes = animes;
+        filteredAnimes = animes
+          .filter(a => {
+            if (a.status !== 'WATCHING') return false;
+            const status = a.anime?.statusLancamento || a.statusLancamento;
+            const proxEp = a.anime?.proximoEpisodio || a.proximoEpisodio;
+            const numTotal = a.anime?.numEpisodiosTotal || a.numEpisodiosTotal;
+            const maxDisp = (status === 'RELEASING' && proxEp) ? proxEp - 1 : (numTotal || 9999);
+            return (a.epAtual || 0) < maxDisp;
+          })
+          .sort((a, b) => (a.prioridade || 999) - (b.prioridade || 999));
       }
       if (Array.isArray(mangas)) {
-        setMangasDashboard(
-          mangas
-            .filter(m => {
-              if (m.status !== 'WATCHING') return false;
-              const status = m.manga?.statusLancamento || m.statusLancamento;
-              const proxCap = m.manga?.proximoCapituloNumero || m.proximoCapituloNumero;
-              const numTotal = m.manga?.numCapitulosTotal || m.numCapitulosTotal;
-              const maxDisp = (status === 'RELEASING' && proxCap) ? proxCap - 1 : (numTotal || 9999);
-              return (m.capAtual || 0) < maxDisp;
-            })
-            .sort((a, b) => (a.prioridade || 999) - (b.prioridade || 999))
-        );
+        allMangas = mangas;
+        filteredMangas = mangas
+          .filter(m => {
+            if (m.status !== 'WATCHING') return false;
+            const status = m.manga?.statusLancamento || m.statusLancamento;
+            const proxCap = m.manga?.proximoCapituloNumero || m.proximoCapituloNumero;
+            const numTotal = m.manga?.numCapitulosTotal || m.numCapitulosTotal;
+            const maxDisp = (status === 'RELEASING' && proxCap) ? proxCap - 1 : (numTotal || 9999);
+            return (m.capAtual || 0) < maxDisp;
+          })
+          .sort((a, b) => (a.prioridade || 999) - (b.prioridade || 999));
       }
+
+      // Calculate combined recent activities (similar to Profile activity)
+      const combinedRecent = [
+        ...allAnimes.map(a => ({ ...a, mediaType: 'anime' })),
+        ...allMangas.map(m => ({ ...m, mediaType: 'manga' }))
+      ]
+        .filter(item => item.lastProgressUpdate)
+        .sort((a, b) => new Date(b.lastProgressUpdate).getTime() - new Date(a.lastProgressUpdate).getTime())
+        .slice(0, 3);
+
+      // Select and set highlights
+      const featuredAnime = escolherDestaque(combinedRecent, filteredAnimes, 'anime');
+      const featuredManga = escolherDestaque(combinedRecent, filteredMangas, 'manga');
+
+      setAnimeDashboardData({ items: filteredAnimes, featured: featuredAnime });
+      setMangaDashboardData({ items: filteredMangas, featured: featuredManga });
     } catch (error) {
       console.error("Erro ao carregar dashboard:", error);
     } finally {
@@ -306,8 +383,8 @@ const HomePage = () => {
         /* Dashboard Home View */
         <div className="w-full space-y-5 md:space-y-12">
           {(() => {
-            const dashboardItems = categoria === 'anime' ? animesDashboard : mangasDashboard;
-            const featured = dashboardItems[0];
+            const dashboardItems = categoria === 'anime' ? animeDashboardData.items : mangaDashboardData.items;
+            const featured = categoria === 'anime' ? animeDashboardData.featured : mangaDashboardData.featured;
 
             if (loading && dashboardItems.length === 0) {
               return (
@@ -334,9 +411,9 @@ const HomePage = () => {
               <section className={`relative rounded-3xl overflow-hidden glass-panel rim-light group ${isMobile ? 'h-[190px]' : 'h-[240px] md:h-[280px]'} flex items-center`}>
                 <div className="absolute inset-0 pointer-events-none z-0">
                   <img 
-                    src={heroCover} 
-                    className="w-full h-full object-cover scale-125 blur-3xl opacity-20 transition-transform duration-700 group-hover:scale-130" 
-                    alt="" 
+                     src={heroCover} 
+                     className="w-full h-full object-cover scale-125 blur-3xl opacity-20 transition-transform duration-700 group-hover:scale-130" 
+                     alt="" 
                   />
                   <div className="absolute inset-0 bg-[#0F1014]/40"></div>
                   <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-background via-background/40 to-transparent"></div>
@@ -345,7 +422,13 @@ const HomePage = () => {
                 <div className="relative w-full h-full flex items-center justify-between gap-6 p-5 md:p-8 z-10">
                   <div className="flex-1 min-w-0 flex flex-col justify-center space-y-2">
                     <span className={`w-fit px-2.5 py-0.5 rounded-full text-white font-label-sm text-[9px] uppercase tracking-wider font-bold ${categoria === 'anime' ? 'bg-primary' : 'bg-secondary'}`}>
-                      {featured ? t('EM DESTAQUE NA TUA LISTA') : t('DESTAQUE DA SEMANA')}
+                      {featured 
+                        ? (featured.highlightReason === 'recent'
+                          ? (categoria === 'anime' ? t('A ver mais no momento') : t('A ler mais no momento'))
+                          : featured.highlightReason === 'dust'
+                            ? t('A apanhar pó na lista')
+                            : t('EM DESTAQUE NA TUA LISTA'))
+                        : t('DESTAQUE DA SEMANA')}
                     </span>
                     <h2 className="font-display-lg text-lg md:text-2xl text-white leading-tight font-black truncate">{heroTitle}</h2>
                     <p className="font-body-lg text-[11px] md:text-xs text-on-surface-variant line-clamp-2 md:line-clamp-3 leading-relaxed max-w-xl">
@@ -376,7 +459,7 @@ const HomePage = () => {
 
           {/* Up Next Section */}
           {(() => {
-            const dashboardItems = categoria === 'anime' ? animesDashboard : mangasDashboard;
+            const dashboardItems = categoria === 'anime' ? animeDashboardData.items : mangaDashboardData.items;
             
             if (dashboardItems.length === 0) {
               return (

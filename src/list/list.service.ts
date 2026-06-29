@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { MediaType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AddListItemDto } from './dto/add-list-item.dto';
@@ -64,8 +68,10 @@ export class ListService {
     await this.assertOwner(userId, listId);
     const data: Prisma.CustomListUpdateInput = {};
     if (dto.name !== undefined) data.name = dto.name.trim() || 'Nova lista';
-    if (dto.description !== undefined) data.description = dto.description?.trim() || null;
-    if (dto.coverUrl !== undefined) data.coverUrl = dto.coverUrl?.trim() || null;
+    if (dto.description !== undefined)
+      data.description = dto.description?.trim() || null;
+    if (dto.coverUrl !== undefined)
+      data.coverUrl = dto.coverUrl?.trim() || null;
     if (dto.isPublic !== undefined) data.isPublic = Boolean(dto.isPublic);
     if (dto.criteria !== undefined) {
       data.criteria = dto.criteria ? (dto.criteria as any) : Prisma.JsonNull;
@@ -85,10 +91,21 @@ export class ListService {
     return this.findOne(userId, listId);
   }
 
-  async removeItem(userId: number, listId: number, mediaType: MediaType, mediaId: number) {
+  async removeItem(
+    userId: number,
+    listId: number,
+    mediaType: MediaType,
+    mediaId: number,
+  ) {
     await this.assertOwner(userId, listId);
     await this.prisma.customListItem.delete({
-      where: { listId_anilistMediaId_mediaType: { listId, anilistMediaId: mediaId, mediaType } },
+      where: {
+        listId_anilistMediaId_mediaType: {
+          listId,
+          anilistMediaId: mediaId,
+          mediaType,
+        },
+      },
     });
     await this.compactPositions(listId);
     return this.findOne(userId, listId);
@@ -97,28 +114,42 @@ export class ListService {
   async updateOrder(userId: number, listId: number, dto: UpdateOrderDto) {
     await this.assertOwner(userId, listId);
     const listItemIds = new Set(
-      (await this.prisma.customListItem.findMany({ where: { listId }, select: { id: true } })).map(i => i.id),
+      (
+        await this.prisma.customListItem.findMany({
+          where: { listId },
+          select: { id: true },
+        })
+      ).map((i) => i.id),
     );
     await this.prisma.$transaction(
       (dto.items || [])
-        .filter(item => listItemIds.has(item.id))
-        .map(item => this.prisma.customListItem.update({
-          where: { id: item.id },
-          data: { position: item.position },
-        })),
+        .filter((item) => listItemIds.has(item.id))
+        .map((item) =>
+          this.prisma.customListItem.update({
+            where: { id: item.id },
+            data: { position: item.position },
+          }),
+        ),
     );
     await this.compactPositions(listId);
     return this.findOne(userId, listId);
   }
 
   private async assertOwner(userId: number, listId: number) {
-    const list = await this.prisma.customList.findUnique({ where: { id: listId } });
+    const list = await this.prisma.customList.findUnique({
+      where: { id: listId },
+    });
     if (!list) throw new NotFoundException('Lista não encontrada');
-    if (list.userId !== userId) throw new ForbiddenException('Sem permissão para alterar esta lista');
+    if (list.userId !== userId)
+      throw new ForbiddenException('Sem permissão para alterar esta lista');
     return list;
   }
 
-  private async addItemAtEnd(listId: number, anilistMediaId: number, mediaType: MediaType) {
+  private async addItemAtEnd(
+    listId: number,
+    anilistMediaId: number,
+    mediaType: MediaType,
+  ) {
     const max = await this.prisma.customListItem.aggregate({
       where: { listId },
       _max: { position: true },
@@ -133,7 +164,9 @@ export class ListService {
         : { manga: { connect: { id: anilistMediaId } } }),
     };
     return this.prisma.customListItem.upsert({
-      where: { listId_anilistMediaId_mediaType: { listId, anilistMediaId, mediaType } },
+      where: {
+        listId_anilistMediaId_mediaType: { listId, anilistMediaId, mediaType },
+      },
       update: {},
       create: data,
     });
@@ -145,10 +178,12 @@ export class ListService {
       orderBy: [{ position: 'asc' }, { addedAt: 'asc' }],
     });
     await this.prisma.$transaction(
-      items.map((item, index) => this.prisma.customListItem.update({
-        where: { id: item.id },
-        data: { position: index + 1 },
-      })),
+      items.map((item, index) =>
+        this.prisma.customListItem.update({
+          where: { id: item.id },
+          data: { position: index + 1 },
+        }),
+      ),
     );
   }
 }

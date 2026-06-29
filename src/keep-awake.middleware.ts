@@ -13,11 +13,13 @@ export class KeepAwakeMiddleware implements NestMiddleware {
     }
 
     // Skip self-pings and direct health checks to prevent infinite keep-awake loops
-    const isSelfPing = req.headers['x-self-ping'] === 'true' || req.path === '/health';
+    const isSelfPing =
+      req.headers['x-self-ping'] === 'true' || req.path === '/health';
 
     if (!isSelfPing) {
       // Determine the base URL dynamically (helps with local testing vs Render deployment)
-      const protocol = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'https';
+      const protocol =
+        (req.headers['x-forwarded-proto'] as string) || req.protocol || 'https';
       const host = req.headers.host;
       const baseUrl = `${protocol}://${host}`;
 

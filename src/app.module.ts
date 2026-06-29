@@ -32,8 +32,6 @@ import { KeepAwakeMiddleware } from './keep-awake.middleware';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(KeepAwakeMiddleware)
-      .forRoutes('*');
+    consumer.apply(KeepAwakeMiddleware).forRoutes('*');
   }
 }

@@ -60,17 +60,23 @@ export class RatingService {
     try {
       const response = await fetch('https://graphql.anilist.co', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
         body: JSON.stringify({ query, variables }),
       });
-      const result = await response.json() as any;
+      const result = await response.json();
       const averageScore = result?.data?.Media?.averageScore;
       if (averageScore !== undefined && averageScore !== null) {
         // A AniList devolve valores de 0 a 100 (ex: 78). Convertemos para escala de 0 a 10 (ex: 7.8).
         return averageScore / 10;
       }
     } catch (error) {
-      console.error(`Erro ao obter pontuação do AniList para a média ${mediaId}:`, error);
+      console.error(
+        `Erro ao obter pontuação do AniList para a média ${mediaId}:`,
+        error,
+      );
     }
     return 0; // Valor padrão se não for encontrado ou se houver erro
   }
@@ -139,8 +145,10 @@ export class RatingService {
 
       // 3. Recalcular avaliacao_geral usando a fórmula da semente fixa
       // avaliacao_geral = ((avaliacao_base * 10) + soma_notas_users) / (10 + total_votos_users)
-      const avaliacaoGeralCalculada = ((media.avaliacao_base * 10) + somaNotas) / (10 + totalVotos);
-      const avaliacaoGeralArredondada = Math.round(avaliacaoGeralCalculada * 100) / 100;
+      const avaliacaoGeralCalculada =
+        (media.avaliacao_base * 10 + somaNotas) / (10 + totalVotos);
+      const avaliacaoGeralArredondada =
+        Math.round(avaliacaoGeralCalculada * 100) / 100;
 
       // Atualizar a Media com a nova média geral e estatísticas
       const updatedMedia = await tx.media.update({

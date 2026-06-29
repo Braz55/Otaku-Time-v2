@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Request, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { MediaType } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AddListItemDto } from './dto/add-list-item.dto';
@@ -38,7 +48,11 @@ export class ListController {
   }
 
   @Post(':id/items')
-  addItem(@Request() req, @Param('id') id: string, @Body() dto: AddListItemDto) {
+  addItem(
+    @Request() req,
+    @Param('id') id: string,
+    @Body() dto: AddListItemDto,
+  ) {
     return this.listService.addItem(req.user.userId, +id, dto);
   }
 
@@ -49,11 +63,20 @@ export class ListController {
     @Param('mediaType') mediaType: MediaType,
     @Param('mediaId') mediaId: string,
   ) {
-    return this.listService.removeItem(req.user.userId, +id, mediaType, +mediaId);
+    return this.listService.removeItem(
+      req.user.userId,
+      +id,
+      mediaType,
+      +mediaId,
+    );
   }
 
   @Patch(':id/items/order')
-  updateOrder(@Request() req, @Param('id') id: string, @Body() dto: UpdateOrderDto) {
+  updateOrder(
+    @Request() req,
+    @Param('id') id: string,
+    @Body() dto: UpdateOrderDto,
+  ) {
     return this.listService.updateOrder(req.user.userId, +id, dto);
   }
 }

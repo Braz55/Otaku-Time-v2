@@ -20,7 +20,11 @@ export class AuthService {
   }
 
   async login(user: any) {
-    const payload = { email: user.email, sub: user.id, tokenVersion: user.tokenVersion };
+    const payload = {
+      email: user.email,
+      sub: user.id,
+      tokenVersion: user.tokenVersion,
+    };
     return {
       access_token: this.jwtService.sign(payload),
       user: {
@@ -39,7 +43,9 @@ export class AuthService {
   }
 
   async register(createUserDto: any) {
-    const existingUser = await this.userService.findByEmail(createUserDto.email);
+    const existingUser = await this.userService.findByEmail(
+      createUserDto.email,
+    );
     if (existingUser) {
       throw new UnauthorizedException('User already exists');
     }

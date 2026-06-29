@@ -14,7 +14,10 @@ export class KeepAwakeService implements OnModuleDestroy {
     this.baseUrl = envUrl || detectedBaseUrl;
 
     // Check if we are running locally to avoid unnecessary timers
-    if (this.baseUrl.includes('localhost') || this.baseUrl.includes('127.0.0.1')) {
+    if (
+      this.baseUrl.includes('localhost') ||
+      this.baseUrl.includes('127.0.0.1')
+    ) {
       return;
     }
 
@@ -23,23 +26,29 @@ export class KeepAwakeService implements OnModuleDestroy {
       return;
     }
 
-    this.logger.log(`A iniciar janela de 2 horas de Self-Ping utilizando URL: ${this.baseUrl}`);
+    this.logger.log(
+      `A iniciar janela de 2 horas de Self-Ping utilizando URL: ${this.baseUrl}`,
+    );
     this.pingsCount = 0;
 
     // A cada 10 minutos (600000 milissegundos)
     this.pingInterval = setInterval(async () => {
       this.pingsCount++;
-      
+
       const pingUrl = `${this.baseUrl}/health`;
       try {
         await fetch(pingUrl, {
           headers: {
-            'x-self-ping': 'true'
-          }
+            'x-self-ping': 'true',
+          },
         });
-        this.logger.log(`Self-Ping ${this.pingsCount}/${this.MAX_PINGS} executado com sucesso.`);
+        this.logger.log(
+          `Self-Ping ${this.pingsCount}/${this.MAX_PINGS} executado com sucesso.`,
+        );
       } catch (error: any) {
-        this.logger.error(`Erro no Self-Ping para ${pingUrl}: ${error.message}`);
+        this.logger.error(
+          `Erro no Self-Ping para ${pingUrl}: ${error.message}`,
+        );
       }
 
       // Desliga-se ao fim de 2 horas (12 pings)
@@ -51,7 +60,7 @@ export class KeepAwakeService implements OnModuleDestroy {
         }
         this.logger.log('Janela de 2 horas terminada. O servidor pode dormir.');
       }
-    }, 600000); 
+    }, 600000);
   }
 
   onModuleDestroy() {

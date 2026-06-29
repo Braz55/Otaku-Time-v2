@@ -1,4 +1,13 @@
-import { Controller, Post, Get, Body, Param, UseGuards, Request, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Param,
+  UseGuards,
+  Request,
+  BadRequestException,
+} from '@nestjs/common';
 import { RatingService } from './rating.service';
 import { CreateRatingDto } from './dto/rating.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -30,12 +39,20 @@ export class RatingController {
   async submitRating(@Request() req, @Body() body: CreateRatingDto) {
     const { mediaId, score } = body;
 
-    if (mediaId === undefined || mediaId === null || typeof mediaId !== 'number') {
-      throw new BadRequestException('O campo mediaId é obrigatório e deve ser um número.');
+    if (
+      mediaId === undefined ||
+      mediaId === null ||
+      typeof mediaId !== 'number'
+    ) {
+      throw new BadRequestException(
+        'O campo mediaId é obrigatório e deve ser um número.',
+      );
     }
 
     if (score === undefined || score === null || typeof score !== 'number') {
-      throw new BadRequestException('O campo score é obrigatório e deve ser um número.');
+      throw new BadRequestException(
+        'O campo score é obrigatório e deve ser um número.',
+      );
     }
 
     const userId = req.user.userId;

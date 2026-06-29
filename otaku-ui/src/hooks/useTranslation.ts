@@ -31,6 +31,9 @@ const dictionary: Record<string, string> = {
   // HomePage / Dashboard
   "A carregar destaque...": "Loading highlight...",
   "EM DESTAQUE NA TUA LISTA": "FEATURED ON YOUR LIST",
+  "A ver mais no momento": "Watching the most now",
+  "A ler mais no momento": "Reading the most now",
+  "A apanhar pó na lista": "Gathering dust in your list",
   "DESTAQUE DA SEMANA": "WEEKLY HIGHLIGHT",
   "Ver Detalhes": "View Details",
   "Continuar": "Continue",

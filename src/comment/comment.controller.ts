@@ -1,4 +1,14 @@
-import { Controller, Post, Get, Delete, Body, Param, UseGuards, Request, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  Request,
+  BadRequestException,
+} from '@nestjs/common';
 import { CommentService } from './comment.service';
 import { CreateCommentDto } from './dto/comment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -12,12 +22,20 @@ export class CommentController {
   async createComment(@Request() req, @Body() body: CreateCommentDto) {
     const { mediaId, text } = body;
 
-    if (mediaId === undefined || mediaId === null || typeof mediaId !== 'number') {
-      throw new BadRequestException('O campo mediaId é obrigatório e deve ser um número.');
+    if (
+      mediaId === undefined ||
+      mediaId === null ||
+      typeof mediaId !== 'number'
+    ) {
+      throw new BadRequestException(
+        'O campo mediaId é obrigatório e deve ser um número.',
+      );
     }
 
     if (!text || typeof text !== 'string' || text.trim() === '') {
-      throw new BadRequestException('O campo text é obrigatório e deve ser uma string preenchida.');
+      throw new BadRequestException(
+        'O campo text é obrigatório e deve ser uma string preenchida.',
+      );
     }
 
     const userId = req.user.userId;
@@ -35,7 +53,9 @@ export class CommentController {
   @Post(':id/like')
   async likeComment(@Param('id') id: string) {
     if (isNaN(+id)) {
-      throw new BadRequestException('id do comentário deve ser um número válido.');
+      throw new BadRequestException(
+        'id do comentário deve ser um número válido.',
+      );
     }
     return this.commentService.likeComment(+id);
   }
@@ -44,7 +64,9 @@ export class CommentController {
   @Delete(':id')
   async deleteComment(@Request() req, @Param('id') id: string) {
     if (isNaN(+id)) {
-      throw new BadRequestException('id do comentário deve ser um número válido.');
+      throw new BadRequestException(
+        'id do comentário deve ser um número válido.',
+      );
     }
     const userId = req.user.userId;
     return this.commentService.deleteComment(userId, +id);

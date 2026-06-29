@@ -15,14 +15,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: any) {
     const user = await this.userService.findOne(payload.sub);
-    
+
     if (!user) {
       throw new UnauthorizedException('Utilizador não encontrado.');
     }
     if (user.tokenVersion !== payload.tokenVersion) {
-      throw new UnauthorizedException('Sessão expirada. Por favor, inicia sessão novamente.');
+      throw new UnauthorizedException(
+        'Sessão expirada. Por favor, inicia sessão novamente.',
+      );
     }
 
-    return { userId: payload.sub, email: payload.email, tipoConta: user.tipoConta };
+    return {
+      userId: payload.sub,
+      email: payload.email,
+      tipoConta: user.tipoConta,
+    };
   }
 }

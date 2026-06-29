@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -79,13 +89,25 @@ export class UserController {
 
   @UseGuards(JwtAuthGuard)
   @Post('favorites')
-  setFavorite(@Request() req, @Body() favoriteData: { anilistMediaId: number; mediaType: 'ANIME' | 'MANGA'; rankPosition: number }) {
+  setFavorite(
+    @Request() req,
+    @Body()
+    favoriteData: {
+      anilistMediaId: number;
+      mediaType: 'ANIME' | 'MANGA';
+      rankPosition: number;
+    },
+  ) {
     return this.userService.setFavorite(req.user.userId, favoriteData);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete('favorites/:type/:rank')
-  removeFavorite(@Request() req, @Param('type') type: string, @Param('rank') rank: string) {
+  removeFavorite(
+    @Request() req,
+    @Param('type') type: string,
+    @Param('rank') rank: string,
+  ) {
     const mediaType = type.toUpperCase() as 'ANIME' | 'MANGA';
     return this.userService.removeFavorite(req.user.userId, mediaType, +rank);
   }
@@ -117,7 +139,10 @@ export class UserController {
 
   @UseGuards(JwtAuthGuard)
   @Post('achievements/unlock')
-  unlockAchievement(@Request() req, @Body('achievementId') achievementId: number) {
+  unlockAchievement(
+    @Request() req,
+    @Body('achievementId') achievementId: number,
+  ) {
     return this.userService.unlockAchievement(req.user.userId, +achievementId);
   }
 
@@ -141,10 +166,16 @@ export class UserController {
 
   @UseGuards(JwtAuthGuard, AdminGuard)
   @Patch('admin/users/:id/role')
-  updateUserRole(@Param('id') id: string, @Body('tipoConta') body: { tipoConta: string }) {
+  updateUserRole(
+    @Param('id') id: string,
+    @Body('tipoConta') body: { tipoConta: string },
+  ) {
     // Note: check if body is nested or raw request body. If the client sends { "tipoConta": "pro" }, NestJS can bind it.
     // Let's support both raw Body('tipoConta') or body.tipoConta to prevent runtime payload errors.
-    const roleValue = typeof body === 'object' && body !== null && 'tipoConta' in body ? (body as any).tipoConta : body;
+    const roleValue =
+      typeof body === 'object' && body !== null && 'tipoConta' in body
+        ? (body as any).tipoConta
+        : body;
     return this.userService.updateUserRole(+id, roleValue);
   }
 
@@ -172,9 +203,13 @@ export class UserController {
   generateGiftCode(
     @Body('durationDays') durationDays: number,
     @Body('customCode') customCode?: string,
-    @Body('expiresAt') expiresAt?: string
+    @Body('expiresAt') expiresAt?: string,
   ) {
-    return this.userService.generateGiftCode(+durationDays, customCode, expiresAt);
+    return this.userService.generateGiftCode(
+      +durationDays,
+      customCode,
+      expiresAt,
+    );
   }
 
   @UseGuards(JwtAuthGuard, AdminGuard)
@@ -191,14 +226,30 @@ export class UserController {
 
   @UseGuards(JwtAuthGuard, AdminGuard)
   @Post('admin/achievements')
-  createAchievement(@Body() data: { name: string; description: string; badgeImageUrl?: string; rarity?: string }) {
+  createAchievement(
+    @Body()
+    data: {
+      name: string;
+      description: string;
+      badgeImageUrl?: string;
+      rarity?: string;
+    },
+  ) {
     return this.userService.createAchievement(data);
   }
 
   @UseGuards(JwtAuthGuard, AdminGuard)
   @Patch('admin/achievements/:id')
-  updateAchievement(@Param('id') id: string, @Body() data: { name?: string; description?: string; badgeImageUrl?: string; rarity?: string }) {
+  updateAchievement(
+    @Param('id') id: string,
+    @Body()
+    data: {
+      name?: string;
+      description?: string;
+      badgeImageUrl?: string;
+      rarity?: string;
+    },
+  ) {
     return this.userService.updateAchievement(+id, data);
   }
 }
-

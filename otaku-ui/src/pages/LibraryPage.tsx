@@ -259,7 +259,7 @@ const LibraryPage = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-margin-mobile md:px-margin-desktop py-4 md:py-8">
-      <section id="biblioteca-section" className="space-y-6 md:space-y-8 relative z-30">
+      <section id="biblioteca-section" className={`space-y-6 md:space-y-8 relative ${pickerOpen ? 'z-[130]' : 'z-30'}`}>
         <div className="flex flex-col space-y-6 border-b border-white/10 pb-6">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 sm:gap-4 min-w-0">

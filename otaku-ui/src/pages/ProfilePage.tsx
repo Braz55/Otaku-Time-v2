@@ -177,7 +177,7 @@ const ProfilePage = () => {
           }
 
           ctx.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
           resolve(dataUrl);
         };
         img.onerror = (err) => reject(err);
@@ -197,11 +197,11 @@ const ProfilePage = () => {
 
     try {
       if (target === 'avatar') {
-        const compressed = await compressImage(file, 150, 150);
+        const compressed = await compressImage(file, 300, 300);
         setEditIconUrl(compressed);
         showToast('Foto de perfil carregada e comprimida!', 'success');
       } else {
-        const compressed = await compressImage(file, 800, 300);
+        const compressed = await compressImage(file, 1200, 450);
         setEditBannerUrl(compressed);
         showToast('Banner carregado e comprimido!', 'success');
       }

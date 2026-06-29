@@ -130,7 +130,7 @@ const GenreTagPicker = ({
 
             <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
               {/* Sidebar: Categories */}
-              <div className="flex flex-row md:flex-col gap-1.5 p-3 md:p-4 border-b md:border-b-0 md:border-r border-border-glass bg-surface-container-low/20 overflow-x-auto md:overflow-x-visible md:overflow-y-auto md:w-60 flex-shrink-0 no-scrollbar">
+              <div className="flex flex-row md:flex-col gap-1.5 p-3 pr-8 md:p-4 border-b md:border-b-0 md:border-r border-border-glass bg-surface-container-low/20 overflow-x-auto md:overflow-x-visible md:overflow-y-auto md:w-60 flex-shrink-0 no-scrollbar">
                 {categories.map(cat => {
                   const isSelected = currentActive === cat;
                   const count = getSelectedCount(cat);
@@ -140,7 +140,7 @@ const GenreTagPicker = ({
                     <button
                       key={cat}
                       onClick={() => setActiveCategory(cat)}
-                      className={`flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap md:w-full md:text-left border active:scale-95 ${
+                      className={`flex-shrink-0 flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap md:w-full md:text-left border active:scale-95 ${
                         isSelected
                           ? 'bg-primary border-primary text-on-primary shadow-sm shadow-primary/25'
                           : 'bg-surface-container border-border-glass text-on-surface-variant hover:bg-surface-container-high hover:text-white'

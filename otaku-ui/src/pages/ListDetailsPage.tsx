@@ -34,6 +34,7 @@ const ListDetailsPage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
+  const [showCoverSelector, setShowCoverSelector] = useState(false);
 
   // Library & Search States
   const [libraryItems, setLibraryItems] = useState<any[]>([]);
@@ -232,7 +233,7 @@ const ListDetailsPage = () => {
           }
 
           ctx.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
           resolve(dataUrl);
         };
         img.onerror = (err) => reject(err);
@@ -251,7 +252,7 @@ const ListDetailsPage = () => {
     }
 
     try {
-      const compressed = await compressImage(file, 800, 450);
+      const compressed = await compressImage(file, 1200, 675);
       setForm(prev => ({ ...prev, coverUrl: compressed }));
       showToast('Capa carregada e comprimida!', 'success');
     } catch (err) {
@@ -424,7 +425,7 @@ const ListDetailsPage = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-margin-mobile md:px-margin-desktop py-6 md:py-10 space-y-8">
+    <div className="max-w-7xl mx-auto px-margin-mobile md:px-margin-desktop py-4 md:py-8 space-y-4 md:space-y-8">
       <div className="flex justify-between items-center gap-4">
         <button onClick={handleBackClick} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-on-surface-variant hover:text-white transition-colors">
           <ArrowLeft className="w-4 h-4" />
@@ -443,7 +444,7 @@ const ListDetailsPage = () => {
         </button>
       </div>
 
-      <section className="relative min-h-[280px] rounded-2xl overflow-hidden border border-white/10 bg-surface-container">
+      <section className="relative min-h-[160px] sm:min-h-[240px] md:min-h-[280px] rounded-2xl overflow-hidden border border-white/10 bg-surface-container shadow-lg">
         {form.coverUrl ? (
           <img 
             src={form.coverUrl} 
@@ -455,16 +456,16 @@ const ListDetailsPage = () => {
           <div className="absolute inset-0 bg-gradient-to-br from-primary/40 via-secondary/30 to-emerald-500/30" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/65 to-black/20" />
-        <div className="relative z-10 p-6 md:p-10 min-h-[280px] flex flex-col justify-end">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="px-3 py-1 rounded-full bg-black/50 text-white text-xs font-bold flex items-center gap-1">
+        <div className="relative z-10 p-5 md:p-10 min-h-[160px] sm:min-h-[240px] md:min-h-[280px] flex flex-col justify-end">
+          <div className="flex items-center gap-2 mb-2 sm:mb-4">
+            <span className="px-3 py-1 rounded-full bg-black/50 text-white text-[10px] sm:text-xs font-bold flex items-center gap-1">
               {list.isPublic ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
               {list.isPublic ? 'Pública' : 'Privada'}
             </span>
-            <span className="px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold">{list.items.length} itens</span>
+            <span className="px-3 py-1 rounded-full bg-primary/20 text-primary text-[10px] sm:text-xs font-bold">{list.items.length} itens</span>
           </div>
-          <h2 className="font-display-lg text-4xl md:text-6xl font-black text-white tracking-tight">{list.name}</h2>
-          <p className="text-on-surface-variant max-w-3xl mt-3">{list.description || 'Sem descrição.'}</p>
+          <h2 className="font-display-lg text-2xl sm:text-4xl md:text-6xl font-black text-white tracking-tight leading-tight">{list.name}</h2>
+          <p className="text-on-surface-variant text-xs sm:text-base max-w-3xl mt-2 sm:mt-3 line-clamp-2 sm:line-clamp-none">{list.description || 'Sem descrição.'}</p>
         </div>
       </section>
 
@@ -500,14 +501,54 @@ const ListDetailsPage = () => {
                 <span>Importar</span>
               </button>
             </div>
-            {form.coverUrl && (
-              <button
-                type="button"
-                onClick={() => setForm(prev => ({ ...prev, coverUrl: '', coverPosition: 50 }))}
-                className="w-full py-1 text-center text-[10px] text-red-400 font-bold hover:text-red-300 transition-colors cursor-pointer"
-              >
-                Remover Capa
-              </button>
+            <div className="flex gap-2 justify-center mt-1">
+              {form.coverUrl && (
+                <button
+                  type="button"
+                  onClick={() => setForm(prev => ({ ...prev, coverUrl: '', coverPosition: 50 }))}
+                  className="text-[10px] text-red-400 font-bold hover:text-red-300 transition-colors cursor-pointer"
+                >
+                  Remover Capa
+                </button>
+              )}
+              {form.coverUrl && list.items.length > 0 && <span className="text-[10px] text-white/20">|</span>}
+              {list.items.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowCoverSelector(!showCoverSelector)}
+                  className="text-[10px] text-primary-light font-bold hover:text-primary transition-colors cursor-pointer"
+                >
+                  Usar Capa de um Item
+                </button>
+              )}
+            </div>
+
+            {showCoverSelector && list.items.length > 0 && (
+              <div className="p-3 bg-black/30 border border-white/10 rounded-xl space-y-2 max-h-[160px] overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-1 duration-150">
+                <p className="text-[10px] text-on-surface-variant font-bold">Seleciona um item para usar como capa:</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {list.items.map((item) => {
+                    const media = item.mediaType === 'ANIME' ? item.anime : item.manga;
+                    const capa = media?.capaUrl;
+                    if (!capa) return null;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          setForm(prev => ({ ...prev, coverUrl: capa }));
+                          setShowCoverSelector(false);
+                          showToast("Capa da lista atualizada com a imagem do item!", "success");
+                        }}
+                        className="relative aspect-[2/3] rounded-lg overflow-hidden border border-white/5 hover:border-primary transition-all group cursor-pointer"
+                        title={media?.titulo}
+                      >
+                        <img src={capa} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
 

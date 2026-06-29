@@ -92,7 +92,7 @@ const ListsPage = () => {
           }
 
           ctx.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
           resolve(dataUrl);
         };
         img.onerror = (err) => reject(err);
@@ -111,7 +111,7 @@ const ListsPage = () => {
     }
 
     try {
-      const compressed = await compressImage(file, 800, 450);
+      const compressed = await compressImage(file, 1200, 675);
       setForm(prev => ({ ...prev, coverUrl: compressed }));
       showToast('Capa carregada e comprimida!', 'success');
     } catch (err) {

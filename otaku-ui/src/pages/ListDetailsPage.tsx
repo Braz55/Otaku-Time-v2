@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowDown, ArrowLeft, ArrowUp, Eye, EyeOff, Loader2, Save, Trash2, Upload, GripVertical, Search, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Eye, EyeOff, Loader2, Save, Trash2, Upload, GripVertical, Search, X, Edit } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
 import { useAuth } from '../context/AuthContext';
@@ -33,6 +33,7 @@ const ListDetailsPage = () => {
   const [list, setList] = useState<CustomList | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
 
   // Library & Search States
   const [libraryItems, setLibraryItems] = useState<any[]>([]);
@@ -424,10 +425,23 @@ const ListDetailsPage = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-margin-mobile md:px-margin-desktop py-6 md:py-10 space-y-8">
-      <button onClick={handleBackClick} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-on-surface-variant hover:text-white transition-colors">
-        <ArrowLeft className="w-4 h-4" />
-        Listas
-      </button>
+      <div className="flex justify-between items-center gap-4">
+        <button onClick={handleBackClick} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-on-surface-variant hover:text-white transition-colors">
+          <ArrowLeft className="w-4 h-4" />
+          Listas
+        </button>
+        <button 
+          onClick={() => setShowEditForm(!showEditForm)} 
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all active:scale-95 font-bold text-xs ${
+            showEditForm 
+              ? 'bg-primary/20 border-primary text-primary hover:bg-primary/30' 
+              : 'bg-white/5 border-white/10 text-on-surface-variant hover:text-white hover:bg-white/10'
+          }`}
+        >
+          <Edit className="w-3.5 h-3.5" />
+          <span>{showEditForm ? 'Fechar Edição' : 'Editar Lista'}</span>
+        </button>
+      </div>
 
       <section className="relative min-h-[280px] rounded-2xl overflow-hidden border border-white/10 bg-surface-container">
         {form.coverUrl ? (
@@ -454,10 +468,11 @@ const ListDetailsPage = () => {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-6 items-start">
+      <section className={`grid grid-cols-1 ${showEditForm ? 'xl:grid-cols-[380px_1fr]' : 'xl:grid-cols-1'} gap-6 items-start`}>
         {/* Sidebar form */}
-        <div className="bg-surface-container border border-white/10 rounded-2xl p-5 space-y-4 shadow-lg">
-          <h3 className="text-white font-black">Editar lista</h3>
+        {showEditForm && (
+          <div className="bg-surface-container border border-white/10 rounded-2xl p-5 space-y-4 shadow-lg animate-in fade-in slide-in-from-left duration-300">
+            <h3 className="text-white font-black">Editar lista</h3>
           <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-primary" />
           <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={3} className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-primary resize-none" />
           
@@ -544,6 +559,7 @@ const ListDetailsPage = () => {
             Eliminar lista
           </button>
         </div>
+        )}
 
         {/* Content list & search */}
         <div className="space-y-6">
@@ -620,45 +636,63 @@ const ListDetailsPage = () => {
               return (
                 <div 
                   key={item.id} 
-                  draggable
+                  draggable={showEditForm}
                   onDragStart={(e) => {
+                    if (!showEditForm) {
+                      e.preventDefault();
+                      return;
+                    }
                     e.dataTransfer.setData('text/plain', String(index));
                     setDraggedIndex(index);
                   }}
                   onDragEnd={() => setDraggedIndex(null)}
-                  onDragOver={(e) => e.preventDefault()}
+                  onDragOver={(e) => {
+                    if (!showEditForm) return;
+                    e.preventDefault();
+                  }}
                   onDrop={(e) => {
+                    if (!showEditForm) return;
                     const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
                     if (fromIndex !== index) {
                       moveItemToPosition(fromIndex, index);
                     }
                   }}
-                  className={`grid grid-cols-[auto_56px_1fr_auto] sm:grid-cols-[auto_72px_1fr_auto] gap-3 sm:gap-4 items-center bg-surface-container border border-white/10 rounded-2xl p-3 transition-all ${
+                  className={`grid ${
+                    showEditForm 
+                      ? 'grid-cols-[auto_56px_1fr_auto] sm:grid-cols-[auto_72px_1fr_auto]' 
+                      : 'grid-cols-[56px_1fr_auto] sm:grid-cols-[72px_1fr_auto]'
+                  } gap-3 sm:gap-4 items-center bg-surface-container border border-white/10 rounded-2xl p-3 transition-all ${
                     isBeingDragged ? 'opacity-40 border-dashed border-primary/50 scale-[0.98]' : 'hover:border-white/20'
                   }`}
                 >
                   {/* Drag Handle Icon */}
-                  <div className="text-on-surface-variant/40 hover:text-white cursor-grab active:cursor-grabbing p-1 select-none flex items-center justify-center">
-                    <GripVertical className="w-4 h-4" />
-                  </div>
+                  {showEditForm && (
+                    <div className="text-on-surface-variant/40 hover:text-white cursor-grab active:cursor-grabbing p-1 select-none flex items-center justify-center">
+                      <GripVertical className="w-4 h-4" />
+                    </div>
+                  )}
 
-                  <Link to={`/details/${mediaTypePath}/${item.anilistMediaId}`} onClick={(e) => handleLinkClick(e, `/details/${mediaTypePath}/${item.anilistMediaId}`)} className="aspect-[3/4] rounded-xl overflow-hidden bg-white/5 flex-shrink-0">
+                  <Link to={`/details/${mediaTypePath}/${item.anilistMediaId}?external=true`} onClick={(e) => handleLinkClick(e, `/details/${mediaTypePath}/${item.anilistMediaId}?external=true`)} className="aspect-[3/4] rounded-xl overflow-hidden bg-white/5 flex-shrink-0">
                     {media?.capaUrl ? <img src={media.capaUrl} alt={media?.titulo} className="w-full h-full object-cover" /> : null}
                   </Link>
 
                   <div className="min-w-0">
                     <p className="text-primary text-xs font-black">#{index + 1} · {item.mediaType}</p>
-                    <Link to={`/details/${mediaTypePath}/${item.anilistMediaId}`} onClick={(e) => handleLinkClick(e, `/details/${mediaTypePath}/${item.anilistMediaId}`)} className="text-white font-black text-base sm:text-lg truncate block hover:text-primary transition-colors">{media?.titulo || `Media ${item.anilistMediaId}`}</Link>
+                    <Link to={`/details/${mediaTypePath}/${item.anilistMediaId}?external=true`} onClick={(e) => handleLinkClick(e, `/details/${mediaTypePath}/${item.anilistMediaId}?external=true`)} className="text-white font-black text-base sm:text-lg truncate block hover:text-primary transition-colors">{media?.titulo || `Media ${item.anilistMediaId}`}</Link>
                     <p className="text-on-surface-variant text-xs line-clamp-2 mt-0.5">{media?.descricao || 'Sem descrição.'}</p>
                   </div>
 
                   <div className="flex items-center gap-1">
-                    <button onClick={() => moveItem(index, -1)} disabled={index === 0} className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 text-white disabled:opacity-30 flex items-center justify-center active:scale-95 transition-transform">
-                      <ArrowUp className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => moveItem(index, 1)} disabled={index === list.items.length - 1} className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 text-white disabled:opacity-30 flex items-center justify-center active:scale-95 transition-transform">
-                      <ArrowDown className="w-4 h-4" />
-                    </button>
+                    {showEditForm && (
+                      <>
+                        <button onClick={() => moveItem(index, -1)} disabled={index === 0} className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 text-white disabled:opacity-30 flex items-center justify-center active:scale-95 transition-transform">
+                          <ArrowUp className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => moveItem(index, 1)} disabled={index === list.items.length - 1} className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 text-white disabled:opacity-30 flex items-center justify-center active:scale-95 transition-transform">
+                          <ArrowDown className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
                     <button onClick={() => removeItem(item)} className="w-9 h-9 rounded-xl bg-error/10 border border-error/20 text-error flex items-center justify-center active:scale-95 transition-transform">
                       <Trash2 className="w-4 h-4" />
                     </button>

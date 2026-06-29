@@ -172,6 +172,12 @@ const DetailsPage = () => {
   const [lists, setLists] = useState<any[]>([]);
   const [loadingLists, setLoadingLists] = useState(false);
 
+  // States for list removal confirmation when deleting from library
+  const [showListRemovalConfirm, setShowListRemovalConfirm] = useState(false);
+  const [listsWithMedia, setListsWithMedia] = useState<any[]>([]);
+  const [isCheckingLists, setIsCheckingLists] = useState(false);
+  const [isDeletingFromLists, setIsDeletingFromLists] = useState(false);
+
   const handleOpenListsModal = async () => {
     setShowListsModal(true);
     setLoadingLists(true);
@@ -557,6 +563,67 @@ const DetailsPage = () => {
       console.error("Erro ao remover:", error);
       showToast('Erro ao remover da biblioteca.', 'error');
     }
+  };
+
+  const handleRemoveFromLibraryClick = async () => {
+    if (!mediaType || !selectedItem) return;
+    setIsCheckingLists(true);
+    try {
+      const currentAnilistId = getMediaId();
+      const currentMediaType = mediaType.toUpperCase();
+      
+      const res = await customFetch(`${API_BASE_URL}/lists`, { headers: getHeaders() });
+      if (res.ok) {
+        const userLists = await res.json();
+        const containingLists = userLists.filter((list: any) =>
+          list.items?.some((i: any) => i.anilistMediaId === currentAnilistId && i.mediaType === currentMediaType)
+        );
+        
+        if (containingLists.length > 0) {
+          setListsWithMedia(containingLists);
+          setShowListRemovalConfirm(true);
+          setIsCheckingLists(false);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error("Error checking lists before deletion:", err);
+    } finally {
+      setIsCheckingLists(false);
+    }
+    
+    // If not in any list, just remove from library directly
+    await removerDaLista(selectedItem.dbId || selectedItem.id);
+  };
+
+  const handleRemoveFromEverything = async () => {
+    if (!mediaType || !selectedItem) return;
+    setIsDeletingFromLists(true);
+    const currentAnilistId = getMediaId();
+    const currentMediaType = mediaType.toUpperCase();
+    
+    try {
+      // Remove from all containing lists
+      await Promise.all(listsWithMedia.map(list =>
+        customFetch(`${API_BASE_URL}/lists/${list.id}/items/${currentMediaType}/${currentAnilistId}`, {
+          method: 'DELETE',
+          headers: getHeaders(),
+        })
+      ));
+    } catch (err) {
+      console.error("Erro ao remover das listas:", err);
+      showToast("Ocorreu um erro ao remover de algumas listas.", "warning");
+    } finally {
+      setIsDeletingFromLists(false);
+      setShowListRemovalConfirm(false);
+      // Finally, remove from library
+      await removerDaLista(selectedItem.dbId || selectedItem.id);
+    }
+  };
+
+  const handleRemoveFromLibraryOnly = async () => {
+    setShowListRemovalConfirm(false);
+    await removerDaLista(selectedItem.dbId || selectedItem.id);
   };
 
   const atualizarCampo = async (campo: string, valor: any) => {
@@ -1099,10 +1166,19 @@ const DetailsPage = () => {
                           Remove <span className="text-white font-bold">{selectedItem.titulo}</span> from library?
                         </p>
                         <div className="flex gap-2 pt-1">
-                          <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-2 bg-surface-variant text-on-surface-variant rounded-xl font-bold text-xs border border-white/10">
+                          <button 
+                            onClick={() => setShowDeleteConfirm(false)} 
+                            disabled={isCheckingLists}
+                            className="flex-1 py-2 bg-surface-variant text-on-surface-variant rounded-xl font-bold text-xs border border-white/10 disabled:opacity-50"
+                          >
                             Cancel
                           </button>
-                          <button onClick={() => removerDaLista(selectedItem.id)} className="flex-1 py-2 bg-error text-on-error rounded-xl font-bold text-xs shadow-md">
+                          <button 
+                            onClick={handleRemoveFromLibraryClick} 
+                            disabled={isCheckingLists}
+                            className="flex-1 py-2 bg-error text-on-error rounded-xl font-bold text-xs shadow-md disabled:opacity-50 flex items-center justify-center gap-1.5"
+                          >
+                            {isCheckingLists && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                             Yes, Remove
                           </button>
                         </div>
@@ -1495,10 +1571,19 @@ const DetailsPage = () => {
                               Are you sure you want to remove <span className="text-white font-bold">{selectedItem.titulo}</span> from your library?
                             </p>
                             <div className="flex gap-3 pt-2">
-                              <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-3 bg-surface-variant hover:bg-surface-variant/80 text-on-surface-variant hover:text-white rounded-xl font-bold text-xs transition-all border border-white/10">
+                              <button 
+                                onClick={() => setShowDeleteConfirm(false)} 
+                                disabled={isCheckingLists}
+                                className="flex-1 py-3 bg-surface-variant hover:bg-surface-variant/80 text-on-surface-variant hover:text-white rounded-xl font-bold text-xs transition-all border border-white/10 disabled:opacity-50"
+                              >
                                 Cancel
                               </button>
-                              <button onClick={() => removerDaLista(selectedItem.id)} className="flex-1 py-3 bg-error hover:bg-error/80 text-on-error rounded-xl font-bold text-xs transition-all shadow-[0_0_20px_rgba(239,68,68,0.4)]">
+                              <button 
+                                onClick={handleRemoveFromLibraryClick} 
+                                disabled={isCheckingLists}
+                                className="flex-1 py-3 bg-error hover:bg-error/80 text-on-error rounded-xl font-bold text-xs transition-all shadow-[0_0_20px_rgba(239,68,68,0.4)] disabled:opacity-50 flex items-center justify-center gap-2"
+                              >
+                                {isCheckingLists && <Loader2 className="w-4 h-4 animate-spin" />}
                                 Yes, Remove
                               </button>
                             </div>
@@ -1863,6 +1948,68 @@ const DetailsPage = () => {
                 Erro ao obter dados do utilizador.
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {showListRemovalConfirm && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="relative w-full max-w-md bg-surface-container rounded-[24px] border border-white/10 shadow-2xl p-6 overflow-hidden animate-slide-up flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display-md text-lg font-extrabold text-white flex items-center gap-2">
+                <span className="material-symbols-outlined text-error">warning</span>
+                Remover das Listas?
+              </h3>
+              <button 
+                onClick={() => setShowListRemovalConfirm(false)}
+                disabled={isDeletingFromLists}
+                className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-on-surface-variant hover:text-white transition-all animate-none flex items-center justify-center disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <p className="text-sm text-on-surface-variant mb-4 leading-relaxed">
+              Este conteúdo está presente em <span className="text-white font-bold">{listsWithMedia.length}</span> {listsWithMedia.length === 1 ? 'lista personalizada' : 'listas personalizadas'}:
+            </p>
+
+            <div className="bg-white/5 border border-white/10 rounded-xl p-3 mb-5 max-h-[120px] overflow-y-auto space-y-1.5 custom-scrollbar">
+              {listsWithMedia.map(list => (
+                <div key={list.id} className="flex items-center gap-2 text-xs text-white">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0"></span>
+                  <span className="font-semibold truncate">{list.name}</span>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-xs text-on-surface-variant/80 mb-6">
+              Desejas remover este conteúdo também destas listas personalizadas ao removê-lo da biblioteca?
+            </p>
+
+            <div className="space-y-2">
+              <button
+                onClick={handleRemoveFromEverything}
+                disabled={isDeletingFromLists}
+                className="w-full bg-error text-on-error py-3 rounded-xl font-bold text-xs transition-all active:scale-95 shadow-md flex items-center justify-center gap-2 disabled:opacity-50 hover:bg-error/85 animate-none"
+              >
+                {isDeletingFromLists && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Sim, remover de tudo
+              </button>
+              <button
+                onClick={handleRemoveFromLibraryOnly}
+                disabled={isDeletingFromLists}
+                className="w-full bg-surface-variant hover:bg-surface-variant/80 border border-white/10 text-white py-3 rounded-xl font-bold text-xs transition-all active:scale-95 disabled:opacity-50 animate-none"
+              >
+                Não, manter nas listas
+              </button>
+              <button
+                onClick={() => setShowListRemovalConfirm(false)}
+                disabled={isDeletingFromLists}
+                className="w-full bg-transparent hover:bg-white/5 text-on-surface-variant hover:text-white py-2 rounded-xl font-bold text-xs transition-all disabled:opacity-50 animate-none"
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}

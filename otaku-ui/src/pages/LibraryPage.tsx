@@ -293,6 +293,14 @@ const LibraryPage = () => {
             
             <div className="flex items-center gap-2 flex-shrink-0">
               <button 
+                onClick={() => navigate('/lists')}
+                className="flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs text-white bg-white/5 border border-white/10 hover:bg-white/10 transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap"
+                title="Gerir Listas Personalizadas"
+              >
+                <span className="material-symbols-outlined text-sm">format_list_bulleted</span> 
+                <span>{t("Listas")}</span>
+              </button>
+              <button 
                 onClick={sorteioAleatorioBiblioteca}
                 className={`flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs text-white transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap ${
                   categoria === 'anime' 
@@ -334,7 +342,7 @@ const LibraryPage = () => {
             ))}
           </div>
 
-          <div className="flex gap-2 w-full sm:w-auto justify-between sm:justify-start">
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-between sm:justify-start">
             <div className="relative flex-1 sm:flex-initial">
               <button
                 onClick={() => { setShowLancamentoMenu(!showLancamentoMenu); setShowOrdemMenu(false); }}

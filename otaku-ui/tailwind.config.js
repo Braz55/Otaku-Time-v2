@@ -7,6 +7,9 @@ export default {
   ],
   theme: {
     extend: {
+      screens: {
+        xs: "400px",
+      },
       colors: {
         "surface-tint": "#ddb8ff",
         "surface-container-low": "var(--surface-container-low)",

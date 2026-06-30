@@ -140,6 +140,9 @@ const DetailsPage = () => {
   const [loading, setLoading] = useState(true);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [reloadTrigger, setReloadTrigger] = useState(0);
+  const [showSourcesSelector, setShowSourcesSelector] = useState(false);
+  const [sourcesToSelect, setSourcesToSelect] = useState<any[]>([]);
 
   const [latestChapter, setLatestChapter] = useState<number | null>(null);
   const [latestChapterSource, setLatestChapterSource] = useState<string>('MangaDex');
@@ -343,7 +346,26 @@ const DetailsPage = () => {
     return () => {
       setIsViewingDetails(false);
     };
-  }, [mediaType, id, isExternalParam]);
+  }, [mediaType, id, isExternalParam, reloadTrigger]);
+
+  useEffect(() => {
+    const handleReload = () => {
+      setReloadTrigger(prev => prev + 1);
+    };
+    window.addEventListener('reload-details-links', handleReload);
+    return () => {
+      window.removeEventListener('reload-details-links', handleReload);
+    };
+  }, []);
+
+  const handleGoToTabClick = (links: any[]) => {
+    if (links.length === 1) {
+      abrirLink(links[0].url, links[0].site);
+    } else {
+      setSourcesToSelect(links);
+      setShowSourcesSelector(true);
+    }
+  };
 
   const carregarCapituloMaisRecente = async (anilistId: number) => {
     if (mediaType !== 'manga') return;
@@ -716,11 +738,33 @@ const DetailsPage = () => {
       try {
         const paletteName = getCurrentPalette();
         const colors = PALETTES[paletteName] || PALETTES.default;
+
+        // Carregar itens da biblioteca para passar ao Android nativo
+        let itemsListJson = "[]";
+        try {
+          const [animesRes, mangasRes] = await Promise.all([
+            customFetch(`${API_BASE_URL}/anime`, { headers: getHeaders() }),
+            customFetch(`${API_BASE_URL}/manga`, { headers: getHeaders() })
+          ]);
+          const animes = animesRes.ok ? await animesRes.json() : [];
+          const mangas = mangasRes.ok ? await mangasRes.json() : [];
+          
+          const items = [
+            ...animes.map((a: any) => ({ id: a.id, titulo: a.anime?.titulo || a.titulo || '', tipo: 'anime' })),
+            ...mangas.map((m: any) => ({ id: m.id, titulo: m.manga?.titulo || m.titulo || '', tipo: 'manga' }))
+          ];
+          itemsListJson = JSON.stringify(items);
+        } catch (e) {
+          console.error("Error loading library items for browser:", e);
+        }
+
         await MangaWebView.open({
           url,
           title,
           primaryColor: colors.primary,
-          secondaryColor: colors.secondary
+          secondaryColor: colors.secondary,
+          userId: user?.id || 'guest',
+          libraryItems: itemsListJson
         });
       } catch (e) {
         console.error("Failed to open MangaWebView", e);
@@ -1154,6 +1198,20 @@ const DetailsPage = () => {
                         {formatLastModified(selectedItem)}
                       </p>
                     </div>
+
+                    {(() => {
+                      const linksPessoais = selectedItem?.linksPersonalizados ? JSON.parse(selectedItem.linksPersonalizados) : [];
+                      if (linksPessoais.length === 0) return null;
+                      return (
+                        <button 
+                          onClick={() => handleGoToTabClick(linksPessoais)}
+                          className={`w-full ${mediaType === 'anime' ? 'bg-primary hover:bg-primary-light text-on-primary shadow-lg shadow-primary/20' : 'bg-secondary hover:bg-secondary-light text-on-secondary shadow-lg shadow-secondary/20'} py-3 rounded-xl font-extrabold transition-all flex items-center justify-center gap-2 text-xs active:scale-95 mb-2`}
+                        >
+                          <span className="material-symbols-outlined text-sm">open_in_new</span>
+                          {mediaType === 'anime' ? 'ASSISTIR NO SEPARADOR' : 'LER NO SEPARADOR'}
+                        </button>
+                      );
+                    })()}
 
                     <button 
                       onClick={handleOpenListsModal}
@@ -1598,6 +1656,20 @@ const DetailsPage = () => {
                           </div>
                         ) : (
                           <>
+                            {(() => {
+                              const linksPessoais = selectedItem?.linksPersonalizados ? JSON.parse(selectedItem.linksPersonalizados) : [];
+                              if (linksPessoais.length === 0) return null;
+                              return (
+                                <button 
+                                  onClick={() => handleGoToTabClick(linksPessoais)}
+                                  className={`w-full ${mediaType === 'anime' ? 'bg-primary hover:bg-primary-light text-on-primary shadow-lg shadow-primary/20' : 'bg-secondary hover:bg-secondary-light text-on-secondary shadow-lg shadow-secondary/20'} py-4 rounded-2xl font-black transition-all flex items-center justify-center gap-3 text-sm mt-4 active:scale-95`}
+                                >
+                                  <span className="material-symbols-outlined text-[20px]">open_in_new</span>
+                                  {mediaType === 'anime' ? 'ASSISTIR NO SEPARADOR' : 'LER NO SEPARADOR'}
+                                </button>
+                              );
+                            })()}
+
                             <button 
                               onClick={handleOpenListsModal}
                               className="w-full bg-surface-variant/30 hover:bg-surface-variant/50 border border-white/10 text-white py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 text-sm mt-4 active:scale-95 shadow-sm"
@@ -2017,6 +2089,35 @@ const DetailsPage = () => {
               >
                 Cancelar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showSourcesSelector && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="bg-surface-container border border-white/10 rounded-[28px] w-full max-w-sm p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-display-md text-sm font-extrabold text-white">
+                {mediaType === 'anime' ? 'Escolhe a Fonte de Vídeo' : 'Escolhe a Fonte de Leitura'}
+              </h3>
+              <button onClick={() => setShowSourcesSelector(false)} className="text-on-surface-variant hover:text-white p-1 rounded-full hover:bg-white/5 transition-all">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {sourcesToSelect.map((source, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    abrirLink(source.url, source.site);
+                    setShowSourcesSelector(false);
+                  }}
+                  className={`w-full py-3.5 px-4 rounded-2xl text-left font-bold text-xs bg-white/5 hover:bg-white/10 border border-white/5 text-white transition-all flex items-center justify-between group active:scale-[0.98]`}
+                >
+                  <span>{source.site}</span>
+                  <span className="material-symbols-outlined text-sm text-on-surface-variant group-hover:text-white transition-all">arrow_forward_ios</span>
+                </button>
+              ))}
             </div>
           </div>
         </div>

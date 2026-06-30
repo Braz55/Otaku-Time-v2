@@ -6,6 +6,8 @@ import Header from './Header';
 import { useTranslation } from '../hooks/useTranslation';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { PALETTES, getCurrentPalette } from '../services/paletteService';
+import { API_BASE_URL } from '../config';
+import { customFetch } from '../services/apiBridge';
 
 const MangaWebView = registerPlugin<any>('MangaWebView');
 
@@ -15,7 +17,7 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { setIsShowingFavorites, isSearchOpen, setIsSearchOpen, triggerHome } = useMedia();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -25,14 +27,96 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const isAndroid = Capacitor.getPlatform() === 'android';
 
+  React.useEffect(() => {
+    if (!isAndroid) return;
+    
+    // Escutar evento de associação em segundo plano
+    const associationListener = MangaWebView.addListener('onAssociateBookmark', async (data: {
+      url: string;
+      title: string;
+      itemId: number;
+      itemType: string;
+      itemTitle: string;
+    }) => {
+      try {
+        const getUrl = `${API_BASE_URL}/${data.itemType}/${data.itemId}`;
+        const getRes = await customFetch(getUrl, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!getRes.ok) return;
+        const item = await getRes.json();
+        
+        const currentLinks = item.linksPersonalizados ? JSON.parse(item.linksPersonalizados) : [];
+        let domainName = data.title || 'Favorito';
+        try {
+          const urlObj = new URL(data.url);
+          domainName = urlObj.hostname;
+          if (domainName.startsWith('www.')) {
+            domainName = domainName.substring(4);
+          }
+        } catch (e) {}
+
+        if (!currentLinks.some((l: any) => l.url === data.url)) {
+          currentLinks.push({
+            site: domainName,
+            url: data.url,
+            language: 'PT',
+            type: 'Custom'
+          });
+        }
+
+        const jsonStr = JSON.stringify(currentLinks);
+        
+        await customFetch(getUrl, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ linksPersonalizados: jsonStr })
+        });
+        
+        window.dispatchEvent(new CustomEvent('reload-details-links'));
+      } catch (e) {
+        console.error("Error in background bookmark association:", e);
+      }
+    });
+
+    return () => {
+      associationListener.then((l: any) => l.remove());
+    };
+  }, [isAndroid, token]);
+
   const openBrowser = async () => {
     try {
       const paletteName = getCurrentPalette();
       const colors = PALETTES[paletteName] || PALETTES.default;
+      
+      // Carregar itens da biblioteca para passar ao Android nativo
+      let itemsListJson = "[]";
+      try {
+        const [animesRes, mangasRes] = await Promise.all([
+          customFetch(`${API_BASE_URL}/anime`, { headers: { 'Authorization': `Bearer ${token}` } }),
+          customFetch(`${API_BASE_URL}/manga`, { headers: { 'Authorization': `Bearer ${token}` } })
+        ]);
+        const animes = animesRes.ok ? await animesRes.json() : [];
+        const mangas = mangasRes.ok ? await mangasRes.json() : [];
+        
+        const items = [
+          ...animes.map((a: any) => ({ id: a.id, titulo: a.anime?.titulo || a.titulo || '', tipo: 'anime' })),
+          ...mangas.map((m: any) => ({ id: m.id, titulo: m.manga?.titulo || m.titulo || '', tipo: 'manga' }))
+        ];
+        itemsListJson = JSON.stringify(items);
+      } catch (e) {
+        console.error("Error loading library items:", e);
+      }
+
       await MangaWebView.open({
         url: '',
         primaryColor: colors.primary,
-        secondaryColor: colors.secondary
+        secondaryColor: colors.secondary,
+        userId: user?.id || 'guest',
+        libraryItems: itemsListJson
       });
     } catch (e) {
       console.error('Error opening browser:', e);
@@ -369,10 +453,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {isAndroid && (
         <button
           onClick={openBrowser}
-          className="fixed bottom-20 right-4 z-[99] w-14 h-14 rounded-full bg-primary hover:bg-primary-light text-on-primary shadow-2xl flex items-center justify-center active:scale-95 transition-transform border border-white/10"
+          className="fixed bottom-20 right-4 z-[99] w-10 h-10 rounded-full bg-primary hover:bg-primary-light text-on-primary shadow-2xl flex items-center justify-center active:scale-95 transition-transform border border-white/10"
           aria-label="Navegador Web"
         >
-          <span className="material-symbols-outlined text-2xl font-bold">travel_explore</span>
+          <span className="material-symbols-outlined text-lg font-bold">travel_explore</span>
         </button>
       )}
 

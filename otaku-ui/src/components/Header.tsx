@@ -256,7 +256,7 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboar
                   </button>
                   <h1 
                     onClick={onShowDashboard}
-                    className="font-display-md text-base sm:text-lg font-extrabold text-primary tracking-tight cursor-pointer truncate flex-shrink-0"
+                    className="hidden sm:block font-display-md text-base sm:text-lg font-extrabold text-primary tracking-tight cursor-pointer truncate flex-shrink-0"
                   >
                     Otaku-Time
                   </h1>

@@ -1,11 +1,15 @@
 package com.otakutime.app;
 
 import android.app.Dialog;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -39,6 +43,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Collections;
+import java.util.Comparator;
 
 @CapacitorPlugin(name = "MangaWebView")
 public class MangaWebViewPlugin extends Plugin {
@@ -50,23 +56,28 @@ public class MangaWebViewPlugin extends Plugin {
     private TextView tabCountBtn;
     private TextView favBtn;
     private EditText addressBar;
+    private android.widget.ProgressBar progressBar;
 
     private final List<WebTab> tabs = new ArrayList<>();
     private int activeTabIndex = -1;
     private final String homeUrl = "https://www.google.com";
     private String primaryColorHex = "#8B5CF6";
     private String secondaryColorHex = "#EC4899";
+    private String userId = "guest";
+    private String libraryItemsJson = "[]";
 
     // Helper WebTab inner class
     private static class WebTab {
         WebView webView;
         String currentUrl;
         String title;
+        int progress;
 
         WebTab(WebView webView, String url) {
             this.webView = webView;
             this.currentUrl = url;
             this.title = "A carregar...";
+            this.progress = 100;
         }
     }
 
@@ -76,7 +87,8 @@ public class MangaWebViewPlugin extends Plugin {
         "popads", "popunder", "taboola", "outbrain", "exoclick", "propellerads",
         "adsterra", "yllix", "hilltopads", "infolinks", "revenuehits", "betano",
         "bwin", "betclic", "casino", "1xbet", "apostas", "gamble", "googletagmanager",
-        "mgid.com", "adcash.com", "onclickmega", "poptab.net"
+        "mgid.com", "adcash.com", "onclickmega", "poptab.net", "juicyads", "trafficjunky",
+        "plugrush", "popcash", "onclickads", "a.bestcontentdelivery.com"
     };
 
     @PluginMethod
@@ -87,6 +99,8 @@ public class MangaWebViewPlugin extends Plugin {
         }
         primaryColorHex = call.getString("primaryColor", "#8B5CF6");
         secondaryColorHex = call.getString("secondaryColor", "#EC4899");
+        userId = call.getString("userId", "guest");
+        libraryItemsJson = call.getString("libraryItems", "[]");
         final String initialUrl = url;
 
         getActivity().runOnUiThread(() -> {
@@ -217,9 +231,14 @@ public class MangaWebViewPlugin extends Plugin {
             // Botão Favoritar Estrela (☆/★)
             favBtn = new TextView(context);
             favBtn.setText("☆");
-            favBtn.setTextSize(20);
+            favBtn.setTextSize(21);
             favBtn.setTextColor(Color.parseColor("#9CA3AF"));
-            favBtn.setPadding(10, 5, 10, 5);
+            favBtn.setPadding(15, 8, 15, 8);
+            LinearLayout.LayoutParams favParams = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            favParams.setMargins(15, 0, 15, 0);
+            favBtn.setLayoutParams(favParams);
             favBtn.setOnClickListener(v -> {
                 if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
                     toggleBookmark(context, tabs.get(activeTabIndex).currentUrl);
@@ -229,9 +248,14 @@ public class MangaWebViewPlugin extends Plugin {
             // Botão Fechar Separador Ativo (✕)
             TextView closeTabBtn = new TextView(context);
             closeTabBtn.setText("✕");
-            closeTabBtn.setTextSize(18);
+            closeTabBtn.setTextSize(21);
             closeTabBtn.setTextColor(Color.parseColor(primaryColorHex));
-            closeTabBtn.setPadding(10, 5, 10, 5);
+            closeTabBtn.setPadding(15, 8, 15, 8);
+            LinearLayout.LayoutParams closeTabParams = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            closeTabParams.setMargins(15, 0, 15, 0);
+            closeTabBtn.setLayoutParams(closeTabParams);
             closeTabBtn.setOnClickListener(v -> {
                 if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
                     closeTab(context, activeTabIndex);
@@ -241,10 +265,15 @@ public class MangaWebViewPlugin extends Plugin {
             // Botão Contador de Separadores ([ N ])
             tabCountBtn = new TextView(context);
             tabCountBtn.setText("[1]");
-            tabCountBtn.setTextSize(13);
+            tabCountBtn.setTextSize(16);
             tabCountBtn.setTextColor(Color.parseColor(primaryColorHex));
             tabCountBtn.setTypeface(null, android.graphics.Typeface.BOLD);
-            tabCountBtn.setPadding(10, 5, 10, 5);
+            tabCountBtn.setPadding(15, 8, 15, 8);
+            LinearLayout.LayoutParams tabCountParams = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            tabCountParams.setMargins(15, 0, 15, 0);
+            tabCountBtn.setLayoutParams(tabCountParams);
             tabCountBtn.setOnClickListener(v -> showTabsDialog(context));
 
             toolbar.addView(homeBtn);
@@ -340,7 +369,26 @@ public class MangaWebViewPlugin extends Plugin {
             bottomBar.addView(refreshBtn);
             bottomBar.addView(closeBtn);
 
+            // Progress Bar (Linha fina sob a barra de endereços)
+            progressBar = new android.widget.ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal);
+            progressBar.setLayoutParams(new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    6
+            ));
+            progressBar.setIndeterminate(false);
+            progressBar.setMax(100);
+            progressBar.setProgress(0);
+            progressBar.setVisibility(View.GONE);
+            progressBar.setBackgroundColor(Color.TRANSPARENT);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                progressBar.setProgressTintList(android.content.res.ColorStateList.valueOf(Color.parseColor(primaryColorHex)));
+                progressBar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.TRANSPARENT));
+            } else {
+                progressBar.getProgressDrawable().setColorFilter(Color.parseColor(primaryColorHex), android.graphics.PorterDuff.Mode.SRC_IN);
+            }
+
             mainLayout.addView(toolbar);
+            mainLayout.addView(progressBar);
             mainLayout.addView(webViewContainer);
             mainLayout.addView(bottomBar);
 
@@ -447,7 +495,7 @@ public class MangaWebViewPlugin extends Plugin {
                     tab.title = "Otaku Time Home";
                 } else {
                     tab.title = view.getTitle();
-                    // Injetar script para desativar popups JS (window.open) e forçar links target="_blank" no mesmo separador
+                    // Injetar script para desativar popups JS e remover elementos visuais de anúncios / pornografia
                     view.evaluateJavascript(
                         "(function() { " +
                         "  try { " +
@@ -462,6 +510,31 @@ public class MangaWebViewPlugin extends Plugin {
                         "        } " +
                         "      } " +
                         "    }, true); " +
+                        "    function removeVisualAds() { " +
+                        "      var selectors = [ " +
+                        "        'iframe[src*=\"doubleclick\"]', 'iframe[src*=\"exoclick\"]', 'iframe[src*=\"adserver\"]', " +
+                        "        'iframe[src*=\"googleads\"]', 'iframe[src*=\"juicyads\"]', 'iframe[src*=\"plugrush\"]', " +
+                        "        '.ads', '.ad', '.adsense', '.advertisement', '.ad-box', '.ad-container', '.banner-ad', " +
+                        "        '[class*=\"exo_\"]', '[id*=\"exo_\"]', '[class*=\"adsterra\"]', '[id*=\"adsterra\"]', " +
+                        "        '[class*=\"popunder\"]', '[id*=\"popunder\"]', '[class*=\"native-ad\"]', " +
+                        "        'a[href*=\"betano\"]', 'a[href*=\"1xbet\"]', 'a[href*=\"casino\"]', 'a[href*=\"apostas\"]', " +
+                        "        'div[id^=\"ad-\"]', 'div[class^=\"ad-\"]' " +
+                        "      ]; " +
+                        "      selectors.forEach(function(sel) { " +
+                        "        var els = document.querySelectorAll(sel); " +
+                        "        els.forEach(function(el) { " +
+                        "          el.style.setProperty('display', 'none', 'important'); " +
+                        "          el.style.setProperty('height', '0', 'important'); " +
+                        "          el.style.setProperty('opacity', '0', 'important'); " +
+                        "        }); " +
+                        "      }); " +
+                        "    } " +
+                        "    removeVisualAds(); " +
+                        "    var style = document.createElement('style'); " +
+                        "    style.innerHTML = 'iframe[src*=\"doubleclick\"], iframe[src*=\"exoclick\"], iframe[src*=\"adserver\"], iframe[src*=\"googleads\"], iframe[src*=\"juicyads\"], iframe[src*=\"plugrush\"], .ads, .ad, .adsense, .advertisement, .ad-box, .ad-container, .banner-ad, [class*=\"exo_\"], [id*=\"exo_\"], [class*=\"adsterra\"], [id*=\"adsterra\"], [class*=\"popunder\"], [id*=\"popunder\"], [class*=\"native-ad\"], a[href*=\"betano\"], a[href*=\"1xbet\"], a[href*=\"casino\"], a[href*=\"apostas\"], div[id^=\"ad-\"], div[class^=\"ad-\"] { display: none !important; height: 0 !important; opacity: 0 !important; visibility: hidden !important; }'; " +
+                        "    document.head.appendChild(style); " +
+                        "    var interval = setInterval(removeVisualAds, 1000); " +
+                        "    setTimeout(function() { clearInterval(interval); }, 10000); " +
                         "  } catch(e) {} " +
                         "})();", null
                     );
@@ -529,6 +602,15 @@ public class MangaWebViewPlugin extends Plugin {
                 }
                 saveTabsToPreferences();
             }
+
+            @Override
+            public void onProgressChanged(WebView view, int newProgress) {
+                super.onProgressChanged(view, newProgress);
+                tab.progress = newProgress;
+                if (isCurrentTab(tab)) {
+                    updateProgressBar(newProgress);
+                }
+            }
         });
     }
 
@@ -537,6 +619,22 @@ public class MangaWebViewPlugin extends Plugin {
             return tabs.get(activeTabIndex) == tab;
         }
         return false;
+    }
+
+    private void updateProgressBar(int progress) {
+        getActivity().runOnUiThread(() -> {
+            if (progressBar == null) return;
+            if (progress < 100) {
+                progressBar.setVisibility(View.VISIBLE);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    progressBar.setProgress(progress, true);
+                } else {
+                    progressBar.setProgress(progress);
+                }
+            } else {
+                progressBar.setVisibility(View.GONE);
+            }
+        });
     }
 
     private void switchToTab(int index) {
@@ -557,6 +655,7 @@ public class MangaWebViewPlugin extends Plugin {
         updateNavigationButtons();
         updateTabCountButton();
         updateFavButtonState(activeTab.currentUrl);
+        updateProgressBar(activeTab.progress);
         saveTabsToPreferences();
     }
 
@@ -662,24 +761,39 @@ public class MangaWebViewPlugin extends Plugin {
     private void loadHomePage(WebView wv) {
         Context context = wv.getContext();
         android.content.SharedPreferences prefs = context.getSharedPreferences("OtakuTimeBrowserPrefs", Context.MODE_PRIVATE);
-        Set<String> bookmarks = prefs.getStringSet("bookmarked_urls", new HashSet<>());
+        String bookmarkKey = "user_" + userId + "_bookmarked_urls";
+        String assocKey = "user_" + userId + "_associated_urls";
+        Set<String> bookmarks = prefs.getStringSet(bookmarkKey, new HashSet<>());
+        Set<String> associated = prefs.getStringSet(assocKey, new HashSet<>());
+
+        // Filtrar favoritos que não estão associados
+        List<String> visibleBookmarks = new ArrayList<>();
+        for (String b : bookmarks) {
+            if (!associated.contains(b)) {
+                visibleBookmarks.add(b);
+            }
+        }
 
         StringBuilder bookmarksHtml = new StringBuilder();
-        if (bookmarks.isEmpty()) {
+        if (visibleBookmarks.isEmpty()) {
             bookmarksHtml.append("<div class=\"no-bookmarks\">Adiciona os teus sites favoritos (clicando na estrela ☆ do topo) para veres atalhos rápidos aqui!</div>");
         } else {
             bookmarksHtml.append("<div class=\"section-title\">Atalhos Rápidos</div>");
             bookmarksHtml.append("<div class=\"bookmarks-grid\">");
-            for (String b : bookmarks) {
-                String displayName = b;
-                try {
-                    Uri uri = Uri.parse(b);
-                    displayName = uri.getHost();
-                    if (displayName == null) displayName = b;
-                    if (displayName.startsWith("www.")) {
-                        displayName = displayName.substring(4);
-                    }
-                } catch (Exception e) {}
+            for (String b : visibleBookmarks) {
+                // Recuperar o título real salvo do favorito
+                String displayName = prefs.getString("bookmark_title_" + b, null);
+                if (displayName == null || displayName.trim().isEmpty() || displayName.equals("Favorito")) {
+                    displayName = b;
+                    try {
+                        Uri uri = Uri.parse(b);
+                        displayName = uri.getHost();
+                        if (displayName == null) displayName = b;
+                        if (displayName.startsWith("www.")) {
+                            displayName = displayName.substring(4);
+                        }
+                    } catch (Exception e) {}
+                }
 
                 bookmarksHtml.append(String.format(
                     "<a href=\"%s\" class=\"bookmark-card\"><div class=\"icon\">⭐</div><div class=\"title\">%s</div></a>",
@@ -690,7 +804,7 @@ public class MangaWebViewPlugin extends Plugin {
         }
 
         String html = String.format(
-            "<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><style>body { background-color: #0B0F19; color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 100vh; margin: 0; padding: 25px 20px; box-sizing: border-box; } .container { text-align: center; width: 100%%; max-width: 450px; margin-top: 40px; } h1 { font-size: 2.8rem; font-weight: 800; margin-bottom: 2rem; color: %s; letter-spacing: -1.5px; margin-top: 0; } form { width: 100%%; margin-bottom: 30px; } .search-box { display: flex; background: #1F2937; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 24px; padding: 6px 14px; align-items: center; box-shadow: 0 4px 20px rgba(0,0,0,0.3); } .search-box input { flex: 1; background: transparent; border: none; outline: none; color: white; font-size: 1.05rem; padding: 8px; } .search-box button { background: %s; border: none; border-radius: 16px; color: white; padding: 8px 18px; font-weight: bold; cursor: pointer; transition: background 0.2s; font-size: 0.95rem; } .search-box button:active { opacity: 0.85; } .section-title { font-size: 1.1rem; font-weight: 700; text-align: left; margin: 25px 0 15px 0; color: #9CA3AF; width: 100%%; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 8px; } .bookmarks-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; width: 100%%; } .bookmark-card { display: flex; flex-direction: column; align-items: center; background: #1F2937; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 16px 12px; text-decoration: none; color: white; transition: transform 0.2s, background 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.15); } .bookmark-card:active { transform: scale(0.95); background: #374151; } .bookmark-card .icon { font-size: 1.5rem; margin-bottom: 8px; } .bookmark-card .title { font-size: 0.85rem; font-weight: 600; text-align: center; word-break: break-all; max-width: 100%%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .no-bookmarks { color: #9CA3AF; font-size: 0.85rem; margin-top: 25px; line-height: 1.6; background: rgba(255, 255, 255, 0.03); padding: 20px; border-radius: 16px; border: 1px dashed rgba(255, 255, 255, 0.1); width: 100%%; box-sizing: border-box; text-align: center; }</style></head><body><div class=\"container\"><h1>Otaku Time</h1><form action=\"https://www.google.com/search\" method=\"get\"><div class=\"search-box\"><input type=\"text\" name=\"q\" placeholder=\"Pesquisar no Google...\" autocomplete=\"off\" required><button type=\"submit\">Ir</button></div></form>%s</div></body></html>",
+            "<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><style>body { background-color: #0B0F19; color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 100vh; margin: 0; padding: 25px 20px; box-sizing: border-box; } .container { text-align: center; width: 100%%; max-width: 450px; margin-top: 40px; } h1 { font-size: 2.8rem; font-weight: 800; margin-bottom: 2rem; color: %s; letter-spacing: -1.5px; margin-top: 0; } form { width: 100%%; margin-bottom: 30px; } .search-box { display: flex; background: #1F2937; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 24px; padding: 6px 14px; align-items: center; box-shadow: 0 4px 20px rgba(0,0,0,0.3); } .search-box input { flex: 1; background: transparent; border: none; outline: none; color: white; font-size: 1.05rem; padding: 8px; } .search-box button { background: %s; border: none; border-radius: 16px; color: white; padding: 8px 18px; font-weight: bold; cursor: pointer; transition: background 0.2s; font-size: 0.95rem; } .search-box button:active { opacity: 0.85; } .section-title { font-size: 1.1rem; font-weight: 700; text-align: left; margin: 25px 0 15px 0; color: #9CA3AF; width: 100%%; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 8px; } .bookmarks-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; width: 100%%; } .bookmark-card { display: flex; flex-direction: column; align-items: center; background: #1F2937; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 16px 12px; text-decoration: none; color: white; transition: transform 0.2s, background 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.15); min-width: 0; width: 100%%; box-sizing: border-box; overflow: hidden; } .bookmark-card:active { transform: scale(0.95); background: #374151; } .bookmark-card .icon { font-size: 1.5rem; margin-bottom: 8px; } .bookmark-card .title { font-size: 0.85rem; font-weight: 600; text-align: center; word-break: break-all; max-width: 100%%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .no-bookmarks { color: #9CA3AF; font-size: 0.85rem; margin-top: 25px; line-height: 1.6; background: rgba(255, 255, 255, 0.03); padding: 20px; border-radius: 16px; border: 1px dashed rgba(255, 255, 255, 0.1); width: 100%%; box-sizing: border-box; text-align: center; }</style></head><body><div class=\"container\"><h1>Otaku Time</h1><form action=\"https://www.google.com/search\" method=\"get\"><div class=\"search-box\"><input type=\"text\" name=\"q\" placeholder=\"Pesquisar no Google...\" autocomplete=\"off\" required><button type=\"submit\">Ir</button></div></form>%s</div></body></html>",
             primaryColorHex, primaryColorHex, bookmarksHtml.toString()
         );
         wv.loadDataWithBaseURL("https://local.otakutime.home", html, "text/html", "UTF-8", "https://local.otakutime.home");
@@ -699,59 +813,14 @@ public class MangaWebViewPlugin extends Plugin {
     // --- Persistência de Separadores e Favoritos via SharedPreferences ---
 
     private void saveTabsToPreferences() {
-        Context context = getContext();
-        if (context == null) return;
-        android.content.SharedPreferences prefs = context.getSharedPreferences("OtakuTimeBrowserPrefs", Context.MODE_PRIVATE);
-        android.content.SharedPreferences.Editor editor = prefs.edit();
-        
-        int savedCount = 0;
-        int savedActiveIndex = 0;
-        for (int i = 0; i < tabs.size(); i++) {
-            WebTab tab = tabs.get(i);
-            if (tab.currentUrl != null && tab.currentUrl.startsWith("https://local.otakutime.home")) {
-                continue; // Do not persist home pages
-            }
-            editor.putString("tab_" + savedCount + "_url", tab.currentUrl);
-            editor.putString("tab_" + savedCount + "_title", tab.title);
-            if (i == activeTabIndex) {
-                savedActiveIndex = savedCount;
-            }
-            savedCount++;
-        }
-        editor.putInt("tab_count", savedCount);
-        editor.putInt("active_tab_index", savedActiveIndex);
-        editor.apply();
+        // Desativado: Separadores não são guardados de uma sessão para a outra
     }
 
     private void loadTabsFromPreferences(Context context) {
+        // Desativado: Limpar vestígios de separadores guardados anteriormente
         android.content.SharedPreferences prefs = context.getSharedPreferences("OtakuTimeBrowserPrefs", Context.MODE_PRIVATE);
-        int tabCount = prefs.getInt("tab_count", 0);
-        int savedActiveIndex = prefs.getInt("active_tab_index", -1);
-        tabs.clear();
-        if (tabCount > 0) {
-            for (int i = 0; i < tabCount; i++) {
-                String url = prefs.getString("tab_" + i + "_url", "https://local.otakutime.home");
-                String title = prefs.getString("tab_" + i + "_title", "Otaku Time Home");
-
-                WebView webView = new WebView(context);
-                webView.setLayoutParams(new FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                ));
-                setupWebViewSettings(webView);
-
-                WebTab tab = new WebTab(webView, url);
-                tab.title = title;
-                tabs.add(tab);
-                setupWebViewClients(webView, tab);
-
-                if (url != null && url.startsWith("https://local.otakutime.home")) {
-                    loadHomePage(webView);
-                } else {
-                    webView.loadUrl(url);
-                }
-            }
-            activeTabIndex = savedActiveIndex;
+        if (prefs.contains("tab_count")) {
+            prefs.edit().remove("tab_count").remove("active_tab_index").apply();
         }
     }
 
@@ -760,18 +829,467 @@ public class MangaWebViewPlugin extends Plugin {
             return;
         }
         android.content.SharedPreferences prefs = context.getSharedPreferences("OtakuTimeBrowserPrefs", Context.MODE_PRIVATE);
-        Set<String> bookmarks = new HashSet<>(prefs.getStringSet("bookmarked_urls", new HashSet<>()));
+        String bookmarkKey = "user_" + userId + "_bookmarked_urls";
+        String assocKey = "user_" + userId + "_associated_urls";
+        Set<String> bookmarks = new HashSet<>(prefs.getStringSet(bookmarkKey, new HashSet<>()));
+        Set<String> associated = new HashSet<>(prefs.getStringSet(assocKey, new HashSet<>()));
 
         if (bookmarks.contains(url)) {
             bookmarks.remove(url);
+            associated.remove(url); // Remover da lista de associados se desfavoritar
+            prefs.edit()
+                .putStringSet(bookmarkKey, bookmarks)
+                .putStringSet(assocKey, associated)
+                .remove("bookmark_title_" + url)
+                .apply();
             Toast.makeText(context, "Removido dos favoritos.", Toast.LENGTH_SHORT).show();
         } else {
             bookmarks.add(url);
+            
+            // Obter e salvar o título real do favorito
+            String tabTitle = "Favorito";
+            for (WebTab tab : tabs) {
+                if (url.equals(tab.currentUrl)) {
+                    tabTitle = tab.title;
+                    break;
+                }
+            }
+            
+            prefs.edit()
+                .putStringSet(bookmarkKey, bookmarks)
+                .putString("bookmark_title_" + url, tabTitle)
+                .apply();
+            
             Toast.makeText(context, "Adicionado aos favoritos!", Toast.LENGTH_SHORT).show();
+            showNativeAssociateDialog(context, url);
         }
-
-        prefs.edit().putStringSet("bookmarked_urls", bookmarks).apply();
         updateFavButtonState(url);
+    }
+
+    private void showNativeAssociateDialog(final Context context, final String url) {
+        getActivity().runOnUiThread(() -> {
+            final Dialog dialog = new Dialog(context);
+            dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+            // Layout Principal (Vertical)
+            LinearLayout mainLayout = new LinearLayout(context);
+            mainLayout.setOrientation(LinearLayout.VERTICAL);
+            mainLayout.setBackgroundColor(Color.parseColor("#0B0F19")); // Cor de fundo do site
+            mainLayout.setPadding(50, 50, 50, 50);
+
+            // Título
+            TextView titleView = new TextView(context);
+            titleView.setText("Associar à Biblioteca?");
+            titleView.setTextColor(Color.WHITE);
+            titleView.setTextSize(18);
+            titleView.setTypeface(null, android.graphics.Typeface.BOLD);
+            titleView.setPadding(0, 0, 0, 15);
+            mainLayout.addView(titleView);
+
+            // Mensagem
+            TextView msgView = new TextView(context);
+            msgView.setText("Desejas associar este favorito a um manga ou anime da tua biblioteca para criar um atalho rápido?");
+            msgView.setTextColor(Color.parseColor("#9CA3AF")); // Gray 400
+            msgView.setTextSize(13);
+            msgView.setLineSpacing(1.2f, 1.2f);
+            msgView.setPadding(0, 0, 0, 35);
+            mainLayout.addView(msgView);
+
+            // Container de Botões
+            LinearLayout btnContainer = new LinearLayout(context);
+            btnContainer.setOrientation(LinearLayout.VERTICAL);
+            btnContainer.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
+
+            // Botão SIM (Filled com a cor primária do site)
+            TextView yesBtn = new TextView(context);
+            yesBtn.setText("Sim, Associar");
+            yesBtn.setTextColor(Color.WHITE);
+            yesBtn.setTextSize(13);
+            yesBtn.setTypeface(null, android.graphics.Typeface.BOLD);
+            yesBtn.setGravity(android.view.Gravity.CENTER);
+            yesBtn.setPadding(25, 25, 25, 25);
+            
+            android.graphics.drawable.GradientDrawable yesGd = new android.graphics.drawable.GradientDrawable();
+            yesGd.setColor(Color.parseColor(primaryColorHex)); // Cor primária do site!
+            yesGd.setCornerRadius(16);
+            yesBtn.setBackground(yesGd);
+            yesBtn.setOnClickListener(v -> {
+                dialog.dismiss();
+                showLibrarySelectionDialog(context, url);
+            });
+            LinearLayout.LayoutParams yesParams = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            yesParams.setMargins(0, 0, 0, 15);
+            yesBtn.setLayoutParams(yesParams);
+            btnContainer.addView(yesBtn);
+
+            // Botão NÃO (Outline/Texto em cinzento)
+            TextView noBtn = new TextView(context);
+            noBtn.setText("Não, apenas favoritar");
+            noBtn.setTextColor(Color.parseColor("#9CA3AF")); // Gray 400
+            noBtn.setTextSize(13);
+            noBtn.setGravity(android.view.Gravity.CENTER);
+            noBtn.setPadding(25, 25, 25, 25);
+            noBtn.setOnClickListener(v -> dialog.dismiss());
+            LinearLayout.LayoutParams noParams = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            noBtn.setLayoutParams(noParams);
+            btnContainer.addView(noBtn);
+
+            mainLayout.addView(btnContainer);
+            dialog.setContentView(mainLayout);
+
+            Window window = dialog.getWindow();
+            if (window != null) {
+                android.graphics.drawable.GradientDrawable dialogGd = new android.graphics.drawable.GradientDrawable();
+                dialogGd.setColor(Color.parseColor("#0B0F19"));
+                dialogGd.setCornerRadius(32);
+                window.setBackgroundDrawable(dialogGd);
+
+                WindowManager.LayoutParams lp = new WindowManager.LayoutParams();
+                lp.copyFrom(window.getAttributes());
+                lp.width = (int) (context.getResources().getDisplayMetrics().widthPixels * 0.85);
+                window.setAttributes(lp);
+            }
+
+            dialog.show();
+        });
+    }
+
+    private void showLibrarySelectionDialog(final Context context, final String url) {
+        try {
+            JSONArray arr = new JSONArray(libraryItemsJson);
+            if (arr.length() == 0) {
+                Toast.makeText(context, "Nenhum item na tua biblioteca para associar.", Toast.LENGTH_LONG).show();
+                return;
+            }
+
+            final List<JSONObject> allItems = new ArrayList<>();
+            for (int i = 0; i < arr.length(); i++) {
+                allItems.add(arr.getJSONObject(i));
+            }
+
+            final String extractedName = extractNameFromUrl(url);
+
+            // Ordenar por relevância
+            Collections.sort(allItems, new Comparator<JSONObject>() {
+                @Override
+                public int compare(JSONObject o1, JSONObject o2) {
+                    String t1 = o1.optString("titulo", "");
+                    String t2 = o2.optString("titulo", "");
+                    int s1 = calculateMatchScore(t1, extractedName);
+                    int s2 = calculateMatchScore(t2, extractedName);
+                    
+                    if (s1 != s2) {
+                        return Integer.compare(s2, s1);
+                    }
+                    return t1.compareToIgnoreCase(t2);
+                }
+            });
+
+            getActivity().runOnUiThread(() -> {
+                final Dialog dialog = new Dialog(context);
+                dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+                
+                LinearLayout mainLayout = new LinearLayout(context);
+                mainLayout.setOrientation(LinearLayout.VERTICAL);
+                mainLayout.setBackgroundColor(Color.parseColor("#0B0F19")); // Fundo do site
+                mainLayout.setPadding(40, 45, 40, 45);
+                
+                TextView titleView = new TextView(context);
+                titleView.setText("Associar à Biblioteca");
+                titleView.setTextColor(Color.WHITE);
+                titleView.setTextSize(18);
+                titleView.setTypeface(null, android.graphics.Typeface.BOLD);
+                titleView.setPadding(0, 0, 0, 15);
+                mainLayout.addView(titleView);
+
+                final EditText searchBar = new EditText(context);
+                searchBar.setHint("Pesquisar na biblioteca...");
+                searchBar.setHintTextColor(Color.parseColor("#6B7280"));
+                searchBar.setTextColor(Color.WHITE);
+                searchBar.setTextSize(13);
+                
+                // Borda do EditText usando a cor primária do site!
+                android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
+                gd.setColor(Color.parseColor("#1F2937"));
+                gd.setCornerRadius(16);
+                gd.setStroke(2, Color.parseColor(primaryColorHex));
+                searchBar.setBackground(gd);
+                searchBar.setPadding(30, 24, 30, 24);
+                
+                LinearLayout.LayoutParams searchParams = new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+                searchParams.setMargins(0, 5, 0, 25);
+                searchBar.setLayoutParams(searchParams);
+                mainLayout.addView(searchBar);
+
+                android.widget.ScrollView scrollView = new android.widget.ScrollView(context);
+                LinearLayout.LayoutParams scrollParams = new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f
+                );
+                scrollView.setLayoutParams(scrollParams);
+
+                final LinearLayout itemsContainer = new LinearLayout(context);
+                itemsContainer.setOrientation(LinearLayout.VERTICAL);
+                scrollView.addView(itemsContainer);
+                mainLayout.addView(scrollView);
+
+                TextView cancelBtn = new TextView(context);
+                cancelBtn.setText("Cancelar");
+                cancelBtn.setTextColor(Color.parseColor("#9CA3AF"));
+                cancelBtn.setTextSize(13);
+                cancelBtn.setPadding(20, 20, 20, 20);
+                cancelBtn.setGravity(android.view.Gravity.CENTER);
+                cancelBtn.setOnClickListener(v -> dialog.dismiss());
+                LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+                cancelParams.setMargins(0, 15, 0, 0);
+                cancelBtn.setLayoutParams(cancelParams);
+                mainLayout.addView(cancelBtn);
+
+                Runnable updateList = new Runnable() {
+                    @Override
+                    public void run() {
+                        itemsContainer.removeAllViews();
+                        String query = searchBar.getText().toString().toLowerCase().trim();
+
+                        boolean addedSuggestionHeader = false;
+                        boolean addedAllHeader = false;
+
+                        for (final JSONObject item : allItems) {
+                            final String title = item.optString("titulo", "Sem Título");
+                            final String type = item.optString("tipo", "manga");
+                            final int id = item.optInt("id", 0);
+
+                            int score = calculateMatchScore(title, extractedName);
+
+                            if (!query.isEmpty() && !title.toLowerCase().contains(query)) {
+                                continue;
+                            }
+
+                            if (query.isEmpty()) {
+                                if (score > 0 && !addedSuggestionHeader) {
+                                    TextView suggHeader = new TextView(context);
+                                    suggHeader.setText("Sugestões de Associação");
+                                    suggHeader.setTextColor(Color.parseColor(primaryColorHex)); // Cor primária
+                                    suggHeader.setTextSize(11);
+                                    suggHeader.setTypeface(null, android.graphics.Typeface.BOLD);
+                                    suggHeader.setPadding(10, 10, 10, 15);
+                                    itemsContainer.addView(suggHeader);
+                                    addedSuggestionHeader = true;
+                                } else if (score == 0 && !addedAllHeader) {
+                                    TextView allHeader = new TextView(context);
+                                    allHeader.setText("Todos os Conteúdos");
+                                    allHeader.setTextColor(Color.parseColor("#9CA3AF"));
+                                    allHeader.setTextSize(11);
+                                    allHeader.setTypeface(null, android.graphics.Typeface.BOLD);
+                                    allHeader.setPadding(10, 25, 10, 15);
+                                    itemsContainer.addView(allHeader);
+                                    addedAllHeader = true;
+                                }
+                            }
+
+                            LinearLayout card = new LinearLayout(context);
+                            card.setOrientation(LinearLayout.HORIZONTAL);
+                            card.setPadding(30, 22, 30, 22);
+                            card.setGravity(android.view.Gravity.CENTER_VERTICAL);
+                            
+                            android.graphics.drawable.GradientDrawable cardGd = new android.graphics.drawable.GradientDrawable();
+                            cardGd.setColor(Color.parseColor("#1F2937"));
+                            cardGd.setCornerRadius(16);
+                            card.setBackground(cardGd);
+
+                            LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                            );
+                            cardParams.setMargins(0, 8, 0, 8);
+                            card.setLayoutParams(cardParams);
+
+                            TextView nameTv = new TextView(context);
+                            nameTv.setText(title);
+                            nameTv.setTextColor(Color.WHITE);
+                            nameTv.setTextSize(13);
+                            nameTv.setTypeface(null, android.graphics.Typeface.BOLD);
+                            LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(
+                                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f
+                            );
+                            nameTv.setLayoutParams(nameParams);
+                            card.addView(nameTv);
+
+                            // Badge com cores dinâmicas do site (Anime = Primária, Manga = Secundária)
+                            TextView typeTv = new TextView(context);
+                            typeTv.setText(type.toUpperCase());
+                            typeTv.setTextSize(9);
+                            typeTv.setTypeface(null, android.graphics.Typeface.BOLD);
+                            typeTv.setPadding(14, 5, 14, 5);
+                            
+                            android.graphics.drawable.GradientDrawable badgeGd = new android.graphics.drawable.GradientDrawable();
+                            if (type.equals("anime")) {
+                                String badgeBgColor = "#20" + primaryColorHex.replace("#", "");
+                                badgeGd.setColor(Color.parseColor(badgeBgColor));
+                                typeTv.setTextColor(Color.parseColor(primaryColorHex));
+                            } else {
+                                String badgeBgColor = "#20" + secondaryColorHex.replace("#", "");
+                                badgeGd.setColor(Color.parseColor(badgeBgColor));
+                                typeTv.setTextColor(Color.parseColor(secondaryColorHex));
+                            }
+                            badgeGd.setCornerRadius(20);
+                            typeTv.setBackground(badgeGd);
+                            card.addView(typeTv);
+
+                            card.setOnClickListener(v -> {
+                                dialog.dismiss();
+                                try {
+                                    String tabTitle = "Favorito";
+                                    for (WebTab tab : tabs) {
+                                        if (url.equals(tab.currentUrl)) {
+                                            tabTitle = tab.title;
+                                            break;
+                                        }
+                                    }
+                                    
+                                    android.content.SharedPreferences prefs = context.getSharedPreferences("OtakuTimeBrowserPrefs", Context.MODE_PRIVATE);
+                                    String assocKey = "user_" + userId + "_associated_urls";
+                                    Set<String> associated = new HashSet<>(prefs.getStringSet(assocKey, new HashSet<>()));
+                                    associated.add(url);
+                                    prefs.edit().putStringSet(assocKey, associated).apply();
+                                    
+                                    if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
+                                        WebTab activeTab = tabs.get(activeTabIndex);
+                                        if (activeTab.currentUrl != null && activeTab.currentUrl.startsWith("https://local.otakutime.home")) {
+                                            loadHomePage(activeTab.webView);
+                                        }
+                                    }
+
+                                    JSObject ret = new JSObject();
+                                    ret.put("url", url);
+                                    ret.put("title", tabTitle);
+                                    ret.put("itemId", id);
+                                    ret.put("itemType", type);
+                                    ret.put("itemTitle", title);
+                                    notifyListeners("onAssociateBookmark", ret);
+                                    Toast.makeText(context, "Associado a " + title + "!", Toast.LENGTH_SHORT).show();
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            });
+
+                            itemsContainer.addView(card);
+                        }
+                    }
+                };
+
+                updateList.run();
+
+                searchBar.addTextChangedListener(new android.text.TextWatcher() {
+                    @Override
+                    public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                    @Override
+                    public void onTextChanged(CharSequence s, int start, int before, int count) {
+                        updateList.run();
+                    }
+                    @Override
+                    public void afterTextChanged(android.text.Editable s) {}
+                });
+
+                dialog.setContentView(mainLayout);
+                
+                Window window = dialog.getWindow();
+                if (window != null) {
+                    android.graphics.drawable.GradientDrawable dialogGd = new android.graphics.drawable.GradientDrawable();
+                    dialogGd.setColor(Color.parseColor("#0B0F19"));
+                    dialogGd.setCornerRadius(32);
+                    window.setBackgroundDrawable(dialogGd);
+                    
+                    WindowManager.LayoutParams lp = new WindowManager.LayoutParams();
+                    lp.copyFrom(window.getAttributes());
+                    lp.width = (int) (context.getResources().getDisplayMetrics().widthPixels * 0.9);
+                    lp.height = (int) (context.getResources().getDisplayMetrics().heightPixels * 0.75);
+                    window.setAttributes(lp);
+                }
+
+                dialog.show();
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(context, "Erro ao carregar a biblioteca.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private String extractNameFromUrl(String url) {
+        if (url == null || url.isEmpty()) return "";
+        try {
+            Uri uri = Uri.parse(url);
+            String path = uri.getPath();
+            if (path == null || path.isEmpty() || path.equals("/")) {
+                return "";
+            }
+            
+            String[] segments = path.split("/");
+            String candidate = "";
+            
+            for (int i = segments.length - 1; i >= 0; i--) {
+                String s = segments[i].trim().toLowerCase();
+                if (s.isEmpty() || s.equals("manga") || s.equals("read") || s.equals("anime") || s.equals("watch") || s.equals("chapter") || s.equals("capitulo")) {
+                    continue;
+                }
+                if (s.matches("\\d+")) {
+                    continue;
+                }
+                candidate = s;
+                break;
+            }
+            
+            if (candidate.isEmpty() && segments.length > 0) {
+                candidate = segments[segments.length - 1];
+            }
+            
+            candidate = candidate.replace("-", " ").replace("_", " ").trim();
+            candidate = candidate.replaceAll("(?i)(chapter|capitulo|cap|ep|episodio)\\s*\\d+.*", "");
+            
+            return candidate.trim();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private int calculateMatchScore(String title, String extracted) {
+        if (title == null || extracted == null || extracted.isEmpty()) return 0;
+        
+        String cleanTitle = title.toLowerCase().replaceAll("[^a-zA-Z0-9\\s]", " ").trim();
+        String cleanExtracted = extracted.toLowerCase().replaceAll("[^a-zA-Z0-9\\s]", " ").trim();
+        
+        if (cleanTitle.equals(cleanExtracted)) {
+            return 100;
+        }
+        if (cleanTitle.contains(cleanExtracted) || cleanExtracted.contains(cleanTitle)) {
+            return 80;
+        }
+        
+        String[] titleWords = cleanTitle.split("\\s+");
+        String[] extractedWords = cleanExtracted.split("\\s+");
+        
+        int matches = 0;
+        for (String tw : titleWords) {
+            if (tw.length() < 3) continue;
+            for (String ew : extractedWords) {
+                if (ew.length() < 3) continue;
+                if (tw.equals(ew)) {
+                    matches++;
+                }
+            }
+        }
+        
+        if (matches > 0) {
+            return matches * 20;
+        }
+        
+        return 0;
     }
 
     private void updateFavButtonState(String url) {
@@ -787,7 +1305,8 @@ public class MangaWebViewPlugin extends Plugin {
             Context context = getContext();
             if (context == null) return;
             android.content.SharedPreferences prefs = context.getSharedPreferences("OtakuTimeBrowserPrefs", Context.MODE_PRIVATE);
-            Set<String> bookmarks = prefs.getStringSet("bookmarked_urls", new HashSet<>());
+            String bookmarkKey = "user_" + userId + "_bookmarked_urls";
+            Set<String> bookmarks = prefs.getStringSet(bookmarkKey, new HashSet<>());
 
             if (bookmarks.contains(url)) {
                 favBtn.setText("★");
@@ -815,6 +1334,11 @@ public class MangaWebViewPlugin extends Plugin {
             // Normalizar domínios removendo www.
             currentHost = currentHost.replace("www.", "");
             targetHost = targetHost.replace("www.", "");
+
+            // Se o site atual for o Google (pesquisa), permitir navegar para qualquer domínio
+            if (currentHost.contains("google.com") || currentHost.contains("google.pt") || currentHost.contains("google.co") || currentHost.startsWith("google.")) {
+                return false;
+            }
 
             // Se os domínios forem iguais ou subdomínios, permitir
             if (targetHost.equals(currentHost) || targetHost.endsWith("." + currentHost) || currentHost.endsWith("." + targetHost)) {

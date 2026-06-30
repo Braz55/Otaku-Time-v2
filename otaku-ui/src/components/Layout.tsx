@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import Header from './Header';
 import { useTranslation } from '../hooks/useTranslation';
 import { Capacitor, registerPlugin } from '@capacitor/core';
+import { PALETTES, getCurrentPalette } from '../services/paletteService';
 
 const MangaWebView = registerPlugin<any>('MangaWebView');
 
@@ -26,7 +27,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const openBrowser = async () => {
     try {
-      await MangaWebView.open({ url: 'https://www.google.com' });
+      const paletteName = getCurrentPalette();
+      const colors = PALETTES[paletteName] || PALETTES.default;
+      await MangaWebView.open({
+        url: '',
+        primaryColor: colors.primary,
+        secondaryColor: colors.secondary
+      });
     } catch (e) {
       console.error('Error opening browser:', e);
     }

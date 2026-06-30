@@ -9,6 +9,7 @@ import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useTranslation } from '../hooks/useTranslation';
+import { PALETTES, getCurrentPalette } from '../services/paletteService';
 
 const getGenresList = (generos: any): { name: string; weight: number }[] => {
   if (!generos) return [];
@@ -713,7 +714,14 @@ const DetailsPage = () => {
   const abrirLink = async (url: string, title: string) => {
     if (Capacitor.isNativePlatform()) {
       try {
-        await MangaWebView.open({ url, title });
+        const paletteName = getCurrentPalette();
+        const colors = PALETTES[paletteName] || PALETTES.default;
+        await MangaWebView.open({
+          url,
+          title,
+          primaryColor: colors.primary,
+          secondaryColor: colors.secondary
+        });
       } catch (e) {
         console.error("Failed to open MangaWebView", e);
         window.open(url, '_blank');

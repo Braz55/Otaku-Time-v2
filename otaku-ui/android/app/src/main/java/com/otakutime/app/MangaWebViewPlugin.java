@@ -37,6 +37,8 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 @CapacitorPlugin(name = "MangaWebView")
 public class MangaWebViewPlugin extends Plugin {
@@ -46,11 +48,14 @@ public class MangaWebViewPlugin extends Plugin {
     private TextView backBtn;
     private TextView forwardBtn;
     private TextView tabCountBtn;
+    private TextView favBtn;
     private EditText addressBar;
 
     private final List<WebTab> tabs = new ArrayList<>();
     private int activeTabIndex = -1;
     private final String homeUrl = "https://www.google.com";
+    private String primaryColorHex = "#8B5CF6";
+    private String secondaryColorHex = "#EC4899";
 
     // Helper WebTab inner class
     private static class WebTab {
@@ -78,8 +83,10 @@ public class MangaWebViewPlugin extends Plugin {
     public void open(PluginCall call) {
         String url = call.getString("url");
         if (url == null || url.trim().isEmpty()) {
-            url = homeUrl;
+            url = "https://local.otakutime.home";
         }
+        primaryColorHex = call.getString("primaryColor", "#8B5CF6");
+        secondaryColorHex = call.getString("secondaryColor", "#EC4899");
         final String initialUrl = url;
 
         getActivity().runOnUiThread(() -> {
@@ -87,7 +94,9 @@ public class MangaWebViewPlugin extends Plugin {
 
             // Se o navegador (diálogo) já está aberto, apenas abrimos um novo separador
             if (dialog != null) {
-                createNewTab(context, initialUrl);
+                if (initialUrl != null && !initialUrl.startsWith("https://local.otakutime.home")) {
+                    createNewTab(context, initialUrl);
+                }
                 call.resolve();
                 return;
             }
@@ -97,6 +106,9 @@ public class MangaWebViewPlugin extends Plugin {
 
             tabs.clear();
             activeTabIndex = -1;
+
+            // Tenta carregar separadores guardados na sessão anterior
+            loadTabsFromPreferences(context);
 
             // Intercetar o botão físico de voltar do Android
             dialog.setOnKeyListener((dialogInterface, keyCode, keyEvent) -> {
@@ -134,38 +146,36 @@ public class MangaWebViewPlugin extends Plugin {
                     ViewGroup.LayoutParams.MATCH_PARENT
             ));
             mainLayout.setBackgroundColor(Color.parseColor("#0B0F19"));
-            mainLayout.setFitsSystemWindows(true);
+            mainLayout.setFitsSystemWindows(false);
 
             // Barra Superior (Chrome-like Toolbar)
             LinearLayout toolbar = new LinearLayout(context);
             toolbar.setOrientation(LinearLayout.HORIZONTAL);
             toolbar.setLayoutParams(new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    140
+                    105
             ));
             toolbar.setBackgroundColor(Color.parseColor("#111827"));
-            toolbar.setPadding(25, 0, 25, 0);
+            toolbar.setPadding(20, 0, 20, 0);
             toolbar.setGravity(android.view.Gravity.CENTER_VERTICAL);
 
-            // Botão Home (🏠)
+            // Botão Home (⌂)
             TextView homeBtn = new TextView(context);
-            homeBtn.setText("🏠");
-            homeBtn.setTextSize(20);
-            homeBtn.setTextColor(Color.WHITE);
-            homeBtn.setPadding(15, 10, 15, 10);
+            homeBtn.setText("⌂");
+            homeBtn.setTextSize(22);
+            homeBtn.setTextColor(Color.parseColor(primaryColorHex));
+            homeBtn.setPadding(10, 5, 10, 5);
             homeBtn.setOnClickListener(v -> {
-                if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
-                    tabs.get(activeTabIndex).webView.loadUrl(homeUrl);
-                }
+                createNewTab(context, "https://local.otakutime.home");
             });
 
             // Barra de Endereço (EditText)
             addressBar = new EditText(context);
             addressBar.setSingleLine(true);
-            addressBar.setTextSize(13);
+            addressBar.setTextSize(12);
             addressBar.setTextColor(Color.WHITE);
             addressBar.setBackgroundColor(Color.parseColor("#1F2937"));
-            addressBar.setPadding(20, 10, 20, 10);
+            addressBar.setPadding(15, 6, 15, 6);
             addressBar.setImeOptions(EditorInfo.IME_ACTION_GO);
             addressBar.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
             LinearLayout.LayoutParams addressBarParams = new LinearLayout.LayoutParams(
@@ -204,38 +214,43 @@ public class MangaWebViewPlugin extends Plugin {
                 return false;
             });
 
-            // Botão Copiar Link (🔗)
-            TextView copyBtn = new TextView(context);
-            copyBtn.setText("🔗");
-            copyBtn.setTextSize(20);
-            copyBtn.setTextColor(Color.WHITE);
-            copyBtn.setPadding(15, 10, 15, 10);
-            copyBtn.setOnClickListener(v -> {
+            // Botão Favoritar Estrela (☆/★)
+            favBtn = new TextView(context);
+            favBtn.setText("☆");
+            favBtn.setTextSize(20);
+            favBtn.setTextColor(Color.parseColor("#9CA3AF"));
+            favBtn.setPadding(10, 5, 10, 5);
+            favBtn.setOnClickListener(v -> {
                 if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
-                    String urlToCopy = tabs.get(activeTabIndex).currentUrl;
-                    if (urlToCopy != null) {
-                        ClipboardManager clipboard = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
-                        ClipData clip = ClipData.newPlainText("URL", urlToCopy);
-                        if (clipboard != null) {
-                            clipboard.setPrimaryClip(clip);
-                            Toast.makeText(context, "Link copiado!", Toast.LENGTH_SHORT).show();
-                        }
-                    }
+                    toggleBookmark(context, tabs.get(activeTabIndex).currentUrl);
+                }
+            });
+
+            // Botão Fechar Separador Ativo (✕)
+            TextView closeTabBtn = new TextView(context);
+            closeTabBtn.setText("✕");
+            closeTabBtn.setTextSize(18);
+            closeTabBtn.setTextColor(Color.parseColor(primaryColorHex));
+            closeTabBtn.setPadding(10, 5, 10, 5);
+            closeTabBtn.setOnClickListener(v -> {
+                if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
+                    closeTab(context, activeTabIndex);
                 }
             });
 
             // Botão Contador de Separadores ([ N ])
             tabCountBtn = new TextView(context);
             tabCountBtn.setText("[1]");
-            tabCountBtn.setTextSize(14);
-            tabCountBtn.setTextColor(Color.WHITE);
+            tabCountBtn.setTextSize(13);
+            tabCountBtn.setTextColor(Color.parseColor(primaryColorHex));
             tabCountBtn.setTypeface(null, android.graphics.Typeface.BOLD);
-            tabCountBtn.setPadding(15, 10, 15, 10);
+            tabCountBtn.setPadding(10, 5, 10, 5);
             tabCountBtn.setOnClickListener(v -> showTabsDialog(context));
 
             toolbar.addView(homeBtn);
             toolbar.addView(addressBar);
-            toolbar.addView(copyBtn);
+            toolbar.addView(favBtn);
+            toolbar.addView(closeTabBtn);
             toolbar.addView(tabCountBtn);
 
             // Container do WebView (FrameLayout)
@@ -250,16 +265,16 @@ public class MangaWebViewPlugin extends Plugin {
             bottomBar.setOrientation(LinearLayout.HORIZONTAL);
             bottomBar.setLayoutParams(new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    140
+                    105
             ));
             bottomBar.setBackgroundColor(Color.parseColor("#111827"));
             bottomBar.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            bottomBar.setPadding(40, 0, 40, 0);
+            bottomBar.setPadding(30, 0, 30, 0);
 
             // Voltar
             backBtn = new TextView(context);
             backBtn.setText("◀");
-            backBtn.setTextSize(20);
+            backBtn.setTextSize(18);
             backBtn.setTextColor(Color.parseColor("#4B5563"));
             backBtn.setEnabled(false);
             backBtn.setGravity(android.view.Gravity.CENTER);
@@ -276,7 +291,7 @@ public class MangaWebViewPlugin extends Plugin {
             // Avançar
             forwardBtn = new TextView(context);
             forwardBtn.setText("▶");
-            forwardBtn.setTextSize(20);
+            forwardBtn.setTextSize(18);
             forwardBtn.setTextColor(Color.parseColor("#4B5563"));
             forwardBtn.setEnabled(false);
             forwardBtn.setGravity(android.view.Gravity.CENTER);
@@ -293,8 +308,8 @@ public class MangaWebViewPlugin extends Plugin {
             // Recarregar (↻)
             TextView refreshBtn = new TextView(context);
             refreshBtn.setText("↻");
-            refreshBtn.setTextSize(22);
-            refreshBtn.setTextColor(Color.WHITE);
+            refreshBtn.setTextSize(20);
+            refreshBtn.setTextColor(Color.parseColor(primaryColorHex));
             refreshBtn.setGravity(android.view.Gravity.CENTER);
             refreshBtn.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.0f));
             refreshBtn.setOnClickListener(v -> {
@@ -309,8 +324,8 @@ public class MangaWebViewPlugin extends Plugin {
             // Fechar (✕)
             TextView closeBtn = new TextView(context);
             closeBtn.setText("✕");
-            closeBtn.setTextSize(22);
-            closeBtn.setTextColor(Color.WHITE);
+            closeBtn.setTextSize(20);
+            closeBtn.setTextColor(Color.parseColor(primaryColorHex));
             closeBtn.setGravity(android.view.Gravity.CENTER);
             closeBtn.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.0f));
             closeBtn.setOnClickListener(v -> {
@@ -339,8 +354,19 @@ public class MangaWebViewPlugin extends Plugin {
                     window.setStatusBarColor(Color.parseColor("#111827"));
                     window.setNavigationBarColor(Color.parseColor("#111827"));
                 }
+                
+                // Ativar o Modo Imersivo para ocultar a status bar e navigation bar do sistema Android
+                window.getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                );
             }
 
+            // Sempre abre um novo separador com o URL inicial (que é a home por padrão) ao iniciar
             createNewTab(context, initialUrl);
 
             dialog.show();
@@ -362,8 +388,13 @@ public class MangaWebViewPlugin extends Plugin {
 
         setupWebViewClients(webView, tab);
 
-        webView.loadUrl(url);
+        if (url != null && url.startsWith("https://local.otakutime.home")) {
+            loadHomePage(webView);
+        } else {
+            webView.loadUrl(url);
+        }
         switchToTab(tabs.size() - 1);
+        saveTabsToPreferences();
     }
 
     private void setupWebViewSettings(WebView wv) {
@@ -396,21 +427,57 @@ public class MangaWebViewPlugin extends Plugin {
                 super.onPageStarted(view, url, favicon);
                 tab.currentUrl = url;
                 if (isCurrentTab(tab)) {
-                    addressBar.setText(url);
+                    if (url != null && url.startsWith("https://local.otakutime.home")) {
+                        addressBar.setText("");
+                        addressBar.setHint("Pesquisar ou digite URL");
+                    } else {
+                        addressBar.setText(url);
+                    }
                     updateNavigationButtons();
+                    updateFavButtonState(url);
                 }
+                saveTabsToPreferences();
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 tab.currentUrl = url;
-                tab.title = view.getTitle();
+                if (url != null && url.startsWith("https://local.otakutime.home")) {
+                    tab.title = "Otaku Time Home";
+                } else {
+                    tab.title = view.getTitle();
+                    // Injetar script para desativar popups JS (window.open) e forçar links target="_blank" no mesmo separador
+                    view.evaluateJavascript(
+                        "(function() { " +
+                        "  try { " +
+                        "    window.open = function() { return null; }; " +
+                        "    Object.defineProperty(window, 'open', { value: function() { return null; }, writable: false }); " +
+                        "    document.addEventListener('click', function(e) { " +
+                        "      var target = e.target; " +
+                        "      while (target && target.tagName !== 'A') { target = target.parentNode; } " +
+                        "      if (target && target.tagName === 'A') { " +
+                        "        if (target.getAttribute('target') === '_blank') { " +
+                        "          target.setAttribute('target', '_self'); " +
+                        "        } " +
+                        "      } " +
+                        "    }, true); " +
+                        "  } catch(e) {} " +
+                        "})();", null
+                    );
+                }
                 if (isCurrentTab(tab)) {
-                    addressBar.setText(url);
+                    if (url != null && url.startsWith("https://local.otakutime.home")) {
+                        addressBar.setText("");
+                        addressBar.setHint("Pesquisar ou digite URL");
+                    } else {
+                        addressBar.setText(url);
+                    }
                     updateNavigationButtons();
                     updateTabCountButton();
+                    updateFavButtonState(url);
                 }
+                saveTabsToPreferences();
             }
 
             @Override
@@ -424,6 +491,17 @@ public class MangaWebViewPlugin extends Plugin {
                 for (String adHost : AD_HOSTS) {
                     if (lowerUrl.contains(adHost)) {
                         return true;
+                    }
+                }
+
+                // Sandbox de leitura: Bloquear redirecionamentos automáticos para domínios externos não-confiáveis
+                String currentUrl = view.getUrl();
+                if (currentUrl != null && !currentUrl.startsWith("https://local.otakutime.home")) {
+                    if (isAdOrRedirect(currentUrl, url)) {
+                        getActivity().runOnUiThread(() -> {
+                            Toast.makeText(getContext(), "Anúncio ou redirecionamento bloqueado", Toast.LENGTH_SHORT).show();
+                        });
+                        return true; // Bloqueia a navegação indesejada
                     }
                 }
                 return false;
@@ -449,6 +527,7 @@ public class MangaWebViewPlugin extends Plugin {
                 if (isCurrentTab(tab)) {
                     updateTabCountButton();
                 }
+                saveTabsToPreferences();
             }
         });
     }
@@ -468,9 +547,17 @@ public class MangaWebViewPlugin extends Plugin {
         webViewContainer.removeAllViews();
         webViewContainer.addView(activeTab.webView);
 
-        addressBar.setText(activeTab.currentUrl);
+        if (activeTab.currentUrl != null && activeTab.currentUrl.startsWith("https://local.otakutime.home")) {
+            addressBar.setText("");
+            addressBar.setHint("Pesquisar ou digite URL");
+        } else {
+            addressBar.setText(activeTab.currentUrl);
+        }
+
         updateNavigationButtons();
         updateTabCountButton();
+        updateFavButtonState(activeTab.currentUrl);
+        saveTabsToPreferences();
     }
 
     private void closeTab(Context context, int index) {
@@ -496,6 +583,7 @@ public class MangaWebViewPlugin extends Plugin {
             }
             switchToTab(activeTabIndex);
         }
+        saveTabsToPreferences();
     }
 
     private void loadUrlInActiveTab(String url) {
@@ -508,19 +596,22 @@ public class MangaWebViewPlugin extends Plugin {
         if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
             WebView activeWv = tabs.get(activeTabIndex).webView;
             if (activeWv != null) {
+                int activeColor = Color.parseColor(primaryColorHex);
+                int inactiveColor = Color.parseColor("#4B5563");
+
                 if (activeWv.canGoBack()) {
-                    backBtn.setTextColor(Color.WHITE);
+                    backBtn.setTextColor(activeColor);
                     backBtn.setEnabled(true);
                 } else {
-                    backBtn.setTextColor(Color.parseColor("#4B5563"));
+                    backBtn.setTextColor(inactiveColor);
                     backBtn.setEnabled(false);
                 }
 
                 if (activeWv.canGoForward()) {
-                    forwardBtn.setTextColor(Color.WHITE);
+                    forwardBtn.setTextColor(activeColor);
                     forwardBtn.setEnabled(true);
                 } else {
-                    forwardBtn.setTextColor(Color.parseColor("#4B5563"));
+                    forwardBtn.setTextColor(inactiveColor);
                     forwardBtn.setEnabled(false);
                 }
             }
@@ -534,40 +625,219 @@ public class MangaWebViewPlugin extends Plugin {
     }
 
     private void showTabsDialog(Context context) {
-        String[] items = new String[tabs.size() + 1];
+        CharSequence[] items = new CharSequence[tabs.size() + 1];
         for (int i = 0; i < tabs.size(); i++) {
             WebTab tab = tabs.get(i);
             String title = tab.title != null ? tab.title : "Sem título";
-            items[i] = (i + 1) + ". " + title + "\n(" + tab.currentUrl + ")";
+            String activeIndicator = (i == activeTabIndex) ? "<font color='" + primaryColorHex + "'>● </font>" : "";
+            
+            String html = "<b>" + activeIndicator + title + "</b><br>" +
+                          "<small><font color='#9CA3AF'>" + tab.currentUrl + "</font></small>";
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                items[i] = android.text.Html.fromHtml(html, android.text.Html.FROM_HTML_MODE_LEGACY);
+            } else {
+                items[i] = android.text.Html.fromHtml(html);
+            }
         }
-        items[tabs.size()] = "+ Novo Separador";
+        
+        String addHtml = "<b><font color='" + primaryColorHex + "'>+ </font>Novo Separador</b>";
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            items[tabs.size()] = android.text.Html.fromHtml(addHtml, android.text.Html.FROM_HTML_MODE_LEGACY);
+        } else {
+            items[tabs.size()] = android.text.Html.fromHtml(addHtml);
+        }
 
         new android.app.AlertDialog.Builder(context, android.app.AlertDialog.THEME_DEVICE_DEFAULT_DARK)
                 .setTitle("Separadores Abertos")
                 .setItems(items, (dialogInterface, which) -> {
                     if (which == tabs.size()) {
-                        createNewTab(context, homeUrl);
+                        createNewTab(context, "https://local.otakutime.home");
                     } else {
-                        showTabOptionsDialog(context, which);
+                        switchToTab(which);
                     }
                 })
                 .show();
     }
 
-    private void showTabOptionsDialog(Context context, final int tabIndex) {
-        WebTab tab = tabs.get(tabIndex);
-        String title = tab.title != null ? tab.title : "Separador";
-        String[] options = {"Focar Separador", "Fechar Separador", "Cancelar"};
+    private void loadHomePage(WebView wv) {
+        Context context = wv.getContext();
+        android.content.SharedPreferences prefs = context.getSharedPreferences("OtakuTimeBrowserPrefs", Context.MODE_PRIVATE);
+        Set<String> bookmarks = prefs.getStringSet("bookmarked_urls", new HashSet<>());
 
-        new android.app.AlertDialog.Builder(context, android.app.AlertDialog.THEME_DEVICE_DEFAULT_DARK)
-                .setTitle(title)
-                .setItems(options, (dialogInterface, which) -> {
-                    if (which == 0) {
-                        switchToTab(tabIndex);
-                    } else if (which == 1) {
-                        closeTab(context, tabIndex);
+        StringBuilder bookmarksHtml = new StringBuilder();
+        if (bookmarks.isEmpty()) {
+            bookmarksHtml.append("<div class=\"no-bookmarks\">Adiciona os teus sites favoritos (clicando na estrela ☆ do topo) para veres atalhos rápidos aqui!</div>");
+        } else {
+            bookmarksHtml.append("<div class=\"section-title\">Atalhos Rápidos</div>");
+            bookmarksHtml.append("<div class=\"bookmarks-grid\">");
+            for (String b : bookmarks) {
+                String displayName = b;
+                try {
+                    Uri uri = Uri.parse(b);
+                    displayName = uri.getHost();
+                    if (displayName == null) displayName = b;
+                    if (displayName.startsWith("www.")) {
+                        displayName = displayName.substring(4);
                     }
-                })
-                .show();
+                } catch (Exception e) {}
+
+                bookmarksHtml.append(String.format(
+                    "<a href=\"%s\" class=\"bookmark-card\"><div class=\"icon\">⭐</div><div class=\"title\">%s</div></a>",
+                    b, displayName
+                ));
+            }
+            bookmarksHtml.append("</div>");
+        }
+
+        String html = String.format(
+            "<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><style>body { background-color: #0B0F19; color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 100vh; margin: 0; padding: 25px 20px; box-sizing: border-box; } .container { text-align: center; width: 100%%; max-width: 450px; margin-top: 40px; } h1 { font-size: 2.8rem; font-weight: 800; margin-bottom: 2rem; color: %s; letter-spacing: -1.5px; margin-top: 0; } form { width: 100%%; margin-bottom: 30px; } .search-box { display: flex; background: #1F2937; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 24px; padding: 6px 14px; align-items: center; box-shadow: 0 4px 20px rgba(0,0,0,0.3); } .search-box input { flex: 1; background: transparent; border: none; outline: none; color: white; font-size: 1.05rem; padding: 8px; } .search-box button { background: %s; border: none; border-radius: 16px; color: white; padding: 8px 18px; font-weight: bold; cursor: pointer; transition: background 0.2s; font-size: 0.95rem; } .search-box button:active { opacity: 0.85; } .section-title { font-size: 1.1rem; font-weight: 700; text-align: left; margin: 25px 0 15px 0; color: #9CA3AF; width: 100%%; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 8px; } .bookmarks-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; width: 100%%; } .bookmark-card { display: flex; flex-direction: column; align-items: center; background: #1F2937; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 16px 12px; text-decoration: none; color: white; transition: transform 0.2s, background 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.15); } .bookmark-card:active { transform: scale(0.95); background: #374151; } .bookmark-card .icon { font-size: 1.5rem; margin-bottom: 8px; } .bookmark-card .title { font-size: 0.85rem; font-weight: 600; text-align: center; word-break: break-all; max-width: 100%%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .no-bookmarks { color: #9CA3AF; font-size: 0.85rem; margin-top: 25px; line-height: 1.6; background: rgba(255, 255, 255, 0.03); padding: 20px; border-radius: 16px; border: 1px dashed rgba(255, 255, 255, 0.1); width: 100%%; box-sizing: border-box; text-align: center; }</style></head><body><div class=\"container\"><h1>Otaku Time</h1><form action=\"https://www.google.com/search\" method=\"get\"><div class=\"search-box\"><input type=\"text\" name=\"q\" placeholder=\"Pesquisar no Google...\" autocomplete=\"off\" required><button type=\"submit\">Ir</button></div></form>%s</div></body></html>",
+            primaryColorHex, primaryColorHex, bookmarksHtml.toString()
+        );
+        wv.loadDataWithBaseURL("https://local.otakutime.home", html, "text/html", "UTF-8", "https://local.otakutime.home");
+    }
+
+    // --- Persistência de Separadores e Favoritos via SharedPreferences ---
+
+    private void saveTabsToPreferences() {
+        Context context = getContext();
+        if (context == null) return;
+        android.content.SharedPreferences prefs = context.getSharedPreferences("OtakuTimeBrowserPrefs", Context.MODE_PRIVATE);
+        android.content.SharedPreferences.Editor editor = prefs.edit();
+        
+        int savedCount = 0;
+        int savedActiveIndex = 0;
+        for (int i = 0; i < tabs.size(); i++) {
+            WebTab tab = tabs.get(i);
+            if (tab.currentUrl != null && tab.currentUrl.startsWith("https://local.otakutime.home")) {
+                continue; // Do not persist home pages
+            }
+            editor.putString("tab_" + savedCount + "_url", tab.currentUrl);
+            editor.putString("tab_" + savedCount + "_title", tab.title);
+            if (i == activeTabIndex) {
+                savedActiveIndex = savedCount;
+            }
+            savedCount++;
+        }
+        editor.putInt("tab_count", savedCount);
+        editor.putInt("active_tab_index", savedActiveIndex);
+        editor.apply();
+    }
+
+    private void loadTabsFromPreferences(Context context) {
+        android.content.SharedPreferences prefs = context.getSharedPreferences("OtakuTimeBrowserPrefs", Context.MODE_PRIVATE);
+        int tabCount = prefs.getInt("tab_count", 0);
+        int savedActiveIndex = prefs.getInt("active_tab_index", -1);
+        tabs.clear();
+        if (tabCount > 0) {
+            for (int i = 0; i < tabCount; i++) {
+                String url = prefs.getString("tab_" + i + "_url", "https://local.otakutime.home");
+                String title = prefs.getString("tab_" + i + "_title", "Otaku Time Home");
+
+                WebView webView = new WebView(context);
+                webView.setLayoutParams(new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                ));
+                setupWebViewSettings(webView);
+
+                WebTab tab = new WebTab(webView, url);
+                tab.title = title;
+                tabs.add(tab);
+                setupWebViewClients(webView, tab);
+
+                if (url != null && url.startsWith("https://local.otakutime.home")) {
+                    loadHomePage(webView);
+                } else {
+                    webView.loadUrl(url);
+                }
+            }
+            activeTabIndex = savedActiveIndex;
+        }
+    }
+
+    private void toggleBookmark(Context context, String url) {
+        if (url == null || url.trim().isEmpty() || url.startsWith("https://local.otakutime.home")) {
+            return;
+        }
+        android.content.SharedPreferences prefs = context.getSharedPreferences("OtakuTimeBrowserPrefs", Context.MODE_PRIVATE);
+        Set<String> bookmarks = new HashSet<>(prefs.getStringSet("bookmarked_urls", new HashSet<>()));
+
+        if (bookmarks.contains(url)) {
+            bookmarks.remove(url);
+            Toast.makeText(context, "Removido dos favoritos.", Toast.LENGTH_SHORT).show();
+        } else {
+            bookmarks.add(url);
+            Toast.makeText(context, "Adicionado aos favoritos!", Toast.LENGTH_SHORT).show();
+        }
+
+        prefs.edit().putStringSet("bookmarked_urls", bookmarks).apply();
+        updateFavButtonState(url);
+    }
+
+    private void updateFavButtonState(String url) {
+        getActivity().runOnUiThread(() -> {
+            if (favBtn == null) return;
+            if (url == null || url.startsWith("https://local.otakutime.home")) {
+                favBtn.setText("☆");
+                favBtn.setTextColor(Color.parseColor("#4B5563"));
+                favBtn.setEnabled(false);
+                return;
+            }
+            favBtn.setEnabled(true);
+            Context context = getContext();
+            if (context == null) return;
+            android.content.SharedPreferences prefs = context.getSharedPreferences("OtakuTimeBrowserPrefs", Context.MODE_PRIVATE);
+            Set<String> bookmarks = prefs.getStringSet("bookmarked_urls", new HashSet<>());
+
+            if (bookmarks.contains(url)) {
+                favBtn.setText("★");
+                favBtn.setTextColor(Color.parseColor("#F59E0B")); // Amber 500
+            } else {
+                favBtn.setText("☆");
+                favBtn.setTextColor(Color.parseColor("#9CA3AF")); // Gray 400
+            }
+        });
+    }
+
+    private boolean isAdOrRedirect(String currentUrl, String targetUrl) {
+        if (currentUrl == null || targetUrl == null) return false;
+        if (targetUrl.startsWith("https://local.otakutime.home")) return false;
+
+        try {
+            Uri currentUri = Uri.parse(currentUrl);
+            Uri targetUri = Uri.parse(targetUrl);
+
+            String currentHost = currentUri.getHost();
+            String targetHost = targetUri.getHost();
+
+            if (currentHost == null || targetHost == null) return false;
+
+            // Normalizar domínios removendo www.
+            currentHost = currentHost.replace("www.", "");
+            targetHost = targetHost.replace("www.", "");
+
+            // Se os domínios forem iguais ou subdomínios, permitir
+            if (targetHost.equals(currentHost) || targetHost.endsWith("." + currentHost) || currentHost.endsWith("." + targetHost)) {
+                return false;
+            }
+
+            // Domínios confiáveis para login, pesquisa e serviços principais
+            String[] trustedDomains = {
+                "google.com", "google.pt", "google.co", "google.ad", "googleads",
+                "recaptcha.net", "gstatic.com", "googleapis.com", "cloudflare.com",
+                "disqus.com", "disquscdn.com", "facebook.com", "twitter.com", "discord.gg",
+                "github.com", "git-scm.com"
+            };
+            for (String trusted : trustedDomains) {
+                if (targetHost.contains(trusted)) {
+                    return false;
+                }
+            }
+
+            // Se o domínio for completamente diferente e não confiável, é considerado redirect/anúncio
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

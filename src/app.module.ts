@@ -13,6 +13,7 @@ import { CommentModule } from './comment/comment.module';
 import { ListModule } from './list/list.module';
 import { KeepAwakeService } from './keep-awake.service';
 import { KeepAwakeMiddleware } from './keep-awake.middleware';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { KeepAwakeMiddleware } from './keep-awake.middleware';
     RatingModule,
     CommentModule,
     ListModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService, KeepAwakeService],

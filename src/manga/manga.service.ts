@@ -256,6 +256,28 @@ export class MangaService {
         where: { id: anilistId },
       });
       if (existe) {
+        const oldLatest = existe.numCapitulosTotal || 0;
+        if (latest > oldLatest) {
+          const userMangas = await this.prisma.userManga.findMany({
+            where: {
+              mangaId: anilistId,
+              status: 'WATCHING',
+            },
+          });
+
+          for (const um of userMangas) {
+            await this.prisma.notification.create({
+              data: {
+                userId: um.userId,
+                title: 'Novo capítulo de Mangá!',
+                message: `O capítulo ${latest} de "${existe.titulo}" foi lançado!`,
+                type: 'MANGA',
+                mediaId: anilistId,
+              },
+            });
+          }
+        }
+
         const updateData: any = { numCapitulosTotal: latest };
         if (existe.statusLancamento === 'RELEASING') {
           updateData.proximoCapituloNumero = latest + 1;

@@ -41,6 +41,7 @@ model User {
   ratings           UserRating[]
   comments          Comment[]
   customLists       CustomList[]
+  notifications     Notification[]
 }
 
 model Anime {
@@ -296,3 +297,16 @@ model CustomListItem {
   @@unique([listId, anilistMediaId, mediaType])
   @@index([listId, position])
 }
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String
+  message   String
+  type      String   // 'ANIME' | 'MANGA' | 'SYSTEM'
+  mediaId   Int?     // AniList ID of the anime/manga
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+

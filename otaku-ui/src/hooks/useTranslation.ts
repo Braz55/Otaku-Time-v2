@@ -27,6 +27,13 @@ const dictionary: Record<string, string> = {
   "Anime": "Anime",
   "Mangá": "Manga",
   "Não tens notificações pendentes.": "You have no pending notifications.",
+  "Todas as notificações marcadas como lidas.": "All notifications marked as read.",
+  "Todas as notificações apagadas.": "All notifications cleared.",
+  "Notificações": "Notifications",
+  "Limpar tudo": "Clear all",
+  "Marcar todas como lidas": "Mark all as read",
+  "Sem notificações": "No notifications",
+  "Agora mesmo": "Just now",
 
   // HomePage / Dashboard
   "A carregar destaque...": "Loading highlight...",

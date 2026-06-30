@@ -4,6 +4,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Header from './Header';
 import { useTranslation } from '../hooks/useTranslation';
+import { Capacitor, registerPlugin } from '@capacitor/core';
+
+const MangaWebView = registerPlugin<any>('MangaWebView');
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -18,6 +21,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const [pendingNavigation, setPendingNavigation] = React.useState<{ path: string; action?: () => void } | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = React.useState(false);
+
+  const isAndroid = Capacitor.getPlatform() === 'android';
+
+  const openBrowser = async () => {
+    try {
+      await MangaWebView.open({ url: 'https://www.google.com' });
+    } catch (e) {
+      console.error('Error opening browser:', e);
+    }
+  };
 
   React.useEffect(() => {
     const handleShowModal = (e: Event) => {
@@ -343,6 +356,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Floating Action Button for Browser (Android Only) */}
+      {isAndroid && (
+        <button
+          onClick={openBrowser}
+          className="fixed bottom-20 right-4 z-[99] w-14 h-14 rounded-full bg-primary hover:bg-primary-light text-on-primary shadow-2xl flex items-center justify-center active:scale-95 transition-transform border border-white/10"
+          aria-label="Navegador Web"
+        >
+          <span className="material-symbols-outlined text-2xl font-bold">travel_explore</span>
+        </button>
       )}
 
     </div>

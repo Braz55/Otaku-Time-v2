@@ -34,9 +34,9 @@ const SyncIndicator: React.FC = () => {
 };
 
 const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboard }) => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { showToast } = useToast();
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -44,6 +44,31 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboar
   
   const [isSyncing, setIsSyncing] = useState(false);
   const [mobileSearchActive, setMobileSearchActive] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const fetchNotifications = async () => {
+    if (!token) return;
+    try {
+      const res = await customFetch(`${API_BASE_URL}/notification`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data);
+      }
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 15000);
+    return () => clearInterval(interval);
+  }, [token]);
 
   useEffect(() => {
     let isMounted = true;
@@ -83,11 +108,124 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboar
     setMobileSearchActive(false);
   };
 
+  const handleMarkRead = async (id: number) => {
+    if (!token) return;
+    try {
+      const res = await customFetch(`${API_BASE_URL}/notification/${id}/read`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
+        setNotifications(prev =>
+          prev.map(n => (n.id === id ? { ...n, read: true } : n))
+        );
+      }
+    } catch (err) {
+      console.error('Error marking notification as read:', err);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    if (!token) return;
+    try {
+      const res = await customFetch(`${API_BASE_URL}/notification/read-all`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        showToast(t("Todas as notificações marcadas como lidas."), "success");
+      }
+    } catch (err) {
+      console.error('Error marking all as read:', err);
+    }
+  };
+
+  const handleDeleteNotification = async (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!token) return;
+    try {
+      const res = await customFetch(`${API_BASE_URL}/notification/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+      }
+    } catch (err) {
+      console.error('Error deleting notification:', err);
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (!token) return;
+    try {
+      const res = await customFetch(`${API_BASE_URL}/notification`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
+        setNotifications([]);
+        showToast(t("Todas as notificações apagadas."), "success");
+      }
+    } catch (err) {
+      console.error('Error deleting all notifications:', err);
+    }
+  };
+
+  const handleNotificationClick = async (n: any) => {
+    if (!n.read) {
+      await handleMarkRead(n.id);
+    }
+    setIsDropdownOpen(false);
+    if (n.mediaId && n.type) {
+      navigate(`/details/${n.type.toLowerCase()}/${n.mediaId}`);
+    }
+  };
+
+  const formatNotificationTime = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      if (diffMins < 60) {
+        return diffMins <= 1 ? t("Agora mesmo") : `${diffMins}m`;
+      }
+      const diffHours = Math.floor(diffMins / 60);
+      if (diffHours < 24) {
+        return `${diffHours}h`;
+      }
+      return date.toLocaleDateString(lang === 'PT' ? 'pt-PT' : 'en-US', {
+        day: '2-digit',
+        month: '2-digit',
+      });
+    } catch {
+      return '';
+    }
+  };
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
   return (
     <>
+      {isDropdownOpen && (
+        <div 
+          className="fixed inset-0 z-30 bg-transparent" 
+          onClick={() => setIsDropdownOpen(false)}
+        />
+      )}
       {isMobile ? (
         /* Top App Bar Mobile */
-        <header className="fixed top-0 left-0 w-full z-50 bg-background/85 backdrop-blur-xl border-b border-border-glass flex flex-col justify-end px-margin-mobile safe-h-nav-top">
+        <header className="fixed top-0 left-0 w-full z-40 bg-background/85 backdrop-blur-xl border-b border-border-glass flex flex-col justify-end px-margin-mobile safe-h-nav-top">
           <div className="flex justify-between items-center h-16 w-full gap-2">
             {mobileSearchActive ? (
               /* Active mobile search layout */
@@ -141,8 +279,85 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboar
                     </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   {isSyncing && <SyncIndicator />}
+                  
+                  {/* Notifications Mobile */}
+                  <div className="relative">
+                    <button 
+                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                      className="active:scale-95 duration-200 text-primary flex-shrink-0 p-1.5 flex items-center justify-center relative cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined !text-[22px]">notifications</span>
+                      {unreadCount > 0 && (
+                        <span className="absolute top-1 right-1 bg-primary text-on-primary text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center shadow-lg border border-background">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </button>
+
+                    {isDropdownOpen && (
+                      <div className="absolute right-[-40px] mt-2 w-72 xs:w-80 rounded-2xl bg-surface-container/95 backdrop-blur-xl border border-white/10 shadow-2xl z-50 max-h-[380px] overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="flex items-center justify-between p-3 border-b border-white/10 bg-black/20">
+                          <span className="font-bold text-xs text-white">{t("Notificações")}</span>
+                          {unreadCount > 0 && (
+                            <button 
+                              onClick={handleMarkAllRead}
+                              className="text-[10px] text-primary hover:underline font-semibold"
+                            >
+                              {t("Marcar todas como lidas")}
+                            </button>
+                          )}
+                        </div>
+                        
+                        <div className="overflow-y-auto max-h-[260px] divide-y divide-white/5 scrollbar-thin">
+                          {notifications.length === 0 ? (
+                            <div className="p-6 text-center text-on-surface-variant text-xs flex flex-col items-center gap-1.5">
+                              <span className="material-symbols-outlined text-2xl opacity-30">notifications_off</span>
+                              <span>{t("Sem notificações")}</span>
+                            </div>
+                          ) : (
+                            notifications.map((n) => (
+                              <div 
+                                key={n.id}
+                                onClick={() => handleNotificationClick(n)}
+                                className={`p-3 flex items-start gap-2.5 cursor-pointer hover:bg-white/5 transition-colors relative group ${!n.read ? 'bg-primary/5' : ''}`}
+                              >
+                                {!n.read && (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-bold text-white truncate">{n.title}</p>
+                                  <p className="text-[10px] text-on-surface-variant leading-relaxed mt-0.5">{n.message}</p>
+                                  <span className="text-[9px] text-on-surface-variant/60 mt-1 block">
+                                    {formatNotificationTime(n.createdAt)}
+                                  </span>
+                                </div>
+                                <button 
+                                  onClick={(e) => handleDeleteNotification(n.id, e)}
+                                  className="text-on-surface-variant hover:text-red-400 opacity-60 hover:opacity-100 p-1 rounded transition-all material-symbols-outlined !text-base ml-1"
+                                >
+                                  delete
+                                </button>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                        
+                        {notifications.length > 0 && (
+                          <div className="p-2 border-t border-white/10 bg-black/10 text-center">
+                            <button 
+                              onClick={handleClearAll}
+                              className="text-[11px] text-red-400 hover:text-red-300 font-semibold transition-colors"
+                            >
+                              {t("Limpar tudo")}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   <button 
                     onClick={() => { setMobileSearchActive(true); }}
                     className="active:scale-95 duration-200 text-primary flex-shrink-0 p-1 flex items-center justify-center"
@@ -154,10 +369,9 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboar
             )}
           </div>
         </header>
-
       ) : (
         /* TopAppBar Desktop */
-        <header className="fixed top-0 right-0 w-full md:w-[calc(100%-16rem)] z-40 bg-background/80 backdrop-blur-2xl border-b border-border-glass h-20 flex justify-between items-center px-6 md:px-margin-desktop">
+        <header className="fixed top-0 right-0 w-full md:w-[calc(100%-16rem)] z-30 bg-background/80 backdrop-blur-2xl border-b border-border-glass h-20 flex justify-between items-center px-6 md:px-margin-desktop">
           {/* Search Bar & Switcher */}
           <div className="flex items-center flex-1 max-w-2xl gap-4">
             <div className="relative w-full focus-within:ring-2 focus-within:ring-primary/50 rounded-full transition-all">
@@ -202,13 +416,82 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboar
           <div className="flex items-center gap-6 ml-6">
             {isSyncing && <SyncIndicator />}
             
-            <button 
-              onClick={() => showToast(t("Não tens notificações pendentes."), "info")}
-              className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
-            >
-              notifications
-            </button>
-            
+            {/* Notifications Desktop */}
+            <div className="relative">
+              <button 
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors cursor-pointer relative flex items-center justify-center p-1.5"
+              >
+                notifications
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 bg-primary text-on-primary text-[10px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center shadow-lg border border-background">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {isDropdownOpen && (
+                <div className="absolute right-0 mt-3 w-80 rounded-2xl bg-surface-container/95 backdrop-blur-xl border border-white/10 shadow-2xl z-50 max-h-[420px] overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="flex items-center justify-between p-4 border-b border-white/10 bg-black/20">
+                    <span className="font-bold text-sm text-white">{t("Notificações")}</span>
+                    {unreadCount > 0 && (
+                      <button 
+                        onClick={handleMarkAllRead}
+                        className="text-xs text-primary hover:underline font-semibold"
+                      >
+                        {t("Marcar todas como lidas")}
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="overflow-y-auto max-h-[300px] divide-y divide-white/5 scrollbar-thin">
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center text-on-surface-variant text-xs flex flex-col items-center gap-2">
+                        <span className="material-symbols-outlined text-3xl opacity-30">notifications_off</span>
+                        <span>{t("Sem notificações")}</span>
+                      </div>
+                    ) : (
+                      notifications.map((n) => (
+                        <div 
+                          key={n.id}
+                          onClick={() => handleNotificationClick(n)}
+                          className={`p-3.5 flex items-start gap-3 cursor-pointer hover:bg-white/5 transition-colors relative group ${!n.read ? 'bg-primary/5' : ''}`}
+                        >
+                          {!n.read && (
+                            <span className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-white truncate">{n.title}</p>
+                            <p className="text-[11px] text-on-surface-variant leading-relaxed mt-0.5">{n.message}</p>
+                            <span className="text-[10px] text-on-surface-variant/60 mt-1 block">
+                              {formatNotificationTime(n.createdAt)}
+                            </span>
+                          </div>
+                          <button 
+                            onClick={(e) => handleDeleteNotification(n.id, e)}
+                            className="text-on-surface-variant hover:text-red-400 opacity-0 group-hover:opacity-100 p-1 rounded transition-all material-symbols-outlined !text-base ml-1"
+                          >
+                            delete
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  
+                  {notifications.length > 0 && (
+                    <div className="p-2.5 border-t border-white/10 bg-black/10 text-center">
+                      <button 
+                        onClick={handleClearAll}
+                        className="text-xs text-red-400 hover:text-red-300 font-semibold transition-colors"
+                      >
+                        {t("Limpar tudo")}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <button 
               onClick={() => navigate('/profile', { state: { activeTab: 'account' } })}
               className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
@@ -236,4 +519,3 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboar
 };
 
 export default Header;
-

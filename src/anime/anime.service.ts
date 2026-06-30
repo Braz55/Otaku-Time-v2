@@ -588,6 +588,31 @@ export class AnimeService {
         where: { id: anilistId },
       });
       if (existe) {
+        const oldLatest = existe.proximoEpisodio
+          ? existe.proximoEpisodio - 1
+          : (existe.numEpisodiosTotal || 0);
+
+        if (latest > oldLatest) {
+          const userAnimes = await this.prisma.userAnime.findMany({
+            where: {
+              animeId: anilistId,
+              status: 'WATCHING',
+            },
+          });
+
+          for (const ua of userAnimes) {
+            await this.prisma.notification.create({
+              data: {
+                userId: ua.userId,
+                title: 'Novo episódio de Anime!',
+                message: `O episódio ${latest} de "${existe.titulo}" foi lançado!`,
+                type: 'ANIME',
+                mediaId: anilistId,
+              },
+            });
+          }
+        }
+
         await this.prisma.anime.update({
           where: { id: anilistId },
           data: {

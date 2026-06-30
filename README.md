@@ -119,6 +119,22 @@ Resolves inconsistencies from external portals using a 3-layer system:
 * **Resilient Sync Services**: Optimized AniList database synchronization routes, resolving request loops and redundant checks.
 * **Auto-Wake Integration**: Refined ping middleware coordinates between web client / Capacitor client and NestJS backend to keep Render database pools hot and responsive.
 
+### 22. Interactive Native In-App Browser (Android Only)
+* **Custom Web Browser**: Integration of a custom native Android web browser view (`MangaWebView`) accessible via a dedicated floating action button.
+* **Enhanced Navigation Control**: Standard browser navigation where the Android back button navigates back in the browser's web history instead of exiting the view.
+* **Chrome-like Multi-Tab Support**: Support for opening multiple tabs, easy tab switching, and seamless redirect/popup handling.
+* **Background Bookmark Association**: An automated sync listener (`onAssociateBookmark`) that intercepts bookmarked sites in the native browser, extracts their domains, and automatically saves them as custom personal links under the active anime/manga details in the user's library.
+
+### 23. Real-Time Release Notifications System
+* **Automated Tracked Releases**: In-app notifications are automatically generated when background content synchronization runs and detects a new release (new episode/chapter) for works in the user's library.
+* **Targeted Library Subscriptions**: Only triggers notifications for works currently marked as "WATCHING" (Anime) or "READING" (Manga) to avoid unwanted alerts.
+* **Interactive Inbox**: Custom interactive notifications dropdown/inbox on both desktop and mobile headers with options to mark individual items as read, clear all notifications, delete specific alerts, and navigate directly to the media details page on click.
+
+### 24. Responsive Mobile UI Optimizations
+* **Dynamic Header Sizing**: Resolves UI overlap bugs on narrow Android screens by dynamically hiding the `Otaku-Time` branding title (using `hidden sm:block`) to prioritize critical touch targets.
+* **Zero Overlap Guarantee**: Ensures that the category switcher ("Anime" / "Mangá") and the background synchronization spinning indicator/notification buttons never collision or overlay on narrow viewports.
+* **Custom xs Breakpoint**: Integrated a custom `xs` (400px) breakpoint into the custom Tailwind CSS layout system to improve chip styling and grid layouts on older or smaller mobile screens.
+
 ---
 
 ## System Architecture

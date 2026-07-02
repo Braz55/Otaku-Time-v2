@@ -41,25 +41,27 @@ Implementámos dois botões de sorteio com ícones e comportamentos distintos no
 
 ## 🔮 Próximos Passos (Planeamento)
 
-### Passo 1: Sincronização WebSockets em Tempo Real
+### Passo 1: Transição do Módulo de Anime/Vídeo para a API do TMDB (Estilo TV Time)
+Substituir a integração da AniList por uma integração com a API do TMDB para unificar temporadas e expandir a aplicação para séries ocidentais e filmes.
+* **Fase 1.1: Adaptações de Base de Dados (Prisma Schema):**
+  * Atualizar o model `Anime` para atuar como `TVShow / Movie` do TMDB (ID mapeado para o TMDB, campo `formato` para `'TV'` ou `'MOVIE'`).
+  * Adicionar campo JSON `proximosEpisodios` no model `Anime` para guardar as datas de lançamento de todos os episódios futuros da temporada ativa.
+  * Modificar `UserAnime` para adicionar os campos `seasonAtual` (Int, padrão 1) e `epAtual` (Int, representando o progresso da temporada ativa).
+* **Fase 1.2: Refatoração da API no Backend (NestJS):**
+  * Criar um serviço de integração com a API do TMDB para gerir a pesquisa (séries/filmes) e puxar os dados completos de temporadas e episódios.
+  * Atualizar a lógica de importação (`/anime/import`) para guardar a série completa e a lista de episódios da temporada ativa.
+  * Atualizar o endpoint de incremento de progresso para suportar `season` e `episode` e gerir a conclusão de temporadas.
+* **Fase 1.3: Sincronização Inteligente de Lançamentos:**
+  * Atualizar o cron job de sincronização externa para correr a cada 12/24 horas e atualizar dados do TMDB (novos episódios, adiamentos, mudança de status).
+  * Criar uma verificação local frequente (de hora a hora) que analisa `proximosEpisodios` e gera notificações automaticamente assim que o horário de um episódio passa, sem fazer chamadas de rede externas.
+* **Fase 1.4: Refatoração do Frontend (React + Vite):**
+  * **Pesquisa & Exploração:** Adaptar para devolver resultados únicos agrupados do TMDB.
+  * **Biblioteca:** Exibir apenas 1 card representativo por série com o progresso estruturado (ex: "T2: Ep 3/12").
+  * **Página de Detalhes:** Criar um ecrã unificado com o seletor de temporadas e a lista de episódios com checkmarks (estilo TV Time), permitindo acompanhar o progresso episódio a episódio e temporada a temporada.
+  * **Calendário:** Mapear a agenda de lançamentos lendo as datas de todos os episódios futuros guardados no campo `proximosEpisodios`.
+
+### Passo 2: Sincronização WebSockets em Tempo Real
 Substituir o polling manual de background por uma ligação WebSocket persistente (via Socket.io no NestJS) para atualizar o progresso entre o telemóvel e o PC instantaneamente sempre que houver conexão.
 
-### Passo 2: Estatísticas de Leitura/Visualização Avançadas
+### Passo 3: Estatísticas de Leitura/Visualização Avançadas
 Criar um painel de análise gráfica que resuma os géneros mais consumidos, tempo total gasto a assistir/ler e projeções de finalização do backlog atual.
-
-### Passo 3: Remoção do Chatbot de IA (Otaku Bot)
-Para evitar que utilizadores externos gastem tokens ou sobrecarreguem o servidor com chamadas à API de IA, será efetuada a limpeza completa da funcionalidade de IA:
-* **Frontend:** Remover a página de chat e respetivas rotas/ícones de navegação.
-* **Backend:** Eliminar o `ChatModule`, controllers, services e endpoints `/chat`.
-* **Base de Dados:** Limpar as tabelas `ChatSession` e `ChatMessage` do schema Prisma e base de dados.
-
-### Passo 4: Distinção entre Anime Série / Filme e Agregação por Temporadas
-Planear e implementar a diferenciação de formatos e o agrupamento de sequelas:
-* **Diferenciação de Formato:** Criar uma distinção clara entre séries de TV/OVA/ONA (múltiplos episódios) e filmes/Movies (um único episódio/filme), adaptando os controlos e estatísticas de progresso no frontend e backend.
-* **Agregação por Franquia/Temporadas:** Agrupar ou associar títulos relacionados que pertencem à mesma franquia ou a diferentes temporadas (e.g. Temporada 1, Temporada 2, Filmes prequela/sequela), organizando a biblioteca de forma mais agregada e intuitiva.
-
-### Passo 5: Sistema de Notificações Dinâmicas
-Implementar um sistema de notificações real para substituir o toast estático atual:
-* **Base de Dados:** Criar a tabela `Notification` para registar notificações individuais dos utilizadores (título, mensagem, tipo, lida/não lida, link/rota e data de criação).
-* **Backend:** Endpoints para obter, marcar como lidas e apagar notificações. Integração com o cron de sincronização para gerar alertas de novos episódios/capítulos para conteúdos que o utilizador está a acompanhar (estado `WATCHING`).
-* **Frontend:** Substituir o botão/toast simples de notificações no cabeçalho por um menu dropdown interativo que exibe a contagem de alertas não lidos, listagem organizada e ações para limpar ou ler as notificações.

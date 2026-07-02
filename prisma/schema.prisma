@@ -45,7 +45,7 @@ model User {
 }
 
 model Anime {
-  id                  Int         @id // Usar o ID da AniList diretamente
+  id                  Int         @id // Usar o ID da AniList/TMDB diretamente
   titulo              String
   statusLancamento    String?
   descricao           String?
@@ -60,7 +60,8 @@ model Anime {
   paisOrigem          String?
   formato             String?
   materialOrigem      String?
-  linksExternos       String?     // JSON string com os links oficiais (MangaPlus, Lezhin, etc.)
+  linksExternos       String?     // JSON string com os links oficiais
+  proximosEpisodios   Json?       // Lista de episódios futuros da temporada atual
   utilizadores        UserAnime[]
   customListItems     CustomListItem[]
   updatedAt           DateTime    @default(now()) @updatedAt
@@ -68,6 +69,7 @@ model Anime {
 
 model UserAnime {
   id         Int            @id @default(autoincrement())
+  seasonAtual Int           @default(1)
   epAtual    Int            @default(0)
   status     TrackingStatus @default(PLANNED)
   prioridade Int            @default(5)

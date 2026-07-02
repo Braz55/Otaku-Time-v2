@@ -83,14 +83,23 @@ export class AnimeController {
 
   @UseGuards(JwtAuthGuard)
   @Get('anilist/:id')
-  getAniListById(@Param('id') id: string) {
-    return this.animeService.searchAniListById(+id);
+  getAniListById(@Param('id') id: string, @Request() req) {
+    return this.animeService.searchAniListById(+id, req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('tmdb/:id/season/:seasonNumber')
+  getTVSeasonDetails(
+    @Param('id') id: string,
+    @Param('seasonNumber') seasonNumber: string,
+  ) {
+    return this.animeService.getTVSeasonDetails(+id, +seasonNumber);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('external/:nome')
-  getExternalDetails(@Param('nome') nome: string) {
-    return this.animeService.searchAniList(nome);
+  getExternalDetails(@Param('nome') nome: string, @Request() req) {
+    return this.animeService.searchAniList(nome, req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard)

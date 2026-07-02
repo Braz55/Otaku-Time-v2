@@ -11,12 +11,14 @@ import { useTranslation } from '../hooks/useTranslation';
 
 interface AiringAnime {
   id: number;
+  originalId: number;
   titulo: string;
   capaUrl: string;
   displayNum: number;
   displayDate: string;
   type: 'anime' | 'manga';
   prioridade?: number | null;
+  season?: number;
 }
 
 const CalendarPage = () => {
@@ -26,8 +28,6 @@ const CalendarPage = () => {
   const [items, setItems] = useState<AiringAnime[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(startOfToday());
-
-
 
   const days = eachDayOfInterval({
     start: startOfToday(),
@@ -40,9 +40,34 @@ const CalendarPage = () => {
       const animeRes = await customFetch(`${API_BASE_URL}/anime`, { headers: { 'Authorization': `Bearer ${token}` } });
       const animeData = await animeRes.json();
       
-      const airingAnime = animeData
-        .filter((a: any) => a.proximoEpisodioData !== null)
-        .map((a: any) => ({ ...a, type: 'anime' as const, displayDate: a.proximoEpisodioData, displayNum: a.proximoEpisodio }));
+      const airingAnime: AiringAnime[] = [];
+      
+      animeData.forEach((a: any) => {
+        if (a.proximosEpisodios && Array.isArray(a.proximosEpisodios) && a.proximosEpisodios.length > 0) {
+          a.proximosEpisodios.forEach((ep: any) => {
+            if (ep.airDate) {
+              airingAnime.push({
+                ...a,
+                id: a.id * 1000 + (ep.season || 0) * 100 + ep.episode,
+                originalId: a.id,
+                type: 'anime',
+                displayDate: ep.airDate,
+                displayNum: ep.episode,
+                season: ep.season,
+              } as any);
+            }
+          });
+        } else if (a.proximoEpisodioData) {
+          airingAnime.push({
+            ...a,
+            id: a.id,
+            originalId: a.id,
+            type: 'anime',
+            displayDate: a.proximoEpisodioData,
+            displayNum: a.proximoEpisodio,
+          } as any);
+        }
+      });
 
       setItems(airingAnime);
     } catch (error) {
@@ -215,7 +240,7 @@ const CalendarPage = () => {
                   <article 
                     key={`${item.type}-${item.id}`}
                     className="glass-panel rim-light p-4 rounded-2xl flex gap-4 hover:border-secondary/50 transition-all cursor-pointer group min-w-0"
-                    onClick={() => navigate(`/details/${item.type}/${item.id}`)}
+                    onClick={() => navigate(`/details/${item.type}/${item.originalId || item.id}`)}
                   >
                     <div className="w-24 h-36 rounded-xl overflow-hidden flex-shrink-0 relative">
                       <img 
@@ -238,7 +263,7 @@ const CalendarPage = () => {
                             {formattedTime} (JST)
                           </span>
                           <span className="bg-deep-gray/80 backdrop-blur-md text-white px-2 py-0.5 rounded border border-white/10 font-medium">
-                            {item.type === 'anime' ? t('Episódio') : t('Capítulo')} {item.displayNum}
+                            {item.type === 'anime' ? `${item.season ? `T${item.season} ` : ''}${t('Episódio')}` : t('Capítulo')} {item.displayNum}
                           </span>
                         </div>
                         
@@ -299,7 +324,7 @@ const CalendarPage = () => {
                       <div 
                         key={`timeline-${item.type}-${item.id}`} 
                         className="glass-panel p-5 rounded-2xl flex items-center gap-6 group hover:border-secondary/30 transition-all cursor-pointer border border-white/5"
-                        onClick={() => navigate(`/details/${item.type}/${item.id}`)}
+                        onClick={() => navigate(`/details/${item.type}/${item.originalId || item.id}`)}
                       >
                         <div className="text-center min-w-[80px]">
                           <span className="text-secondary font-black block text-sm">
@@ -315,7 +340,7 @@ const CalendarPage = () => {
                         <div className="flex-grow min-w-0">
                           <h4 className="text-white font-bold group-hover:text-secondary transition-colors truncate">{item.titulo}</h4>
                           <p className="text-on-surface-variant text-xs">
-                            {item.type === 'anime' ? t('Episódio') : t('Capítulo')} {item.displayNum} • {item.type === 'anime' ? t('Anime') : t('Mangá')}
+                            {item.type === 'anime' ? `${item.season ? `T${item.season} ` : ''}${t('Episódio')}` : t('Capítulo')} {item.displayNum} • {item.type === 'anime' ? t('Anime') : t('Mangá')}
                           </p>
                         </div>
                         <div className="shrink-0">

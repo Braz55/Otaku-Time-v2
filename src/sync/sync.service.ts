@@ -35,6 +35,66 @@ export class SyncService implements OnApplicationBootstrap {
     await this.runAutoSync(true);
   }
 
+  @Cron(CronExpression.EVERY_HOUR)
+  async handleLocalNotificationsCron() {
+    this.logger.log('CRON Triggered: Checking local episode schedules...');
+    const now = new Date();
+    
+    const animes = await this.prisma.anime.findMany({
+      where: {
+        statusLancamento: 'RELEASING',
+      }
+    });
+
+    for (const anime of animes) {
+      if (!anime.proximosEpisodios) continue;
+      
+      const episodes = anime.proximosEpisodios as any[];
+      let updated = false;
+      let userAnimes: any[] = [];
+
+      for (const ep of episodes) {
+        if (ep.airDate) {
+          const epDate = new Date(ep.airDate);
+          if (now >= epDate && !ep.notified) {
+            if (userAnimes.length === 0) {
+              userAnimes = await this.prisma.userAnime.findMany({
+                where: {
+                  animeId: anime.id,
+                  status: 'WATCHING',
+                },
+              });
+            }
+
+            for (const ua of userAnimes) {
+              await this.prisma.notification.create({
+                data: {
+                  userId: ua.userId,
+                  title: 'Novo episódio de Série/Anime!',
+                  message: `O episódio ${ep.episode} da Temporada ${ep.season} de "${anime.titulo}" estreou!`,
+                  type: 'ANIME',
+                  mediaId: anime.id,
+                },
+              });
+            }
+            ep.notified = true;
+            updated = true;
+            this.logger.log(`[LocalSync] Sent local notification for ${anime.titulo} Season ${ep.season} Ep ${ep.episode}`);
+          }
+        }
+      }
+
+      if (updated) {
+        await this.prisma.anime.update({
+          where: { id: anime.id },
+          data: {
+            proximosEpisodios: episodes,
+          },
+        });
+      }
+    }
+  }
+
   async runAutoSync(bypassCooldown = false, cooldownMs = 4 * 60 * 60 * 1000) {
     if (this.isSyncingActive) {
       this.logger.warn('Sync is already running. Skipping new trigger.');

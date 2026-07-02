@@ -601,6 +601,7 @@ const LibraryPage = () => {
                                     Progresso
                                   </span>
                                   <span className="text-white font-bold">
+                                    {categoria === 'anime' && item.seasonAtual !== undefined && `T${item.seasonAtual} `}
                                     {current} / {totalVal}
                                   </span>
                                 </div>

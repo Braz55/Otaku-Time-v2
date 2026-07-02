@@ -181,6 +181,39 @@ const DetailsPage = () => {
   const [listsWithMedia, setListsWithMedia] = useState<any[]>([]);
   const [isCheckingLists, setIsCheckingLists] = useState(false);
   const [isDeletingFromLists, setIsDeletingFromLists] = useState(false);
+  const [activeTab, setActiveTab] = useState<'tracking' | 'info'>('tracking');
+  const [seasonEpisodes, setSeasonEpisodes] = useState<any[]>([]);
+  const [loadingEpisodes, setLoadingEpisodes] = useState(false);
+
+  useEffect(() => {
+    const fetchSeasonEpisodes = async () => {
+      if (!selectedItem || mediaType !== 'anime') return;
+      const tmdbId = selectedItem.isExternal ? selectedItem.id : (selectedItem.animeId || selectedItem.id);
+      if (!tmdbId) return;
+      const seasonNumber = selectedItem.seasonAtual || 1;
+      setLoadingEpisodes(true);
+      try {
+        const res = await customFetch(`${API_BASE_URL}/anime/tmdb/${tmdbId}/season/${seasonNumber}`, { headers: getHeaders() });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.episodes) {
+            setSeasonEpisodes(data.episodes);
+          } else {
+            setSeasonEpisodes([]);
+          }
+        } else {
+          setSeasonEpisodes([]);
+        }
+      } catch (err) {
+        console.error("Error fetching season episodes:", err);
+        setSeasonEpisodes([]);
+      } finally {
+        setLoadingEpisodes(false);
+      }
+    };
+
+    fetchSeasonEpisodes();
+  }, [selectedItem?.id, selectedItem?.animeId, selectedItem?.seasonAtual, mediaType]);
 
   const handleOpenListsModal = async () => {
     setShowListsModal(true);
@@ -1034,302 +1067,482 @@ const DetailsPage = () => {
                 </div>
               </div>
 
-              {/* 3. Ações (Quick Actions & My Progress) */}
-              <div className="space-y-4 pt-4 border-t border-white/5">
-                <h3 className="text-base font-bold flex items-center gap-2 text-white">
-                  <span className={`w-1 h-4 rounded-full ${mediaType === 'anime' ? 'bg-primary' : 'bg-secondary'}`}></span>
-                  Actions & Progress
-                </h3>
+              {/* TABS SWITCHER */}
+              <div className="flex border-b border-white/10 mb-4">
+                <button
+                  onClick={() => setActiveTab('tracking')}
+                  className={`flex-1 py-2.5 text-xs font-black transition-all flex items-center justify-center gap-1.5 border-b-2 ${
+                    activeTab === 'tracking'
+                      ? (mediaType === 'anime' ? 'border-primary text-primary' : 'border-secondary text-secondary')
+                      : 'border-transparent text-on-surface-variant'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-sm">analytics</span>
+                  ACOMPANHAMENTO
+                </button>
+                <button
+                  onClick={() => setActiveTab('info')}
+                  className={`flex-1 py-2.5 text-xs font-black transition-all flex items-center justify-center gap-1.5 border-b-2 ${
+                    activeTab === 'info'
+                      ? (mediaType === 'anime' ? 'border-primary text-primary' : 'border-secondary text-secondary')
+                      : 'border-transparent text-on-surface-variant'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-sm">info</span>
+                  SINOPSE
+                </button>
+              </div>
 
-
-
-                {selectedItem.isExternal ? (
-                  <button 
-                    onClick={() => { adicionarAoBanco(selectedItem.titulo, selectedItem.id); }} 
-                    disabled={isAddingToLibrary}
-                    className="w-full bg-primary hover:bg-primary/80 text-on-primary py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isAddingToLibrary ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        ADDING...
-                      </>
-                    ) : (
-                      <>
-                        <span className="material-symbols-outlined text-base">add</span> ADD TO LIBRARY
-                      </>
-                    )}
-                  </button>
-                ) : (
+              {activeTab === 'tracking' ? (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                  {/* 3. Ações (Quick Actions & My Progress) */}
                   <div className="space-y-4">
-                    {/* Tracking Status */}
-                    <div className="space-y-2">
-                      <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest">Tracking Status</label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {TRACKING_STATUS_OPTIONS.map((opt) => {
-                          const isSelected = selectedItem.status === opt.value;
-                          return (
-                            <button key={opt.value} onClick={() => atualizarCampo('status', opt.value)} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all text-xs font-bold relative overflow-hidden group active:scale-95 ${isSelected ? (mediaType === 'anime' ? 'bg-secondary/20 border-secondary text-secondary shadow-sm' : 'bg-primary/20 border-primary text-primary shadow-sm') : 'bg-surface-variant/30 border-white/5 text-on-surface-variant'}`}>
-                              {isSelected && (
-                                <span className={`absolute left-0 top-0 bottom-0 w-1 ${mediaType === 'anime' ? 'bg-secondary' : 'bg-primary'}`}></span>
-                              )}
-                              <span className={`material-symbols-outlined text-base ${isSelected ? (mediaType === 'anime' ? 'text-secondary' : 'text-primary') : 'text-on-surface-variant'}`} style={{ fontVariationSettings: "'FILL' 1" }}>
-                                {opt.value === 'WATCHING' ? 'play_circle' : 
-                                 opt.value === 'PLANNED' ? 'schedule' : 
-                                 opt.value === 'COMPLETED' ? 'check_circle' : 
-                                 opt.value === 'PAUSED' ? 'pause_circle' : 'cancel'}
-                              </span>
-                              <span className="truncate">{mediaType === 'anime' ? opt.animeLabel : opt.mangaLabel}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Priority Selector */}
-                    <div className="space-y-2 pt-2 border-t border-white/5">
-                      <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-xs text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                        Priority Level (1 = Highest)
-                      </label>
-                      <div className="grid grid-cols-5 gap-1.5">
-                        {PRIORITY_OPTIONS.map(p => {
-                          const isSel = selectedItem.prioridade === p.num;
-                          return (
-                            <button
-                              key={p.num}
-                              onClick={() => atualizarCampo('prioridade', p.num)}
-                              className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all active:scale-95 ${
-                                isSel 
-                                  ? `${p.colorClass} scale-105 font-black shadow-sm`
-                                  : 'bg-surface-variant/30 border-white/5 text-on-surface-variant'
-                              }`}
-                            >
-                              <span className="text-xs font-bold">#{p.num}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* My Progress */}
-                    <div className={`p-4 rounded-2xl border ${showEpList ? (mediaType === 'anime' ? 'bg-secondary/10 border-secondary/40' : 'bg-primary/10 border-primary/40') : 'glass-panel border-white/5'}`}>
-                      <div className="flex items-center gap-1.5 mb-1 justify-center">
-                        <span className="material-symbols-outlined text-on-surface-variant text-xs">timelapse</span>
-                        <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest">My Progress</p>
-                      </div>
-                      
-                      <div className="flex items-baseline gap-2 mb-4 mt-2 justify-center">
-                        {isSavingDetailsProgress ? (
-                          <div className="h-10 flex items-center justify-center">
-                            <Loader2 className={`w-6 h-6 animate-spin ${mediaType === 'anime' ? 'text-primary' : 'text-secondary'}`} />
-                          </div>
+                    {selectedItem.isExternal ? (
+                      <button 
+                        onClick={() => { adicionarAoBanco(selectedItem.titulo, selectedItem.id); }} 
+                        disabled={isAddingToLibrary}
+                        className="w-full bg-primary hover:bg-primary/80 text-on-primary py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isAddingToLibrary ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            ADDING...
+                          </>
                         ) : (
                           <>
-                            <input type="number" min="0" max={mediaType === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 9999)) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 9999))} value={mediaType === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(mediaType === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${mediaType === 'anime' ? 'text-primary focus:bg-secondary/10' : 'text-secondary focus:bg-primary/10'} font-black text-3xl w-16 text-center outline-none border-b border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} />
-                            <span className="text-on-surface-variant font-light text-2xl">/</span> 
-                            <span className="text-on-surface-variant font-bold text-2xl">
-                              {mediaType === 'anime' 
-                                ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || '?'))
-                                : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || '?'))
-                              }
-                            </span>
+                            <span className="material-symbols-outlined text-base">add</span> ADD TO LIBRARY
                           </>
                         )}
-                      </div>
-
-                      <div className="flex items-center justify-center gap-2 w-full flex-wrap mb-1">
-                        <button onClick={() => atualizarProgresso(-1)} disabled={isSavingDetailsProgress} title="Subtract 1" className={`w-9 h-9 rounded-xl bg-surface-variant/40 hover:bg-surface-variant border border-white/5 text-on-surface-variant hover:text-white transition-all flex items-center justify-center shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}>
-                          <span className="material-symbols-outlined text-base">remove</span>
-                        </button>
-                        <button onClick={() => atualizarProgresso(1)} disabled={isSavingDetailsProgress} title="Add 1" className={`w-9 h-9 rounded-xl transition-all flex items-center justify-center shadow-md active:scale-95 font-bold ${mediaType === 'anime' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary'} disabled:opacity-50 disabled:cursor-not-allowed`}>
-                          <span className="material-symbols-outlined text-base">add</span>
-                        </button>
-                        <button onClick={() => setShowEpList(!showEpList)} className={`px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold border active:scale-95 ${showEpList ? (mediaType === 'anime' ? 'bg-primary/20 border-primary text-primary' : 'bg-secondary/20 border-secondary text-secondary') : 'bg-surface-variant/30 border-white/5 text-on-surface-variant'}`}>
-                          <span className="material-symbols-outlined text-sm">grid_view</span>
-                          {showEpList ? 'Close Grid' : 'Open Grid'}
-                        </button>
-                      </div>
-
-                      {showEpList && (
-                        <div className="w-full mt-4 border-t border-white/10 pt-4 animate-in slide-in-from-top-4 duration-300">
-                          <div className="grid grid-cols-5 sm:grid-cols-6 gap-2 max-h-[240px] overflow-y-auto pr-1 custom-scrollbar">
-                            {[...Array(mediaType === 'anime' 
-                              ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 0)) 
-                              : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 0))
-                            )].map((_, i) => {
-                              const num = i + 1;
-                              const isWatched = num <= (mediaType === 'anime' ? selectedItem.epAtual : selectedItem.capAtual);
+                      </button>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Tracking Status */}
+                        <div className="space-y-2">
+                          <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest">Tracking Status</label>
+                          <div className="grid grid-cols-2 gap-2">
+                            {TRACKING_STATUS_OPTIONS.map((opt) => {
+                              const isSelected = selectedItem.status === opt.value;
+                              let pulseColor = 'rgba(255, 255, 255, 0.2)';
+                              if (opt.value === 'WATCHING') pulseColor = 'rgba(74, 222, 128, 0.45)';
+                              else if (opt.value === 'PLANNED') pulseColor = 'rgba(139, 92, 246, 0.45)';
+                              else if (opt.value === 'COMPLETED') pulseColor = 'rgba(251, 191, 36, 0.45)';
+                              else if (opt.value === 'PAUSED') pulseColor = 'rgba(249, 115, 22, 0.45)';
+                              else if (opt.value === 'DROPPED') pulseColor = 'rgba(239, 68, 68, 0.45)';
+                              
                               return (
-                                <button key={num} onClick={() => atualizarCampo(mediaType === 'anime' ? 'epAtual' : 'capAtual', num)} disabled={isSavingDetailsProgress} className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isWatched ? (mediaType === 'anime' ? 'bg-primary text-on-primary scale-105' : 'bg-secondary text-on-secondary scale-105') : 'bg-surface-variant/30 text-on-surface-variant border border-white/5'}`}>
-                                  {num}
+                                <button 
+                                  key={opt.value} 
+                                  onClick={() => atualizarCampo('status', opt.value)} 
+                                  style={{ '--pulse-color': pulseColor } as React.CSSProperties}
+                                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all text-xs font-bold relative overflow-hidden group active:scale-95 ${
+                                    isSelected 
+                                      ? `${mediaType === 'anime' ? 'bg-secondary/20 border-secondary text-secondary' : 'bg-primary/20 border-primary text-primary'} animate-pulse-glow` 
+                                      : 'bg-surface-variant/30 border-white/5 text-on-surface-variant hover:text-white'
+                                  }`}
+                                >
+                                  {isSelected && (
+                                    <span className={`absolute left-0 top-0 bottom-0 w-1 ${mediaType === 'anime' ? 'bg-secondary' : 'bg-primary'}`}></span>
+                                  )}
+                                  <span className={`material-symbols-outlined text-base ${isSelected ? (mediaType === 'anime' ? 'text-secondary' : 'text-primary') : 'text-on-surface-variant'}`} style={{ fontVariationSettings: "'FILL' 1" }}>
+                                    {opt.value === 'WATCHING' ? 'play_circle' : 
+                                     opt.value === 'PLANNED' ? 'schedule' : 
+                                     opt.value === 'COMPLETED' ? 'check_circle' : 
+                                     opt.value === 'PAUSED' ? 'pause_circle' : 'cancel'}
+                                  </span>
+                                  <span className="truncate">{mediaType === 'anime' ? opt.animeLabel : opt.mangaLabel}</span>
                                 </button>
                               );
                             })}
                           </div>
                         </div>
-                      )}
-                    </div>
 
-                    {/* Season Breakdown (Baka-Updates / MangaDex) */}
-                    {mediaType === 'manga' && latestBreakdown && latestBreakdown.length > 0 && (
-                      <div className="p-4 rounded-2xl glass-panel border border-white/5 space-y-2.5 my-3 animate-in fade-in">
-                        <div className="flex items-center gap-1.5 mb-1 justify-center">
-                          <span className="material-symbols-outlined text-secondary text-sm">format_list_bulleted</span>
-                          <p className="text-secondary text-[10px] uppercase font-bold tracking-widest">Season Breakdown</p>
+                        {/* Priority Selector */}
+                        <div className="space-y-2 pt-2 border-t border-white/5">
+                          <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-xs text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                            Priority Level (1 = Highest)
+                          </label>
+                          <div className="grid grid-cols-5 gap-1.5">
+                            {PRIORITY_OPTIONS.map(p => {
+                              const isSel = selectedItem.prioridade === p.num;
+                              let pulseColor = 'rgba(255, 255, 255, 0.2)';
+                              if (p.num === 1) pulseColor = 'rgba(239, 68, 68, 0.45)';
+                              else if (p.num === 2) pulseColor = 'rgba(249, 115, 22, 0.45)';
+                              else if (p.num === 3) pulseColor = 'rgba(234, 179, 8, 0.45)';
+                              else if (p.num === 4) pulseColor = 'rgba(59, 130, 246, 0.45)';
+                              else if (p.num === 5) pulseColor = 'rgba(34, 197, 94, 0.45)';
+                              
+                              return (
+                                <button
+                                  key={p.num}
+                                  onClick={() => atualizarCampo('prioridade', p.num)}
+                                  style={{ '--pulse-color': pulseColor } as React.CSSProperties}
+                                  className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all active:scale-95 ${
+                                    isSel 
+                                      ? `${p.colorClass} animate-pulse-glow font-black`
+                                      : 'bg-surface-variant/30 border-white/5 text-on-surface-variant hover:text-white'
+                                  }`}
+                                >
+                                  <span className="text-xs font-bold">#{p.num}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {latestBreakdown.map((b: any, idx: number) => (
-                            <div key={idx} className="flex items-center justify-between p-2.5 bg-surface-variant/30 rounded-xl border border-white/5 shadow-sm">
-                              <span className="text-xs font-bold text-white truncate pr-2">{b.label}</span>
-                              <span className="px-2.5 py-1 bg-secondary/20 text-secondary text-xs font-black rounded-lg border border-secondary/30 flex-shrink-0 shadow-[0_0_10px_rgba(255,176,203,0.2)]">
-                                {b.chapters} Chs
-                              </span>
+
+                        {/* My Progress (Flattened & beautiful season select dropdown) */}
+                        <div className="space-y-4 pt-4 border-t border-white/5">
+                          <div className="flex items-center gap-1.5 justify-center">
+                            <span className="material-symbols-outlined text-on-surface-variant text-xs">timelapse</span>
+                            <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest">My Progress</p>
+                          </div>
+                           
+                          {mediaType === 'anime' && selectedItem.relations?.edges?.length > 0 && (
+                            <div className="flex flex-col items-center gap-1.5 mb-2 w-full">
+                              <div className="relative w-full max-w-xs mt-1">
+                                <select
+                                  value={selectedItem.seasonAtual || 1}
+                                  onChange={(e) => {
+                                    const seasonNum = parseInt(e.target.value);
+                                    const edge = selectedItem.relations.edges.find((ed: any) => ed.node.seasonNumber === seasonNum);
+                                    if (edge) {
+                                      atualizarCampo('seasonAtual', seasonNum);
+                                      atualizarCampo('numEpisodiosTotal', edge.node.episodes);
+                                      atualizarCampo('epAtual', 0);
+                                    }
+                                  }}
+                                  className="w-full bg-black/40 text-white border border-white/10 px-4 py-2.5 rounded-xl outline-none focus:border-primary text-xs font-bold appearance-none cursor-pointer pr-10"
+                                >
+                                  {selectedItem.relations.edges
+                                    .filter((edge: any) => edge.node.format === 'TV_SEASON')
+                                    .map((edge: any) => (
+                                      <option key={edge.node.id} value={edge.node.seasonNumber} className="bg-surface-container text-white">
+                                        {edge.node.seasonNumber}ª Temporada ({edge.node.episodes} eps)
+                                      </option>
+                                    ))}
+                                </select>
+                                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-base">
+                                  keyboard_arrow_down
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex items-baseline gap-2 mb-4 mt-2 justify-center">
+                            {isSavingDetailsProgress ? (
+                              <div className="h-10 flex items-center justify-center">
+                                <Loader2 className={`w-6 h-6 animate-spin ${mediaType === 'anime' ? 'text-primary' : 'text-secondary'}`} />
+                              </div>
+                            ) : (
+                              <>
+                                <input type="number" min="0" max={mediaType === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 9999)) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 9999))} value={mediaType === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(mediaType === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${mediaType === 'anime' ? 'text-primary focus:bg-secondary/10' : 'text-secondary focus:bg-primary/10'} font-black text-3xl w-16 text-center outline-none border-b border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} />
+                                <span className="text-on-surface-variant font-light text-2xl">/</span> 
+                                <span className="text-on-surface-variant font-bold text-2xl">
+                                  {mediaType === 'anime' 
+                                    ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || '?'))
+                                    : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || '?'))
+                                  }
+                                </span>
+                              </>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-center gap-2 w-full flex-wrap mb-1">
+                            <button onClick={() => atualizarProgresso(-1)} disabled={isSavingDetailsProgress} title="Subtract 1" className={`w-9 h-9 rounded-xl bg-surface-variant/40 hover:bg-surface-variant border border-white/5 text-on-surface-variant hover:text-white transition-all flex items-center justify-center shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}>
+                              <span className="material-symbols-outlined text-base">remove</span>
+                            </button>
+                            <button onClick={() => atualizarProgresso(1)} disabled={isSavingDetailsProgress} title="Add 1" className={`w-9 h-9 rounded-xl transition-all flex items-center justify-center shadow-md active:scale-95 font-bold ${mediaType === 'anime' ? 'bg-primary text-on-primary shadow-sm shadow-primary/20' : 'bg-secondary text-on-secondary shadow-sm shadow-secondary/20'} disabled:opacity-50 disabled:cursor-not-allowed`}>
+                              <span className="material-symbols-outlined text-base">add</span>
+                            </button>
+                            <button onClick={() => setShowEpList(!showEpList)} className={`px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold border active:scale-95 ${showEpList ? (mediaType === 'anime' ? 'bg-primary/20 border-primary text-primary' : 'bg-secondary/20 border-secondary text-secondary') : 'bg-surface-variant/30 border-white/5 text-on-surface-variant'}`}>
+                              <span className="material-symbols-outlined text-sm">grid_view</span>
+                              {showEpList ? 'Close List' : 'Open List'}
+                            </button>
+                          </div>
+
+                          {showEpList && (
+                            <div className="w-full mt-4 border-t border-white/10 pt-4 animate-in slide-in-from-top-4 duration-300 text-left">
+                              {mediaType === 'anime' ? (
+                                loadingEpisodes ? (
+                                  <div className="flex items-center justify-center py-6">
+                                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                                  </div>
+                                ) : seasonEpisodes && seasonEpisodes.length > 0 ? (
+                                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                                    {seasonEpisodes.map((ep: any) => {
+                                      const isWatched = ep.episode_number <= selectedItem.epAtual;
+                                      const airDateStr = ep.air_date
+                                        ? new Date(ep.air_date).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })
+                                        : 'Sem data';
+                                      const stillUrl = ep.still_path
+                                        ? `https://image.tmdb.org/t/p/w200${ep.still_path}`
+                                        : selectedItem.capaUrl;
+                                        
+                                      return (
+                                        <div
+                                          key={ep.id}
+                                          className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all ${
+                                            isWatched
+                                              ? 'bg-primary/5 border-primary/20'
+                                              : 'bg-surface-variant/20 border-white/5'
+                                          }`}
+                                        >
+                                          {/* Episode Image */}
+                                          <div className="w-20 aspect-[16/9] rounded-lg overflow-hidden shrink-0 bg-black/40 border border-white/5">
+                                            <img src={stillUrl} className="w-full h-full object-cover" alt={ep.name} />
+                                          </div>
+                                          
+                                          {/* Episode Info */}
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-white text-xs font-bold truncate">
+                                              Ep {ep.episode_number} - {ep.name || `Episódio ${ep.episode_number}`}
+                                            </p>
+                                            <p className="text-on-surface-variant text-[10px] font-medium mt-0.5">
+                                              {airDateStr}
+                                            </p>
+                                          </div>
+                                          
+                                          {/* Watched Toggle Checkmark */}
+                                          <button
+                                            onClick={() => {
+                                              if (isWatched) {
+                                                atualizarCampo('epAtual', ep.episode_number - 1);
+                                              } else {
+                                                atualizarCampo('epAtual', ep.episode_number);
+                                              }
+                                            }}
+                                            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                                              isWatched
+                                                ? 'bg-primary text-on-primary scale-105 shadow-sm shadow-primary/20'
+                                                : 'bg-surface-variant/40 hover:bg-surface-variant hover:text-white text-on-surface-variant border border-white/10'
+                                            }`}
+                                          >
+                                            <span className="material-symbols-outlined text-sm font-bold">
+                                              {isWatched ? 'check' : 'check_box_outline_blank'}
+                                            </span>
+                                          </button>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <div className="grid grid-cols-5 sm:grid-cols-6 gap-2 max-h-[240px] overflow-y-auto pr-1 custom-scrollbar">
+                                    {[...Array((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 0))].map((_, i) => {
+                                      const num = i + 1;
+                                      const isWatched = num <= selectedItem.epAtual;
+                                      return (
+                                        <button key={num} onClick={() => atualizarCampo('epAtual', num)} disabled={isSavingDetailsProgress} className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isWatched ? 'bg-primary text-on-primary scale-105' : 'bg-surface-variant/30 text-on-surface-variant border border-white/5'}`}>
+                                          {num}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )
+                              ) : (
+                                <div className="grid grid-cols-5 sm:grid-cols-6 gap-2 max-h-[240px] overflow-y-auto pr-1 custom-scrollbar">
+                                  {[...Array((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 0))].map((_, i) => {
+                                    const num = i + 1;
+                                    const isWatched = num <= selectedItem.capAtual;
+                                    return (
+                                      <button key={num} onClick={() => atualizarCampo('capAtual', num)} disabled={isSavingDetailsProgress} className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isWatched ? 'bg-secondary text-on-secondary scale-105' : 'bg-surface-variant/30 text-on-surface-variant border border-white/5'}`}>
+                                        {num}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Season Breakdown (Manga only) */}
+                        {mediaType === 'manga' && latestBreakdown && latestBreakdown.length > 0 && (
+                          <div className="p-4 rounded-2xl glass-panel border border-white/5 space-y-2.5 my-3 animate-in fade-in">
+                            <div className="flex items-center gap-1.5 mb-1 justify-center">
+                              <span className="material-symbols-outlined text-secondary text-sm">format_list_bulleted</span>
+                              <p className="text-secondary text-[10px] uppercase font-bold tracking-widest">Season Breakdown</p>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {latestBreakdown.map((b: any, idx: number) => (
+                                <div key={idx} className="flex items-center justify-between p-2.5 bg-surface-variant/30 rounded-xl border border-white/5 shadow-sm">
+                                  <span className="text-xs font-bold text-white truncate pr-2">{b.label}</span>
+                                  <span className="px-2.5 py-1 bg-secondary/20 text-secondary text-xs font-black rounded-lg border border-secondary/30 flex-shrink-0 shadow-[0_0_10px_rgba(255,176,203,0.2)]">
+                                    {b.chapters} Chs
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Last Modified Card */}
+                        <div className="glass-panel p-3.5 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">
+                          <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-0.5">Last Content Update</p>
+                          <p className="font-bold text-sm text-white font-mono">
+                            {formatLastModified(selectedItem)}
+                          </p>
+                        </div>
+
+                        {(() => {
+                          const linksPessoais = selectedItem?.linksPersonalizados ? JSON.parse(selectedItem.linksPersonalizados) : [];
+                          if (linksPessoais.length === 0) return null;
+                          return (
+                            <button 
+                              onClick={() => handleGoToTabClick(linksPessoais)}
+                              className={`w-full ${mediaType === 'anime' ? 'bg-primary hover:bg-primary-light text-on-primary shadow-lg shadow-primary/20' : 'bg-secondary hover:bg-secondary-light text-on-secondary shadow-lg shadow-secondary/20'} py-3 rounded-xl font-extrabold transition-all flex items-center justify-center gap-2 text-xs active:scale-95 mb-2`}
+                            >
+                              <span className="material-symbols-outlined text-sm">open_in_new</span>
+                              {mediaType === 'anime' ? 'ASSISTIR NO SEPARADOR' : 'LER NO SEPARADOR'}
+                            </button>
+                          );
+                        })()}
+
+                        <button 
+                          onClick={handleOpenListsModal}
+                          className="w-full bg-surface-variant/40 hover:bg-surface-variant border border-white/5 text-white py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-xs active:scale-95 shadow-sm"
+                        >
+                          <span className="material-symbols-outlined text-sm">format_list_bulleted</span>
+                          GERIR NAS LISTAS
+                        </button>
+
+                        {/* Remove Button */}
+                        {showDeleteConfirm ? (
+                          <div className="p-4 rounded-2xl bg-error/10 border border-error/30 animate-in fade-in zoom-in-95 duration-300 space-y-3 shadow-md">
+                            <div className="flex items-center gap-2 text-error">
+                              <span className="material-symbols-outlined text-xl">warning</span>
+                              <h5 className="font-bold text-sm">Confirm Removal</h5>
+                            </div>
+                            <p className="text-xs text-on-surface-variant font-medium">
+                              Remove <span className="text-white font-bold">{selectedItem.titulo}</span> from library?
+                            </p>
+                            <div className="flex gap-2 pt-1">
+                              <button 
+                                onClick={() => setShowDeleteConfirm(false)} 
+                                disabled={isCheckingLists}
+                                className="flex-1 py-2 bg-surface-variant text-on-surface-variant rounded-xl font-bold text-xs border border-white/10 disabled:opacity-50"
+                              >
+                                Cancel
+                              </button>
+                              <button 
+                                onClick={handleRemoveFromLibraryClick} 
+                                disabled={isCheckingLists}
+                                className="flex-1 py-2 bg-error text-on-error rounded-xl font-bold text-xs shadow-md disabled:opacity-50 flex items-center justify-center gap-1.5"
+                              >
+                                {isCheckingLists && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                Yes, Remove
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button onClick={() => setShowDeleteConfirm(true)} className="w-full bg-error/10 hover:bg-error text-error hover:text-on-error py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-xs mt-2 border border-error/20">
+                            <span className="material-symbols-outlined text-base">delete</span>
+                            REMOVE FROM LIBRARY
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Personal Links in Tracking Tab */}
+                  {(() => {
+                    const linksPessoais = selectedItem.linksPersonalizados ? JSON.parse(selectedItem.linksPersonalizados).map((l: any) => ({ ...l, tipo: 'Custom' })) : [];
+                    return linksPessoais.length > 0 && (
+                      <div className="space-y-4 pt-4 border-t border-white/5">
+                        <h3 className="text-sm font-bold flex items-center gap-2 text-white">
+                          <span className={`w-1 h-4 rounded-full ${mediaType === 'anime' ? 'bg-primary' : 'bg-secondary'}`}></span>
+                          Personal Links
+                        </h3>
+                        <div className="grid grid-cols-1 gap-2.5">
+                          {linksPessoais.map((link: any, index: number) => (
+                            <div key={index} className="w-full flex items-center justify-between p-3.5 glass-panel rounded-xl shadow-sm border border-white/5">
+                              <div onClick={() => abrirLink(link.url, selectedItem.titulo)} className="flex-1 flex items-center gap-3 min-w-0 cursor-pointer">
+                                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-secondary/10 text-secondary">
+                                  <span className="material-symbols-outlined text-sm">open_in_new</span>
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5 truncate">
+                                    {link.site}
+                                    <span className="px-1.5 py-0.5 bg-secondary/20 text-secondary text-[9px] rounded-md border border-secondary/30 flex-shrink-0">CUSTOM</span>
+                                  </p>
+                                  <p className="text-[10px] text-on-surface-variant font-bold uppercase">{link.language || 'Global'}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button onClick={(e) => { e.stopPropagation(); eliminarLinkPessoal(link.site); }} className="text-red-400 hover:text-red-300 p-1 flex items-center justify-center cursor-pointer" title="Remover link">
+                                  <span className="material-symbols-outlined text-sm">delete</span>
+                                </button>
+                                <span onClick={() => abrirLink(link.url, selectedItem.titulo)} className="material-symbols-outlined text-sm flex-shrink-0 text-on-surface-variant cursor-pointer">chevron_right</span>
+                              </div>
                             </div>
                           ))}
                         </div>
                       </div>
-                    )}
+                    );
+                  })()}
+                </div>
+              ) : (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                  {/* 5. Descrição (Sinopse) */}
+                  <div className="space-y-2 text-left">
+                    <h3 className="text-sm font-bold flex items-center gap-2 text-white">
+                      <span className={`w-1 h-4 rounded-full ${mediaType === 'anime' ? 'bg-primary' : 'bg-secondary'}`}></span>
+                      Synopsis
+                    </h3>
+                    <p className="text-on-surface-variant leading-relaxed text-xs sm:text-sm">
+                      {selectedItem.descricao || "No description available."}
+                    </p>
+                  </div>
 
-                    {/* Last Modified Card */}
-                    <div className="glass-panel p-3.5 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">
-                      <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-0.5">Last Content Update</p>
-                      <p className="font-bold text-sm text-white font-mono">
-                        {formatLastModified(selectedItem)}
-                      </p>
-                    </div>
-
-                    {(() => {
-                      const linksPessoais = selectedItem?.linksPersonalizados ? JSON.parse(selectedItem.linksPersonalizados) : [];
-                      if (linksPessoais.length === 0) return null;
-                      return (
-                        <button 
-                          onClick={() => handleGoToTabClick(linksPessoais)}
-                          className={`w-full ${mediaType === 'anime' ? 'bg-primary hover:bg-primary-light text-on-primary shadow-lg shadow-primary/20' : 'bg-secondary hover:bg-secondary-light text-on-secondary shadow-lg shadow-secondary/20'} py-3 rounded-xl font-extrabold transition-all flex items-center justify-center gap-2 text-xs active:scale-95 mb-2`}
-                        >
-                          <span className="material-symbols-outlined text-sm">open_in_new</span>
-                          {mediaType === 'anime' ? 'ASSISTIR NO SEPARADOR' : 'LER NO SEPARADOR'}
-                        </button>
-                      );
-                    })()}
-
-                    <button 
-                      onClick={handleOpenListsModal}
-                      className="w-full bg-surface-variant/40 hover:bg-surface-variant border border-white/5 text-white py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-xs active:scale-95 shadow-sm"
-                    >
-                      <span className="material-symbols-outlined text-sm">format_list_bulleted</span>
-                      GERIR NAS LISTAS
-                    </button>
-
-                    {/* Remove Button */}
-                    {showDeleteConfirm ? (
-                      <div className="p-4 rounded-2xl bg-error/10 border border-error/30 animate-in fade-in zoom-in-95 duration-300 space-y-3 shadow-md">
-                        <div className="flex items-center gap-2 text-error">
-                          <span className="material-symbols-outlined text-xl">warning</span>
-                          <h5 className="font-bold text-sm">Confirm Removal</h5>
+                  {/* Official Links in Details Tab */}
+                  {(() => {
+                    const linksOficiais = selectedItem.linksExternos ? JSON.parse(selectedItem.linksExternos).map((l: any) => ({ ...l, tipo: 'Official' })) : [];
+                    return (linksOficiais.length > 0 || (!selectedItem.isExternal)) && (
+                      <div className="space-y-4 pt-4 border-t border-white/5 text-left">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-bold flex items-center gap-2 text-white">
+                            <span className={`w-1 h-4 rounded-full ${mediaType === 'anime' ? 'bg-primary' : 'bg-secondary'}`}></span>
+                            Where to {mediaType === 'anime' ? 'Watch' : 'Read'}
+                          </h3>
+                          {!selectedItem.isExternal && (
+                            <button onClick={() => setShowAddLink(!showAddLink)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all text-xs border ${mediaType === 'anime' ? 'bg-primary/10 text-primary border-primary/20' : 'bg-secondary/10 text-secondary border-secondary/20'}`}>
+                              <span className="material-symbols-outlined text-sm">add</span> ADD LINK
+                            </button>
+                          )}
                         </div>
-                        <p className="text-xs text-on-surface-variant font-medium">
-                          Remove <span className="text-white font-bold">{selectedItem.titulo}</span> from library?
-                        </p>
-                        <div className="flex gap-2 pt-1">
-                          <button 
-                            onClick={() => setShowDeleteConfirm(false)} 
-                            disabled={isCheckingLists}
-                            className="flex-1 py-2 bg-surface-variant text-on-surface-variant rounded-xl font-bold text-xs border border-white/10 disabled:opacity-50"
-                          >
-                            Cancel
-                          </button>
-                          <button 
-                            onClick={handleRemoveFromLibraryClick} 
-                            disabled={isCheckingLists}
-                            className="flex-1 py-2 bg-error text-on-error rounded-xl font-bold text-xs shadow-md disabled:opacity-50 flex items-center justify-center gap-1.5"
-                          >
-                            {isCheckingLists && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                            Yes, Remove
-                          </button>
+
+                        {showAddLink && !selectedItem.isExternal && (
+                          <div className="flex flex-col gap-2.5 p-3 bg-surface-variant/30 border border-white/10 rounded-xl animate-in slide-in-from-top-4">
+                            <input type="text" placeholder="Name (Ex: Crunchyroll)" value={newLinkSite} onChange={e => setNewLinkSite(e.target.value)} className="bg-black/30 px-3 py-2 rounded-lg border border-white/10 outline-none focus:border-primary transition-all text-xs text-white" />
+                            <input type="url" placeholder="URL (https://...)" value={newLinkUrl} onChange={e => setNewLinkUrl(e.target.value)} className="bg-black/30 px-3 py-2 rounded-lg border border-white/10 outline-none focus:border-primary transition-all text-xs text-white" />
+                            <button onClick={adicionarLinkPessoal} disabled={!newLinkSite || !newLinkUrl} className="py-2 bg-primary disabled:bg-surface-variant disabled:text-on-surface-variant text-on-primary rounded-lg font-bold transition-all text-xs">SAVE</button>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 gap-2.5">
+                          {linksOficiais.map((link: any, index: number) => (
+                            <div key={index} className="w-full flex items-center justify-between p-3.5 glass-panel rounded-xl shadow-sm border border-white/5">
+                              <div onClick={() => abrirLink(link.url, selectedItem.titulo)} className="flex-1 flex items-center gap-3 min-w-0 cursor-pointer">
+                                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-primary/10 text-primary">
+                                  <span className="material-symbols-outlined text-sm">open_in_new</span>
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-white uppercase tracking-wide truncate">
+                                    {link.site}
+                                  </p>
+                                  <p className="text-[10px] text-on-surface-variant font-bold uppercase">{link.language || 'Global'}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span onClick={() => abrirLink(link.url, selectedItem.titulo)} className="material-symbols-outlined text-sm flex-shrink-0 text-on-surface-variant cursor-pointer">chevron_right</span>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    ) : (
-                      <button onClick={() => setShowDeleteConfirm(true)} className="w-full bg-error/10 hover:bg-error text-error hover:text-on-error py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-xs mt-2 border border-error/20">
-                        <span className="material-symbols-outlined text-base">delete</span>
-                        REMOVE FROM LIBRARY
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* 4. Links (Pessoais primeiro, depois Oficiais) */}
-              {(() => {
-                const linksOficiais = selectedItem.linksExternos ? JSON.parse(selectedItem.linksExternos).map((l: any) => ({ ...l, tipo: 'Official' })) : [];
-                const linksPessoais = selectedItem.linksPersonalizados ? JSON.parse(selectedItem.linksPersonalizados).map((l: any) => ({ ...l, tipo: 'Custom' })) : [];
-                const todosLinksAndroid = [...linksPessoais, ...linksOficiais];
-                
-                return (todosLinksAndroid.length > 0 || (!selectedItem.isExternal)) && (
-                  <div className="space-y-4 pt-4 border-t border-white/5">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-base font-bold flex items-center gap-2 text-white">
-                        <span className={`w-1 h-4 rounded-full ${mediaType === 'anime' ? 'bg-primary' : 'bg-secondary'}`}></span>
-                        Where to {mediaType === 'anime' ? 'Watch' : 'Read'}
-                      </h3>
-                      {!selectedItem.isExternal && (
-                        <button onClick={() => setShowAddLink(!showAddLink)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all text-xs border ${mediaType === 'anime' ? 'bg-primary/10 text-primary border-primary/20' : 'bg-secondary/10 text-secondary border-secondary/20'}`}>
-                          <span className="material-symbols-outlined text-sm">add</span> ADD LINK
-                        </button>
-                      )}
-                    </div>
-                    
-                    {showAddLink && !selectedItem.isExternal && (
-                      <div className="flex flex-col gap-2.5 p-3 bg-surface-variant/30 border border-white/10 rounded-xl animate-in slide-in-from-top-4">
-                        <input type="text" placeholder="Name (Ex: Crunchyroll)" value={newLinkSite} onChange={e => setNewLinkSite(e.target.value)} className="bg-black/30 px-3 py-2 rounded-lg border border-white/10 outline-none focus:border-primary transition-all text-xs text-white" />
-                        <input type="url" placeholder="URL (https://...)" value={newLinkUrl} onChange={e => setNewLinkUrl(e.target.value)} className="bg-black/30 px-3 py-2 rounded-lg border border-white/10 outline-none focus:border-primary transition-all text-xs text-white" />
-                        <button onClick={adicionarLinkPessoal} disabled={!newLinkSite || !newLinkUrl} className="py-2 bg-primary disabled:bg-surface-variant disabled:text-on-surface-variant text-on-primary rounded-lg font-bold transition-all text-xs">SAVE</button>
-                      </div>
-                    )}
-                    
-                    <div className="grid grid-cols-1 gap-2.5">
-                      {todosLinksAndroid.map((link: any, index: number) => (
-                        <div key={index} className="w-full flex items-center justify-between p-3.5 glass-panel rounded-xl shadow-sm border border-white/5">
-                          <div onClick={() => abrirLink(link.url, selectedItem.titulo)} className="flex-1 flex items-center gap-3 min-w-0 cursor-pointer">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${link.tipo === 'Custom' ? 'bg-secondary/10 text-secondary' : 'bg-primary/10 text-primary'}`}>
-                              <span className="material-symbols-outlined text-sm">open_in_new</span>
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5 truncate">
-                                {link.site}
-                                {link.tipo === 'Custom' && <span className="px-1.5 py-0.5 bg-secondary/20 text-secondary text-[9px] rounded-md border border-secondary/30 flex-shrink-0">CUSTOM</span>}
-                              </p>
-                              <p className="text-[10px] text-on-surface-variant font-bold uppercase">{link.language || 'Global'}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {link.tipo === 'Custom' && (
-                              <button onClick={(e) => { e.stopPropagation(); eliminarLinkPessoal(link.site); }} className="text-red-400 hover:text-red-300 p-1 flex items-center justify-center cursor-pointer" title="Remover link">
-                                <span className="material-symbols-outlined text-sm">delete</span>
-                              </button>
-                            )}
-                            <span onClick={() => abrirLink(link.url, selectedItem.titulo)} className="material-symbols-outlined text-sm flex-shrink-0 text-on-surface-variant cursor-pointer">chevron_right</span>
-                          </div>
-                        </div>
-                      ))}
-                      {todosLinksAndroid.length === 0 && (
-                        <p className="text-on-surface-variant italic text-xs">No links available. Add one above!</p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* 5. Descrição (Sinopse) */}
-              <div className="space-y-2 pt-4 border-t border-white/5">
-                <h3 className="text-base font-bold flex items-center gap-2 text-white">
-                  <span className={`w-1 h-4 rounded-full ${mediaType === 'anime' ? 'bg-primary' : 'bg-secondary'}`}></span>
-                  Synopsis
-                </h3>
-                <p className="text-on-surface-variant leading-relaxed text-xs sm:text-sm">
-                  {selectedItem.descricao || "No description available."}
-                </p>
-              </div>
+                    );
+                  })()}
+                </div>
+              )}
               {renderRatingCommentsSection()}
             </div>
           ) : (
@@ -1403,351 +1616,525 @@ const DetailsPage = () => {
                   </div>
                 </div>
               </div>
-              <div className="p-8 md:p-12 grid md:grid-cols-3 gap-12">
-                <div className="md:col-span-2 space-y-12">
-                  <div>
-                    <h3 className="font-headline-lg text-2xl font-bold mb-6 flex items-center gap-3">
-                      <span className={`w-1.5 h-6 rounded-full ${mediaType === 'anime' ? 'bg-primary shadow-[0_0_10px_rgba(221,184,255,0.5)]' : 'bg-secondary shadow-[0_0_10px_rgba(255,176,203,0.5)]'}`}></span>
-                      Synopsis
-                    </h3>
-                    <p className="text-on-surface-variant leading-relaxed text-lg font-body-lg">
-                      {selectedItem.descricao || "No description available."}
-                    </p>
-                  </div>
-
-                  {/* Season Breakdown Web */}
-                  {mediaType === 'manga' && latestBreakdown && latestBreakdown.length > 0 && (
-                    <div className="space-y-6 pt-8 border-t border-white/5 animate-in fade-in">
-                      <h3 className="font-headline-lg text-2xl font-bold flex items-center gap-3">
-                        <span className="w-1.5 h-6 rounded-full bg-secondary shadow-[0_0_10px_rgba(255,176,203,0.5)]"></span>
-                        Season Breakdown
-                      </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                        {latestBreakdown.map((b: any, idx: number) => (
-                          <div key={idx} className="flex items-center justify-between p-5 glass-panel hover:bg-white/5 rounded-2xl transition-all border border-primary/30 hover:border-primary/50 shadow-lg group">
-                            <span className="text-sm font-bold text-white truncate pr-2 group-hover:text-secondary-light transition-colors">{b.label}</span>
-                            <span className="px-3 py-1.5 bg-secondary/20 text-secondary text-sm font-black rounded-xl border border-secondary/30 flex-shrink-0 shadow-[0_0_15px_rgba(255,176,203,0.2)]">
-                              {b.chapters} Chs
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {(() => {
-                    const linksOficiais = selectedItem.linksExternos ? JSON.parse(selectedItem.linksExternos).map((l: any) => ({ ...l, tipo: 'Official' })) : [];
-                    const linksPessoais = selectedItem.linksPersonalizados ? JSON.parse(selectedItem.linksPersonalizados).map((l: any) => ({ ...l, tipo: 'Custom' })) : [];
-                    const todosLinks = [...linksOficiais, ...linksPessoais];
-                    
-                    return (todosLinks.length > 0 || (!selectedItem.isExternal)) && (
-                      <div className="space-y-6 pt-10 border-t border-white/5">
-                        <div className="flex items-center justify-between mb-6">
-                          <h3 className="font-headline-lg text-2xl font-bold flex items-center gap-3">
-                            <span className={`w-1.5 h-6 rounded-full ${mediaType === 'anime' ? 'bg-primary shadow-[0_0_10px_rgba(221,184,255,0.5)]' : 'bg-secondary shadow-[0_0_10px_rgba(255,176,203,0.5)]'}`}></span>
-                            Where to {mediaType === 'anime' ? 'Watch' : 'Read'}
-                          </h3>
-                          {!selectedItem.isExternal && (
-                            <button onClick={() => setShowAddLink(!showAddLink)} className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all text-xs border ${mediaType === 'anime' ? 'bg-primary/10 text-primary border-primary/20 hover:bg-primary hover:text-on-primary shadow-[0_0_15px_rgba(221,184,255,0.2)]' : 'bg-secondary/10 text-secondary border-secondary/20 hover:bg-secondary hover:text-on-secondary shadow-[0_0_15px_rgba(255,176,203,0.2)]'}`}>
-                              <span className="material-symbols-outlined text-[16px]">add</span> ADD LINK
-                            </button>
-                          )}
-                        </div>
-                        
-                        {showAddLink && !selectedItem.isExternal && (
-                          <div className="flex flex-col sm:flex-row gap-3 p-4 bg-surface-variant/30 border border-white/10 rounded-2xl mb-4 animate-in slide-in-from-top-4">
-                            <input type="text" placeholder="Name (Ex: Crunchyroll)" value={newLinkSite} onChange={e => setNewLinkSite(e.target.value)} className="flex-1 bg-black/30 px-4 py-2.5 rounded-xl border border-white/10 outline-none focus:border-primary transition-all text-sm text-white" />
-                            <input type="url" placeholder="URL (https://...)" value={newLinkUrl} onChange={e => setNewLinkUrl(e.target.value)} className="flex-[2] bg-black/30 px-4 py-2.5 rounded-xl border border-white/10 outline-none focus:border-primary transition-all text-sm text-white" />
-                            <button onClick={adicionarLinkPessoal} disabled={!newLinkSite || !newLinkUrl} className="px-6 py-2.5 bg-primary hover:bg-primary/80 disabled:bg-surface-variant disabled:text-on-surface-variant text-on-primary rounded-xl font-bold transition-all text-sm">SAVE</button>
-                          </div>
-                        )}
-                        
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {todosLinks.map((link: any, index: number) => (
-                            <div key={index} className={`w-full flex items-center justify-between p-5 glass-panel rounded-2xl shadow-lg border transition-all ${mediaType === 'anime' ? 'border-white/5 hover:border-secondary/30' : 'border-primary/50 hover:border-primary/80'}`}>
-                              <div onClick={() => abrirLink(link.url, selectedItem.titulo)} className="flex-1 flex items-center gap-4 cursor-pointer min-w-0">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${link.tipo === 'Custom' ? 'bg-secondary/10 text-secondary shadow-[0_0_10px_rgba(255,176,203,0.2)]' : 'bg-primary/10 text-primary shadow-[0_0_10px_rgba(221,184,255,0.2)]'}`}>
-                                  <span className="material-symbols-outlined">open_in_new</span>
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="text-sm font-bold text-white uppercase tracking-wide flex items-center gap-2 truncate">
-                                    {link.site}
-                                    {link.tipo === 'Custom' && <span className="px-2 py-0.5 bg-secondary/20 text-secondary text-[10px] rounded-full border border-secondary/30 flex-shrink-0">CUSTOM</span>}
-                                  </p>
-                                  <p className="text-xs text-on-surface-variant font-bold uppercase">{link.language || 'Global'}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                {link.tipo === 'Custom' && (
-                                  <button onClick={(e) => { e.stopPropagation(); eliminarLinkPessoal(link.site); }} className="text-red-400 hover:text-red-300 p-1.5 flex items-center justify-center cursor-pointer" title="Remover link">
-                                    <span className="material-symbols-outlined text-sm">delete</span>
-                                  </button>
-                                )}
-                                <span onClick={() => abrirLink(link.url, selectedItem.titulo)} className={`material-symbols-outlined cursor-pointer text-on-surface-variant hover:text-white`}>chevron_right</span>
-                              </div>
-                            </div>
-                          ))}
-                          {todosLinks.length === 0 && (
-                            <p className="text-on-surface-variant italic text-sm col-span-2">No links available. Add one above!</p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                  <div className={`grid grid-cols-1 ${!selectedItem.isExternal ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} gap-6 py-8 border-t border-white/5`}>
-                    <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${mediaType === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}>
-                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-3 ${selectedItem.statusLancamento === 'RELEASING' ? (mediaType === 'anime' ? 'bg-primary/10 text-primary shadow-[0_0_15px_rgba(221,184,255,0.2)]' : 'bg-secondary/10 text-secondary shadow-[0_0_15px_rgba(255,176,203,0.2)]') : 'bg-surface-variant/30 text-on-surface-variant'}`}>
-                        <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                          {selectedItem.statusLancamento === 'RELEASING' ? 'sensors' : selectedItem.statusLancamento === 'FINISHED' ? 'done_all' : 'info'}
-                        </span>
-                      </div>
-                      <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">Release Status</p>
-                      <p className={`font-bold text-lg ${selectedItem.statusLancamento === 'RELEASING' ? (mediaType === 'anime' ? 'text-primary drop-shadow-[0_0_10px_rgba(221,184,255,0.3)]' : 'text-secondary drop-shadow-[0_0_10px_rgba(255,176,203,0.3)]') : 'text-white'}`}>
-                        {selectedItem.statusLancamento === 'RELEASING' ? 'Releasing' : 
-                         selectedItem.statusLancamento === 'FINISHED' ? 'Finished' : 
-                         selectedItem.statusLancamento === 'HIATUS' ? 'Hiatus' : 
-                         selectedItem.statusLancamento === 'CANCELLED' ? 'Cancelled' : 
-                         selectedItem.statusLancamento || 'Unknown'}
-                      </p>
-                    </div>
-
-                    <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${mediaType === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}>
-                      <div className="w-10 h-10 rounded-2xl bg-surface-variant/30 text-on-surface-variant flex items-center justify-center mb-3">
-                        <span className="material-symbols-outlined text-xl">calendar_month</span>
-                      </div>
-                      <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">Season / Year</p>
-                      <p className="font-bold text-lg text-white capitalize">
-                        {selectedItem.temporada ? `${selectedItem.temporada.toLowerCase()} ${selectedItem.ano || ''}` : selectedItem.ano || 'N/A'}
-                      </p>
-                    </div>
-
-                    <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${mediaType === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}>
-                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-3 ${mediaType === 'anime' ? 'bg-primary/10 text-primary shadow-[0_0_15px_rgba(221,184,255,0.2)]' : 'bg-secondary/10 text-secondary shadow-[0_0_15px_rgba(255,176,203,0.2)]'}`}>
-                        <span className="material-symbols-outlined text-xl">update</span>
-                      </div>
-                      <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">{mediaType === 'anime' ? 'Total Episodes' : 'Total Chapters'}</p>
-                      <p className="font-bold text-lg text-white">
-                        {mediaType === 'anime' ? (selectedItem.numEpisodiosTotal || 'No official info') : (selectedItem.numCapitulosTotal || 'No official info')}
-                      </p>
-                    </div>
-
-                    {!selectedItem.isExternal && (
-                      <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${mediaType === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}>
-                        <div className="w-10 h-10 rounded-2xl bg-surface-variant/30 text-on-surface-variant flex items-center justify-center mb-3">
-                          <span className="material-symbols-outlined text-xl">history</span>
-                        </div>
-                        <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">Last Content Update</p>
-                        <p className="font-bold text-lg text-white font-mono">
-                          {formatLastModified(selectedItem)}
-                        </p>
-                      </div>
-                    )}
-                    <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${mediaType === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}>
-                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-3 ${mediaType === 'anime' ? 'bg-primary/10 text-primary shadow-[0_0_15px_rgba(221,184,255,0.2)]' : 'bg-secondary/10 text-secondary shadow-[0_0_15px_rgba(255,176,203,0.2)]'}`}>
-                        <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                      </div>
-                      <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">Nota Geral</p>
-                      <p className={`font-bold text-lg ${mediaType === 'anime' ? 'text-primary' : 'text-secondary'}`}>
-                        {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'} / 10
-                      </p>
-                    </div>
-                  </div>
-                  {renderRatingCommentsSection()}
+              <div className="p-8 md:p-12 space-y-8">
+                {/* TABS SWITCHER (WEB) */}
+                <div className="flex border-b border-white/10 mb-8 max-w-md mx-auto">
+                  <button
+                    onClick={() => setActiveTab('tracking')}
+                    className={`flex-1 py-3.5 text-sm font-black tracking-wider transition-all flex items-center justify-center gap-2 border-b-2 uppercase ${
+                      activeTab === 'tracking'
+                        ? (mediaType === 'anime' ? 'border-primary text-primary drop-shadow-[0_0_10px_rgba(221,184,255,0.3)]' : 'border-secondary text-secondary drop-shadow-[0_0_10px_rgba(255,176,203,0.3)]')
+                        : 'border-transparent text-on-surface-variant hover:text-white'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-sm">analytics</span>
+                    Acompanhamento
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('info')}
+                    className={`flex-1 py-3.5 text-sm font-black tracking-wider transition-all flex items-center justify-center gap-2 border-b-2 uppercase ${
+                      activeTab === 'info'
+                        ? (mediaType === 'anime' ? 'border-primary text-primary drop-shadow-[0_0_10px_rgba(221,184,255,0.3)]' : 'border-secondary text-secondary drop-shadow-[0_0_10px_rgba(255,176,203,0.3)]')
+                        : 'border-transparent text-on-surface-variant hover:text-white'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-sm">info</span>
+                    Sinopse & Detalhes
+                  </button>
                 </div>
-                <div className="space-y-6">
-                  <div className={`glass-panel p-8 rounded-[32px] border ${mediaType === 'anime' ? 'border-secondary/20 shadow-[0_0_50px_rgba(194,24,91,0.08)]' : 'border-primary/20 shadow-[0_0_50px_rgba(106,27,154,0.08)]'}`}>
-                    <h4 className="text-lg font-bold mb-6 flex items-center gap-2">Quick Actions</h4>
 
-                    {selectedItem.isExternal ? (
-                      <button 
-                        onClick={() => { adicionarAoBanco(selectedItem.titulo, selectedItem.id); }} 
-                        disabled={isAddingToLibrary}
-                        className="w-full bg-primary hover:bg-primary/80 text-on-primary py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isAddingToLibrary ? (
-                          <>
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                            ADDING TO LIBRARY...
-                          </>
-                        ) : (
-                          <>
-                            <span className="material-symbols-outlined">add</span> ADD TO LIBRARY
-                          </>
-                        )}
-                      </button>
-                    ) : (
-                      <div className="space-y-6">
-                        <div className="space-y-3">
-                          <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest">Tracking Status</label>
-                          <div className="grid grid-cols-1 gap-2.5">
-                            {TRACKING_STATUS_OPTIONS.map((opt) => {
-                              const isSelected = selectedItem.status === opt.value;
-                              return (
-                                <button key={opt.value} onClick={() => atualizarCampo('status', opt.value)} className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl border transition-all text-sm font-bold backdrop-blur-md relative overflow-hidden group active:scale-95 ${isSelected ? (mediaType === 'anime' ? 'bg-secondary/20 border-secondary text-secondary shadow-[0_0_20px_rgba(194,24,91,0.35)] scale-[1.02]' : 'bg-primary/20 border-primary text-primary shadow-[0_0_20px_rgba(106,27,154,0.35)] scale-[1.02]') : `bg-surface-variant/30 border-white/5 text-on-surface-variant ${mediaType === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/10 hover:text-white hover:shadow-[0_0_15px_rgba(194,24,91,0.15)]' : 'hover:border-primary/30 hover:bg-primary/10 hover:text-white hover:shadow-[0_0_15px_rgba(106,27,154,0.15)]'}`}`}>
-                                  {isSelected && (
-                                    <span className={`absolute left-0 top-0 bottom-0 w-1.5 ${mediaType === 'anime' ? 'bg-secondary shadow-[0_0_10px_rgba(194,24,91,0.8)]' : 'bg-primary shadow-[0_0_10px_rgba(106,27,154,0.8)]'}`}></span>
-                                  )}
-                                  <span className={`material-symbols-outlined text-[22px] transition-transform group-hover:scale-110 ${isSelected ? (mediaType === 'anime' ? 'text-secondary' : 'text-primary') : 'text-on-surface-variant group-hover:text-white'}`} style={{ fontVariationSettings: "'FILL' 1" }}>
-                                    {opt.value === 'WATCHING' ? 'play_circle' : 
-                                     opt.value === 'PLANNED' ? 'schedule' : 
-                                     opt.value === 'COMPLETED' ? 'check_circle' : 
-                                     opt.value === 'PAUSED' ? 'pause_circle' : 'cancel'}
+                {activeTab === 'tracking' ? (
+                  <div className="max-w-xl mx-auto w-full space-y-6 animate-in fade-in duration-300">
+                    <div className={`glass-panel p-8 rounded-[32px] border ${mediaType === 'anime' ? 'border-secondary/20 shadow-[0_0_50px_rgba(194,24,91,0.08)]' : 'border-primary/20 shadow-[0_0_50px_rgba(106,27,154,0.08)]'}`}>
+                      <h4 className="text-lg font-bold mb-6 flex items-center gap-2">Quick Actions</h4>
+
+                      {selectedItem.isExternal ? (
+                        <button 
+                          onClick={() => { adicionarAoBanco(selectedItem.titulo, selectedItem.id); }} 
+                          disabled={isAddingToLibrary}
+                          className="w-full bg-primary hover:bg-primary/80 text-on-primary py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isAddingToLibrary ? (
+                            <>
+                              <Loader2 className="h-5 w-5 animate-spin" />
+                              ADDING TO LIBRARY...
+                            </>
+                          ) : (
+                            <>
+                              <span className="material-symbols-outlined">add</span> ADD TO LIBRARY
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <div className="space-y-6">
+                          <div className="space-y-3">
+                            <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest">Tracking Status</label>
+                            <div className="grid grid-cols-1 gap-2.5">
+                              {TRACKING_STATUS_OPTIONS.map((opt) => {
+                                const isSelected = selectedItem.status === opt.value;
+                                let pulseColor = 'rgba(255, 255, 255, 0.2)';
+                                if (opt.value === 'WATCHING') pulseColor = 'rgba(74, 222, 128, 0.45)';
+                                else if (opt.value === 'PLANNED') pulseColor = 'rgba(139, 92, 246, 0.45)';
+                                else if (opt.value === 'COMPLETED') pulseColor = 'rgba(251, 191, 36, 0.45)';
+                                else if (opt.value === 'PAUSED') pulseColor = 'rgba(249, 115, 22, 0.45)';
+                                else if (opt.value === 'DROPPED') pulseColor = 'rgba(239, 68, 68, 0.45)';
+                                
+                                return (
+                                  <button 
+                                    key={opt.value} 
+                                    onClick={() => atualizarCampo('status', opt.value)} 
+                                    style={{ '--pulse-color': pulseColor } as React.CSSProperties}
+                                    className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl border transition-all text-xs font-black relative overflow-hidden group active:scale-[0.98] ${
+                                      isSelected 
+                                        ? `${mediaType === 'anime' ? 'bg-secondary/20 border-secondary text-secondary' : 'bg-primary/20 border-primary text-primary'} animate-pulse-glow` 
+                                        : 'bg-surface-variant/30 border-white/5 hover:border-white/20 text-on-surface-variant hover:text-white'
+                                    }`}
+                                  >
+                                    {isSelected && (
+                                      <span className={`absolute left-0 top-0 bottom-0 w-1.5 ${mediaType === 'anime' ? 'bg-secondary' : 'bg-primary'}`}></span>
+                                    )}
+                                    <span className={`material-symbols-outlined text-xl ${isSelected ? (mediaType === 'anime' ? 'text-secondary' : 'text-primary') : 'text-on-surface-variant group-hover:text-white'}`} style={{ fontVariationSettings: "'FILL' 1" }}>
+                                      {opt.value === 'WATCHING' ? 'play_circle' : 
+                                       opt.value === 'PLANNED' ? 'schedule' : 
+                                       opt.value === 'COMPLETED' ? 'check_circle' : 
+                                       opt.value === 'PAUSED' ? 'pause_circle' : 'cancel'}
+                                    </span>
+                                    <span className="truncate">{mediaType === 'anime' ? opt.animeLabel : opt.mangaLabel}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Priority Level */}
+                          <div className="space-y-3 pt-4 border-t border-white/5">
+                            <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest flex items-center gap-2">
+                              <span className="material-symbols-outlined text-sm text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                              Priority Level (1 = Highest)
+                            </label>
+                            <div className="grid grid-cols-5 gap-2">
+                              {PRIORITY_OPTIONS.map(p => {
+                                const isSel = selectedItem.prioridade === p.num;
+                                let pulseColor = 'rgba(255, 255, 255, 0.2)';
+                                if (p.num === 1) pulseColor = 'rgba(239, 68, 68, 0.45)';
+                                else if (p.num === 2) pulseColor = 'rgba(249, 115, 22, 0.45)';
+                                else if (p.num === 3) pulseColor = 'rgba(234, 179, 8, 0.45)';
+                                else if (p.num === 4) pulseColor = 'rgba(59, 130, 246, 0.45)';
+                                else if (p.num === 5) pulseColor = 'rgba(34, 197, 94, 0.45)';
+                                
+                                return (
+                                  <button
+                                    key={p.num}
+                                    onClick={() => atualizarCampo('prioridade', p.num)}
+                                    style={{ '--pulse-color': pulseColor } as React.CSSProperties}
+                                    className={`flex flex-col items-center justify-center py-3 px-2 rounded-2xl border transition-all active:scale-[0.93] ${
+                                      isSel 
+                                        ? `${p.colorClass} animate-pulse-glow font-black`
+                                        : 'bg-surface-variant/30 border-white/5 text-on-surface-variant hover:border-white/20 hover:text-white'
+                                    }`}
+                                  >
+                                    <span className="text-xs font-bold">#{p.num}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Progress Tracker Grid */}
+                          <div className="space-y-4 pt-6 border-t border-white/5">
+                            <div className="flex items-center gap-2 mb-2 justify-center">
+                              <span className="material-symbols-outlined text-on-surface-variant text-base">timelapse</span>
+                              <p className="text-on-surface-variant text-[11px] uppercase font-bold tracking-widest">My Progress</p>
+                            </div>
+                             
+                            {mediaType === 'anime' && selectedItem.relations?.edges?.length > 0 && (
+                              <div className="flex flex-col items-center gap-2 mb-4 w-full">
+                                <div className="relative w-full max-w-xs mt-1">
+                                  <select
+                                    value={selectedItem.seasonAtual || 1}
+                                    onChange={(e) => {
+                                      const seasonNum = parseInt(e.target.value);
+                                      const edge = selectedItem.relations.edges.find((ed: any) => ed.node.seasonNumber === seasonNum);
+                                      if (edge) {
+                                        atualizarCampo('seasonAtual', seasonNum);
+                                        atualizarCampo('numEpisodiosTotal', edge.node.episodes);
+                                        atualizarCampo('epAtual', 0);
+                                      }
+                                    }}
+                                    className="w-full bg-black/40 text-white border border-white/10 px-4 py-3 rounded-xl outline-none focus:border-primary text-xs font-bold appearance-none cursor-pointer pr-10"
+                                  >
+                                    {selectedItem.relations.edges
+                                      .filter((edge: any) => edge.node.format === 'TV_SEASON')
+                                      .map((edge: any) => (
+                                        <option key={edge.node.id} value={edge.node.seasonNumber} className="bg-surface-container text-white">
+                                          {edge.node.seasonNumber}ª Temporada ({edge.node.episodes} eps)
+                                        </option>
+                                      ))}
+                                  </select>
+                                  <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-base">
+                                    keyboard_arrow_down
                                   </span>
-                                  {mediaType === 'anime' ? opt.animeLabel : opt.mangaLabel}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
+                                </div>
+                              </div>
+                            )}
 
-                        {/* Priority Selector */}
-                        <div className="space-y-3 pt-2 border-t border-white/5">
-                          <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest flex items-center gap-1.5">
-                            <span className="material-symbols-outlined text-xs text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                            Priority Level (1 = Highest)
-                          </label>
-                          <div className="grid grid-cols-5 gap-2">
-                            {PRIORITY_OPTIONS.map(p => {
-                              const isSel = selectedItem.prioridade === p.num;
-                              return (
-                                <button
-                                  key={p.num}
-                                  onClick={() => atualizarCampo('prioridade', p.num)}
-                                  className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border transition-all group active:scale-95 ${
-                                    isSel 
-                                      ? `${p.colorClass} scale-105 font-black`
-                                      : 'bg-surface-variant/30 border-white/5 text-on-surface-variant hover:bg-white/5 hover:border-white/20 hover:text-white'
-                                  }`}
-                                  title={`Priority #${p.num} (${p.desc})`}
-                                >
-                                  <span className="text-sm font-bold">#{p.num}</span>
-                                  <span className="text-[9px] opacity-80 font-semibold mt-0.5 tracking-tighter">{p.desc}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                        {showDeleteConfirm ? (
-                          <div className="p-6 rounded-2xl bg-error/10 border border-error/30 animate-in fade-in zoom-in-95 duration-300 space-y-4 shadow-xl">
-                            <div className="flex items-center gap-3 text-error">
-                              <span className="material-symbols-outlined text-3xl">warning</span>
-                              <h5 className="font-bold text-base">Confirm Removal</h5>
+                            <div className="flex items-baseline gap-3 mb-5 mt-2 justify-center">
+                              {isSavingDetailsProgress ? (
+                                <div className="h-12 flex items-center justify-center">
+                                  <Loader2 className={`w-8 h-8 animate-spin ${mediaType === 'anime' ? 'text-primary' : 'text-secondary'}`} />
+                                </div>
+                              ) : (
+                                <>
+                                  <input type="number" min="0" max={mediaType === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 9999)) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 9999))} value={mediaType === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(mediaType === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${mediaType === 'anime' ? 'text-primary focus:bg-secondary/10' : 'text-secondary focus:bg-primary/10'} font-black text-4xl w-20 text-center outline-none border-b-2 border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} />
+                                  <span className="text-on-surface-variant font-light text-3xl">/</span> 
+                                  <span className="text-on-surface-variant font-bold text-3xl">
+                                    {mediaType === 'anime' 
+                                      ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || '?'))
+                                      : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || '?'))
+                                    }
+                                  </span>
+                                </>
+                              )}
                             </div>
-                            <p className="text-sm text-on-surface-variant font-medium">
-                              Are you sure you want to remove <span className="text-white font-bold">{selectedItem.titulo}</span> from your library?
-                            </p>
-                            <div className="flex gap-3 pt-2">
-                              <button 
-                                onClick={() => setShowDeleteConfirm(false)} 
-                                disabled={isCheckingLists}
-                                className="flex-1 py-3 bg-surface-variant hover:bg-surface-variant/80 text-on-surface-variant hover:text-white rounded-xl font-bold text-xs transition-all border border-white/10 disabled:opacity-50"
-                              >
-                                Cancel
+
+                            {/* Quick Action Buttons */}
+                            <div className="flex items-center justify-center gap-3 w-full flex-wrap mb-2">
+                              <button onClick={() => atualizarProgresso(-1)} disabled={isSavingDetailsProgress} title="Subtract 1" className={`w-10 h-10 rounded-xl bg-surface-variant/40 hover:bg-surface-variant border border-white/5 hover:border-white/20 text-on-surface-variant hover:text-white transition-all flex items-center justify-center shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}>
+                                <span className="material-symbols-outlined text-lg">remove</span>
                               </button>
-                              <button 
-                                onClick={handleRemoveFromLibraryClick} 
-                                disabled={isCheckingLists}
-                                className="flex-1 py-3 bg-error hover:bg-error/80 text-on-error rounded-xl font-bold text-xs transition-all shadow-[0_0_20px_rgba(239,68,68,0.4)] disabled:opacity-50 flex items-center justify-center gap-2"
-                              >
-                                {isCheckingLists && <Loader2 className="w-4 h-4 animate-spin" />}
-                                Yes, Remove
+                              <button onClick={() => atualizarProgresso(1)} disabled={isSavingDetailsProgress} title="Add 1" className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center shadow-md active:scale-95 font-bold ${mediaType === 'anime' ? 'bg-primary hover:bg-primary/80 text-on-primary shadow-sm shadow-primary/20' : 'bg-secondary hover:bg-secondary/80 text-on-secondary shadow-sm shadow-secondary/20'} disabled:opacity-50 disabled:cursor-not-allowed`}>
+                                <span className="material-symbols-outlined text-lg">add</span>
+                              </button>
+                              <button onClick={() => setShowEpList(!showEpList)} className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 text-xs font-bold border active:scale-95 ${showEpList ? (mediaType === 'anime' ? 'bg-primary/20 border-primary text-primary shadow-[0_0_15px_rgba(194,24,91,0.2)]' : 'bg-secondary/20 border-secondary text-secondary shadow-[0_0_15px_rgba(106,27,154,0.2)]') : 'bg-surface-variant/30 border-white/5 text-on-surface-variant hover:border-white/20 hover:text-white'}`}>
+                                <span className="material-symbols-outlined text-base">grid_view</span>
+                                {showEpList ? 'Close List' : 'Open List'}
                               </button>
                             </div>
+
+                            {showEpList && (
+                              <div className="w-full mt-6 border-t border-white/10 pt-6 animate-in slide-in-from-top-4 duration-300">
+                                {mediaType === 'anime' ? (
+                                  loadingEpisodes ? (
+                                    <div className="flex items-center justify-center py-6">
+                                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                                    </div>
+                                  ) : seasonEpisodes && seasonEpisodes.length > 0 ? (
+                                    <div className="space-y-3 max-h-[360px] overflow-y-auto pr-2 custom-scrollbar text-left">
+                                      {seasonEpisodes.map((ep: any) => {
+                                        const isWatched = ep.episode_number <= selectedItem.epAtual;
+                                        const airDateStr = ep.air_date
+                                          ? new Date(ep.air_date).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })
+                                          : 'Sem data';
+                                        const stillUrl = ep.still_path
+                                          ? `https://image.tmdb.org/t/p/w200${ep.still_path}`
+                                          : selectedItem.capaUrl;
+                                          
+                                        return (
+                                          <div
+                                            key={ep.id}
+                                            className={`flex items-center gap-4 p-3 rounded-xl border transition-all ${
+                                              isWatched
+                                                ? 'bg-primary/5 border-primary/20'
+                                                : 'bg-surface-variant/20 border-white/5 hover:border-white/20'
+                                            }`}
+                                          >
+                                            {/* Episode Image */}
+                                            <div className="w-24 aspect-[16/9] rounded-lg overflow-hidden shrink-0 bg-black/40 border border-white/5">
+                                              <img src={stillUrl} className="w-full h-full object-cover" alt={ep.name} />
+                                            </div>
+                                            
+                                            {/* Episode Info */}
+                                            <div className="flex-1 min-w-0">
+                                              <p className="text-white text-sm font-bold truncate">
+                                                Ep {ep.episode_number} - {ep.name || `Episódio ${ep.episode_number}`}
+                                              </p>
+                                              <p className="text-on-surface-variant text-[11px] font-medium mt-1">
+                                                {airDateStr}
+                                              </p>
+                                            </div>
+                                            
+                                            {/* Watched Toggle Checkmark */}
+                                            <button
+                                              onClick={() => {
+                                                if (isWatched) {
+                                                  atualizarCampo('epAtual', ep.episode_number - 1);
+                                                } else {
+                                                  atualizarCampo('epAtual', ep.episode_number);
+                                                }
+                                              }}
+                                              className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+                                                isWatched
+                                                  ? 'bg-primary text-on-primary scale-105 shadow-sm shadow-primary/20'
+                                                  : 'bg-surface-variant/40 hover:bg-surface-variant hover:text-white text-on-surface-variant border border-white/10'
+                                              }`}
+                                            >
+                                              <span className="material-symbols-outlined text-sm font-bold">
+                                                {isWatched ? 'check' : 'check_box_outline_blank'}
+                                              </span>
+                                            </button>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-7 lg:grid-cols-8 gap-2 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
+                                      {[...Array((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 0))].map((_, i) => {
+                                        const num = i + 1;
+                                        const isWatched = num <= selectedItem.epAtual;
+                                        return (
+                                          <button key={num} onClick={() => atualizarCampo('epAtual', num)} disabled={isSavingDetailsProgress} className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isWatched ? 'bg-primary text-on-primary scale-105' : 'bg-surface-variant/30 text-on-surface-variant border border-white/5'}`}>
+                                            {num}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )
+                                ) : (
+                                  <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-7 lg:grid-cols-8 gap-2 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {[...Array((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 0))].map((_, i) => {
+                                      const num = i + 1;
+                                      const isWatched = num <= selectedItem.capAtual;
+                                      return (
+                                        <button key={num} onClick={() => atualizarCampo('capAtual', num)} disabled={isSavingDetailsProgress} className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isWatched ? 'bg-secondary text-on-secondary scale-105' : 'bg-surface-variant/30 text-on-surface-variant border border-white/5'}`}>
+                                          {num}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
-                        ) : (
-                          <>
-                            {(() => {
-                              const linksPessoais = selectedItem?.linksPersonalizados ? JSON.parse(selectedItem.linksPersonalizados) : [];
-                              if (linksPessoais.length === 0) return null;
-                              return (
+
+                          {(() => {
+                            const linksPessoais = selectedItem?.linksPersonalizados ? JSON.parse(selectedItem.linksPersonalizados) : [];
+                            if (linksPessoais.length === 0) return null;
+                            return (
+                              <button 
+                                onClick={() => handleGoToTabClick(linksPessoais)}
+                                className={`w-full ${mediaType === 'anime' ? 'bg-primary hover:bg-primary-light text-on-primary shadow-lg shadow-primary/20' : 'bg-secondary hover:bg-secondary-light text-on-secondary shadow-lg shadow-secondary/20'} py-3 rounded-xl font-extrabold transition-all flex items-center justify-center gap-2 text-xs active:scale-95 mb-2`}
+                              >
+                                <span className="material-symbols-outlined text-sm">open_in_new</span>
+                                {mediaType === 'anime' ? 'ASSISTIR NO SEPARADOR' : 'LER NO SEPARADOR'}
+                              </button>
+                            );
+                          })()}
+
+                          <button 
+                            onClick={handleOpenListsModal}
+                            className="w-full bg-surface-variant/40 hover:bg-surface-variant border border-white/5 text-white py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 text-sm active:scale-95 shadow-md"
+                          >
+                            <span className="material-symbols-outlined">format_list_bulleted</span>
+                            GERIR NAS LISTAS
+                          </button>
+
+                          {/* Remove Button */}
+                          {showDeleteConfirm ? (
+                            <div className="p-5 rounded-[24px] bg-error/10 border border-error/30 animate-in fade-in zoom-in-95 duration-300 space-y-4 shadow-lg text-left">
+                              <div className="flex items-center gap-3 text-error">
+                                <span className="material-symbols-outlined text-2xl">warning</span>
+                                <h5 className="font-bold text-base">Confirm Removal</h5>
+                              </div>
+                              <p className="text-sm text-on-surface-variant font-medium">
+                                Remove <span className="text-white font-bold">{selectedItem.titulo}</span> from library?
+                              </p>
+                              <div className="flex gap-3 pt-2">
                                 <button 
-                                  onClick={() => handleGoToTabClick(linksPessoais)}
-                                  className={`w-full ${mediaType === 'anime' ? 'bg-primary hover:bg-primary-light text-on-primary shadow-lg shadow-primary/20' : 'bg-secondary hover:bg-secondary-light text-on-secondary shadow-lg shadow-secondary/20'} py-4 rounded-2xl font-black transition-all flex items-center justify-center gap-3 text-sm mt-4 active:scale-95`}
+                                  onClick={() => setShowDeleteConfirm(false)} 
+                                  disabled={isCheckingLists}
+                                  className="flex-1 py-3 bg-surface-variant hover:bg-surface-variant/80 text-on-surface-variant rounded-2xl font-bold text-sm border border-white/10 disabled:opacity-50"
                                 >
-                                  <span className="material-symbols-outlined text-[20px]">open_in_new</span>
-                                  {mediaType === 'anime' ? 'ASSISTIR NO SEPARADOR' : 'LER NO SEPARADOR'}
+                                  Cancel
                                 </button>
-                              );
-                            })()}
-
-                            <button 
-                              onClick={handleOpenListsModal}
-                              className="w-full bg-surface-variant/30 hover:bg-surface-variant/50 border border-white/10 text-white py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 text-sm mt-4 active:scale-95 shadow-sm"
-                            >
-                              <span className="material-symbols-outlined text-[20px]">format_list_bulleted</span>
-                              GERIR NAS LISTAS
-                            </button>
-                            <button onClick={() => setShowDeleteConfirm(true)} className="w-full bg-error/10 hover:bg-error text-error hover:text-on-error py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 text-sm mt-4 shadow-sm border border-error/20">
-                              <span className="material-symbols-outlined text-[20px]">delete</span>
+                                <button 
+                                  onClick={handleRemoveFromLibraryClick} 
+                                  disabled={isCheckingLists}
+                                  className="flex-1 py-3 bg-error hover:bg-error/80 text-on-error rounded-2xl font-bold text-sm shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                  {isCheckingLists && <Loader2 className="w-4 h-4 animate-spin" />}
+                                  Yes, Remove
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button onClick={() => setShowDeleteConfirm(true)} className="w-full bg-error/10 hover:bg-error text-error hover:text-on-error py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 text-sm mt-3 border border-error/20">
+                              <span className="material-symbols-outlined">delete</span>
                               REMOVE FROM LIBRARY
                             </button>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {!selectedItem.isExternal && (
-                    <div className={`p-8 rounded-[32px] transition-all flex flex-col items-center justify-center text-center border ${showEpList ? (mediaType === 'anime' ? 'bg-secondary/10 border-secondary/40 shadow-[0_0_40px_rgba(194,24,91,0.15)] backdrop-blur-xl' : 'bg-primary/10 border-primary/40 shadow-[0_0_40px_rgba(106,27,154,0.15)] backdrop-blur-xl') : `glass-panel ${mediaType === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}`}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="material-symbols-outlined text-on-surface-variant text-sm">timelapse</span>
-                        <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest">My Progress</p>
-                      </div>
-                      
-                      <div className="flex items-baseline gap-2 mb-6 mt-3 justify-center">
-                        {isSavingDetailsProgress ? (
-                          <div className="h-10 flex items-center justify-center">
-                            <Loader2 className={`w-6 h-6 animate-spin ${mediaType === 'anime' ? 'text-primary' : 'text-secondary'}`} />
-                          </div>
-                        ) : (
-                          <>
-                            <input type="number" min="0" max={mediaType === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 9999)) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 9999))} value={mediaType === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; atualizarCampo(mediaType === 'anime' ? 'epAtual' : 'capAtual', val); }} className={`bg-transparent ${mediaType === 'anime' ? 'text-primary focus:bg-secondary/10' : 'text-secondary focus:bg-primary/10'} font-black text-4xl w-20 text-center outline-none border-b-2 border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} />
-                            <span className="text-on-surface-variant font-light text-3xl">/</span> 
-                            <span className="text-on-surface-variant font-bold text-3xl">
-                              {mediaType === 'anime' 
-                                ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || '?'))
-                                : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || '?'))
-                              }
-                            </span>
-                          </>
-                        )}
-                      </div>
-
-                      {/* Quick Action Buttons */}
-                      <div className="flex items-center justify-center gap-3 w-full flex-wrap mb-2">
-                        <button onClick={() => atualizarProgresso(-1)} disabled={isSavingDetailsProgress} title="Subtract 1" className={`w-10 h-10 rounded-xl bg-surface-variant/40 hover:bg-surface-variant border border-white/5 hover:border-white/20 text-on-surface-variant hover:text-white transition-all flex items-center justify-center shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}>
-                          <span className="material-symbols-outlined text-lg">remove</span>
-                        </button>
-                        <button onClick={() => atualizarProgresso(1)} disabled={isSavingDetailsProgress} title="Add 1" className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center shadow-md active:scale-95 font-bold ${mediaType === 'anime' ? 'bg-primary hover:bg-primary/80 text-on-primary shadow-[0_0_15px_rgba(194,24,91,0.3)]' : 'bg-secondary hover:bg-secondary/80 text-on-secondary shadow-[0_0_15px_rgba(106,27,154,0.3)]'} disabled:opacity-50 disabled:cursor-not-allowed`}>
-                          <span className="material-symbols-outlined text-lg">add</span>
-                        </button>
-                        <button onClick={() => setShowEpList(!showEpList)} className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 text-xs font-bold border active:scale-95 ${showEpList ? (mediaType === 'anime' ? 'bg-primary/20 border-primary text-primary shadow-[0_0_15px_rgba(194,24,91,0.2)]' : 'bg-secondary/20 border-secondary text-secondary shadow-[0_0_15px_rgba(106,27,154,0.2)]') : 'bg-surface-variant/30 border-white/5 text-on-surface-variant hover:border-white/20 hover:text-white'}`}>
-                          <span className="material-symbols-outlined text-base">grid_view</span>
-                          {showEpList ? 'Close Grid' : 'Open Grid'}
-                        </button>
-                      </div>
-
-                      {showEpList && (
-                        <div className="w-full mt-6 border-t border-white/10 pt-6 animate-in slide-in-from-top-4 duration-300">
-                          <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-7 lg:grid-cols-8 gap-2 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
-                            {[...Array(mediaType === 'anime' 
-                              ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 0)) 
-                              : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 0))
-                            )].map((_, i) => {
-                              const num = i + 1;
-                              const isWatched = num <= (mediaType === 'anime' ? selectedItem.epAtual : selectedItem.capAtual);
-                              return (
-                                <button key={num} onClick={() => atualizarCampo(mediaType === 'anime' ? 'epAtual' : 'capAtual', num)} disabled={isSavingDetailsProgress} className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isWatched ? (mediaType === 'anime' ? 'bg-primary text-on-primary shadow-[0_0_10px_rgba(221,184,255,0.3)] scale-105' : 'bg-secondary text-on-secondary shadow-[0_0_10px_rgba(255,176,203,0.3)] scale-105') : 'bg-surface-variant/30 text-on-surface-variant hover:bg-surface-variant hover:text-white border border-white/5'}`}>
-                                  {num}
-                                </button>
-                              );
-                            })}
-                          </div>
+                          )}
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
+
+                    {/* Personal Links (Web) */}
+                    {(() => {
+                      const linksPessoais = selectedItem.linksPersonalizados ? JSON.parse(selectedItem.linksPersonalizados).map((l: any) => ({ ...l, tipo: 'Custom' })) : [];
+                      return linksPessoais.length > 0 && (
+                        <div className="space-y-6 pt-8 border-t border-white/5 text-left">
+                          <h3 className="font-headline-lg text-2xl font-bold flex items-center gap-3">
+                            <span className={`w-1.5 h-6 rounded-full ${mediaType === 'anime' ? 'bg-primary shadow-[0_0_10px_rgba(221,184,255,0.5)]' : 'bg-secondary shadow-[0_0_10px_rgba(255,176,203,0.5)]'}`}></span>
+                            Personal Links
+                          </h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {linksPessoais.map((link: any, index: number) => (
+                              <div key={index} className={`w-full flex items-center justify-between p-5 glass-panel rounded-2xl shadow-lg border transition-all ${mediaType === 'anime' ? 'border-white/5 hover:border-secondary/30' : 'border-primary/50 hover:border-primary/80'}`}>
+                                <div onClick={() => abrirLink(link.url, selectedItem.titulo)} className="flex-1 flex items-center gap-4 cursor-pointer min-w-0">
+                                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-secondary/10 text-secondary">
+                                    <span className="material-symbols-outlined">open_in_new</span>
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-bold text-white uppercase tracking-wide flex items-center gap-2 truncate">
+                                      {link.site}
+                                      <span className="px-2 py-0.5 bg-secondary/20 text-secondary text-[10px] rounded-full border border-secondary/30 flex-shrink-0">CUSTOM</span>
+                                    </p>
+                                    <p className="text-xs text-on-surface-variant font-bold uppercase">{link.language || 'Global'}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <button onClick={(e) => { e.stopPropagation(); eliminarLinkPessoal(link.site); }} className="text-red-400 hover:text-red-300 p-1.5 flex items-center justify-center cursor-pointer" title="Remover link">
+                                    <span className="material-symbols-outlined text-sm">delete</span>
+                                  </button>
+                                  <span onClick={() => abrirLink(link.url, selectedItem.titulo)} className="material-symbols-outlined cursor-pointer text-on-surface-variant hover:text-white">chevron_right</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  <div className="max-w-4xl mx-auto w-full space-y-12 animate-in fade-in duration-300 text-left">
+                    <div>
+                      <h3 className="font-headline-lg text-2xl font-bold mb-6 flex items-center gap-3">
+                        <span className={`w-1.5 h-6 rounded-full ${mediaType === 'anime' ? 'bg-primary shadow-[0_0_10px_rgba(221,184,255,0.5)]' : 'bg-secondary shadow-[0_0_10px_rgba(255,176,203,0.5)]'}`}></span>
+                        Synopsis
+                      </h3>
+                      <p className="text-on-surface-variant leading-relaxed text-lg font-body-lg">
+                        {selectedItem.descricao || "No description available."}
+                      </p>
+                    </div>
+
+                    {/* Season Breakdown Web */}
+                    {mediaType === 'manga' && latestBreakdown && latestBreakdown.length > 0 && (
+                      <div className="space-y-6 pt-8 border-t border-white/5 animate-in fade-in">
+                        <h3 className="font-headline-lg text-2xl font-bold flex items-center gap-3">
+                          <span className="w-1.5 h-6 rounded-full bg-secondary shadow-[0_0_10px_rgba(255,176,203,0.5)]"></span>
+                          Season Breakdown
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                          {latestBreakdown.map((b: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between p-5 glass-panel hover:bg-white/5 rounded-2xl transition-all border border-primary/30 hover:border-primary/50 shadow-lg group">
+                              <span className="text-sm font-bold text-white truncate pr-2 group-hover:text-secondary-light transition-colors">{b.label}</span>
+                              <span className="px-3 py-1.5 bg-secondary/20 text-secondary text-sm font-black rounded-xl border border-secondary/30 flex-shrink-0 shadow-[0_0_15px_rgba(255,176,203,0.2)]">
+                                {b.chapters} Chs
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Official Links */}
+                    {(() => {
+                      const linksOficiais = selectedItem.linksExternos ? JSON.parse(selectedItem.linksExternos).map((l: any) => ({ ...l, tipo: 'Official' })) : [];
+                      return (linksOficiais.length > 0 || (!selectedItem.isExternal)) && (
+                        <div className="space-y-6 pt-10 border-t border-white/5">
+                          <div className="flex items-center justify-between mb-6">
+                            <h3 className="font-headline-lg text-2xl font-bold flex items-center gap-3">
+                              <span className={`w-1.5 h-6 rounded-full ${mediaType === 'anime' ? 'bg-primary shadow-[0_0_10px_rgba(221,184,255,0.5)]' : 'bg-secondary shadow-[0_0_10px_rgba(255,176,203,0.5)]'}`}></span>
+                              Where to {mediaType === 'anime' ? 'Watch' : 'Read'}
+                            </h3>
+                            {!selectedItem.isExternal && (
+                              <button onClick={() => setShowAddLink(!showAddLink)} className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all text-xs border ${mediaType === 'anime' ? 'bg-primary/10 text-primary border-primary/20 hover:bg-primary hover:text-on-primary' : 'bg-secondary/10 text-secondary border-secondary/20 hover:bg-secondary hover:text-on-secondary'}`}>
+                                <span className="material-symbols-outlined text-[16px]">add</span> ADD LINK
+                              </button>
+                            )}
+                          </div>
+
+                          {showAddLink && !selectedItem.isExternal && (
+                            <div className="flex flex-col sm:flex-row gap-3 p-4 bg-surface-variant/30 border border-white/10 rounded-2xl mb-4 animate-in slide-in-from-top-4">
+                              <input type="text" placeholder="Name (Ex: Crunchyroll)" value={newLinkSite} onChange={e => setNewLinkSite(e.target.value)} className="flex-1 bg-black/30 px-4 py-2.5 rounded-xl border border-white/10 outline-none focus:border-primary transition-all text-sm text-white" />
+                              <input type="url" placeholder="URL (https://...)" value={newLinkUrl} onChange={e => setNewLinkUrl(e.target.value)} className="flex-[2] bg-black/30 px-4 py-2.5 rounded-xl border border-white/10 outline-none focus:border-primary transition-all text-sm text-white" />
+                              <button onClick={adicionarLinkPessoal} disabled={!newLinkSite || !newLinkUrl} className="px-6 py-2.5 bg-primary hover:bg-primary/80 disabled:bg-surface-variant disabled:text-on-surface-variant text-on-primary rounded-xl font-bold transition-all text-sm">SAVE</button>
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {linksOficiais.map((link: any, index: number) => (
+                              <div key={index} className={`w-full flex items-center justify-between p-5 glass-panel rounded-2xl shadow-lg border transition-all ${mediaType === 'anime' ? 'border-white/5 hover:border-secondary/30' : 'border-primary/50 hover:border-primary/80'}`}>
+                                <div onClick={() => abrirLink(link.url, selectedItem.titulo)} className="flex-1 flex items-center gap-4 cursor-pointer min-w-0">
+                                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-primary/10 text-primary">
+                                    <span className="material-symbols-outlined">open_in_new</span>
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-bold text-white uppercase tracking-wide truncate">
+                                      {link.site}
+                                    </p>
+                                    <p className="text-xs text-on-surface-variant font-bold uppercase">{link.language || 'Global'}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span onClick={() => abrirLink(link.url, selectedItem.titulo)} className="material-symbols-outlined cursor-pointer text-on-surface-variant hover:text-white">chevron_right</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Metadata Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 py-8 border-t border-white/5">
+                      <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${mediaType === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}>
+                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-3 ${selectedItem.statusLancamento === 'RELEASING' ? (mediaType === 'anime' ? 'bg-primary/10 text-primary' : 'bg-secondary/10 text-secondary') : 'bg-surface-variant/30 text-on-surface-variant'}`}>
+                          <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+                            {selectedItem.statusLancamento === 'RELEASING' ? 'sensors' : selectedItem.statusLancamento === 'FINISHED' ? 'done_all' : 'info'}
+                          </span>
+                        </div>
+                        <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">Release Status</p>
+                        <p className={`font-bold text-lg ${selectedItem.statusLancamento === 'RELEASING' ? (mediaType === 'anime' ? 'text-primary' : 'text-secondary') : 'text-white'}`}>
+                          {selectedItem.statusLancamento === 'RELEASING' ? 'Releasing' : 
+                           selectedItem.statusLancamento === 'FINISHED' ? 'Finished' : 
+                           selectedItem.statusLancamento === 'HIATUS' ? 'Hiatus' : 
+                           selectedItem.statusLancamento === 'CANCELLED' ? 'Cancelled' : 
+                           selectedItem.statusLancamento || 'Unknown'}
+                        </p>
+                      </div>
+
+                      <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${mediaType === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}>
+                        <div className="w-10 h-10 rounded-2xl bg-surface-variant/30 text-on-surface-variant flex items-center justify-center mb-3">
+                          <span className="material-symbols-outlined text-xl">calendar_month</span>
+                        </div>
+                        <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">Season / Year</p>
+                        <p className="font-bold text-lg text-white capitalize">
+                          {selectedItem.temporada ? `${selectedItem.temporada.toLowerCase()} ${selectedItem.ano || ''}` : selectedItem.ano || 'N/A'}
+                        </p>
+                      </div>
+
+                      <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${mediaType === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}>
+                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-3 ${mediaType === 'anime' ? 'bg-primary/10 text-primary' : 'bg-secondary/10 text-secondary'}`}>
+                          <span className="material-symbols-outlined text-xl">update</span>
+                        </div>
+                        <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">{mediaType === 'anime' ? 'Total Episodes' : 'Total Chapters'}</p>
+                        <p className="font-bold text-lg text-white">
+                          {mediaType === 'anime' ? (selectedItem.numEpisodiosTotal || 'No official info') : (selectedItem.numCapitulosTotal || 'No official info')}
+                        </p>
+                      </div>
+
+                      <div className={`glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center border transition-all ${mediaType === 'anime' ? 'hover:border-secondary/30 hover:bg-secondary/5 hover:shadow-[0_0_20px_rgba(194,24,91,0.1)]' : 'hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(106,27,154,0.1)]'}`}>
+                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-3 ${mediaType === 'anime' ? 'bg-primary/10 text-primary' : 'bg-secondary/10 text-secondary'}`}>
+                          <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                        </div>
+                        <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest mb-1">Nota Geral</p>
+                        <p className={`font-bold text-lg ${mediaType === 'anime' ? 'text-primary' : 'text-secondary'}`}>
+                          {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'} / 10
+                        </p>
+                      </div>
+                    </div>
+                    {renderRatingCommentsSection()}
+                  </div>
+                )}
               </div>
             </div>
           )

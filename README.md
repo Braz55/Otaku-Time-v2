@@ -16,124 +16,88 @@ Production Applications:
 
 ## Main Features & Updates (v3.0)
 
-### 1. Cloud Ecosystem & Automated Deployment (Neon DB + Render)
-* PostgreSQL Database (Neon DB): Transition from local SQLite to remote PostgreSQL, featuring optimized connection pooling and secure SSL certificates to ensure resilience and stability.
-* Hosting on Render: The NestJS backend and React frontend (SPA) are hosted on Render with continuous integration (CI/CD) linked directly to the main branch of the GitHub repository.
+### 1. Cloud Ecosystem & Centralized Database (Neon DB + Render)
+* **PostgreSQL Database (Neon DB)**: Transitioned from local SQLite to remote cloud PostgreSQL, using connection pooling and SSL to secure library state across all user devices in real-time.
+* **Continuous Hosting**: The NestJS API and React SPA are fully deployed and hosted on Render with automated CI/CD.
 
 ### 2. Native Android Experience (via Capacitor)
-* Centralized Cloud Data: Direct access and real-time writing to the centralized PostgreSQL database on Neon DB, ensuring your library is synchronized across all web browsers and Android devices.
-* Backup and Portability: Generate JSON backups of your library (items, status, progress, priorities) to easily transfer, archive, or restore data.
+* **Direct Cloud Synchronization**: Real-time read and write operations to the cloud database directly from your Android mobile app.
+* **Backup and Portability**: Easily generate and download JSON backup files of your entire library (items, progress, preferences) and restore them anytime.
 
 ### 3. Smart Random Draws (Gacha / Raffle)
-* Global Draw (Search): Click the dice button (casino) on the search bar to draw a random work based on popularity (rank 1 to 2000) directly from the AniList API.
-* Planned Draw (Library): Click the cross-arrows button (shuffle) in the library to draw a title from your planned list (PLANNED). The selection uses a cascade probability algorithm:
-  1. Priority (1 to 10): Works with higher priority/ranking have substantially higher weights.
-  2. Publication Status: Prioritizes finished works (75% chance for FINISHED) over ongoing works (25% chance for RELEASING).
-  3. Attempts with Fallback: Resilient algorithm with up to 100 attempts and a safe fallback.
+* **Global Draw**: Pull a random popular title (rank 1 to 2000) directly from the AniList API using the dice button on the search bar.
+* **Library Planner Draw**: A smart shuffle button in your library pulls a title from your planned list using a custom probability algorithm weighting priority (1 to 10) and publication status (75% FINISHED vs 25% RELEASING).
 
 ### 4. Premium Tracking Dashboard (To-Watch/Read)
-* Dual-Column View: Home panel with dedicated sections for "WATCH NEXT" (Anime) and "READ NEXT" (Manga).
-* Optimistic UI: Immediate progress updates on the frontend when clicking quick "SEEN" or "READ" buttons, syncing with the server in the background to eliminate waiting times.
-* Automatic Progression: Automatic update to WATCHING / READING status when changing progress from 0 to 1, and to COMPLETED when reaching the last episode/chapter.
+* **Dual-Column View**: Home screen with dedicated, clean tracking sections for "WATCH NEXT" (Anime) and "READ NEXT" (Manga).
+* **Optimistic UI Updates**: Immediate client-side progress updates when incrementing watched episodes or read chapters, syncing in the background with the server.
+* **Automatic Progression**: Automatic library status transition to "WATCHING" / "READING" when changing progress from 0 to 1, and to "COMPLETED" when reaching the final episode or chapter.
 
 ### 5. Dynamic Personal Calendar
-* Maps upcoming releases only for works in RELEASING status present in your personal list.
-* Automatically converts the original release timestamps (Japan Standard Time - JST) obtained via the AniList API to the user's local time zone.
+* **Airing Schedule Mapping**: Automatically maps upcoming release schedules for continuing works present in your personal library.
+* **Time Zone Localization**: Fetches AniList JST (Japan Standard Time) schedules and localizes them on-the-fly to the user's timezone.
 
 ### 6. Triple Chapter Tracking (Manga)
-Resolves inconsistencies from external portals using a 3-layer system:
-* Plan A (Baka-Updates): Queries MangaUpdates to get exact counts and season/special split details.
-* Plan B (MangaDex): Smart fallback with search by AniList ID or approximate title.
-* Plan C (AniList): Final fallback for completed works.
+* **Multi-Source Engine**: Prevents chapter mismatches by querying MangaUpdates (Plan A) for accurate counts and special divisions, falling back to MangaDex (Plan B) or AniList API metadata (Plan C).
 
-### 7. Visual Themes & Profile Settings
-* Modern interface with full support for Dark and Light modes with clean CSS transitions.
-* Selector with 6 chromatic color palettes: Classic Purple (Default), Shounen Orange (Crunchyroll), Akatsuki Red (Naruto), Mutsu Green (Mushi-Shi), Solo Leveling Purple, and Visionary Blue (AniList).
-* User preference management directly in the Profile: preferred language (Portuguese/English) and adult content filtering (NSFW).
-
-### 8. Black Screen Fix & Android Compatibility
-* ES2020 Compatibility: The Vite frontend build and TypeScript target have been adjusted to es2020, ensuring full compatibility with older Android WebViews.
-* Cache-Busting & Loader: Added an interceptor script in index.html to clean up obsolete static assets saved in cache after new updates, alongside a premium animated loading screen.
-
-### 9. Global Ratings & Comments System (Community)
-* Dynamic Evaluations: Users can submit custom ratings on animes and mangas, recalculating the average global score dynamically on the NestJS backend.
-* Community Comments: Detailed user commenting functionality. Comment threads are populated and linked per work, visible to all registered users on the media details page.
-
-### 10. Fun Achievement & Badge System
-* Dynamic Achievements: Fun badges dynamically unlocked when users hit milestones. Includes image URL badges, descriptions, and rarity tiers (Common, Rare, Epic, Legendary).
-* Database Seeding: Embedded automated seed utility in administration tools to easily populate standard achievements.
-
-### 11. PRO Tier & Gift Code Subscriptions
-* Code Redemption: Users can upgrade their accounts to the "PREMIUM" status by redeeming active Gift Codes.
-* Expiration Control: Fully managed subscriptions with automated current period ending controls.
-
-### 12. Complete Administrative Dashboard
-* System Overview: Admin panel endpoints to view total users, subscription tiers, and overall system stats.
-* Code Management: Secure commands to generate custom duration Gift Codes, limit usage, set custom expiration dates, and list/manage subscriptions and active/unlocked achievements.
-
-### 13. Social Sharing & Public Profiles
-* User Interconnection: Allows users to visit and view other members' profiles (`/user/profile/:id`) including their public libraries, statistics, and top lists.
-* Top 3 Favorites: Pin up to 3 Anime/Manga titles directly in a highlighted top list visible to anyone visiting the profile.
-* Custom Phrase: Profile status features where users can write a customized phrase/status shown under their banner.
-
-### 14. Keep-Alive Middleware & Smart Syncing
-* Auto-Wake Service: Dynamic ping middleware triggered automatically on client navigation keeping the NestJS server active on Render to avoid cold starts.
-* Background Sync: Checks and syncs with the AniList database every 4 hours automatically.
-
-### 15. Advanced Explore Catalog (Anime & Manga)
-* **Hybrid Multiselect Filters**: Custom dropdown to filter titles by multiple genres concurrently, combined with an advanced tag selector modal categorizing hundreds of thematic tags (e.g., formats, themes, casts).
-* **Targeted Search Parameters**: Custom query filters for release years, airing seasons, formats (TV, movie, special, OVA, ONA, manga, novel, one-shot), publishing status, and country of origin.
-* **Local Library Exclusion**: Checkbox filters to isolate the search by hiding titles already present in the user's library or only showing active library items.
-* **Flexible Sorting Options**: Fast sort orders including Em Alta (Trending), Mais Populares (Popularity), Mais Bem Avaliados (Score), and Mais Recentes (Start Date).
-
-### 16. Personalized Thematic Recommendations ("Feito para si" - DIBI Engine)
-* **DIBI (Dynamic Interest-Based Diversified Interleaving) Engine**: The platform dynamically builds a personalized recommendation feed for the user's Explore page.
-* **Isolated Tastes Profile**: Tastes are extracted separately for Anime and Manga libraries to ensure targeted recommendations (e.g. action anime vs. boys' love manga).
-* **Thematic Co-Occurrence Clustering**: Tastes are automatically clustered into combinations based on user reading/watching habits (e.g. `["Boys' Love", "Drama", "Mafia", "Male Protagonist"]`), querying AniList with multi-tag combinations.
-* **Local Overlap Re-ranking**: Candidates retrieved from the API are dynamically re-ranked based on how many profile tags they overlap, prioritizing exact sub-genre matches.
-* **Country Preference Support**: The engine automatically detects the user's most read/watched country of origin (e.g. `'KR'` for Korean manhwa) and filters the recommendations accordingly.
-* **Premium UX Toggle**: A "Feito para si" sliding toggle switch is added to the page, connected by default, automatically clearing tags when selected and adjusting the layout dynamically.
-* **Scroll & State Retention**: State and scroll position are preserved only when navigating between the Explore page and the details page, resetting fresh when arriving from other navigation routes.
-
-### 17. Custom Lists System (Sistema de Listas Customizadas)
-* **Custom Collections**: Create, manage, and delete custom personalized lists (e.g. "Favorites", "Weekend Marathon", "Top Recommendations") to catalog your library beyond standard statuses.
-* **Manual Reordering**: Supports manual custom reordering of list items, featuring HTML5 drag-and-drop on Web and custom sorting control arrows on mobile (Android/Capacitor).
-* **Details Integration**: Quick add/remove trigger directly from any media details page via an interactive modal/picker.
-* **Public/Private Visibility**: Choose whether your custom lists are public (visible on your public profile page) or private.
-* **Library Filtering**: Allows filtering titles in the library/dashboard by selecting a custom list.
-
-### 18. Dynamic 50/50 Highlights Engine (Destaques Inteligentes)
-* **Probability-Based Hero**: The HomePage hero highlight features a 50/50 probability system that selects either a recently active item (from the profile's recent activity) or an "Up Next" high-priority item that has been gathering dust (not updated in a long time).
-* **Dynamic Badges**: Displays contextual tags depending on why it's highlighted: "A ver mais no momento" / "A ler mais no momento" for recent activity, or "A apanhar pó na lista" for long-neglected high-priority works.
-* **Empty List Fallback**: If the user has no active items in progress (watching/reading), the hero banner falls back to suggesting a random work from their library list (prioritizing `PLANNED` and `PAUSED` items) with the badge `"Sugestão da tua lista"`.
-
-### 19. User Recent Activity Feed (Atividade Recente)
-* **Automatic Activity Logs**: Whenever you increment your watched episodes or read chapters, the system updates `lastProgressUpdate` in the database.
-* **Profile Activity Feed**: Displays the 3 most recently updated items on the profile page, complete with relative time formats (e.g., "Updated 2 hours ago").
-
-### 20. Reformulated Thematic Picker Card (GenreTagPicker)
-* **Visual Overhaul**: Redesigned and modularized tag selection experience using the new `GenreTagPicker` component with modern glassmorphism, responsive chip wrapping, and optimized touch zones.
-* **Android UI Fixes**: Solves list wrapping, page scaling, and viewport height issues on mobile Android screens.
-
-### 21. Synchronization & Stability Improvements
-* **Resilient Sync Services**: Optimized AniList database synchronization routes, resolving request loops and redundant checks.
-* **Auto-Wake Integration**: Refined ping middleware coordinates between web client / Capacitor client and NestJS backend to keep Render database pools hot and responsive.
-
-### 22. Interactive Native In-App Browser (Android Only)
+### 7. Interactive Native In-App Browser (Android Only)
 * **Custom Web Browser**: Integration of a custom native Android web browser view (`MangaWebView`) accessible via a dedicated floating action button.
 * **Enhanced Navigation Control**: Standard browser navigation where the Android back button navigates back in the browser's web history instead of exiting the view.
 * **Chrome-like Multi-Tab Support**: Support for opening multiple tabs, easy tab switching, and seamless redirect/popup handling.
 * **Background Bookmark Association**: An automated sync listener (`onAssociateBookmark`) that intercepts bookmarked sites in the native browser, extracts their domains, and automatically saves them as custom personal links under the active anime/manga details in the user's library.
 
-### 23. Real-Time Release Notifications System
+### 8. Real-Time Release Notifications System
 * **Automated Tracked Releases**: In-app notifications are automatically generated when background content synchronization runs and detects a new release (new episode/chapter) for works in the user's library.
 * **Targeted Library Subscriptions**: Only triggers notifications for works currently marked as "WATCHING" (Anime) or "READING" (Manga) to avoid unwanted alerts.
 * **Interactive Inbox**: Custom interactive notifications dropdown/inbox on both desktop and mobile headers with options to mark individual items as read, clear all notifications, delete specific alerts, and navigate directly to the media details page on click.
 
-### 24. Responsive Mobile UI Optimizations
-* **Dynamic Header Sizing**: Resolves UI overlap bugs on narrow Android screens by dynamically hiding the `Otaku-Time` branding title (using `hidden sm:block`) to prioritize critical touch targets.
-* **Zero Overlap Guarantee**: Ensures that the category switcher ("Anime" / "Mangá") and the background synchronization spinning indicator/notification buttons never collision or overlay on narrow viewports.
-* **Custom xs Breakpoint**: Integrated a custom `xs` (400px) breakpoint into the custom Tailwind CSS layout system to improve chip styling and grid layouts on older or smaller mobile screens.
+### 9. Visual Themes & Preferences
+* **Modern Themes**: Clean interface with Dark and Light modes and smooth transitions.
+* **Color Palettes**: Features 6 interchangeable chromatic color themes: Classic Purple, Shounen Orange (Crunchyroll), Akatsuki Red (Naruto), Mutsu Green (Mushi-Shi), Solo Leveling Purple, and Visionary Blue (AniList).
+* **Language & Filters**: Toggle languages (Portuguese/English) and adult content filters (NSFW) directly in user profile settings.
+
+### 10. Global Ratings & Community Comments
+* **Dynamic Evaluations**: Score anime and manga titles, dynamically recalculating the average global score on the backend.
+* **Community Comments**: Dedicated comment sections per media title with full commenting, deletion, and comment liking capabilities.
+
+### 11. Fun Achievement & Badge System
+* **Dynamic Achievements**: Fun badges dynamically unlocked when users hit milestones. Includes image URL badges, descriptions, and rarity tiers (Common, Rare, Epic, Legendary).
+
+### 12. PRO Tier & Gift Code Subscriptions
+* **Redemption Service**: Upgrade accounts to "PRO" status instantly by redeeming duration-limited Gift Codes.
+* **Administrative Controls**: Admin panel endpoints to generate new Gift Codes, limit code uses, set custom durations, and manage subscription statuses.
+
+### 13. Social Sharing & Public Profiles
+* **Public Profiles**: Browse other users' libraries, stats, and top titles by visiting `/user/profile/:id`.
+* **Top 3 Showcase**: Pin up to 3 favorite titles to showcase at the top of your public profile.
+* **Custom Bio/Status**: Set a custom status message displayed under your profile banner.
+
+### 14. Advanced Explore Catalog (Anime & Manga)
+* **Hybrid Multiselect Filters**: Custom dropdown to filter titles by multiple genres concurrently, combined with an advanced tag selector modal categorizing hundreds of thematic tags (e.g., formats, themes, casts).
+* **Targeted Search Parameters**: Custom query filters for release years, airing seasons, formats (TV, movie, special, OVA, ONA, manga, novel, one-shot), publishing status, and country of origin.
+* **Local Library Exclusion**: Checkbox filters to isolate the search by hiding titles already present in the user's library or only showing active library items.
+* **Flexible Sorting Options**: Fast sort orders including Em Alta (Trending), Mais Populares (Popularity), Mais Bem Avaliados (Score), and Mais Recentes (Start Date).
+
+### 15. Personalized Thematic Recommendations ("Feito para si" - DIBI Engine)
+* **DIBI Engine**: Dynamically builds a personalized recommendation feed for the user's Explore page based on their active library items.
+* **Isolated Tastes Profile**: Tastes are extracted separately for Anime and Manga libraries to ensure targeted recommendations.
+* **Thematic Co-Occurrence Clustering**: Groups similar genres and tags (e.g., `["Action", "Martial Arts", "Superpowers"]`) to retrieve multi-tag matches from the AniList API.
+* **Local Overlap Re-ranking**: Dynamically re-ranks candidates based on tag overlap with the user's library profile.
+* **Country Preference Support**: Detects preferred country of origin (e.g., Korea for Manhwa, Japan for Manga) and filters recommendation feeds accordingly.
+
+### 16. Custom Lists System (Sistema de Listas Customizadas)
+* **Custom Collections**: Create, manage, and delete custom lists beyond default statuses (e.g., "Favorites", "To Buy", "Summer Marathon").
+* **Manual Reordering**: Supports custom reordering of list items, featuring HTML5 drag-and-drop on Web and custom sorting control arrows on mobile.
+* **Visibility Control**: Configure individual custom lists to be public (visible to other users visiting your profile) or private.
+
+### 17. Dynamic 50/50 Highlights Engine (Destaques Inteligentes)
+* **Probability-Based Hero**: The HomePage hero highlight features a 50/50 probability system that selects either a recently active item (from the profile's recent activity) or an "Up Next" high-priority item that has been gathering dust (not updated in a long time).
+* **Dynamic Badges**: Displays contextual tags depending on why it's highlighted: "A ver mais no momento" / "A ler mais no momento" for recent activity, or "A apanhar pó na lista" for long-neglected high-priority works.
+* **Empty List Fallback**: If the user has no active items in progress (watching/reading), the hero banner falls back to suggesting a random work from their library list (prioritizing `PLANNED` and `PAUSED` items) with the badge `"Sugestão da tua lista"`.
+
+### 18. User Recent Activity Feed (Atividade Recente)
+* **Automatic Activity Logs**: Whenever you increment your watched episodes or read chapters, the system updates `lastProgressUpdate` in the database.
+* **Profile Activity Feed**: Displays the 3 most recently updated items on the profile page, complete with relative time formats (e.g., "Updated 2 hours ago").
 
 ---
 

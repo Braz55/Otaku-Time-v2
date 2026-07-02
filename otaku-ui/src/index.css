@@ -288,3 +288,19 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+@keyframes pulseGlow {
+  0%, 100% {
+    transform: scale(1.01);
+    box-shadow: 0 0 10px var(--pulse-color, rgba(255, 255, 255, 0.15));
+  }
+  50% {
+    transform: scale(1.03);
+    box-shadow: 0 0 18px var(--pulse-color, rgba(255, 255, 255, 0.35));
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2s infinite ease-in-out;
+}
+
+

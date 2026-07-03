@@ -796,9 +796,9 @@ const DetailsPage = () => {
     const totalAll = mediaType === 'anime'
       ? (
           selectedItem.episodes && selectedItem.episodes.length > 0
-            ? selectedItem.episodes.length
+            ? selectedItem.episodes.filter((ep: any) => ep.season > 0).length
             : (selectedItem.relations?.edges
-                ?.filter((edge: any) => edge.node.format === 'TV_SEASON')
+                ?.filter((edge: any) => edge.node.format === 'TV_SEASON' && edge.node.seasonNumber > 0)
                 ?.reduce((sum: number, edge: any) => sum + (edge.node.episodes || 0), 0) || selectedItem.numEpisodiosTotal || 0)
         )
       : (selectedItem.numCapitulosTotal || 0);
@@ -1401,7 +1401,7 @@ const DetailsPage = () => {
                         {/* 2. Season Selector Column */}
                         <div className="flex flex-col gap-1.5 text-left">
                           <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest">
-                            {mediaType === 'anime' ? `Temporada ${viewedSeason}` : 'Progress'}
+                            {mediaType === 'anime' ? (viewedSeason === 0 ? 'Especiais' : `Temporada ${viewedSeason}`) : 'Progress'}
                           </label>
                           
                           {mediaType === 'anime' ? (
@@ -1421,7 +1421,7 @@ const DetailsPage = () => {
                                   }
                                   return (
                                     <div className="flex items-center gap-1.5 justify-between w-full pr-1.5 min-w-0">
-                                      <span className="truncate">Temporada {currentSeasonNum}</span>
+                                      <span className="truncate">{currentSeasonNum === 0 ? 'Especiais' : `Temporada ${currentSeasonNum}`}</span>
                                       <span className="text-[10px] opacity-60 font-medium shrink-0">({epsCount} eps)</span>
                                     </div>
                                   );
@@ -1474,7 +1474,7 @@ const DetailsPage = () => {
                                             }}
                                             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-left cursor-pointer transition-all ${optColor}`}
                                           >
-                                            <span>Temporada {seasonNum}</span>
+                                            <span>{seasonNum === 0 ? 'Especiais' : `Temporada ${seasonNum}`}</span>
                                             <span className="text-[10px] opacity-60 font-medium">({epsCount} eps)</span>
                                           </button>
                                         );
@@ -1571,8 +1571,10 @@ const DetailsPage = () => {
                       ) : seasonEpisodes && seasonEpisodes.length > 0 ? (
                         <div className="space-y-3 max-h-[460px] overflow-y-auto pr-2 custom-scrollbar text-left font-sans">
                           {seasonEpisodes.map((ep: any) => {
-                            const globalEpNum = ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
-                            const isWatched = globalEpNum <= selectedItem.epAtual;
+                            const isSpecial = ep.season === 0 || ep.season_number === 0 || viewedSeason === 0;
+                            const isWatched = isSpecial
+                              ? Array.isArray(selectedItem.watchedSpecials) && selectedItem.watchedSpecials.includes(ep.episode_number)
+                              : (ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number)) <= (selectedItem.epAtual || 0);
                             const hasAired = ep.episode_number <= lastAiredEpNumber;
                             const airDateStr = ep.air_date
                               ? new Date(ep.air_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -1643,11 +1645,22 @@ const DetailsPage = () => {
                                   {hasAired ? (
                                     <button
                                       onClick={() => {
-                                        const globalEpNum = ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
-                                        if (isWatched) {
-                                          atualizarCampo('epAtual', globalEpNum - 1);
+                                        if (isSpecial) {
+                                          const currentSpecials = Array.isArray(selectedItem.watchedSpecials)
+                                            ? selectedItem.watchedSpecials
+                                            : [];
+                                          const isAlreadyWatched = currentSpecials.includes(ep.episode_number);
+                                          const updatedSpecials = isAlreadyWatched
+                                            ? currentSpecials.filter((n: number) => n !== ep.episode_number)
+                                            : [...currentSpecials, ep.episode_number];
+                                          atualizarCampo('watchedSpecials', updatedSpecials);
                                         } else {
-                                          atualizarCampo('epAtual', globalEpNum);
+                                          const globalEpNum = ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
+                                          if (isWatched) {
+                                            atualizarCampo('epAtual', globalEpNum - 1);
+                                          } else {
+                                            atualizarCampo('epAtual', globalEpNum);
+                                          }
                                         }
                                       }}
                                       className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${
@@ -1963,9 +1976,9 @@ const DetailsPage = () => {
     ? (mediaType === 'anime'
         ? (
             selectedItem.episodes && selectedItem.episodes.length > 0
-              ? selectedItem.episodes.length
+              ? selectedItem.episodes.filter((ep: any) => ep.season > 0).length
               : (selectedItem.relations?.edges
-                  ?.filter((edge: any) => edge.node.format === 'TV_SEASON')
+                  ?.filter((edge: any) => edge.node.format === 'TV_SEASON' && edge.node.seasonNumber > 0)
                   ?.reduce((sum: number, edge: any) => sum + (edge.node.episodes || 0), 0) || selectedItem.numEpisodiosTotal || 0)
           )
         : (selectedItem.numCapitulosTotal || 0)
@@ -2237,7 +2250,7 @@ const DetailsPage = () => {
                                     .filter((edge: any) => edge.node.format === 'TV_SEASON')
                                     .map((edge: any) => (
                                       <option key={edge.node.id} value={edge.node.seasonNumber} className="bg-surface-container text-white">
-                                        {edge.node.seasonNumber}ª Temporada ({edge.node.episodes} eps)
+                                        {edge.node.seasonNumber === 0 ? 'Especiais' : `${edge.node.seasonNumber}ª Temporada`} ({edge.node.episodes} eps)
                                       </option>
                                     ))}
                                 </select>
@@ -2301,66 +2314,114 @@ const DetailsPage = () => {
                                 ) : seasonEpisodes && seasonEpisodes.length > 0 ? (
                                   <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
                                     {seasonEpisodes.map((ep: any) => {
-                                      const globalEpNum = ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
-                                      const isWatched = globalEpNum <= selectedItem.epAtual;
+                                      const isSpecial = ep.season === 0 || ep.season_number === 0 || viewedSeason === 0;
+                                      const isWatched = isSpecial
+                                        ? Array.isArray(selectedItem.watchedSpecials) && selectedItem.watchedSpecials.includes(ep.episode_number)
+                                        : (ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number)) <= (selectedItem.epAtual || 0);
                                       const hasAired = ep.episode_number <= lastAiredEpNumber;
                                       const airDateStr = ep.air_date
-                                        ? new Date(ep.air_date).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })
+                                        ? new Date(ep.air_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' })
                                         : 'Sem data';
                                       const stillUrl = ep.still_path
                                         ? `https://image.tmdb.org/t/p/w200${ep.still_path}`
                                         : selectedItem.capaUrl;
                                         
+                                      const runtimeStr = ep.runtime ? `${ep.runtime} min` : '24 min';
+
                                       return (
                                         <div
                                           key={ep.id}
-                                          className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all ${
+                                          className={`flex items-center justify-between gap-4 p-3 rounded-xl border transition-all ${
                                             isWatched
-                                              ? 'bg-primary/5 border-primary/20'
-                                              : 'bg-surface-variant/20 border-white/5'
+                                              ? 'bg-primary/5 border-primary/20 hover:border-primary/45'
+                                              : 'bg-surface-variant/20 border-white/5 hover:border-white/20'
                                           }`}
                                         >
-                                          {/* Episode Image */}
-                                          <div className="w-20 aspect-[16/9] rounded-lg overflow-hidden shrink-0 bg-black/40 border border-white/5">
-                                            <img src={stillUrl} className="w-full h-full object-cover" alt={ep.name} />
-                                          </div>
-                                          
-                                          {/* Episode Info */}
-                                          <div className="flex-1 min-w-0">
-                                            <p className="text-white text-xs font-bold truncate">
-                                              Ep {ep.episode_number} - {ep.name || `Episódio ${ep.episode_number}`}
-                                            </p>
-                                            <p className="text-on-surface-variant text-[10px] font-medium mt-0.5">
-                                              {airDateStr}
-                                            </p>
-                                          </div>
-                                          
-                                          {/* Watched Toggle Checkmark */}
-                                          {hasAired ? (
-                                            <button
-                                              onClick={() => {
-                                                const globalEpNum = ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
-                                                if (isWatched) {
-                                                  atualizarCampo('epAtual', globalEpNum - 1);
-                                                } else {
-                                                  atualizarCampo('epAtual', globalEpNum);
-                                                }
-                                              }}
-                                              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                                                isWatched
-                                                  ? 'bg-primary text-on-primary scale-105 shadow-sm shadow-primary/20'
-                                                  : 'bg-surface-variant/40 hover:bg-surface-variant hover:text-white text-on-surface-variant border border-white/10'
-                                              }`}
-                                            >
-                                              <span className="material-symbols-outlined text-sm font-bold">
-                                                {isWatched ? 'check' : 'check_box_outline_blank'}
-                                              </span>
-                                            </button>
-                                          ) : (
-                                            <div className="w-8 h-8 flex items-center justify-center text-on-surface-variant/20" title="Não estreado">
-                                              <span className="material-symbols-outlined text-[16px]">schedule</span>
+                                          {/* Left block: Still & details */}
+                                          <div className="flex items-center gap-4 min-w-0 flex-1">
+                                            {/* Episode Still image */}
+                                            <div className="w-24 aspect-[16/9] rounded-lg overflow-hidden shrink-0 bg-black/40 border border-white/10">
+                                              <img src={stillUrl} className="w-full h-full object-cover" alt={ep.name} />
                                             </div>
-                                          )}
+                                            
+                                            {/* Episode text */}
+                                            <div className="min-w-0">
+                                              <p className="text-white text-sm font-bold truncate">
+                                                Ep {ep.episode_number} - {ep.name || `Episódio ${ep.episode_number}`}
+                                              </p>
+                                              <p className="text-on-surface-variant text-[11px] font-medium mt-0.5 font-mono">
+                                                {airDateStr}
+                                              </p>
+                                            </div>
+                                          </div>
+
+                                          {/* Right block: Checked state and time metadata */}
+                                          <div className="flex items-center gap-5 flex-shrink-0">
+                                            {/* Checked Status */}
+                                            <div className="flex items-center gap-1.5 min-w-[85px]">
+                                              <span className={`material-symbols-outlined text-sm font-bold ${
+                                                !hasAired
+                                                  ? 'text-on-surface-variant/20'
+                                                  : isWatched
+                                                  ? 'text-emerald-400'
+                                                  : 'text-on-surface-variant/40'
+                                              }`}>
+                                                {!hasAired ? 'schedule' : isWatched ? 'check_circle' : 'radio_button_unchecked'}
+                                              </span>
+                                              <span className={`text-xs font-bold ${
+                                                !hasAired
+                                                  ? 'text-on-surface-variant/30'
+                                                  : isWatched
+                                                  ? 'text-emerald-400'
+                                                  : 'text-on-surface-variant/50'
+                                              }`}>
+                                                {!hasAired ? 'Por estrear' : isWatched ? 'Visto' : 'Não Visto'}
+                                              </span>
+                                            </div>
+
+                                            {/* Time duration details */}
+                                            <div className="text-right min-w-[50px]">
+                                              <p className="text-[10px] text-on-surface-variant font-medium uppercase">{runtimeStr}</p>
+                                            </div>
+
+                                            {/* Checked button toggle */}
+                                            {hasAired ? (
+                                              <button
+                                                onClick={() => {
+                                                  if (isSpecial) {
+                                                    const currentSpecials = Array.isArray(selectedItem.watchedSpecials)
+                                                      ? selectedItem.watchedSpecials
+                                                      : [];
+                                                    const isAlreadyWatched = currentSpecials.includes(ep.episode_number);
+                                                    const updatedSpecials = isAlreadyWatched
+                                                      ? currentSpecials.filter((n: number) => n !== ep.episode_number)
+                                                      : [...currentSpecials, ep.episode_number];
+                                                    atualizarCampo('watchedSpecials', updatedSpecials);
+                                                  } else {
+                                                    const globalEpNum = ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
+                                                    if (isWatched) {
+                                                      atualizarCampo('epAtual', globalEpNum - 1);
+                                                    } else {
+                                                      atualizarCampo('epAtual', globalEpNum);
+                                                    }
+                                                  }
+                                                }}
+                                                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                                                  isWatched
+                                                    ? 'bg-primary text-on-primary scale-105 shadow-sm shadow-primary/20'
+                                                    : 'bg-surface-variant/40 hover:bg-surface-variant hover:text-white text-on-surface-variant border border-white/10'
+                                                }`}
+                                              >
+                                                <span className="material-symbols-outlined text-sm font-bold">
+                                                  {isWatched ? 'check' : 'check_box_outline_blank'}
+                                                </span>
+                                              </button>
+                                            ) : (
+                                              <div className="w-9 h-9 flex items-center justify-center text-on-surface-variant/30 font-bold" title="Não estreado">
+                                                <span className="material-symbols-outlined text-sm">schedule</span>
+                                              </div>
+                                            )}
+                                          </div>
                                         </div>
                                       );
                                     })}

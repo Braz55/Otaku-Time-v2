@@ -81,6 +81,7 @@ model UserAnime {
   anime      Anime          @relation(fields: [animeId], references: [id])
   wasDropped Boolean        @default(false)
   lastProgressUpdate DateTime?
+  watchedSpecials Json?        @default("[]")
   updatedAt  DateTime       @default(now()) @updatedAt
 
   @@unique([userId, animeId])

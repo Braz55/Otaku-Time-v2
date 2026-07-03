@@ -265,10 +265,9 @@ export class AnimeService {
         try {
           const seasonDetails = await this.tmdbService.getTVSeasonDetails(id, latestSeason.season_number);
           const episodesList = seasonDetails.episodes || [];
-          
-          media.relations = {
+                    media.relations = {
             edges: details.seasons
-              .filter((s: any) => s.season_number > 0)
+              .filter((s: any) => s.season_number >= 0)
               .map((s: any) => ({
                 relationType: 'SEASON',
                 node: {
@@ -305,6 +304,7 @@ export class AnimeService {
             seasonAtual: matched.seasonAtual,
             epAtual: matched.epAtual,
             prioridade: matched.prioridade,
+            watchedSpecials: matched.watchedSpecials || [],
           }
         : null;
         
@@ -488,6 +488,7 @@ export class AnimeService {
       proximoEpisodio: userAnime.anime.proximoEpisodio,
       proximoEpisodioData: userAnime.anime.proximoEpisodioData,
       episodes: userAnime.anime.episodesList || [],
+      watchedSpecials: userAnime.watchedSpecials || [],
       tipo: userAnime.anime.tipo,
       updatedAt: userAnime.updatedAt,
       lastProgressUpdate: userAnime.lastProgressUpdate,
@@ -623,6 +624,7 @@ export class AnimeService {
         proximoEpisodio: item.anime.proximoEpisodio,
         proximoEpisodioData: item.anime.proximoEpisodioData,
         tipo: item.anime.tipo,
+        watchedSpecials: item.watchedSpecials || [],
         updatedAt: item.updatedAt,
         lastProgressUpdate: item.lastProgressUpdate,
         avaliacaoGeral: rating?.avaliacao_geral ?? null,
@@ -660,6 +662,7 @@ export class AnimeService {
       proximoEpisodio: item.anime.proximoEpisodio,
       proximoEpisodioData: item.anime.proximoEpisodioData,
       episodes: item.anime.episodesList || [],
+      watchedSpecials: item.watchedSpecials || [],
       tipo: item.anime.tipo,
       updatedAt: item.updatedAt,
       lastProgressUpdate: item.lastProgressUpdate,
@@ -778,6 +781,7 @@ export class AnimeService {
       proximoEpisodio: updated.anime.proximoEpisodio,
       proximoEpisodioData: updated.anime.proximoEpisodioData,
       episodes: updated.anime.episodesList || [],
+      watchedSpecials: updated.watchedSpecials || [],
       tipo: updated.anime.tipo,
       updatedAt: updated.updatedAt,
       lastProgressUpdate: updated.lastProgressUpdate,
@@ -1808,7 +1812,7 @@ export class AnimeService {
       }
 
       const activeSeasons = (detailsSeasons || [])
-        .filter((s: any) => s.season_number > 0)
+        .filter((s: any) => s.season_number >= 0)
         .sort((a: any, b: any) => a.season_number - b.season_number);
         
       let globalCounter = 0;
@@ -1828,7 +1832,11 @@ export class AnimeService {
         const sortedEpisodes = [...seasonDetails.episodes].sort((a: any, b: any) => a.episode_number - b.episode_number);
         
         for (const ep of sortedEpisodes) {
-          globalCounter++;
+          let globalEpNum: number | null = null;
+          if (season.season_number > 0) {
+            globalCounter++;
+            globalEpNum = globalCounter;
+          }
           const airDateVal = ep.air_date ? new Date(ep.air_date + "T12:00:00Z").toISOString() : null;
           const key = `${ep.season_number}-${ep.episode_number}`;
           const isNotified = existingNotifiedMap.get(key) || false;
@@ -1836,7 +1844,7 @@ export class AnimeService {
           episodesList.push({
             season: ep.season_number,
             episodeNumber: ep.episode_number,
-            globalEpisodeNumber: globalCounter,
+            globalEpisodeNumber: globalEpNum,
             name: ep.name || null,
             airDate: airDateVal,
             stillPath: ep.still_path ? `https://image.tmdb.org/t/p/w300${ep.still_path}` : null,

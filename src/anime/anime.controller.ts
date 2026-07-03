@@ -137,6 +137,24 @@ export class AnimeController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('import-tvtime')
+  importTVTime(@Body() body: any[], @Request() req) {
+    return this.animeService.importFromTVTime(req.user.userId, body);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('import-tvtime/status')
+  getTVTimeImportStatus(@Request() req) {
+    return this.animeService.getTvTimeImportStatus(req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('clear-catalog')
+  clearCatalog() {
+    return this.animeService.clearAnimeCatalog();
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.animeService.findOne(+id);

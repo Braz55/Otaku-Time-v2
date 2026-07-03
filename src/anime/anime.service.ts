@@ -90,6 +90,17 @@ function normalizeTMDBToAniList(media: any, mediaTypeForce?: 'tv' | 'movie'): an
 @Injectable()
 export class AnimeService {
   private readonly logger = new Logger(AnimeService.name);
+  private readonly tvTimeImportStatus = new Map<
+    number,
+    {
+      isImporting: boolean;
+      total: number;
+      processed: number;
+      currentShow: string;
+      errors: string[];
+      importedShows: any[];
+    }
+  >();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -1822,6 +1833,8 @@ export class AnimeService {
         let seasonDetails: any = null;
         try {
           seasonDetails = await this.tmdbService.getTVSeasonDetails(animeId, season.season_number);
+          // Pequeno delay entre temporadas para evitar sobrecarregar a API
+          await new Promise((resolve) => setTimeout(resolve, 150));
         } catch (err) {
           this.logger.error(`Error fetching season ${season.season_number} details for TV ID ${animeId}:`, err);
           continue;
@@ -1861,6 +1874,365 @@ export class AnimeService {
       this.logger.log(`Successfully synced ${globalCounter} episodes in JSON for anime ID ${animeId}`);
     } catch (err) {
       this.logger.error(`Error in syncAnimeEpisodes for anime ID ${animeId}:`, err);
+    }
+  }
+
+  getTvTimeImportStatus(userId: number) {
+    return this.tvTimeImportStatus.get(userId) || { isImporting: false, total: 0, processed: 0, currentShow: '', errors: [], importedShows: [] };
+  }
+
+  async importFromTVTime(userId: number, tvTimeShows: any[]) {
+    if (!Array.isArray(tvTimeShows)) {
+      throw new Error('Formato inválido. O arquivo JSON deve ser um array.');
+    }
+
+    const currentStatus = this.tvTimeImportStatus.get(userId);
+    if (currentStatus && currentStatus.isImporting) {
+      throw new Error('Já existe uma importação de dados em andamento.');
+    }
+
+    this.tvTimeImportStatus.set(userId, {
+      isImporting: true,
+      total: tvTimeShows.length,
+      processed: 0,
+      currentShow: 'A iniciar...',
+      errors: [],
+      importedShows: [],
+    });
+
+    // Inicia o processo em background
+    this.runTVTimeImportBackground(userId, tvTimeShows).catch((err) => {
+      this.logger.error(`Erro grave na importação em background do utilizador ${userId}:`, err);
+    });
+
+    return { message: 'Importação iniciada com sucesso em segundo plano.' };
+  }
+
+  private async ensureAnimeExists(tmdbId: number): Promise<boolean> {
+    try {
+      const existing = await this.prisma.anime.findUnique({ where: { id: tmdbId } });
+      if (existing) return true;
+
+      const tmdbData = await this.searchAniListById(tmdbId);
+      if (!tmdbData) return false;
+
+      const generosDict: Record<string, number> = {};
+      if (tmdbData.genres) {
+        tmdbData.genres.forEach((g: string) => {
+          generosDict[g.trim()] = 100;
+        });
+      }
+
+      let details: any = null;
+      if (tmdbData.format === 'TV' && tmdbData.id) {
+        try {
+          details = await this.tmdbService.getTVShowDetails(tmdbData.id);
+        } catch (e) {
+          this.logger.error(`Error fetching season details during import:`, e);
+        }
+      }
+
+      const anime = await this.prisma.anime.upsert({
+        where: { id: tmdbData.id },
+        update: {
+          numEpisodiosTotal: tmdbData.episodes,
+          capaUrl: tmdbData.coverImage.large,
+          statusLancamento: tmdbData.status,
+          linksExternos: null,
+          proximoEpisodio: tmdbData.nextAiringEpisode?.episode,
+          proximoEpisodioData: tmdbData.nextAiringEpisode
+            ? new Date(tmdbData.nextAiringEpisode.airingAt * 1000)
+            : null,
+          generos: generosDict,
+          paisOrigem: tmdbData.countryOfOrigin,
+          formato: tmdbData.format,
+        },
+        create: {
+          id: tmdbData.id,
+          titulo: tmdbData.title.english || tmdbData.title.romaji,
+          statusLancamento: tmdbData.status,
+          descricao: tmdbData.description,
+          generos: generosDict,
+          capaUrl: tmdbData.coverImage.large,
+          numEpisodiosTotal: tmdbData.episodes,
+          temporada: tmdbData.season,
+          ano: tmdbData.seasonYear,
+          paisOrigem: tmdbData.countryOfOrigin,
+          formato: tmdbData.format,
+          linksExternos: null,
+          proximoEpisodio: tmdbData.nextAiringEpisode?.episode,
+          proximoEpisodioData: tmdbData.nextAiringEpisode
+            ? new Date(tmdbData.nextAiringEpisode.airingAt * 1000)
+            : null,
+        },
+      });
+
+      if (details && details.seasons) {
+        await this.syncAnimeEpisodes(tmdbData.id, details.seasons);
+      }
+
+      const averageScore = tmdbData.averageScore ? tmdbData.averageScore / 10 : 0;
+      const existingMedia = await this.prisma.media.findUnique({
+        where: { id: anime.id },
+      });
+      if (!existingMedia) {
+        await this.prisma.media.create({
+          data: {
+            id: anime.id,
+            avaliacao_base: averageScore,
+            total_votos_users: 0,
+            soma_notas_users: 0,
+            avaliacao_geral: averageScore,
+          },
+        });
+      }
+      return true;
+    } catch (err) {
+      this.logger.error(`Error in ensureAnimeExists for TMDB ID ${tmdbId}:`, err);
+      return false;
+    }
+  }
+
+  private async runTVTimeImportBackground(userId: number, tvTimeShows: any[]) {
+    const status = this.tvTimeImportStatus.get(userId);
+    if (!status) return;
+
+    for (const show of tvTimeShows) {
+      let attempts = 0;
+      const maxAttempts = 5;
+      let processedSuccessfully = false;
+
+      while (attempts < maxAttempts && !processedSuccessfully) {
+        try {
+          status.currentShow = show.title || 'Sem título';
+          this.tvTimeImportStatus.set(userId, { ...status });
+
+          let tmdbId: number | null = null;
+
+          // 1. Resolver ID pelo TVDB ID
+          if (show.id && show.id.tvdb) {
+            const resolved = await this.tmdbService.findByTVDBId(Number(show.id.tvdb));
+            if (resolved) {
+              tmdbId = resolved.id;
+            }
+          }
+
+          // Se falhar, tenta pesquisar pelo título
+          if (!tmdbId && show.title) {
+            const searchResults = await this.tmdbService.search(show.title);
+            if (searchResults && searchResults.length > 0) {
+              tmdbId = searchResults[0].id;
+            }
+          }
+
+          if (!tmdbId) {
+            status.errors.push(`Não foi possível mapear a série: "${show.title}" (TVDB ID: ${show.id?.tvdb})`);
+            processedSuccessfully = true;
+            continue;
+          }
+
+          // 2. Garantir que a série/anime existe na tabela Anime (e Media)
+          const ok = await this.ensureAnimeExists(tmdbId);
+          if (!ok) {
+            throw new Error(`Falha ao obter dados e registar a série: "${show.title}" (TMDB ID: ${tmdbId})`);
+          }
+
+          const dbAnime = await this.prisma.anime.findUnique({
+            where: { id: tmdbId },
+          });
+          const totalEpisodes = dbAnime?.numEpisodiosTotal || 0;
+
+          // 3. Processar progresso de visualização
+          let maxSeason = 1;
+          let maxEpisode = 0;
+          let hasWatched = false;
+          let watchedCount = 0;
+
+          if (show.seasons && Array.isArray(show.seasons)) {
+            for (const season of show.seasons) {
+              if (season.is_specials) continue;
+              const seasonNum = Number(season.number);
+              if (season.episodes && Array.isArray(season.episodes)) {
+                for (const ep of season.episodes) {
+                  if (ep.special) continue;
+                  if (ep.is_watched) {
+                    hasWatched = true;
+                    watchedCount++;
+                    const epNum = Number(ep.number);
+                    if (seasonNum > maxSeason) {
+                      maxSeason = seasonNum;
+                      maxEpisode = epNum;
+                    } else if (seasonNum === maxSeason) {
+                      if (epNum > maxEpisode) {
+                        maxEpisode = epNum;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          // 4. Mapear status
+          let trackingStatus: 'WATCHING' | 'COMPLETED' | 'PAUSED' | 'DROPPED' | 'PLANNED' = 'WATCHING';
+          const showStatus = String(show.status || '').toLowerCase();
+          const completedAll = totalEpisodes > 0 && watchedCount >= totalEpisodes;
+
+          if (showStatus === 'completed' || completedAll) {
+            trackingStatus = 'COMPLETED';
+          } else if (showStatus === 'stopped' || showStatus === 'archived') {
+            trackingStatus = 'PAUSED';
+          } else if (showStatus === 'watching') {
+            trackingStatus = 'WATCHING';
+          } else {
+            trackingStatus = hasWatched ? 'WATCHING' : 'PLANNED';
+          }
+
+          // Se estiver COMPLETED, garante que o progresso está no último episódio da última temporada
+          if (trackingStatus === 'COMPLETED' && dbAnime && dbAnime.episodesList) {
+            const episodesList = dbAnime.episodesList as any[];
+            if (episodesList.length > 0) {
+              let highestS = 1;
+              let highestE = 0;
+              for (const ep of episodesList) {
+                if (ep.season > highestS) {
+                  highestS = ep.season;
+                  highestE = ep.episodeNumber;
+                } else if (ep.season === highestS && ep.episodeNumber > highestE) {
+                  highestE = ep.episodeNumber;
+                }
+              }
+              maxSeason = highestS;
+              maxEpisode = highestE;
+            }
+          }
+
+          // 5. Upsert UserAnime
+          const existingUserAnime = await this.prisma.userAnime.findUnique({
+            where: { userId_animeId: { userId, animeId: tmdbId } },
+          });
+
+          if (existingUserAnime) {
+            // Apenas atualiza se o progresso do TV Time for maior ou se estiver em estado PLANNED
+            const isMoreAdvanced = (maxSeason > existingUserAnime.seasonAtual) ||
+                                   (maxSeason === existingUserAnime.seasonAtual && maxEpisode > existingUserAnime.epAtual);
+            if (isMoreAdvanced || existingUserAnime.status === 'PLANNED') {
+              await this.prisma.userAnime.update({
+                where: { id: existingUserAnime.id },
+                data: {
+                  seasonAtual: maxSeason,
+                  epAtual: maxEpisode,
+                  status: trackingStatus,
+                  lastProgressUpdate: new Date(),
+                },
+              });
+            }
+          } else {
+            await this.prisma.userAnime.create({
+              data: {
+                userId,
+                animeId: tmdbId,
+                seasonAtual: maxSeason,
+                epAtual: maxEpisode,
+                status: trackingStatus,
+                lastProgressUpdate: new Date(),
+              },
+            });
+          }
+
+          const savedUserAnime = await this.prisma.userAnime.findUnique({
+            where: { userId_animeId: { userId, animeId: tmdbId } },
+            include: { anime: true },
+          });
+
+          if (savedUserAnime) {
+            status.importedShows.push({
+              id: savedUserAnime.id,
+              animeId: savedUserAnime.animeId,
+              titulo: savedUserAnime.anime.titulo,
+              capaUrl: savedUserAnime.anime.capaUrl,
+              status: savedUserAnime.status,
+              seasonAtual: savedUserAnime.seasonAtual,
+              epAtual: savedUserAnime.epAtual,
+              numEpisodiosTotal: savedUserAnime.anime.numEpisodiosTotal,
+            });
+          } else {
+            status.importedShows.push({
+              id: 0,
+              animeId: tmdbId,
+              titulo: show.title || 'Sem título',
+              capaUrl: null,
+              status: trackingStatus,
+              seasonAtual: maxSeason,
+              epAtual: maxEpisode,
+              numEpisodiosTotal: totalEpisodes,
+            });
+          }
+          processedSuccessfully = true;
+
+          // Pequeno delay para respeitar taxas da API do TMDB
+          await new Promise((resolve) => setTimeout(resolve, 200));
+
+        } catch (err: any) {
+          attempts++;
+          this.logger.error(`Erro ao processar série "${show.title}" (tentativa ${attempts}/${maxAttempts}):`, err);
+          if (attempts >= maxAttempts) {
+            status.errors.push(`Erro definitivo na série "${show.title}": ${err.message || err}`);
+            processedSuccessfully = true;
+          } else {
+            status.currentShow = `Erro em ${show.title}. A tentar novamente em 5s... (Tentativa ${attempts}/${maxAttempts})`;
+            this.tvTimeImportStatus.set(userId, { ...status });
+            await new Promise((resolve) => setTimeout(resolve, 5000));
+          }
+        }
+      }
+
+      status.processed++;
+      this.tvTimeImportStatus.set(userId, { ...status });
+    }
+
+    status.isImporting = false;
+    status.currentShow = 'Concluído';
+    this.tvTimeImportStatus.set(userId, { ...status });
+
+    // Recalcular as estatísticas no final
+    try {
+      await this.recalculateUserStats(userId);
+    } catch (err) {
+      this.logger.error(`Erro ao recalcular estatísticas do utilizador ${userId}:`, err);
+    }
+  }
+
+  async clearAnimeCatalog() {
+    this.logger.log('A iniciar a limpeza de toda a base de dados de Anime...');
+    try {
+      const animes = await this.prisma.anime.findMany({ select: { id: true } });
+      const animeIds = animes.map((a) => a.id);
+
+      await this.prisma.userAnime.deleteMany({});
+      await this.prisma.customListItem.deleteMany({
+        where: { mediaType: 'ANIME' }
+      });
+      await this.prisma.comment.deleteMany({
+        where: { mediaId: { in: animeIds } }
+      });
+      await this.prisma.userRating.deleteMany({
+        where: { mediaId: { in: animeIds } }
+      });
+      await this.prisma.anime.deleteMany({});
+      await this.prisma.media.deleteMany({
+        where: { id: { in: animeIds } }
+      });
+
+      const users = await this.prisma.user.findMany({ select: { id: true } });
+      for (const user of users) {
+        await this.recalculateUserStats(user.id).catch(() => {});
+      }
+
+      return { success: true, message: 'Catálogo de animes e progresso de utilizadores limpos com sucesso.' };
+    } catch (err: any) {
+      this.logger.error('Erro ao limpar catálogo de animes:', err);
+      throw err;
     }
   }
 }

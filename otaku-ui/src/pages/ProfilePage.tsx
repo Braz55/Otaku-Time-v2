@@ -237,6 +237,51 @@ const ProfilePage = () => {
   const [cleanRestore, setCleanRestore] = useState(false);
   const [showWipeConfirm, setShowWipeConfirm] = useState(false);
   const [isWiping, setIsWiping] = useState(false);
+  const [isClearingCatalog, setIsClearingCatalog] = useState(false);
+
+  // TV Time Import State
+  const [showTvTimeModal, setShowTvTimeModal] = useState(false);
+  const [isImportingTvTime, setIsImportingTvTime] = useState(false);
+  const [tvTimeImportStatus, setTvTimeImportStatus] = useState<{ isImporting: boolean; total: number; processed: number; currentShow: string; errors: string[]; importedShows: any[] } | null>(null);
+  const [tvTimeError, setTvTimeError] = useState<string | null>(null);
+  const [tvTimeSuccess, setTvTimeSuccess] = useState<string | null>(null);
+  const [savingShowId, setSavingShowId] = useState<Record<number, boolean>>({});
+  const [tvTimeSearchQuery, setTvTimeSearchQuery] = useState('');
+
+  // TV Time Import status polling
+  useEffect(() => {
+    let intervalId: any;
+    if (isImportingTvTime) {
+      const checkStatus = async () => {
+        try {
+          const res = await customFetch(`${API_BASE_URL}/anime/import-tvtime/status`, {
+            headers: getHeaders()
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setTvTimeImportStatus(data);
+            if (!data.isImporting) {
+              setIsImportingTvTime(false);
+              if (data.errors && data.errors.length > 0) {
+                setTvTimeError(`Importação concluída com ${data.errors.length} erro(s).`);
+              } else {
+                setTvTimeSuccess('Todos os dados do TV Time foram importados com sucesso!');
+              }
+              fetchProfile();
+            }
+          }
+        } catch (err) {
+          console.error("Erro ao verificar progresso da importação:", err);
+        }
+      };
+
+      checkStatus();
+      intervalId = setInterval(checkStatus, 2000);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isImportingTvTime]);
 
   // AutoSync Releases State
   const [syncStatus, setSyncStatus] = useState<{ isSyncing: boolean; total: number; current: number; currentItemTitle: string }>({
@@ -1026,6 +1071,31 @@ const ProfilePage = () => {
     }
   };
 
+  const handleClearCatalog = async () => {
+    if (!window.confirm("ATENÇÃO: Isto irá apagar TODOS os animes da base de dados global, todo o progresso (UserAnime), classificações e comentários de todos os utilizadores. Desejas continuar?")) {
+      return;
+    }
+
+    setIsClearingCatalog(true);
+    try {
+      const res = await customFetch(`${API_BASE_URL}/anime/clear-catalog`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      if (res.ok) {
+        showToast("Catálogo global e progresso de animes limpos com sucesso!", "success");
+        fetchProfile();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || "Erro ao limpar catálogo.");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Erro ao limpar catálogo.", "error");
+    } finally {
+      setIsClearingCatalog(false);
+    }
+  };
+
   const handleExportBackup = async () => {
     setIsExporting(true);
     setBackupText('');
@@ -1145,7 +1215,97 @@ const ProfilePage = () => {
       setIsImporting(false);
     }
   };
+
+  const handleTvTimeFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target?.result as string;
+        let parsed;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          setTvTimeError('O ficheiro selecionado não é um JSON válido.');
+          return;
+        }
+
+        if (!Array.isArray(parsed)) {
+          setTvTimeError('Formato inválido. O ficheiro do TV Time deve ser uma lista (array) de séries.');
+          return;
+        }
+
+        setTvTimeError(null);
+        setTvTimeSuccess(null);
+        setTvTimeImportStatus({
+          isImporting: true,
+          total: parsed.length,
+          processed: 0,
+          currentShow: 'A enviar...',
+          errors: [],
+          importedShows: []
+        });
+        setIsImportingTvTime(true);
+
+        const res = await customFetch(`${API_BASE_URL}/anime/import-tvtime`, {
+          method: 'POST',
+          headers: {
+            ...getHeaders(),
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(parsed)
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.message || 'Falha ao iniciar importação.');
+        }
+
+      } catch (err: any) {
+        setTvTimeError(err.message || 'Erro ao iniciar importação.');
+        setIsImportingTvTime(false);
+        setTvTimeImportStatus(null);
+      }
+    };
+    reader.readAsText(file);
+  };
   
+  const handleQuickUpdateShow = async (userAnimeId: number, updatedFields: any) => {
+    if (!userAnimeId) return;
+    setSavingShowId(prev => ({ ...prev, [userAnimeId]: true }));
+    try {
+      const res = await customFetch(`${API_BASE_URL}/anime/${userAnimeId}`, {
+        method: 'PATCH',
+        headers: {
+          ...getHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updatedFields)
+      });
+      if (!res.ok) {
+        throw new Error('Falha ao atualizar.');
+      }
+      
+      setTvTimeImportStatus(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          importedShows: prev.importedShows.map(show => {
+            if (show.id === userAnimeId) {
+              return { ...show, ...updatedFields };
+            }
+            return show;
+          })
+        };
+      });
+    } catch (err) {
+      showToast('Falha ao atualizar progresso.', 'error');
+    } finally {
+      setSavingShowId(prev => ({ ...prev, [userAnimeId]: false }));
+    }
+  };
+
   const checkSyncStatus = async () => {
     try {
       const res = await customFetch(`${API_BASE_URL}/sync/status`);
@@ -1954,7 +2114,7 @@ const ProfilePage = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-white/5 relative z-10">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-white/5 relative z-10">
                 <button
                   type="button"
                   onClick={handleExportBackup}
@@ -1982,11 +2142,22 @@ const ProfilePage = () => {
                   <Upload className="w-4 h-4 text-primary" />
                   <span>RESTAURAR CÓPIA DE SEGURANÇA</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowTvTimeModal(true)}
+                  className="py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 shadow-xl bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5 hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+                >
+                  <Database className="w-4 h-4 text-secondary" />
+                  <span>IMPORTAR DADOS DO TV TIME</span>
+                </button>
               </div>
 
               {/* Danger Zone: Wipe Library */}
               <div className="pt-6 border-t border-red-500/10 space-y-4">
                 <h4 className="text-sm font-bold text-red-400 uppercase tracking-wider">Zona de Perigo</h4>
+                
+                {/* Limpar Biblioteca Pessoal */}
                 <div className="p-4 rounded-2xl bg-red-500/5 border border-red-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div>
                     <h5 className="font-bold text-sm text-white">Limpar Biblioteca</h5>
@@ -1998,6 +2169,22 @@ const ProfilePage = () => {
                     className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow cursor-pointer"
                   >
                     Apagar Tudo
+                  </button>
+                </div>
+
+                {/* Limpar Catálogo Global */}
+                <div className="p-4 rounded-2xl bg-red-500/5 border border-red-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div>
+                    <h5 className="font-bold text-sm text-white">Limpar Catálogo Global de Animes</h5>
+                    <p className="text-xs text-gray-500 mt-0.5">Apaga todas as séries, episódios, progresso (UserAnime), classificações e comentários da base de dados global.</p>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={handleClearCatalog}
+                    disabled={isClearingCatalog}
+                    className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow cursor-pointer disabled:opacity-50"
+                  >
+                    {isClearingCatalog ? 'A Limpar...' : 'Limpar Catálogo'}
                   </button>
                 </div>
               </div>
@@ -2843,6 +3030,234 @@ const ProfilePage = () => {
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TV Time Import Modal */}
+      {showTvTimeModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="glass-panel w-full max-w-2xl p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-primary/15 to-transparent rounded-full blur-2xl"></div>
+            
+            <div className="space-y-2">
+              <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                <Database className="w-6 h-6 text-primary" />
+                <span>Importar Dados do TV Time</span>
+              </h3>
+              <p className="text-xs sm:text-sm text-gray-400">
+                Selecione o ficheiro JSON que exportou do TV Time. Vamos pesquisar e mapear cada série automaticamente para a nossa base de dados.
+              </p>
+            </div>
+
+            {!isImportingTvTime && !tvTimeImportStatus && (
+              <div className="p-8 rounded-2xl border border-dashed border-white/10 hover:border-white/20 transition-all bg-white/5 flex flex-col items-center justify-center text-center gap-4">
+                <span className="material-symbols-outlined text-gray-400 text-4xl">upload_file</span>
+                <div>
+                  <label htmlFor="tvtime-file" className="cursor-pointer px-6 py-3 rounded-xl bg-primary hover:opacity-90 text-on-primary font-bold text-sm transition-all shadow-md inline-block">
+                    Selecionar Ficheiro JSON
+                  </label>
+                  <input 
+                    type="file" 
+                    id="tvtime-file" 
+                    accept=".json"
+                    onChange={handleTvTimeFile}
+                    className="hidden" 
+                  />
+                  <p className="text-[10px] text-gray-500 mt-2">Geralmente nomeado como "seen_shows.json" ou "shows_to_watch.json"</p>
+                </div>
+              </div>
+            )}
+
+            {isImportingTvTime && (
+              <div className="space-y-4 p-6 rounded-2xl bg-white/5 border border-white/5 relative z-10 animate-in fade-in duration-300">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-bold text-white">Progresso de Importação</span>
+                  <span className="text-primary font-bold">
+                    {tvTimeImportStatus?.processed || 0} / {tvTimeImportStatus?.total || 0}
+                  </span>
+                </div>
+
+                <div className="w-full bg-white/10 h-3 rounded-full overflow-hidden">
+                  <div 
+                    className="bg-primary h-full transition-all duration-300 rounded-full"
+                    style={{ 
+                      width: `${
+                        tvTimeImportStatus?.total 
+                          ? ((tvTimeImportStatus.processed / tvTimeImportStatus.total) * 100).toFixed(0)
+                          : '0'
+                      }%` 
+                    }}
+                  />
+                </div>
+
+                <div className="text-xs space-y-1">
+                  <p className="text-gray-400">
+                    Série atual: <span className="text-white font-semibold">{tvTimeImportStatus?.currentShow || 'A processar...'}</span>
+                  </p>
+                  <p className="text-gray-500 animate-pulse">Por favor, não feche esta janela enquanto a importação decorre.</p>
+                </div>
+
+                {tvTimeImportStatus?.errors && tvTimeImportStatus.errors.length > 0 && (
+                  <div className="space-y-2 mt-4">
+                    <span className="text-xs font-bold text-red-400">Avisos / Erros ({tvTimeImportStatus.errors.length}):</span>
+                    <div className="max-h-24 overflow-y-auto text-[10px] font-mono p-3 rounded-xl bg-black/40 border border-white/5 text-red-300 space-y-1">
+                      {tvTimeImportStatus.errors.slice(-5).map((err, idx) => (
+                        <p key={idx}>{err}</p>
+                      ))}
+                      {tvTimeImportStatus.errors.length > 5 && (
+                        <p className="text-gray-500">... e mais {tvTimeImportStatus.errors.length - 5} erros.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!isImportingTvTime && tvTimeImportStatus && (
+              <div className="space-y-4 relative z-10 animate-in fade-in duration-300">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <span className="text-sm font-bold text-emerald-400 flex items-center gap-1.5">
+                    <Check className="w-4 h-4" />
+                    Importação concluída com sucesso!
+                  </span>
+                  
+                  {/* Search box to filter shows */}
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input 
+                      type="text"
+                      placeholder="Pesquisar série..."
+                      value={tvTimeSearchQuery}
+                      onChange={(e) => setTvTimeSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-white/5 border border-white/10 text-white focus:border-primary focus:outline-none placeholder:text-gray-600"
+                    />
+                  </div>
+                </div>
+
+                {/* Grid List of imported shows for quick edit */}
+                <div className="max-h-80 overflow-y-auto space-y-3 pr-1">
+                  {tvTimeImportStatus.importedShows
+                    .filter(show => !tvTimeSearchQuery || show.titulo.toLowerCase().includes(tvTimeSearchQuery.toLowerCase()))
+                    .map((item) => (
+                      <div key={item.id} className="p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center gap-4 hover:bg-white/10 hover:border-white/10 transition-all">
+                        {/* Cover Image */}
+                        <div className="w-10 h-14 bg-white/10 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center border border-white/5">
+                          {item.capaUrl ? (
+                            <img src={item.capaUrl} alt={item.titulo} className="w-full h-full object-cover" />
+                          ) : (
+                            <Film className="w-5 h-5 text-gray-600" />
+                          )}
+                        </div>
+
+                        {/* Title and Edit Controls */}
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="font-bold text-sm text-white truncate">{item.titulo}</h4>
+                            {savingShowId[item.id] && (
+                              <RefreshCw className="w-3.5 h-3.5 text-primary animate-spin" />
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-3 flex-wrap text-xs">
+                            {/* Tracking Status Dropdown */}
+                            <select
+                              value={item.status}
+                              onChange={(e) => handleQuickUpdateShow(item.id, { status: e.target.value })}
+                              className="px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/15 text-gray-300 focus:outline-none focus:border-primary text-xs cursor-pointer font-medium"
+                            >
+                              <option value="WATCHING">A Assistir</option>
+                              <option value="COMPLETED">Completado</option>
+                              <option value="PAUSED">Em Pausa</option>
+                              <option value="DROPPED">Abandonado</option>
+                              <option value="PLANNED">Planear</option>
+                            </select>
+
+                            {/* Season Control */}
+                            <div className="flex items-center bg-black/40 border border-white/15 rounded-lg overflow-hidden">
+                              <span className="px-2 py-1 text-gray-500 font-mono text-[10px]">Temp.</span>
+                              <input 
+                                type="number"
+                                min={1}
+                                value={item.seasonAtual}
+                                onChange={(e) => handleQuickUpdateShow(item.id, { seasonAtual: parseInt(e.target.value) || 1 })}
+                                className="w-10 text-center bg-transparent border-none text-white focus:outline-none text-xs py-1"
+                              />
+                            </div>
+
+                            {/* Episode Control */}
+                            <div className="flex items-center bg-black/40 border border-white/15 rounded-lg overflow-hidden">
+                              <span className="px-2 py-1 text-gray-500 font-mono text-[10px]">Ep.</span>
+                              <input 
+                                type="number"
+                                min={0}
+                                value={item.epAtual}
+                                onChange={(e) => handleQuickUpdateShow(item.id, { epAtual: parseInt(e.target.value) || 0 })}
+                                className="w-12 text-center bg-transparent border-none text-white focus:outline-none text-xs py-1"
+                              />
+                              {item.numEpisodiosTotal && (
+                                <span className="pr-2 text-[10px] text-gray-600">/ {item.numEpisodiosTotal}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                  {tvTimeImportStatus.importedShows.filter(show => !tvTimeSearchQuery || show.titulo.toLowerCase().includes(tvTimeSearchQuery.toLowerCase())).length === 0 && (
+                    <p className="text-center text-xs text-gray-500 py-6">Nenhuma série importada corresponde à pesquisa.</p>
+                  )}
+                </div>
+
+                {/* Errors list if any */}
+                {tvTimeImportStatus.errors && tvTimeImportStatus.errors.length > 0 && (
+                  <div className="space-y-2 mt-4 pt-4 border-t border-white/5">
+                    <span className="text-xs font-bold text-red-400">Avisos / Erros na Importação ({tvTimeImportStatus.errors.length}):</span>
+                    <div className="max-h-24 overflow-y-auto text-[10px] font-mono p-3 rounded-xl bg-black/40 border border-white/5 text-red-300 space-y-1">
+                      {tvTimeImportStatus.errors.map((err: string, idx: number) => (
+                        <p key={idx}>{err}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {tvTimeError && (
+              <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3 text-red-400 animate-in fade-in duration-300">
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <p className="text-xs font-bold">{tvTimeError}</p>
+              </div>
+            )}
+
+            {tvTimeSuccess && (
+              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3 text-emerald-400 animate-in fade-in duration-300">
+                <Check className="w-5 h-5 flex-shrink-0 animate-bounce" />
+                <p className="text-xs font-bold">{tvTimeSuccess}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 border-t border-white/5 pt-4">
+              {!isImportingTvTime ? (
+                <button
+                  onClick={() => {
+                    setShowTvTimeModal(false);
+                    setTvTimeError(null);
+                    setTvTimeSuccess(null);
+                    setTvTimeImportStatus(null);
+                    setIsImportingTvTime(false);
+                  }}
+                  className="px-6 py-3 rounded-2xl bg-surface-variant/30 text-on-surface-variant hover:text-white font-bold text-sm transition-all cursor-pointer"
+                >
+                  Fechar
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-primary font-bold animate-pulse py-3 select-none">
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>A IMPORTAR... INTERFACE BLOQUEADA POR SEGURANÇA</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

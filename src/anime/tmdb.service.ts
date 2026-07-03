@@ -42,21 +42,39 @@ export class TMDBService {
     return url.toString();
   }
 
-  private async fetchFromTMDB(endpoint: string, params: Record<string, string> = {}): Promise<any> {
+  private async fetchFromTMDB(endpoint: string, params: Record<string, string> = {}, retries = 3, delay = 500): Promise<any> {
     if (!this.apiKey) {
       throw new Error('TMDB_API_KEY is not configured');
     }
 
     const url = this.buildUrl(endpoint, params);
-    try {
-      const response = await fetch(url, { headers: this.headers });
-      if (!response.ok) {
-        throw new Error(`TMDB API error: ${response.status} ${response.statusText}`);
+    for (let i = 0; i < retries; i++) {
+      try {
+        const response = await fetch(url, { headers: this.headers });
+        if (response.status === 429) {
+          const retryAfter = response.headers.get('Retry-After');
+          const waitTime = retryAfter ? parseInt(retryAfter, 10) * 1000 : delay * Math.pow(2, i);
+          this.logger.warn(`TMDB rate limit hit (429) on ${endpoint}. Waiting ${waitTime}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        }
+        if (!response.ok) {
+          if (response.status >= 500 && i < retries - 1) {
+            this.logger.warn(`TMDB server error (${response.status}) on ${endpoint}. Retrying in ${delay * Math.pow(2, i)}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+            continue;
+          }
+          throw new Error(`TMDB API error: ${response.status} ${response.statusText}`);
+        }
+        return await response.json();
+      } catch (error: any) {
+        if (i === retries - 1) {
+          this.logger.error(`Error fetching from TMDB endpoint ${endpoint} after ${retries} attempts:`, error);
+          throw error;
+        }
+        this.logger.warn(`Error fetching from TMDB endpoint ${endpoint} (attempt ${i + 1}/${retries}): ${error.message || error}. Retrying...`);
+        await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
       }
-      return await response.json();
-    } catch (error) {
-      this.logger.error(`Error fetching from TMDB endpoint ${endpoint}:`, error);
-      throw error;
     }
   }
 
@@ -114,5 +132,26 @@ export class TMDBService {
    */
   async discoverMovies(params: Record<string, string> = {}): Promise<any> {
     return this.fetchFromTMDB('/discover/movie', params);
+  }
+
+  /**
+   * Find TV show or movie by TVDB ID.
+   */
+  async findByTVDBId(tvdbId: number): Promise<{ id: number; type: 'tv' | 'movie' } | null> {
+    try {
+      const results = await this.fetchFromTMDB(`/find/${tvdbId}`, {
+        external_source: 'tvdb_id',
+      });
+      if (results.tv_results && results.tv_results.length > 0) {
+        return { id: results.tv_results[0].id, type: 'tv' };
+      }
+      if (results.movie_results && results.movie_results.length > 0) {
+        return { id: results.movie_results[0].id, type: 'movie' };
+      }
+      return null;
+    } catch (error) {
+      this.logger.error(`Error finding media by TVDB ID ${tvdbId}:`, error);
+      return null;
+    }
   }
 }

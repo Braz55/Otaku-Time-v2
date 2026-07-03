@@ -235,6 +235,9 @@ export class UserService {
           : 'Sem descrição.';
 
         // Garantir que o anime global existe
+        // Usa o numEpisodiosTotal do backup como fallback caso a AniList não devolva metadata
+        // (ex: o backup contém IDs TMDB que a AniList não reconhece)
+        const numEpisodiosFallback = item.numEpisodiosTotal ?? null;
         await this.prisma.anime.upsert({
           where: { id: item.animeId },
           update: {
@@ -245,7 +248,7 @@ export class UserService {
             capaUrl: metadata ? metadata.coverImage?.large : undefined,
             generos: metadata ? generosDict : undefined,
             descricao: metadata ? descricaoLimpa : undefined,
-            numEpisodiosTotal: metadata ? metadata.episodes : undefined,
+            numEpisodiosTotal: metadata ? metadata.episodes : numEpisodiosFallback,
             paisOrigem: metadata ? metadata.countryOfOrigin : undefined,
             formato: metadata ? metadata.format : undefined,
             materialOrigem: metadata ? metadata.source : undefined,
@@ -259,7 +262,7 @@ export class UserService {
             capaUrl: metadata ? metadata.coverImage?.large : '',
             generos: generosDict,
             descricao: descricaoLimpa,
-            numEpisodiosTotal: metadata ? metadata.episodes : null,
+            numEpisodiosTotal: metadata ? metadata.episodes : numEpisodiosFallback,
             paisOrigem: metadata ? metadata.countryOfOrigin : null,
             formato: metadata ? metadata.format : null,
             materialOrigem: metadata ? metadata.source : null,
@@ -302,6 +305,8 @@ export class UserService {
           : 'Sem descrição.';
 
         // Garantir que o manga global existe
+        // Usa o numCapitulosTotal do backup como fallback caso a AniList não devolva metadata
+        const numCapitulosFallback = item.numCapitulosTotal ?? null;
         await this.prisma.manga.upsert({
           where: { id: item.mangaId },
           update: {
@@ -312,7 +317,7 @@ export class UserService {
             capaUrl: metadata ? metadata.coverImage?.large : undefined,
             generos: metadata ? generosDict : undefined,
             descricao: metadata ? descricaoLimpa : undefined,
-            numCapitulosTotal: metadata ? metadata.chapters : undefined,
+            numCapitulosTotal: metadata ? metadata.chapters : numCapitulosFallback,
             paisOrigem: metadata ? metadata.countryOfOrigin : undefined,
             formato: metadata ? metadata.format : undefined,
             materialOrigem: metadata ? metadata.source : undefined,
@@ -326,7 +331,7 @@ export class UserService {
             capaUrl: metadata ? metadata.coverImage?.large : '',
             generos: generosDict,
             descricao: descricaoLimpa,
-            numCapitulosTotal: metadata ? metadata.chapters : null,
+            numCapitulosTotal: metadata ? metadata.chapters : numCapitulosFallback,
             paisOrigem: metadata ? metadata.countryOfOrigin : null,
             formato: metadata ? metadata.format : null,
             materialOrigem: metadata ? metadata.source : null,

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMedia } from '../context/MediaContext';
@@ -188,13 +188,37 @@ const DetailsPage = () => {
   const [seasonEpisodes, setSeasonEpisodes] = useState<any[]>([]);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
 
+  const lastAiredEpNumber = useMemo(() => {
+    if (selectedItem?.statusLancamento === 'FINISHED') {
+      return Infinity;
+    }
+    if (!seasonEpisodes || seasonEpisodes.length === 0) return 0;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const lastAired = [...seasonEpisodes]
+      .sort((a, b) => b.episode_number - a.episode_number)
+      .find((ep: any) => ep.air_date && ep.air_date.slice(0, 10) <= todayStr);
+    
+    if (!lastAired && selectedItem?.statusLancamento !== 'RELEASING') {
+      return Infinity;
+    }
+    return lastAired ? lastAired.episode_number : 0;
+  }, [seasonEpisodes, selectedItem?.statusLancamento]);
+
+  const [viewedSeason, setViewedSeason] = useState<number>(1);
+
+  // Sync viewedSeason with selectedItem.seasonAtual when it changes (initial load or automatic update)
+  useEffect(() => {
+    if (selectedItem?.seasonAtual) {
+      setViewedSeason(selectedItem.seasonAtual);
+    }
+  }, [selectedItem?.seasonAtual]);
+
   useEffect(() => {
     if (!selectedItem || mediaType !== 'anime') return;
     
     // If the episodes are already present in selectedItem.episodes, filter them locally!
     if (selectedItem.episodes && selectedItem.episodes.length > 0) {
-      const seasonNum = selectedItem.seasonAtual || 1;
-      const filtered = selectedItem.episodes.filter((ep: any) => ep.season === seasonNum);
+      const filtered = selectedItem.episodes.filter((ep: any) => ep.season === viewedSeason);
       
       // Map database schema fields (name, stillPath, episodeNumber) to what the UI expects (name, still_path, episode_number)
       const mapped = filtered.map((ep: any) => ({
@@ -212,7 +236,7 @@ const DetailsPage = () => {
     const fetchSeasonEpisodes = async () => {
       const tmdbId = selectedItem.isExternal ? selectedItem.id : (selectedItem.animeId || selectedItem.id);
       if (!tmdbId) return;
-      const seasonNumber = selectedItem.seasonAtual || 1;
+      const seasonNumber = viewedSeason;
       setLoadingEpisodes(true);
       try {
         const res = await customFetch(`${API_BASE_URL}/anime/tmdb/${tmdbId}/season/${seasonNumber}`, { headers: getHeaders() });
@@ -235,7 +259,7 @@ const DetailsPage = () => {
     };
 
     fetchSeasonEpisodes();
-  }, [selectedItem?.id, selectedItem?.animeId, selectedItem?.seasonAtual, selectedItem?.episodes, mediaType]);
+  }, [selectedItem?.id, selectedItem?.animeId, viewedSeason, selectedItem?.episodes, mediaType]);
 
   const handleOpenListsModal = async () => {
     setShowListsModal(true);
@@ -630,7 +654,30 @@ const DetailsPage = () => {
 
         const novoItem = await response.json();
         const itemData = novoItem.manga || novoItem.anime || novoItem;
-        setSelectedItem({ ...itemData, ...novoItem, dbId: novoItem.id, isExternal: false });
+        const localItem = { ...itemData, ...novoItem, dbId: novoItem.id, isExternal: false };
+        setSelectedItem(localItem);
+
+        // Fetch relations in background immediately after adding to library
+        const externalId = localItem.animeId || localItem.mangaId || localItem.id;
+        if (externalId) {
+          customFetch(`${API_BASE_URL}/${mediaType}/anilist/${externalId}`, { headers: getHeaders() })
+            .then(res => {
+              if (res.ok) return res.json();
+              throw new Error("Failed to fetch external metadata after import");
+            })
+            .then(extData => {
+              if (extData) {
+                setSelectedItem((prev: any) => {
+                  if (prev && (prev.animeId === externalId || prev.mangaId === externalId || prev.id === externalId)) {
+                    return { ...prev, relations: extData.relations, relationsManga: extData.relationsManga };
+                  }
+                  return prev;
+                });
+              }
+            })
+            .catch(err => console.error("Error loading relations after import:", err));
+        }
+
         if (mediaType === 'manga' && anilistId) {
           carregarCapituloMaisRecente(anilistId);
         }
@@ -726,41 +773,61 @@ const DetailsPage = () => {
     await removerDaLista(selectedItem.dbId || selectedItem.id);
   };
 
-  const atualizarCampo = async (campo: string, valor: any) => {
+  const atualizarCampo = async (campoOrObj: string | Record<string, any>, valor?: any) => {
     if (!mediaType || !selectedItem || selectedItem.isExternal) return;
     const targetId = selectedItem.dbId || selectedItem.id;
     
-    const isProgressUpdate = campo === 'epAtual' || campo === 'capAtual';
+    let updates: Record<string, any> = {};
+    if (typeof campoOrObj === 'string') {
+      updates = { [campoOrObj]: valor };
+    } else {
+      updates = { ...campoOrObj };
+    }
+
+    const isProgressUpdate = 'epAtual' in updates || 'capAtual' in updates;
     if (isProgressUpdate) {
       if (isSavingDetailsProgress) return;
       setIsSavingDetailsProgress(true);
     }
 
-    let optimisticUpdates: any = { [campo]: valor };
-    if (campo === 'status' && valor === 'COMPLETED') {
-      const prop = mediaType === 'anime' ? 'epAtual' : 'capAtual';
-      const statusLanc = selectedItem.statusLancamento;
-      const prox = mediaType === 'anime' ? selectedItem.proximoEpisodio : selectedItem.proximoCapituloNumero;
-      const total = mediaType === 'anime' ? selectedItem.numEpisodiosTotal : selectedItem.numCapitulosTotal;
-      const maxDisponivel = (statusLanc === 'RELEASING' && prox) ? prox - 1 : (total || selectedItem[prop]);
-      optimisticUpdates[prop] = maxDisponivel;
-    }
-    if (campo === 'epAtual' || campo === 'capAtual') {
-      const statusLanc = selectedItem.statusLancamento;
-      const prox = mediaType === 'anime' ? selectedItem.proximoEpisodio : selectedItem.proximoCapituloNumero;
-      const total = mediaType === 'anime' ? selectedItem.numEpisodiosTotal : selectedItem.numCapitulosTotal;
-      const maxDisponivel = (statusLanc === 'RELEASING' && prox) ? prox - 1 : total;
+    let optimisticUpdates: any = { ...updates };
 
-      if (selectedItem.status === 'PLANNED' && valor > 0) {
+    // Calculate total episodes/chapters across all seasons
+    const totalAll = mediaType === 'anime'
+      ? (
+          selectedItem.episodes && selectedItem.episodes.length > 0
+            ? selectedItem.episodes.length
+            : (selectedItem.relations?.edges
+                ?.filter((edge: any) => edge.node.format === 'TV_SEASON')
+                ?.reduce((sum: number, edge: any) => sum + (edge.node.episodes || 0), 0) || selectedItem.numEpisodiosTotal || 0)
+        )
+      : (selectedItem.numCapitulosTotal || 0);
+
+    if ('status' in updates && updates.status === 'COMPLETED') {
+      const prop = mediaType === 'anime' ? 'epAtual' : 'capAtual';
+      optimisticUpdates[prop] = totalAll;
+    }
+    
+    if ('epAtual' in updates || 'capAtual' in updates) {
+      const field = 'epAtual' in updates ? 'epAtual' : 'capAtual';
+      const val = updates[field];
+      
+      if (selectedItem.status === 'PLANNED' && val > 0) {
         optimisticUpdates.status = 'WATCHING';
       }
-      if (selectedItem.status === 'COMPLETED' && maxDisponivel && valor < maxDisponivel) {
+      if (selectedItem.status === 'COMPLETED' && totalAll && val < totalAll) {
         optimisticUpdates.status = 'WATCHING';
       }
-      if (statusLanc !== 'RELEASING' && total && valor >= total) {
+      if (totalAll && val >= totalAll) {
         optimisticUpdates.status = 'COMPLETED';
       }
+
+      if (field === 'epAtual') {
+        const computedSeason = getSeasonFromGlobalEpisodeNumber(val);
+        optimisticUpdates.seasonAtual = computedSeason;
+      }
     }
+
     setSelectedItem((prev: any) => ({ ...prev, ...optimisticUpdates }));
     const url = `${API_BASE_URL}/${mediaType}/${targetId}`;
     try {
@@ -774,7 +841,7 @@ const DetailsPage = () => {
         setSelectedItem((prev: any) => ({ ...prev, ...data, dbId: data.id }));
       }
     } catch (error) {
-      console.error(`Erro ao atualizar ${campo}:`, error);
+      console.error("Erro ao atualizar campo:", error);
     } finally {
       if (isProgressUpdate) {
         setIsSavingDetailsProgress(false);
@@ -797,27 +864,22 @@ const DetailsPage = () => {
     return previousEpisodesSum + episodeNumber;
   };
 
-  const getLocalEpisodeNumber = (seasonNumber: number, globalEpisode: number) => {
-    if (!selectedItem) return globalEpisode;
+  const getSeasonFromGlobalEpisodeNumber = (globalEp: number) => {
+    if (!selectedItem) return 1;
     const edges = selectedItem.relations?.edges?.filter((edge: any) => edge.node.format === 'TV_SEASON') || [];
-    if (edges.length === 0) return globalEpisode;
+    if (edges.length === 0) return 1;
     
     const sortedEdges = [...edges].sort((a: any, b: any) => a.node.seasonNumber - b.node.seasonNumber);
-    let previousEpisodesSum = 0;
-    let currentSeasonEpisodes = 0;
-    
+    let cumulativeEpisodes = 0;
     for (const edge of sortedEdges) {
-      if (edge.node.seasonNumber < seasonNumber) {
-        previousEpisodesSum += edge.node.episodes || 0;
-      } else if (edge.node.seasonNumber === seasonNumber) {
-        currentSeasonEpisodes = edge.node.episodes || 0;
+      cumulativeEpisodes += edge.node.episodes || 0;
+      if (globalEp <= cumulativeEpisodes) {
+        return edge.node.seasonNumber;
       }
     }
-    
-    if (globalEpisode <= previousEpisodesSum) return 0;
-    const local = globalEpisode - previousEpisodesSum;
-    return currentSeasonEpisodes > 0 ? Math.min(currentSeasonEpisodes, local) : local;
+    return sortedEdges.length > 0 ? sortedEdges[sortedEdges.length - 1].node.seasonNumber : 1;
   };
+
 
   const atualizarProgresso = async (delta: number) => {
     if (!mediaType || !selectedItem || selectedItem.isExternal) return;
@@ -1027,22 +1089,9 @@ const DetailsPage = () => {
   const renderDesktopVersion = () => {
     if (!selectedItem) return null;
 
-    const epAtualDisplay = mediaType === 'anime' ? getLocalEpisodeNumber(selectedItem.seasonAtual || 1, selectedItem.epAtual) : selectedItem.capAtual;
-    const totalEps = mediaType === 'anime' 
-      ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 0))
-      : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 0));
-
-    const progressPercentage = totalEps > 0 ? Math.min(100, Math.max(0, (epAtualDisplay / totalEps) * 100)) : 0;
-
-    const totalEpisodesAllSeasons = mediaType === 'anime' 
-      ? (selectedItem.relations?.edges
-          ?.filter((edge: any) => edge.node.format === 'TV_SEASON')
-          ?.reduce((sum: number, edge: any) => sum + (edge.node.episodes || 0), 0) || selectedItem.numEpisodiosTotal || 0)
-      : (selectedItem.numCapitulosTotal || 0);
-
-    const globalPercentage = totalEpisodesAllSeasons > 0 
-      ? Math.min(100, Math.max(0, ((mediaType === 'anime' ? selectedItem.epAtual : selectedItem.capAtual) / totalEpisodesAllSeasons) * 100)) 
-      : 0;
+    const epAtualDisplay = mediaType === 'anime' ? (selectedItem.epAtual || 0) : (selectedItem.capAtual || 0);
+    const totalEps = totalEpisodesAllSeasons;
+    const progressPercentage = globalPercentage;
 
     return (
       /* VERSÃO WEB PERSONALIZADA (Design alinhado com o mockup do utilizador) */
@@ -1197,10 +1246,6 @@ const DetailsPage = () => {
                 ))}
               </div>
 
-              {/* Custom brand emblem at bottom of sidebar */}
-              <div className="flex justify-center pt-3 border-t border-white/5 text-on-surface-variant hover:text-white transition-colors">
-                <span className="material-symbols-outlined text-2xl font-light">sailing</span>
-              </div>
             </div>
           </div>
 
@@ -1219,7 +1264,6 @@ const DetailsPage = () => {
               </div>
               <h2 className={`text-3xl md:text-4xl font-extrabold tracking-tight flex items-center gap-2.5 ${mediaType === 'anime' ? 'text-primary-light' : 'text-secondary-light'}`}>
                 {selectedItem.titulo}
-                <span className="text-2xl text-on-surface-variant">⚓</span>
               </h2>
               <div className="flex items-center gap-1.5 text-sm font-black text-on-surface-variant">
                 <span className="material-symbols-outlined text-base text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
@@ -1257,10 +1301,13 @@ const DetailsPage = () => {
               <div className="w-full space-y-6 animate-in fade-in duration-300">
                 
                 {/* CARD PRINCIPAL: Quick Actions & Season */}
-                <div className="bg-[#18181c]/80 border border-white/5 rounded-3xl p-6 relative overflow-hidden shadow-xl backdrop-blur-md space-y-6">
-                  {/* Compass watermark icon in corner */}
-                  <div className="absolute -right-8 -bottom-8 text-white/3 pointer-events-none transform rotate-12 select-none">
-                    <span className="material-symbols-outlined text-[140px] font-thin">explore</span>
+                <div className="bg-[#18181c]/80 border border-white/5 rounded-3xl p-6 relative z-20 shadow-xl backdrop-blur-md space-y-6">
+                  {/* Watermark wrapper to allow absolute clipping without clipping dropdowns */}
+                  <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none z-0">
+                    {/* Compass watermark icon in corner */}
+                    <div className="absolute -right-8 -bottom-8 text-white/3 transform rotate-12 select-none">
+                      <span className="material-symbols-outlined text-[140px] font-thin">explore</span>
+                    </div>
                   </div>
                   
                   <div className="relative z-10">
@@ -1354,7 +1401,7 @@ const DetailsPage = () => {
                         {/* 2. Season Selector Column */}
                         <div className="flex flex-col gap-1.5 text-left">
                           <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest">
-                            {mediaType === 'anime' ? `Temporada ${selectedItem.seasonAtual || 1}` : 'Progress'}
+                            {mediaType === 'anime' ? `Temporada ${viewedSeason}` : 'Progress'}
                           </label>
                           
                           {mediaType === 'anime' ? (
@@ -1364,7 +1411,7 @@ const DetailsPage = () => {
                                 className="w-full flex items-center justify-between bg-[#18181c] text-white border border-white/10 hover:border-white/20 px-4 py-2.5 rounded-2xl outline-none focus:border-primary/50 text-xs font-bold cursor-pointer transition-all h-[46px] relative text-left"
                               >
                                 {(() => {
-                                  const currentSeasonNum = selectedItem.seasonAtual || 1;
+                                  const currentSeasonNum = viewedSeason;
                                   let epsCount = 12;
                                   if (selectedItem.episodes && selectedItem.episodes.length > 0) {
                                     epsCount = selectedItem.episodes.filter((ep: any) => ep.season === currentSeasonNum).length;
@@ -1401,7 +1448,7 @@ const DetailsPage = () => {
                                       }
 
                                       if (uniqueSeasonNums.length === 0) {
-                                        uniqueSeasonNums = [selectedItem.seasonAtual || 1];
+                                        uniqueSeasonNums = [viewedSeason];
                                       }
 
                                       return uniqueSeasonNums.map((seasonNum: number) => {
@@ -1413,7 +1460,7 @@ const DetailsPage = () => {
                                           if (edge) epsCount = edge.node.episodes || 12;
                                         }
 
-                                        const isSelected = (selectedItem.seasonAtual || 1) === seasonNum;
+                                        const isSelected = viewedSeason === seasonNum;
                                         let optColor = 'text-on-surface-variant hover:text-white hover:bg-white/5 border border-transparent';
                                         if (isSelected) optColor = mediaType === 'anime' ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-secondary/20 text-secondary border-secondary/30';
 
@@ -1421,8 +1468,8 @@ const DetailsPage = () => {
                                           <button
                                             key={`s-drop-${seasonNum}`}
                                             onClick={() => {
-                                              atualizarCampo('seasonAtual', seasonNum);
-                                              atualizarCampo('numEpisodiosTotal', epsCount);
+                                              // Muda apenas localmente a temporada visualizada
+                                              setViewedSeason(seasonNum);
                                               setSeasonDropdownOpen(false);
                                             }}
                                             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-left cursor-pointer transition-all ${optColor}`}
@@ -1526,6 +1573,7 @@ const DetailsPage = () => {
                           {seasonEpisodes.map((ep: any) => {
                             const globalEpNum = ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
                             const isWatched = globalEpNum <= selectedItem.epAtual;
+                            const hasAired = ep.episode_number <= lastAiredEpNumber;
                             const airDateStr = ep.air_date
                               ? new Date(ep.air_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' })
                               : 'Sem data';
@@ -1566,11 +1614,23 @@ const DetailsPage = () => {
                                 <div className="flex items-center gap-5 flex-shrink-0">
                                   {/* Checked Status */}
                                   <div className="flex items-center gap-1.5 min-w-[85px]">
-                                    <span className={`material-symbols-outlined text-sm font-bold ${isWatched ? 'text-emerald-400' : 'text-on-surface-variant/40'}`}>
-                                      {isWatched ? 'check_circle' : 'radio_button_unchecked'}
+                                    <span className={`material-symbols-outlined text-sm font-bold ${
+                                      !hasAired
+                                        ? 'text-on-surface-variant/20'
+                                        : isWatched
+                                        ? 'text-emerald-400'
+                                        : 'text-on-surface-variant/40'
+                                    }`}>
+                                      {!hasAired ? 'schedule' : isWatched ? 'check_circle' : 'radio_button_unchecked'}
                                     </span>
-                                    <span className={`text-xs font-bold ${isWatched ? 'text-emerald-400' : 'text-on-surface-variant/50'}`}>
-                                      {isWatched ? 'Visto' : 'Não Visto'}
+                                    <span className={`text-xs font-bold ${
+                                      !hasAired
+                                        ? 'text-on-surface-variant/30'
+                                        : isWatched
+                                        ? 'text-emerald-400'
+                                        : 'text-on-surface-variant/50'
+                                    }`}>
+                                      {!hasAired ? 'Por estrear' : isWatched ? 'Visto' : 'Não Visto'}
                                     </span>
                                   </div>
 
@@ -1580,41 +1640,72 @@ const DetailsPage = () => {
                                   </div>
 
                                   {/* Checked button toggle */}
-                                  <button
-                                    onClick={() => {
-                                      const globalEpNum = ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
-                                      if (isWatched) {
-                                        atualizarCampo('epAtual', globalEpNum - 1);
-                                      } else {
-                                        atualizarCampo('epAtual', globalEpNum);
-                                      }
-                                    }}
-                                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-                                      isWatched
-                                        ? 'bg-primary text-on-primary scale-105 shadow-sm shadow-primary/20'
-                                        : 'bg-surface-variant/40 hover:bg-surface-variant hover:text-white text-on-surface-variant border border-white/10'
-                                    }`}
-                                  >
-                                    <span className="material-symbols-outlined text-sm font-bold">
-                                      {isWatched ? 'check' : 'check_box_outline_blank'}
-                                    </span>
-                                  </button>
+                                  {hasAired ? (
+                                    <button
+                                      onClick={() => {
+                                        const globalEpNum = ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
+                                        if (isWatched) {
+                                          atualizarCampo('epAtual', globalEpNum - 1);
+                                        } else {
+                                          atualizarCampo('epAtual', globalEpNum);
+                                        }
+                                      }}
+                                      className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                                        isWatched
+                                          ? 'bg-primary text-on-primary scale-105 shadow-sm shadow-primary/20'
+                                          : 'bg-surface-variant/40 hover:bg-surface-variant hover:text-white text-on-surface-variant border border-white/10'
+                                      }`}
+                                    >
+                                      <span className="material-symbols-outlined text-sm font-bold">
+                                        {isWatched ? 'check' : 'check_box_outline_blank'}
+                                      </span>
+                                    </button>
+                                  ) : (
+                                    <div className="w-9 h-9 flex items-center justify-center text-on-surface-variant/30 font-bold" title="Não estreado">
+                                      <span className="material-symbols-outlined text-sm">schedule</span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             );
                           })}
                         </div>
                       ) : (
-                        <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                          {[...Array((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 0))].map((_, i) => {
-                            const num = i + 1;
-                            const isWatched = num <= selectedItem.epAtual;
-                            return (
-                              <button key={num} onClick={() => atualizarCampo('epAtual', num)} disabled={isSavingDetailsProgress} className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all cursor-pointer disabled:opacity-50 ${isWatched ? 'bg-primary text-on-primary scale-105 shadow-md shadow-primary/25' : 'bg-surface-variant/30 text-on-surface-variant border border-white/5'}`}>
-                                {num}
-                              </button>
-                            );
-                          })}
+                         <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                          {(() => {
+                            // Para o picker de eps usa os eps da temporada atual (local), não o numEpisodiosTotal global
+                            const currentSeasonNum = selectedItem.seasonAtual || 1;
+                            let pickerTotal: number;
+                            if (selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) {
+                              pickerTotal = selectedItem.proximoEpisodio - 1;
+                            } else if (selectedItem.episodes && selectedItem.episodes.length > 0) {
+                              pickerTotal = selectedItem.episodes.filter((ep: any) => ep.season === currentSeasonNum).length || selectedItem.episodes.length;
+                            } else {
+                              const seasonEdge = selectedItem.relations?.edges?.find((ed: any) => ed.node.seasonNumber === currentSeasonNum && ed.node.format === 'TV_SEASON');
+                              pickerTotal = seasonEdge ? (seasonEdge.node.episodes || 0) : (selectedItem.numEpisodiosTotal || 0);
+                            }
+                            return [...Array(pickerTotal)].map((_, i) => {
+                              const num = i + 1;
+                              const isWatched = num <= selectedItem.epAtual;
+                              const hasAired = num <= lastAiredEpNumber;
+                              return (
+                                <button
+                                  key={num}
+                                  onClick={() => hasAired && atualizarCampo('epAtual', num)}
+                                  disabled={isSavingDetailsProgress || !hasAired}
+                                  className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all cursor-pointer disabled:opacity-50 ${
+                                    !hasAired
+                                      ? 'bg-surface-variant/10 text-on-surface-variant/20 border border-white/5 cursor-not-allowed'
+                                      : isWatched
+                                      ? 'bg-primary text-on-primary scale-105 shadow-md shadow-primary/25'
+                                      : 'bg-surface-variant/30 text-on-surface-variant border border-white/5'
+                                  }`}
+                                >
+                                  {num}
+                                </button>
+                              );
+                            });
+                          })()}
                         </div>
                       )
                     ) : (
@@ -1868,6 +1959,23 @@ const DetailsPage = () => {
     );
   }
 
+  const totalEpisodesAllSeasons = selectedItem
+    ? (mediaType === 'anime'
+        ? (
+            selectedItem.episodes && selectedItem.episodes.length > 0
+              ? selectedItem.episodes.length
+              : (selectedItem.relations?.edges
+                  ?.filter((edge: any) => edge.node.format === 'TV_SEASON')
+                  ?.reduce((sum: number, edge: any) => sum + (edge.node.episodes || 0), 0) || selectedItem.numEpisodiosTotal || 0)
+          )
+        : (selectedItem.numCapitulosTotal || 0)
+      )
+    : 0;
+
+  const globalPercentage = selectedItem && totalEpisodesAllSeasons > 0
+    ? Math.min(100, Math.max(0, ((mediaType === 'anime' ? selectedItem.epAtual : selectedItem.capAtual) / totalEpisodesAllSeasons) * 100))
+    : 0;
+
   return (
     <div className="max-w-7xl mx-auto px-margin-mobile md:px-margin-desktop py-4 md:py-8">
       <div className="animate-in fade-in slide-in-from-left-4 duration-500">
@@ -2117,14 +2225,11 @@ const DetailsPage = () => {
                             <div className="flex flex-col items-center gap-1.5 mb-2 w-full">
                               <div className="relative w-full max-w-xs mt-1">
                                 <select
-                                  value={selectedItem.seasonAtual || 1}
+                                  value={viewedSeason}
                                   onChange={(e) => {
                                     const seasonNum = parseInt(e.target.value);
-                                    const edge = selectedItem.relations.edges.find((ed: any) => ed.node.seasonNumber === seasonNum);
-                                    if (edge) {
-                                      atualizarCampo('seasonAtual', seasonNum);
-                                      atualizarCampo('numEpisodiosTotal', edge.node.episodes);
-                                    }
+                                    // Muda apenas localmente a temporada visualizada
+                                    setViewedSeason(seasonNum);
                                   }}
                                   className="w-full bg-black/40 text-white border border-white/10 px-4 py-2.5 rounded-xl outline-none focus:border-primary text-xs font-bold appearance-none cursor-pointer pr-10"
                                 >
@@ -2150,13 +2255,24 @@ const DetailsPage = () => {
                               </div>
                             ) : (
                               <>
-                                <input type="number" min="0" max={mediaType === 'anime' ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 9999)) : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 9999))} value={mediaType === 'anime' ? getLocalEpisodeNumber(selectedItem.seasonAtual || 1, selectedItem.epAtual) : selectedItem.capAtual} onChange={(e) => { const val = parseInt(e.target.value) || 0; if (mediaType === 'anime') { const globalEpVal = getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, val); atualizarCampo('epAtual', globalEpVal); } else { atualizarCampo('capAtual', val); } }} className={`bg-transparent ${mediaType === 'anime' ? 'text-primary focus:bg-secondary/10' : 'text-secondary focus:bg-primary/10'} font-black text-3xl w-16 text-center outline-none border-b border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} />
+                                <input 
+                                  type="number" 
+                                  min="0" 
+                                  max={totalEpisodesAllSeasons || 9999} 
+                                  value={mediaType === 'anime' ? (selectedItem.epAtual || 0) : (selectedItem.capAtual || 0)} 
+                                  onChange={(e) => { 
+                                    const val = parseInt(e.target.value) || 0; 
+                                    if (mediaType === 'anime') { 
+                                      atualizarCampo('epAtual', val); 
+                                    } else { 
+                                      atualizarCampo('capAtual', val); 
+                                    } 
+                                  }} 
+                                  className={`bg-transparent ${mediaType === 'anime' ? 'text-primary focus:bg-secondary/10' : 'text-secondary focus:bg-primary/10'} font-black text-3xl w-16 text-center outline-none border-b border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} 
+                                />
                                 <span className="text-on-surface-variant font-light text-2xl">/</span> 
                                 <span className="text-on-surface-variant font-bold text-2xl">
-                                  {mediaType === 'anime' 
-                                    ? ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || '?'))
-                                    : ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || '?'))
-                                  }
+                                  {totalEpisodesAllSeasons || '?'}
                                 </span>
                               </>
                             )}
@@ -2187,6 +2303,7 @@ const DetailsPage = () => {
                                     {seasonEpisodes.map((ep: any) => {
                                       const globalEpNum = ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
                                       const isWatched = globalEpNum <= selectedItem.epAtual;
+                                      const hasAired = ep.episode_number <= lastAiredEpNumber;
                                       const airDateStr = ep.air_date
                                         ? new Date(ep.air_date).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })
                                         : 'Sem data';
@@ -2219,40 +2336,71 @@ const DetailsPage = () => {
                                           </div>
                                           
                                           {/* Watched Toggle Checkmark */}
-                                          <button
-                                            onClick={() => {
-                                              const globalEpNum = ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
-                                              if (isWatched) {
-                                                atualizarCampo('epAtual', globalEpNum - 1);
-                                              } else {
-                                                atualizarCampo('epAtual', globalEpNum);
-                                              }
-                                            }}
-                                            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                                              isWatched
-                                                ? 'bg-primary text-on-primary scale-105 shadow-sm shadow-primary/20'
-                                                : 'bg-surface-variant/40 hover:bg-surface-variant hover:text-white text-on-surface-variant border border-white/10'
-                                            }`}
-                                          >
-                                            <span className="material-symbols-outlined text-sm font-bold">
-                                              {isWatched ? 'check' : 'check_box_outline_blank'}
-                                            </span>
-                                          </button>
+                                          {hasAired ? (
+                                            <button
+                                              onClick={() => {
+                                                const globalEpNum = ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
+                                                if (isWatched) {
+                                                  atualizarCampo('epAtual', globalEpNum - 1);
+                                                } else {
+                                                  atualizarCampo('epAtual', globalEpNum);
+                                                }
+                                              }}
+                                              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                                                isWatched
+                                                  ? 'bg-primary text-on-primary scale-105 shadow-sm shadow-primary/20'
+                                                  : 'bg-surface-variant/40 hover:bg-surface-variant hover:text-white text-on-surface-variant border border-white/10'
+                                              }`}
+                                            >
+                                              <span className="material-symbols-outlined text-sm font-bold">
+                                                {isWatched ? 'check' : 'check_box_outline_blank'}
+                                              </span>
+                                            </button>
+                                          ) : (
+                                            <div className="w-8 h-8 flex items-center justify-center text-on-surface-variant/20" title="Não estreado">
+                                              <span className="material-symbols-outlined text-[16px]">schedule</span>
+                                            </div>
+                                          )}
                                         </div>
                                       );
                                     })}
                                   </div>
                                 ) : (
                                   <div className="grid grid-cols-5 sm:grid-cols-6 gap-2 max-h-[240px] overflow-y-auto pr-1 custom-scrollbar">
-                                    {[...Array((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) ? selectedItem.proximoEpisodio - 1 : (selectedItem.numEpisodiosTotal || 0))].map((_, i) => {
-                                      const num = i + 1;
-                                      const isWatched = num <= selectedItem.epAtual;
-                                      return (
-                                        <button key={num} onClick={() => atualizarCampo('epAtual', num)} disabled={isSavingDetailsProgress} className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isWatched ? 'bg-primary text-on-primary scale-105' : 'bg-surface-variant/30 text-on-surface-variant border border-white/5'}`}>
-                                          {num}
-                                        </button>
-                                      );
-                                    })}
+                                    {(() => {
+                                      // Para o picker de eps usa os eps da temporada atual (local), não o numEpisodiosTotal global
+                                      const currentSeasonNum2 = selectedItem.seasonAtual || 1;
+                                      let pickerTotal2: number;
+                                      if (selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) {
+                                        pickerTotal2 = selectedItem.proximoEpisodio - 1;
+                                      } else if (selectedItem.episodes && selectedItem.episodes.length > 0) {
+                                        pickerTotal2 = selectedItem.episodes.filter((ep: any) => ep.season === currentSeasonNum2).length || selectedItem.episodes.length;
+                                      } else {
+                                        const seasonEdge2 = selectedItem.relations?.edges?.find((ed: any) => ed.node.seasonNumber === currentSeasonNum2 && ed.node.format === 'TV_SEASON');
+                                        pickerTotal2 = seasonEdge2 ? (seasonEdge2.node.episodes || 0) : (selectedItem.numEpisodiosTotal || 0);
+                                      }
+                                      return [...Array(pickerTotal2)].map((_, i) => {
+                                        const num = i + 1;
+                                        const isWatched = num <= selectedItem.epAtual;
+                                        const hasAired = num <= lastAiredEpNumber;
+                                        return (
+                                          <button
+                                            key={num}
+                                            onClick={() => hasAired && atualizarCampo('epAtual', num)}
+                                            disabled={isSavingDetailsProgress || !hasAired}
+                                            className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                                              !hasAired
+                                                ? 'bg-surface-variant/10 text-on-surface-variant/20 border border-white/5 cursor-not-allowed'
+                                                : isWatched
+                                                ? 'bg-primary text-on-primary scale-105'
+                                                : 'bg-surface-variant/30 text-on-surface-variant border border-white/5'
+                                            }`}
+                                          >
+                                            {num}
+                                          </button>
+                                        );
+                                      });
+                                    })()}
                                   </div>
                                 )
                               ) : (

@@ -176,6 +176,7 @@ const DetailsPage = () => {
 
   // States and functions for custom lists
   const [showListsModal, setShowListsModal] = useState(false);
+  const [showPriorityModal, setShowPriorityModal] = useState(false);
   const [lists, setLists] = useState<any[]>([]);
   const [loadingLists, setLoadingLists] = useState(false);
 
@@ -2197,68 +2198,90 @@ const DetailsPage = () => {
                         <div className="space-y-2 pt-2 border-t border-white/5">
                           <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest flex items-center gap-1.5">
                             <span className="material-symbols-outlined text-xs text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                            Priority Level (1 = Highest)
+                            Prioridade
                           </label>
-                          <div className="grid grid-cols-5 gap-1.5">
-                            {PRIORITY_OPTIONS.map(p => {
-                              const isSel = selectedItem.prioridade === p.num;
-                              let pulseColor = 'rgba(255, 255, 255, 0.2)';
-                              if (p.num === 1) pulseColor = 'rgba(239, 68, 68, 0.45)';
-                              else if (p.num === 2) pulseColor = 'rgba(249, 115, 22, 0.45)';
-                              else if (p.num === 3) pulseColor = 'rgba(234, 179, 8, 0.45)';
-                              else if (p.num === 4) pulseColor = 'rgba(59, 130, 246, 0.45)';
-                              else if (p.num === 5) pulseColor = 'rgba(34, 197, 94, 0.45)';
-                              
+                          <div className="relative">
+                            {(() => {
+                              const currentPriorityOpt = PRIORITY_OPTIONS.find(opt => opt.num === selectedItem.prioridade) || PRIORITY_OPTIONS[4];
                               return (
                                 <button
-                                  key={p.num}
-                                  onClick={() => atualizarCampo('prioridade', p.num)}
-                                  style={{ '--pulse-color': pulseColor } as React.CSSProperties}
-                                  className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all active:scale-95 ${
-                                    isSel 
-                                      ? `${p.colorClass} animate-pulse-glow font-black`
-                                      : 'bg-surface-variant/30 border-white/5 text-on-surface-variant hover:text-white'
-                                  }`}
+                                  onClick={() => setShowPriorityModal(true)}
+                                  className="w-full flex items-center justify-between bg-black/40 text-white border border-white/10 px-4 py-2.5 rounded-xl outline-none focus:border-primary text-xs font-bold cursor-pointer text-left h-[46px] pr-4"
                                 >
-                                  <span className="text-xs font-bold">#{p.num}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-xs text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                                    <span>#{selectedItem.prioridade} - {t(currentPriorityOpt.desc)}</span>
+                                  </div>
+                                  <span className="material-symbols-outlined text-on-surface-variant text-base">
+                                    unfold_more
+                                  </span>
                                 </button>
                               );
-                            })}
+                            })()}
                           </div>
                         </div>
 
-                        {/* My Progress (Flattened & beautiful season select dropdown) */}
+                        {/* My Progress */}
                         <div className="space-y-4 pt-4 border-t border-white/5">
                           <div className="flex items-center gap-1.5 justify-center">
                             <span className="material-symbols-outlined text-on-surface-variant text-xs">timelapse</span>
-                            <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest">My Progress</p>
+                            <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest">Meu Progresso</p>
                           </div>
                            
-                          {mediaType === 'anime' && selectedItem.relations?.edges?.length > 0 && (
-                            <div className="flex flex-col items-center gap-1.5 mb-2 w-full">
-                              <div className="relative w-full max-w-xs mt-1">
-                                <select
-                                  value={viewedSeason}
-                                  onChange={(e) => {
-                                    const seasonNum = parseInt(e.target.value);
-                                    // Muda apenas localmente a temporada visualizada
-                                    setViewedSeason(seasonNum);
-                                  }}
-                                  className="w-full bg-black/40 text-white border border-white/10 px-4 py-2.5 rounded-xl outline-none focus:border-primary text-xs font-bold appearance-none cursor-pointer pr-10"
-                                >
-                                  {selectedItem.relations.edges
-                                    .filter((edge: any) => edge.node.format === 'TV_SEASON')
-                                    .map((edge: any) => (
-                                      <option key={edge.node.id} value={edge.node.seasonNumber} className="bg-surface-container text-white">
-                                        {edge.node.seasonNumber === 0 ? 'Especiais' : `${edge.node.seasonNumber}ª Temporada`} ({edge.node.episodes} eps)
-                                      </option>
-                                    ))}
-                                </select>
-                                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-base">
-                                  keyboard_arrow_down
-                                </span>
-                              </div>
-                            </div>
+                          {/* Season Selector (Horizontal scrollable pills) */}
+                          {mediaType === 'anime' && (
+                            (() => {
+                              let uniqueSeasonNums: any[] = [];
+                              if (selectedItem.episodes && selectedItem.episodes.length > 0) {
+                                uniqueSeasonNums = Array.from(new Set(selectedItem.episodes.map((ep: any) => ep.season)))
+                                  .sort((a: any, b: any) => a - b);
+                              } else {
+                                const seasons = selectedItem.relations?.edges
+                                  ?.filter((edge: any) => edge.node.format === 'TV_SEASON')
+                                  ?.sort((a: any, b: any) => a.node.seasonNumber - b.node.seasonNumber) || [];
+                                uniqueSeasonNums = seasons.map((edge: any) => edge.node.seasonNumber);
+                              }
+
+                              if (uniqueSeasonNums.length <= 1 && !uniqueSeasonNums.includes(0)) {
+                                return null;
+                              }
+                              
+                              return (
+                                <div className="space-y-2 w-full pt-1">
+                                  <label className="text-[9px] text-on-surface-variant uppercase font-bold tracking-widest flex items-center gap-1 justify-center">
+                                    <span className="material-symbols-outlined text-[11px]">folder_open</span>
+                                    Temporada
+                                  </label>
+                                  <div className="flex overflow-x-auto gap-2 pb-2 pt-1 w-full justify-start scrollbar-none snap-x">
+                                    {uniqueSeasonNums.map((seasonNum) => {
+                                      const isSelected = viewedSeason === seasonNum;
+                                      let epsCount = 0;
+                                      if (selectedItem.episodes && selectedItem.episodes.length > 0) {
+                                        epsCount = selectedItem.episodes.filter((ep: any) => ep.season === seasonNum).length;
+                                      } else {
+                                        const edge = selectedItem.relations?.edges?.find((ed: any) => ed.node.seasonNumber === seasonNum);
+                                        if (edge) epsCount = edge.node.episodes || 0;
+                                      }
+                                      
+                                      return (
+                                        <button
+                                          key={seasonNum}
+                                          onClick={() => setViewedSeason(seasonNum)}
+                                          className={`flex-shrink-0 px-3.5 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 snap-center ${
+                                            isSelected
+                                              ? 'bg-primary/20 border-primary text-primary shadow-[0_0_12px_rgba(139,92,246,0.2)]'
+                                              : 'bg-surface-variant/30 border-white/5 text-on-surface-variant hover:text-white'
+                                          }`}
+                                        >
+                                          {seasonNum === 0 ? 'Especiais' : `Temp. ${seasonNum}`}
+                                          {epsCount > 0 && <span className="text-[9px] opacity-60 ml-1">({epsCount})</span>}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })()
                           )}
 
                           <div className="flex items-baseline gap-2 mb-4 mt-2 justify-center">
@@ -2780,6 +2803,80 @@ const DetailsPage = () => {
               <span className="material-symbols-outlined text-sm">list</span>
               Ir para Gerir Listas
             </button>
+          </div>
+        </div>
+      )}
+
+      {showPriorityModal && (
+        <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4 animate-fade-in" onClick={() => setShowPriorityModal(false)}>
+          <div 
+            className="relative w-full sm:max-w-md bg-surface-container rounded-t-[24px] sm:rounded-[24px] border-t sm:border border-white/10 shadow-2xl p-6 overflow-hidden animate-slide-up flex flex-col max-h-[80vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Grab handle for bottom sheet on mobile */}
+            <div className="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-4 sm:hidden flex-shrink-0" />
+
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display-md text-lg font-black text-white flex items-center gap-2">
+                <span className="material-symbols-outlined text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                Nível de Prioridade
+              </h3>
+              <button 
+                onClick={() => setShowPriorityModal(false)}
+                className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-on-surface-variant hover:text-white transition-all flex items-center justify-center"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <p className="text-xs text-on-surface-variant mb-4">
+              Define a prioridade de acompanhamento para <span className="text-white font-bold">{selectedItem.titulo}</span>.
+            </p>
+
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+              {PRIORITY_OPTIONS.map((p) => {
+                const isSelected = selectedItem.prioridade === p.num;
+                
+                return (
+                  <button
+                    key={p.num}
+                    onClick={() => {
+                      atualizarCampo('prioridade', p.num);
+                      setShowPriorityModal(false);
+                    }}
+                    className={`w-full p-3.5 rounded-xl border flex items-center justify-between gap-3 text-left transition-all active:scale-[0.98] ${
+                      isSelected
+                        ? `${mediaType === 'anime' ? 'bg-primary/20 border-primary text-primary shadow-[0_0_12px_rgba(139,92,246,0.15)]' : 'bg-secondary/20 border-secondary text-secondary shadow-[0_0_12px_rgba(194,24,91,0.15)]'}`
+                        : 'bg-white/5 border-white/5 hover:border-white/10 hover:bg-white/10 text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black border ${
+                        isSelected 
+                          ? (mediaType === 'anime' ? 'bg-primary/30 border-primary/50 text-white' : 'bg-secondary/30 border-secondary/50 text-white')
+                          : 'bg-white/5 border-white/10 text-on-surface-variant'
+                      }`}>
+                        #{p.num}
+                      </span>
+                      <div>
+                        <p className="font-bold text-xs text-white">
+                          {t(p.desc)}
+                        </p>
+                        <p className="text-[10px] text-on-surface-variant">
+                          {p.num <= 3 ? 'Prioridade Alta' : p.num <= 5 ? 'Prioridade Média' : 'Fila de Espera'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {isSelected && (
+                      <span className={`material-symbols-outlined text-base font-black ${mediaType === 'anime' ? 'text-primary' : 'text-secondary'}`}>
+                        check_circle
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

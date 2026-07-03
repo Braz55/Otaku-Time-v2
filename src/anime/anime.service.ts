@@ -196,9 +196,11 @@ export class AnimeService {
             ano: normalized.seasonYear,
             paisOrigem: normalized.countryOfOrigin,
             formato: normalized.format,
-            proximosEpisodios: proximosEpisodiosJson,
           },
         });
+
+        // Sync episodes of all seasons to the database
+        await this.syncAnimeEpisodes(tmdbId, details.seasons);
 
         // Ensure Media rating exists
         const averageScore = normalized.averageScore ? normalized.averageScore / 10 : 0;
@@ -327,6 +329,12 @@ export class AnimeService {
       }
     }
     
+    const localAnimeRecord = await this.prisma.anime.findUnique({
+      where: { id },
+    });
+    media.databaseEpisodes = localAnimeRecord?.episodesList || [];
+    media.tipo = localAnimeRecord ? localAnimeRecord.tipo : 'ANIME';
+
     return media;
   }
 
@@ -381,24 +389,12 @@ export class AnimeService {
       });
     }
 
-    let proximosEpisodiosJson: any[] = [];
+    let details: any = null;
     if (tmdbData.format === 'TV' && tmdbData.id) {
       try {
-        const details = await this.tmdbService.getTVShowDetails(tmdbData.id);
-        const latestSeason = details.seasons
-          .filter((s: any) => s.season_number > 0)
-          .sort((a: any, b: any) => b.season_number - a.season_number)[0];
-        if (latestSeason) {
-          const seasonDetails = await this.tmdbService.getTVSeasonDetails(tmdbData.id, latestSeason.season_number);
-          proximosEpisodiosJson = (seasonDetails.episodes || []).map((ep: any) => ({
-            season: ep.season_number,
-            episode: ep.episode_number,
-            airDate: ep.air_date ? new Date(ep.air_date + "T12:00:00Z").toISOString() : null,
-            notified: false
-          }));
-        }
+        details = await this.tmdbService.getTVShowDetails(tmdbData.id);
       } catch (e) {
-        this.logger.error(`Error fetching season episodes during import:`, e);
+        this.logger.error(`Error fetching season details during import:`, e);
       }
     }
 
@@ -416,7 +412,6 @@ export class AnimeService {
         generos: generosDict,
         paisOrigem: tmdbData.countryOfOrigin,
         formato: tmdbData.format,
-        proximosEpisodios: proximosEpisodiosJson,
       },
       create: {
         id: tmdbData.id,
@@ -435,9 +430,12 @@ export class AnimeService {
         proximoEpisodioData: tmdbData.nextAiringEpisode
           ? new Date(tmdbData.nextAiringEpisode.airingAt * 1000)
           : null,
-        proximosEpisodios: proximosEpisodiosJson,
       },
     });
+
+    if (details && details.seasons) {
+      await this.syncAnimeEpisodes(tmdbData.id, details.seasons);
+    }
 
     const averageScore = tmdbData.averageScore ? tmdbData.averageScore / 10 : 0;
     const existingMedia = await this.prisma.media.findUnique({
@@ -486,20 +484,12 @@ export class AnimeService {
           undefined,
         );
 
-        let proximosEpisodiosJson: any[] = [];
+        let details: any = null;
         if (tmdbData.format === 'TV') {
-          const details = await this.tmdbService.getTVShowDetails(animeId);
-          const latestSeason = details.seasons
-            .filter((s: any) => s.season_number > 0)
-            .sort((a: any, b: any) => b.season_number - a.season_number)[0];
-          if (latestSeason) {
-            const seasonDetails = await this.tmdbService.getTVSeasonDetails(animeId, latestSeason.season_number);
-            proximosEpisodiosJson = (seasonDetails.episodes || []).map((ep: any) => ({
-              season: ep.season_number,
-              episode: ep.episode_number,
-              airDate: ep.air_date ? new Date(ep.air_date + "T12:00:00Z").toISOString() : null,
-              notified: false
-            }));
+          try {
+            details = await this.tmdbService.getTVShowDetails(animeId);
+          } catch (e) {
+            this.logger.error(`Error fetching season details during sync:`, e);
           }
         }
 
@@ -514,9 +504,12 @@ export class AnimeService {
               ? new Date(tmdbData.nextAiringEpisode.airingAt * 1000)
               : null,
             generos: generosDict,
-            proximosEpisodios: proximosEpisodiosJson,
           },
         });
+
+        if (details && details.seasons) {
+          await this.syncAnimeEpisodes(animeId, details.seasons);
+        }
 
         const averageScore = tmdbData.averageScore ? tmdbData.averageScore / 10 : 0;
         const existingMedia = await this.prisma.media.findUnique({
@@ -608,7 +601,7 @@ export class AnimeService {
         linksPersonalizados: item.linksPersonalizados,
         proximoEpisodio: item.anime.proximoEpisodio,
         proximoEpisodioData: item.anime.proximoEpisodioData,
-        proximosEpisodios: item.anime.proximosEpisodios,
+        tipo: item.anime.tipo,
         updatedAt: item.updatedAt,
         lastProgressUpdate: item.lastProgressUpdate,
         avaliacaoGeral: rating?.avaliacao_geral ?? null,
@@ -645,7 +638,8 @@ export class AnimeService {
       linksPersonalizados: item.linksPersonalizados,
       proximoEpisodio: item.anime.proximoEpisodio,
       proximoEpisodioData: item.anime.proximoEpisodioData,
-      proximosEpisodios: item.anime.proximosEpisodios,
+      episodes: item.anime.episodesList || [],
+      tipo: item.anime.tipo,
       updatedAt: item.updatedAt,
       lastProgressUpdate: item.lastProgressUpdate,
       avaliacaoGeral: rating?.avaliacao_geral ?? null,
@@ -674,8 +668,17 @@ export class AnimeService {
       atual.anime.numEpisodiosTotal = total;
     }
 
+    if (updateDto.tipo !== undefined) {
+      await this.prisma.anime.update({
+        where: { id: atual.animeId },
+        data: { tipo: updateDto.tipo },
+      });
+      atual.anime.tipo = updateDto.tipo;
+    }
+
     const novosDados = { ...updateDto };
     delete novosDados.numEpisodiosTotal;
+    delete novosDados.tipo;
 
     if (updateDto.status !== undefined && atual.status === 'DROPPED') {
       novosDados.wasDropped = true;
@@ -808,59 +811,12 @@ export class AnimeService {
     });
     if (!dbAnime) return { latest: null };
 
-    let proximosEpisodiosJson: any[] = [];
+    let details: any = null;
     if (media.format === 'TV') {
       try {
-        const details = await this.tmdbService.getTVShowDetails(tmdbId);
-        const latestSeason = details.seasons
-          .filter((s: any) => s.season_number > 0)
-          .sort((a: any, b: any) => b.season_number - a.season_number)[0];
-        if (latestSeason) {
-          const seasonDetails = await this.tmdbService.getTVSeasonDetails(tmdbId, latestSeason.season_number);
-          proximosEpisodiosJson = (seasonDetails.episodes || []).map((ep: any) => {
-            const existingEps = dbAnime.proximosEpisodios as any[];
-            const matched = existingEps?.find((e) => e.season === ep.season_number && e.episode === ep.episode_number);
-            return {
-              season: ep.season_number,
-              episode: ep.episode_number,
-              airDate: ep.air_date ? new Date(ep.air_date + "T12:00:00Z").toISOString() : null,
-              notified: matched ? matched.notified : false
-            };
-          });
-        }
+        details = await this.tmdbService.getTVShowDetails(tmdbId);
       } catch (e) {
-        this.logger.error(`Error fetching season episodes during sync:`, e);
-      }
-    }
-
-    const now = new Date();
-    let notificationCount = 0;
-    
-    const userAnimes = await this.prisma.userAnime.findMany({
-      where: {
-        animeId: tmdbId,
-        status: 'WATCHING',
-      },
-    });
-
-    for (const ep of proximosEpisodiosJson) {
-      if (ep.airDate) {
-        const epDate = new Date(ep.airDate);
-        if (now >= epDate && !ep.notified) {
-          for (const ua of userAnimes) {
-            await this.prisma.notification.create({
-              data: {
-                userId: ua.userId,
-                title: 'Novo episódio de Série/Anime!',
-                message: `O episódio ${ep.episode} da Temporada ${ep.season} de "${dbAnime.titulo}" estreou!`,
-                type: 'ANIME',
-                mediaId: tmdbId,
-              },
-            });
-          }
-          ep.notified = true;
-          notificationCount++;
-        }
+        this.logger.error(`Error fetching season details during sync:`, e);
       }
     }
 
@@ -874,11 +830,62 @@ export class AnimeService {
         proximoEpisodioData: media.nextAiringEpisode
           ? new Date(media.nextAiringEpisode.airingAt * 1000)
           : null,
-        proximosEpisodios: proximosEpisodiosJson,
       },
     });
 
-    return { latest: media.episodes, source: 'TMDB', notificationsSent: notificationCount };
+    if (details && details.seasons) {
+      await this.syncAnimeEpisodes(tmdbId, details.seasons);
+    }
+
+    const updatedAnime = await this.prisma.anime.findUnique({
+      where: { id: tmdbId },
+    });
+    if (!updatedAnime || !updatedAnime.episodesList) {
+      return { latest: null, source: 'TMDB', notificationsSent: 0 };
+    }
+
+    const episodes = updatedAnime.episodesList as any[];
+    let episodesUpdated = false;
+    const now = new Date();
+    let notificationCount = 0;
+    
+    const userAnimes = await this.prisma.userAnime.findMany({
+      where: {
+        animeId: tmdbId,
+        status: 'WATCHING',
+      },
+    });
+
+    for (const ep of episodes) {
+      if (ep.airDate) {
+        const epDate = new Date(ep.airDate);
+        if (now >= epDate && !ep.notified) {
+          for (const ua of userAnimes) {
+            await this.prisma.notification.create({
+              data: {
+                userId: ua.userId,
+                title: 'Novo episódio de Série/Anime!',
+                message: `O episódio ${ep.episodeNumber} da Temporada ${ep.season} de "${dbAnime.titulo}" estreou!`,
+                type: 'ANIME',
+                mediaId: tmdbId,
+              },
+            });
+          }
+          ep.notified = true;
+          episodesUpdated = true;
+          notificationCount++;
+        }
+      }
+    }
+
+    if (episodesUpdated) {
+      await this.prisma.anime.update({
+        where: { id: tmdbId },
+        data: { episodesList: episodes },
+      });
+    }
+
+    return { latest: episodes, source: 'TMDB', notificationsSent: notificationCount };
   }
 
   async recalculateUserStats(userId: number) {
@@ -1736,7 +1743,79 @@ export class AnimeService {
       return result?.data?.Page?.media || [];
     } catch (error) {
       this.logger.error('Error in explore query:', error);
-      return [];
+    }
+  }
+
+  async syncAnimeEpisodes(animeId: number, detailsSeasons: any[]) {
+    try {
+      const anime = await this.prisma.anime.findUnique({
+        where: { id: animeId },
+      });
+      if (!anime) {
+        this.logger.warn(`Anime ID ${animeId} not found in DB, skipping episodes sync.`);
+        return;
+      }
+
+      // Map to keep track of already notified episodes
+      const existingNotifiedMap = new Map<string, boolean>();
+      if (anime.episodesList) {
+        try {
+          const list = anime.episodesList as any[];
+          list.forEach((ep: any) => {
+            const key = `${ep.season}-${ep.episodeNumber}`;
+            existingNotifiedMap.set(key, !!ep.notified);
+          });
+        } catch (e) {
+          this.logger.error(`Error parsing existing episodes list for anime ID ${animeId}:`, e);
+        }
+      }
+
+      const activeSeasons = (detailsSeasons || [])
+        .filter((s: any) => s.season_number > 0)
+        .sort((a: any, b: any) => a.season_number - b.season_number);
+        
+      let globalCounter = 0;
+      const episodesList: any[] = [];
+      
+      for (const season of activeSeasons) {
+        let seasonDetails: any = null;
+        try {
+          seasonDetails = await this.tmdbService.getTVSeasonDetails(animeId, season.season_number);
+        } catch (err) {
+          this.logger.error(`Error fetching season ${season.season_number} details for TV ID ${animeId}:`, err);
+          continue;
+        }
+        
+        if (!seasonDetails || !seasonDetails.episodes) continue;
+        
+        const sortedEpisodes = [...seasonDetails.episodes].sort((a: any, b: any) => a.episode_number - b.episode_number);
+        
+        for (const ep of sortedEpisodes) {
+          globalCounter++;
+          const airDateVal = ep.air_date ? new Date(ep.air_date + "T12:00:00Z").toISOString() : null;
+          const key = `${ep.season_number}-${ep.episode_number}`;
+          const isNotified = existingNotifiedMap.get(key) || false;
+
+          episodesList.push({
+            season: ep.season_number,
+            episodeNumber: ep.episode_number,
+            globalEpisodeNumber: globalCounter,
+            name: ep.name || null,
+            airDate: airDateVal,
+            stillPath: ep.still_path ? `https://image.tmdb.org/t/p/w300${ep.still_path}` : null,
+            notified: isNotified,
+          });
+        }
+      }
+      
+      await this.prisma.anime.update({
+        where: { id: animeId },
+        data: { episodesList },
+      });
+
+      this.logger.log(`Successfully synced ${globalCounter} episodes in JSON for anime ID ${animeId}`);
+    } catch (err) {
+      this.logger.error(`Error in syncAnimeEpisodes for anime ID ${animeId}:`, err);
     }
   }
 }

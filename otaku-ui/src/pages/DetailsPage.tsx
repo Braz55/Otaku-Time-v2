@@ -188,8 +188,27 @@ const DetailsPage = () => {
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
 
   useEffect(() => {
+    if (!selectedItem || mediaType !== 'anime') return;
+    
+    // If the episodes are already present in selectedItem.episodes, filter them locally!
+    if (selectedItem.episodes && selectedItem.episodes.length > 0) {
+      const seasonNum = selectedItem.seasonAtual || 1;
+      const filtered = selectedItem.episodes.filter((ep: any) => ep.season === seasonNum);
+      
+      // Map database schema fields (name, stillPath, episodeNumber) to what the UI expects (name, still_path, episode_number)
+      const mapped = filtered.map((ep: any) => ({
+        ...ep,
+        episode_number: ep.episodeNumber,
+        still_path: ep.stillPath ? ep.stillPath.replace('https://image.tmdb.org/t/p/w300', '') : null,
+        air_date: ep.airDate
+      }));
+      setSeasonEpisodes(mapped);
+      setLoadingEpisodes(false);
+      return;
+    }
+
+    // Otherwise, fall back to fetching them from TMDB
     const fetchSeasonEpisodes = async () => {
-      if (!selectedItem || mediaType !== 'anime') return;
       const tmdbId = selectedItem.isExternal ? selectedItem.id : (selectedItem.animeId || selectedItem.id);
       if (!tmdbId) return;
       const seasonNumber = selectedItem.seasonAtual || 1;
@@ -215,7 +234,7 @@ const DetailsPage = () => {
     };
 
     fetchSeasonEpisodes();
-  }, [selectedItem?.id, selectedItem?.animeId, selectedItem?.seasonAtual, mediaType]);
+  }, [selectedItem?.id, selectedItem?.animeId, selectedItem?.seasonAtual, selectedItem?.episodes, mediaType]);
 
   const handleOpenListsModal = async () => {
     setShowListsModal(true);
@@ -1014,6 +1033,16 @@ const DetailsPage = () => {
 
     const progressPercentage = totalEps > 0 ? Math.min(100, Math.max(0, (epAtualDisplay / totalEps) * 100)) : 0;
 
+    const totalEpisodesAllSeasons = mediaType === 'anime' 
+      ? (selectedItem.relations?.edges
+          ?.filter((edge: any) => edge.node.format === 'TV_SEASON')
+          ?.reduce((sum: number, edge: any) => sum + (edge.node.episodes || 0), 0) || selectedItem.numEpisodiosTotal || 0)
+      : (selectedItem.numCapitulosTotal || 0);
+
+    const globalPercentage = totalEpisodesAllSeasons > 0 
+      ? Math.min(100, Math.max(0, ((mediaType === 'anime' ? selectedItem.epAtual : selectedItem.capAtual) / totalEpisodesAllSeasons) * 100)) 
+      : 0;
+
     return (
       /* VERSÃO WEB PERSONALIZADA (Design alinhado com o mockup do utilizador) */
       <div className="w-full text-left space-y-6">
@@ -1030,8 +1059,53 @@ const DetailsPage = () => {
               <img src={selectedItem.capaUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={selectedItem.titulo} />
             </div>
 
+            {/* Global Progress Bar (Visual effect under poster) */}
+            <div className="bg-[#18181c]/90 border border-white/5 rounded-2xl p-4 flex flex-col gap-2 shadow-xl backdrop-blur-md">
+              <div className="flex justify-between items-center text-[9px] text-on-surface-variant uppercase font-bold tracking-widest">
+                <span>Progresso Global</span>
+                <span className="text-white text-xs font-mono font-bold">
+                  {mediaType === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} / {totalEpisodesAllSeasons || '?'}
+                </span>
+              </div>
+              <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden border border-white/5 relative">
+                <div 
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_8px_rgba(16,185,129,0.4)] transition-all duration-500"
+                  style={{ width: `${globalPercentage}%` }}
+                />
+              </div>
+            </div>
+
             {/* Info Card (Below poster) */}
             <div className="bg-[#18181c]/90 border border-white/5 rounded-2xl p-5 flex flex-col gap-4 shadow-xl backdrop-blur-md">
+              {/* Type Selector (Anime / Série) */}
+              {!selectedItem.isExternal && mediaType === 'anime' && (
+                <div className="flex items-center justify-between gap-2 p-1 bg-black/40 rounded-xl border border-white/5">
+                  <span className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest pl-2">Tipo</span>
+                  <div className="flex gap-1 shrink-0">
+                    <button
+                      onClick={() => atualizarCampo('tipo', 'ANIME')}
+                      className={`px-2.5 py-1 rounded-lg text-[9px] font-black tracking-wider uppercase transition-all ${
+                        (selectedItem.tipo || 'ANIME') === 'ANIME'
+                          ? 'bg-primary text-on-primary font-bold shadow-md shadow-primary/25'
+                          : 'text-on-surface-variant hover:text-white bg-transparent'
+                      }`}
+                    >
+                      Anime
+                    </button>
+                    <button
+                      onClick={() => atualizarCampo('tipo', 'SERIE')}
+                      className={`px-2.5 py-1 rounded-lg text-[9px] font-black tracking-wider uppercase transition-all ${
+                        (selectedItem.tipo || 'ANIME') === 'SERIE'
+                          ? 'bg-[#e50914] text-white font-bold shadow-md shadow-red-600/25'
+                          : 'text-on-surface-variant hover:text-white bg-transparent'
+                      }`}
+                    >
+                      Série
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Stars and Rating */}
               <div className="flex flex-col items-center justify-center text-center py-2.5 bg-white/5 rounded-xl border border-white/5">
                 <div className="flex items-center gap-1.5">
@@ -1283,34 +1357,60 @@ const DetailsPage = () => {
                           </label>
                           
                           {mediaType === 'anime' ? (
-                            <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-2xl px-3 py-2 w-full h-[46px]">
-                              <button
-                                onClick={() => {
-                                  const nextSeason = Math.max(1, (selectedItem.seasonAtual || 1) - 1);
-                                  const edge = selectedItem.relations?.edges?.find((ed: any) => ed.node.seasonNumber === nextSeason);
-                                  atualizarCampo('seasonAtual', nextSeason);
-                                  if (edge) {
-                                    atualizarCampo('numEpisodiosTotal', edge.node.episodes);
+                            <div className="relative w-full">
+                              <select
+                                value={selectedItem.seasonAtual || 1}
+                                onChange={(e) => {
+                                  const seasonNum = parseInt(e.target.value);
+                                  atualizarCampo('seasonAtual', seasonNum);
+                                  
+                                  let epsCount = 12;
+                                  if (selectedItem.episodes && selectedItem.episodes.length > 0) {
+                                    epsCount = selectedItem.episodes.filter((ep: any) => ep.season === seasonNum).length;
+                                  } else {
+                                    const edge = selectedItem.relations?.edges?.find((ed: any) => ed.node.seasonNumber === seasonNum);
+                                    if (edge) epsCount = edge.node.episodes || 12;
                                   }
+                                  atualizarCampo('numEpisodiosTotal', epsCount);
                                 }}
-                                className="w-8 h-8 rounded-lg bg-black/45 hover:bg-black/60 border border-white/5 transition-all flex items-center justify-center text-white font-bold cursor-pointer active:scale-95"
+                                className="w-full bg-[#18181c] text-white border border-white/10 hover:border-white/20 px-4 py-2.5 rounded-2xl outline-none focus:border-primary/50 text-xs font-bold appearance-none cursor-pointer pr-10 transition-all h-[46px]"
                               >
-                                <span className="material-symbols-outlined text-sm">remove</span>
-                              </button>
-                              <span className="text-xs font-bold text-white">Temporada {selectedItem.seasonAtual || 1}</span>
-                              <button
-                                onClick={() => {
-                                  const nextSeason = (selectedItem.seasonAtual || 1) + 1;
-                                  const edge = selectedItem.relations?.edges?.find((ed: any) => ed.node.seasonNumber === nextSeason);
-                                  atualizarCampo('seasonAtual', nextSeason);
-                                  if (edge) {
-                                    atualizarCampo('numEpisodiosTotal', edge.node.episodes);
+                                {(() => {
+                                  if (selectedItem.episodes && selectedItem.episodes.length > 0) {
+                                    const uniqueSeasonNums = Array.from(new Set(selectedItem.episodes.map((ep: any) => ep.season)))
+                                      .sort((a: any, b: any) => a - b);
+                                    return uniqueSeasonNums.map((seasonNum: any) => {
+                                      const epsCount = selectedItem.episodes.filter((ep: any) => ep.season === seasonNum).length;
+                                      return (
+                                        <option key={`db-s-${seasonNum}`} value={seasonNum} className="bg-[#18181c] text-white">
+                                          Temporada {seasonNum} ({epsCount} eps)
+                                        </option>
+                                      );
+                                    });
                                   }
-                                }}
-                                className="w-8 h-8 rounded-lg bg-black/45 hover:bg-black/60 border border-white/5 transition-all flex items-center justify-center text-white font-bold cursor-pointer active:scale-95"
-                              >
-                                <span className="material-symbols-outlined text-sm">add</span>
-                              </button>
+                                  
+                                  const seasons = selectedItem.relations?.edges
+                                    ?.filter((edge: any) => edge.node.format === 'TV_SEASON')
+                                    ?.sort((a: any, b: any) => a.node.seasonNumber - b.node.seasonNumber) || [];
+                                  
+                                  if (seasons.length > 0) {
+                                    return seasons.map((edge: any) => (
+                                      <option key={edge.node.id} value={edge.node.seasonNumber} className="bg-[#18181c] text-white">
+                                        Temporada {edge.node.seasonNumber} ({edge.node.episodes || '?'} eps)
+                                      </option>
+                                    ));
+                                  } else {
+                                    return (
+                                      <option value={selectedItem.seasonAtual || 1} className="bg-[#18181c] text-white">
+                                        Temporada {selectedItem.seasonAtual || 1}
+                                      </option>
+                                    );
+                                  }
+                                })()}
+                              </select>
+                              <span className="material-symbols-outlined absolute right-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-base">
+                                keyboard_arrow_down
+                              </span>
                             </div>
                           ) : (
                             <div className="flex items-center justify-center bg-white/5 border border-white/10 rounded-2xl px-3 py-2 w-full h-[46px] text-xs font-bold text-white">
@@ -1377,7 +1477,7 @@ const DetailsPage = () => {
                       ) : seasonEpisodes && seasonEpisodes.length > 0 ? (
                         <div className="space-y-3 max-h-[460px] overflow-y-auto pr-2 custom-scrollbar text-left font-sans">
                           {seasonEpisodes.map((ep: any) => {
-                            const globalEpNum = getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
+                            const globalEpNum = ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
                             const isWatched = globalEpNum <= selectedItem.epAtual;
                             const airDateStr = ep.air_date
                               ? new Date(ep.air_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -1435,7 +1535,7 @@ const DetailsPage = () => {
                                   {/* Checked button toggle */}
                                   <button
                                     onClick={() => {
-                                      const globalEpNum = getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
+                                      const globalEpNum = ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
                                       if (isWatched) {
                                         atualizarCampo('epAtual', globalEpNum - 1);
                                       } else {
@@ -2038,7 +2138,7 @@ const DetailsPage = () => {
                                 ) : seasonEpisodes && seasonEpisodes.length > 0 ? (
                                   <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
                                     {seasonEpisodes.map((ep: any) => {
-                                      const globalEpNum = getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
+                                      const globalEpNum = ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
                                       const isWatched = globalEpNum <= selectedItem.epAtual;
                                       const airDateStr = ep.air_date
                                         ? new Date(ep.air_date).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -2074,7 +2174,7 @@ const DetailsPage = () => {
                                           {/* Watched Toggle Checkmark */}
                                           <button
                                             onClick={() => {
-                                              const globalEpNum = getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
+                                              const globalEpNum = ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
                                               if (isWatched) {
                                                 atualizarCampo('epAtual', globalEpNum - 1);
                                               } else {

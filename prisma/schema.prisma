@@ -59,11 +59,12 @@ model Anime {
   ano                 Int?
   paisOrigem          String?
   formato             String?
+  tipo                String      @default("ANIME")
   materialOrigem      String?
   linksExternos       String?     // JSON string com os links oficiais
-  proximosEpisodios   Json?       // Lista de episódios futuros da temporada atual
   utilizadores        UserAnime[]
   customListItems     CustomListItem[]
+  episodesList        Json?       // Lista de todos os episódios em formato JSON
   updatedAt           DateTime    @default(now()) @updatedAt
 }
 

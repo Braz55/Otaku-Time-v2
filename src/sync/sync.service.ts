@@ -40,30 +40,33 @@ export class SyncService implements OnApplicationBootstrap {
     this.logger.log('CRON Triggered: Checking local episode schedules...');
     const now = new Date();
     
-    const animes = await this.prisma.anime.findMany({
+    const releasingAnimes = await this.prisma.anime.findMany({
       where: {
         statusLancamento: 'RELEASING',
-      }
+      },
     });
 
-    for (const anime of animes) {
-      if (!anime.proximosEpisodios) continue;
-      
-      const episodes = anime.proximosEpisodios as any[];
-      let updated = false;
-      let userAnimes: any[] = [];
+    const animeUserCache = new Map<number, any[]>();
 
+    for (const anime of releasingAnimes) {
+      if (!anime.episodesList) continue;
+      
+      const episodes = anime.episodesList as any[];
+      let updated = false;
+      
       for (const ep of episodes) {
         if (ep.airDate) {
           const epDate = new Date(ep.airDate);
           if (now >= epDate && !ep.notified) {
-            if (userAnimes.length === 0) {
+            let userAnimes = animeUserCache.get(anime.id);
+            if (!userAnimes) {
               userAnimes = await this.prisma.userAnime.findMany({
                 where: {
                   animeId: anime.id,
                   status: 'WATCHING',
                 },
               });
+              animeUserCache.set(anime.id, userAnimes);
             }
 
             for (const ua of userAnimes) {
@@ -71,15 +74,16 @@ export class SyncService implements OnApplicationBootstrap {
                 data: {
                   userId: ua.userId,
                   title: 'Novo episódio de Série/Anime!',
-                  message: `O episódio ${ep.episode} da Temporada ${ep.season} de "${anime.titulo}" estreou!`,
+                  message: `O episódio ${ep.episodeNumber} da Temporada ${ep.season} de "${anime.titulo}" estreou!`,
                   type: 'ANIME',
                   mediaId: anime.id,
                 },
               });
             }
+
             ep.notified = true;
             updated = true;
-            this.logger.log(`[LocalSync] Sent local notification for ${anime.titulo} Season ${ep.season} Ep ${ep.episode}`);
+            this.logger.log(`[LocalSync] Sent local notification for ${anime.titulo} Season ${ep.season} Ep ${ep.episodeNumber}`);
           }
         }
       }
@@ -87,9 +91,7 @@ export class SyncService implements OnApplicationBootstrap {
       if (updated) {
         await this.prisma.anime.update({
           where: { id: anime.id },
-          data: {
-            proximosEpisodios: episodes,
-          },
+          data: { episodesList: episodes },
         });
       }
     }

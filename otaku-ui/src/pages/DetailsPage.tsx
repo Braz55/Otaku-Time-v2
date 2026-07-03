@@ -157,6 +157,7 @@ const DetailsPage = () => {
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [priorityDropdownOpen, setPriorityDropdownOpen] = useState(false);
+  const [seasonDropdownOpen, setSeasonDropdownOpen] = useState(false);
 
   const [isSavingDetailsProgress, setIsSavingDetailsProgress] = useState(false);
   const [comments, setComments] = useState<MediaComment[]>([]);
@@ -1358,59 +1359,83 @@ const DetailsPage = () => {
                           
                           {mediaType === 'anime' ? (
                             <div className="relative w-full">
-                              <select
-                                value={selectedItem.seasonAtual || 1}
-                                onChange={(e) => {
-                                  const seasonNum = parseInt(e.target.value);
-                                  atualizarCampo('seasonAtual', seasonNum);
-                                  
-                                  let epsCount = 12;
-                                  if (selectedItem.episodes && selectedItem.episodes.length > 0) {
-                                    epsCount = selectedItem.episodes.filter((ep: any) => ep.season === seasonNum).length;
-                                  } else {
-                                    const edge = selectedItem.relations?.edges?.find((ed: any) => ed.node.seasonNumber === seasonNum);
-                                    if (edge) epsCount = edge.node.episodes || 12;
-                                  }
-                                  atualizarCampo('numEpisodiosTotal', epsCount);
-                                }}
-                                className="w-full bg-[#18181c] text-white border border-white/10 hover:border-white/20 px-4 py-2.5 rounded-2xl outline-none focus:border-primary/50 text-xs font-bold appearance-none cursor-pointer pr-10 transition-all h-[46px]"
+                              <button
+                                onClick={() => setSeasonDropdownOpen(!seasonDropdownOpen)}
+                                className="w-full flex items-center justify-between bg-[#18181c] text-white border border-white/10 hover:border-white/20 px-4 py-2.5 rounded-2xl outline-none focus:border-primary/50 text-xs font-bold cursor-pointer transition-all h-[46px] relative text-left"
                               >
                                 {(() => {
+                                  const currentSeasonNum = selectedItem.seasonAtual || 1;
+                                  let epsCount = 12;
                                   if (selectedItem.episodes && selectedItem.episodes.length > 0) {
-                                    const uniqueSeasonNums = Array.from(new Set(selectedItem.episodes.map((ep: any) => ep.season)))
-                                      .sort((a: any, b: any) => a - b);
-                                    return uniqueSeasonNums.map((seasonNum: any) => {
-                                      const epsCount = selectedItem.episodes.filter((ep: any) => ep.season === seasonNum).length;
-                                      return (
-                                        <option key={`db-s-${seasonNum}`} value={seasonNum} className="bg-[#18181c] text-white">
-                                          Temporada {seasonNum} ({epsCount} eps)
-                                        </option>
-                                      );
-                                    });
-                                  }
-                                  
-                                  const seasons = selectedItem.relations?.edges
-                                    ?.filter((edge: any) => edge.node.format === 'TV_SEASON')
-                                    ?.sort((a: any, b: any) => a.node.seasonNumber - b.node.seasonNumber) || [];
-                                  
-                                  if (seasons.length > 0) {
-                                    return seasons.map((edge: any) => (
-                                      <option key={edge.node.id} value={edge.node.seasonNumber} className="bg-[#18181c] text-white">
-                                        Temporada {edge.node.seasonNumber} ({edge.node.episodes || '?'} eps)
-                                      </option>
-                                    ));
+                                    epsCount = selectedItem.episodes.filter((ep: any) => ep.season === currentSeasonNum).length;
                                   } else {
-                                    return (
-                                      <option value={selectedItem.seasonAtual || 1} className="bg-[#18181c] text-white">
-                                        Temporada {selectedItem.seasonAtual || 1}
-                                      </option>
-                                    );
+                                    const edge = selectedItem.relations?.edges?.find((ed: any) => ed.node.seasonNumber === currentSeasonNum);
+                                    if (edge) epsCount = edge.node.episodes || 12;
                                   }
+                                  return (
+                                    <div className="flex items-center gap-1.5 justify-between w-full pr-1.5 min-w-0">
+                                      <span className="truncate">Temporada {currentSeasonNum}</span>
+                                      <span className="text-[10px] opacity-60 font-medium shrink-0">({epsCount} eps)</span>
+                                    </div>
+                                  );
                                 })()}
-                              </select>
-                              <span className="material-symbols-outlined absolute right-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-base">
-                                keyboard_arrow_down
-                              </span>
+                                <span className={`material-symbols-outlined text-on-surface-variant text-base transition-transform duration-200 ${seasonDropdownOpen ? 'rotate-180' : ''}`}>
+                                  keyboard_arrow_down
+                                </span>
+                              </button>
+                              
+                              {seasonDropdownOpen && (
+                                <>
+                                  <div className="fixed inset-0 z-30" onClick={() => setSeasonDropdownOpen(false)} />
+                                  <div className="absolute left-0 right-0 mt-2 bg-[#1c1c22] border border-white/10 rounded-2xl p-2.5 z-40 shadow-2xl max-h-[300px] overflow-y-auto custom-scrollbar space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                                    {(() => {
+                                      let uniqueSeasonNums: any[] = [];
+                                      if (selectedItem.episodes && selectedItem.episodes.length > 0) {
+                                        uniqueSeasonNums = Array.from(new Set(selectedItem.episodes.map((ep: any) => ep.season)))
+                                          .sort((a: any, b: any) => a - b);
+                                      } else {
+                                        const seasons = selectedItem.relations?.edges
+                                          ?.filter((edge: any) => edge.node.format === 'TV_SEASON')
+                                          ?.sort((a: any, b: any) => a.node.seasonNumber - b.node.seasonNumber) || [];
+                                        uniqueSeasonNums = seasons.map((edge: any) => edge.node.seasonNumber);
+                                      }
+
+                                      if (uniqueSeasonNums.length === 0) {
+                                        uniqueSeasonNums = [selectedItem.seasonAtual || 1];
+                                      }
+
+                                      return uniqueSeasonNums.map((seasonNum: number) => {
+                                        let epsCount = 12;
+                                        if (selectedItem.episodes && selectedItem.episodes.length > 0) {
+                                          epsCount = selectedItem.episodes.filter((ep: any) => ep.season === seasonNum).length;
+                                        } else {
+                                          const edge = selectedItem.relations?.edges?.find((ed: any) => ed.node.seasonNumber === seasonNum);
+                                          if (edge) epsCount = edge.node.episodes || 12;
+                                        }
+
+                                        const isSelected = (selectedItem.seasonAtual || 1) === seasonNum;
+                                        let optColor = 'text-on-surface-variant hover:text-white hover:bg-white/5 border border-transparent';
+                                        if (isSelected) optColor = mediaType === 'anime' ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-secondary/20 text-secondary border-secondary/30';
+
+                                        return (
+                                          <button
+                                            key={`s-drop-${seasonNum}`}
+                                            onClick={() => {
+                                              atualizarCampo('seasonAtual', seasonNum);
+                                              atualizarCampo('numEpisodiosTotal', epsCount);
+                                              setSeasonDropdownOpen(false);
+                                            }}
+                                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-left cursor-pointer transition-all ${optColor}`}
+                                          >
+                                            <span>Temporada {seasonNum}</span>
+                                            <span className="text-[10px] opacity-60 font-medium">({epsCount} eps)</span>
+                                          </button>
+                                        );
+                                      });
+                                    })()}
+                                  </div>
+                                </>
+                              )}
                             </div>
                           ) : (
                             <div className="flex items-center justify-center bg-white/5 border border-white/10 rounded-2xl px-3 py-2 w-full h-[46px] text-xs font-bold text-white">
@@ -1436,15 +1461,37 @@ const DetailsPage = () => {
                               </div>
                             </div>
 
-                            {/* Big digits */}
-                            <div className="text-right">
-                              <span className={`font-black text-xl ${mediaType === 'anime' ? 'text-primary-light' : 'text-secondary-light'}`}>
-                                {epAtualDisplay}
-                              </span>
-                              <span className="text-on-surface-variant font-medium text-sm mx-1">/</span>
-                              <span className="text-on-surface-variant font-bold text-sm">
-                                {totalEps || '?'}
-                              </span>
+                            {/* Big digits with quick watch buttons */}
+                            <div className="flex items-center gap-2">
+                              {/* Minus Button */}
+                              <button 
+                                onClick={() => atualizarProgresso(-1)} 
+                                disabled={isSavingDetailsProgress} 
+                                title="Subtrair 1" 
+                                className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 hover:border-white/20 text-on-surface-variant hover:text-white transition-all flex items-center justify-center cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <span className="material-symbols-outlined text-base">remove</span>
+                              </button>
+
+                              <div className="text-center min-w-[45px]">
+                                <span className={`font-black text-xl ${mediaType === 'anime' ? 'text-primary-light' : 'text-secondary-light'}`}>
+                                  {epAtualDisplay}
+                                </span>
+                                <span className="text-on-surface-variant font-medium text-sm mx-1">/</span>
+                                <span className="text-on-surface-variant font-bold text-sm">
+                                  {totalEps || '?'}
+                                </span>
+                              </div>
+
+                              {/* Plus Button */}
+                              <button 
+                                onClick={() => atualizarProgresso(1)} 
+                                disabled={isSavingDetailsProgress} 
+                                title="Adicionar 1" 
+                                className={`w-8 h-8 rounded-xl transition-all flex items-center justify-center cursor-pointer active:scale-95 font-bold ${mediaType === 'anime' ? 'bg-primary text-on-primary shadow-sm shadow-primary/20 hover:bg-primary/80' : 'bg-secondary text-on-secondary shadow-sm shadow-secondary/20 hover:bg-secondary/80'} disabled:opacity-50 disabled:cursor-not-allowed`}
+                              >
+                                <span className="material-symbols-outlined text-base">add</span>
+                              </button>
                             </div>
                           </div>
 

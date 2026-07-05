@@ -94,7 +94,8 @@ export class TMDBService {
       return mediaItems
         .filter((item: any) => item.media_type === 'tv' || item.media_type === 'movie')
         .sort((a: any, b: any) => (b.popularity || 0) - (a.popularity || 0));
-    } catch {
+    } catch (error: any) {
+      this.logger.error(`TMDB search error: ${error.message || error}`, error.stack);
       return [];
     }
   }

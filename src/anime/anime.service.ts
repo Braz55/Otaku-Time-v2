@@ -119,7 +119,8 @@ export class AnimeService {
         ? await this.tmdbService.getMovieDetails(bestMatch.id)
         : await this.tmdbService.getTVShowDetails(bestMatch.id);
       return normalizeTMDBToAniList(details, isMovie ? 'movie' : 'tv');
-    } catch {
+    } catch (error: any) {
+      this.logger.error(`TMDB detail fetch error in searchAniList: ${error.message || error}`, error.stack);
       return null;
     }
   }
@@ -849,7 +850,8 @@ export class AnimeService {
           format: 'TV',
         };
       });
-    } catch {
+    } catch (error: any) {
+      this.logger.error(`TMDB genre search error: ${error.message || error}`, error.stack);
       return [];
     }
   }

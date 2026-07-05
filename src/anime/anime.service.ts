@@ -627,6 +627,8 @@ export class AnimeService {
 
     return list.map((item) => {
       const rating = ratingMap.get(item.animeId);
+      const epLocal = this.getLocalEpisodeNumber(item.anime, item.seasonAtual, item.epAtual);
+      const totalEpisodes = this.getTotalEpisodes(item.anime);
       return {
         id: item.id,
         animeId: item.animeId,
@@ -637,8 +639,9 @@ export class AnimeService {
         descricao: item.anime.descricao,
         status: item.status,
         seasonAtual: item.seasonAtual,
-        epAtual: item.epAtual,
-        numEpisodiosTotal: item.anime.numEpisodiosTotal,
+        epAtual: epLocal,
+        epAtualGlobal: item.epAtual,
+        numEpisodiosTotal: totalEpisodes,
         temporada: item.anime.temporada,
         ano: item.anime.ano,
         prioridade: item.prioridade,
@@ -665,6 +668,8 @@ export class AnimeService {
     const rating = await this.prisma.media.findUnique({
       where: { id: item.animeId },
     });
+    const epLocal = this.getLocalEpisodeNumber(item.anime, item.seasonAtual, item.epAtual);
+    const totalEpisodes = this.getTotalEpisodes(item.anime);
     return {
       id: item.id,
       animeId: item.animeId,
@@ -675,8 +680,9 @@ export class AnimeService {
       descricao: item.anime.descricao,
       status: item.status,
       seasonAtual: item.seasonAtual,
-      epAtual: item.epAtual,
-      numEpisodiosTotal: item.anime.numEpisodiosTotal,
+      epAtual: epLocal,
+      epAtualGlobal: item.epAtual,
+      numEpisodiosTotal: totalEpisodes,
       temporada: item.anime.temporada,
       ano: item.anime.ano,
       prioridade: item.prioridade,
@@ -731,38 +737,46 @@ export class AnimeService {
       novosDados.wasDropped = true;
     }
 
+    const totalEpisodes = this.getTotalEpisodes(atual.anime);
+
     if (updateDto.status === 'COMPLETED') {
       const totalDisponivel =
         atual.anime.statusLancamento === 'RELEASING' &&
         atual.anime.proximoEpisodio
           ? atual.anime.proximoEpisodio - 1
-          : atual.anime.numEpisodiosTotal || atual.epAtual;
+          : totalEpisodes || atual.epAtual;
       novosDados.epAtual = totalDisponivel;
+      const mapped = this.getSeasonAndEpisodeFromGlobal(atual.anime, totalDisponivel);
+      novosDados.seasonAtual = mapped.season;
     }
 
     if (updateDto.epAtual !== undefined) {
-      const ep = updateDto.epAtual;
-      const totalDisponivel =
-        atual.anime.statusLancamento === 'RELEASING' &&
-        atual.anime.proximoEpisodio
-          ? atual.anime.proximoEpisodio - 1
-          : atual.anime.numEpisodiosTotal;
+      const incomingSeason = updateDto.seasonAtual !== undefined ? updateDto.seasonAtual : atual.seasonAtual;
+      const incomingEp = updateDto.epAtual;
+      
+      const globalEp = this.getGlobalEpisodeNumber(atual.anime, incomingSeason, incomingEp);
+      const { season, episode } = this.getSeasonAndEpisodeFromGlobal(atual.anime, globalEp);
+      
+      novosDados.seasonAtual = season;
+      novosDados.epAtual = globalEp;
 
-      if (atual.status === 'PLANNED' && ep > 0) novosDados.status = 'WATCHING';
+      if (atual.status === 'PLANNED' && globalEp > 0) novosDados.status = 'WATCHING';
       if (
         atual.status === 'COMPLETED' &&
-        totalDisponivel &&
-        ep < totalDisponivel
+        totalEpisodes &&
+        globalEp < totalEpisodes
       )
         novosDados.status = 'WATCHING';
 
       if (
         atual.anime.statusLancamento !== 'RELEASING' &&
-        atual.anime.numEpisodiosTotal &&
-        ep >= atual.anime.numEpisodiosTotal
+        totalEpisodes &&
+        globalEp >= totalEpisodes
       ) {
         novosDados.status = 'COMPLETED';
-        novosDados.epAtual = atual.anime.numEpisodiosTotal;
+        novosDados.epAtual = totalEpisodes;
+        const lastState = this.getSeasonAndEpisodeFromGlobal(atual.anime, totalEpisodes);
+        novosDados.seasonAtual = lastState.season;
       }
     }
 
@@ -784,6 +798,8 @@ export class AnimeService {
     const rating = await this.prisma.media.findUnique({
       where: { id: updated.animeId },
     });
+    const epLocal = this.getLocalEpisodeNumber(updated.anime, updated.seasonAtual, updated.epAtual);
+    const totalEpisodesUpdated = this.getTotalEpisodes(updated.anime);
     return {
       id: updated.id,
       animeId: updated.animeId,
@@ -794,8 +810,9 @@ export class AnimeService {
       descricao: updated.anime.descricao,
       status: updated.status,
       seasonAtual: updated.seasonAtual,
-      epAtual: updated.epAtual,
-      numEpisodiosTotal: updated.anime.numEpisodiosTotal,
+      epAtual: epLocal,
+      epAtualGlobal: updated.epAtual,
+      numEpisodiosTotal: totalEpisodesUpdated,
       temporada: updated.anime.temporada,
       ano: updated.anime.ano,
       prioridade: updated.prioridade,
@@ -951,6 +968,94 @@ export class AnimeService {
     }
 
     return { latest: episodes, source: 'TMDB', notificationsSent: notificationCount };
+  }
+
+  getGlobalEpisodeNumber(anime: any, season: number, episode: number): number {
+    if (!anime) return episode;
+    if (anime.episodesList && Array.isArray(anime.episodesList) && anime.episodesList.length > 0) {
+      const sorted = (anime.episodesList as any[])
+        .filter((ep) => ep.season > 0)
+        .sort((a, b) => {
+          if (a.season !== b.season) return a.season - b.season;
+          return a.episodeNumber - b.episodeNumber;
+        });
+      const index = sorted.findIndex(
+        (ep) => ep.season === season && ep.episodeNumber === episode,
+      );
+      if (index !== -1) {
+        return index + 1;
+      }
+      let sum = 0;
+      const seasons = Array.from(new Set(sorted.map((ep) => ep.season))).sort((a, b) => a - b);
+      for (const s of seasons) {
+        if (s < season) {
+          sum += sorted.filter((ep) => ep.season === s).length;
+        }
+      }
+      return sum + episode;
+    }
+    return episode;
+  }
+
+  getSeasonAndEpisodeFromGlobal(anime: any, globalEp: number): { season: number; episode: number } {
+    if (!anime) return { season: 1, episode: globalEp };
+    if (globalEp <= 0) return { season: 1, episode: 0 };
+    
+    if (anime.episodesList && Array.isArray(anime.episodesList) && anime.episodesList.length > 0) {
+      const sorted = (anime.episodesList as any[])
+        .filter((ep) => ep.season > 0)
+        .sort((a, b) => {
+          if (a.season !== b.season) return a.season - b.season;
+          return a.episodeNumber - b.episodeNumber;
+        });
+      
+      if (sorted.length > 0) {
+        if (globalEp <= sorted.length) {
+          const targetEp = sorted[globalEp - 1];
+          return { season: targetEp.season, episode: targetEp.episodeNumber };
+        } else {
+          const targetEp = sorted[sorted.length - 1];
+          return { season: targetEp.season, episode: targetEp.episodeNumber };
+        }
+      }
+    }
+    return { season: 1, episode: globalEp };
+  }
+
+  getLocalEpisodeNumber(anime: any, season: number, globalEp: number): number {
+    if (!anime) return globalEp;
+    if (anime.episodesList && Array.isArray(anime.episodesList) && anime.episodesList.length > 0) {
+      const sorted = (anime.episodesList as any[])
+        .filter((ep) => ep.season > 0)
+        .sort((a, b) => {
+          if (a.season !== b.season) return a.season - b.season;
+          return a.episodeNumber - b.episodeNumber;
+        });
+      
+      let previousEpisodesSum = 0;
+      let currentSeasonCount = 0;
+      for (const ep of sorted) {
+        if (ep.season < season) {
+          previousEpisodesSum++;
+        } else if (ep.season === season) {
+          currentSeasonCount++;
+        }
+      }
+      
+      const localEp = globalEp - previousEpisodesSum;
+      if (localEp < 0) return 0;
+      if (currentSeasonCount > 0 && localEp > currentSeasonCount) return currentSeasonCount;
+      return localEp;
+    }
+    return globalEp;
+  }
+
+  getTotalEpisodes(anime: any): number {
+    if (!anime) return 0;
+    if (anime.episodesList && Array.isArray(anime.episodesList) && anime.episodesList.length > 0) {
+      return anime.episodesList.filter((ep: any) => ep.season > 0).length;
+    }
+    return anime.numEpisodiosTotal || 0;
   }
 
   async recalculateUserStats(userId: number) {
@@ -1924,7 +2029,9 @@ export class AnimeService {
   private async ensureAnimeExists(tmdbId: number): Promise<boolean> {
     try {
       const existing = await this.prisma.anime.findUnique({ where: { id: tmdbId } });
-      if (existing) return true;
+      
+      const hasEpisodes = existing && existing.episodesList && Array.isArray(existing.episodesList) && existing.episodesList.length > 0;
+      if (existing && hasEpisodes) return true;
 
       const tmdbData = await this.searchAniListById(tmdbId);
       if (!tmdbData) return false;
@@ -2159,16 +2266,18 @@ export class AnimeService {
             where: { userId_animeId: { userId, animeId: tmdbId } },
           });
 
+          const globalEpToSave = trackingStatus === 'COMPLETED'
+            ? (totalEpisodes > 0 ? totalEpisodes : watchedCount)
+            : watchedCount;
+
           if (existingUserAnime) {
-            // Apenas atualiza se o progresso do TV Time for maior ou se estiver em estado PLANNED
-            const isMoreAdvanced = (maxSeason > existingUserAnime.seasonAtual) ||
-                                   (maxSeason === existingUserAnime.seasonAtual && maxEpisode > existingUserAnime.epAtual);
+            const isMoreAdvanced = globalEpToSave > existingUserAnime.epAtual;
             if (isMoreAdvanced || existingUserAnime.status === 'PLANNED') {
               await this.prisma.userAnime.update({
                 where: { id: existingUserAnime.id },
                 data: {
                   seasonAtual: maxSeason,
-                  epAtual: maxEpisode,
+                  epAtual: globalEpToSave,
                   status: trackingStatus,
                   lastProgressUpdate: new Date(),
                 },
@@ -2180,7 +2289,7 @@ export class AnimeService {
                 userId,
                 animeId: tmdbId,
                 seasonAtual: maxSeason,
-                epAtual: maxEpisode,
+                epAtual: globalEpToSave,
                 status: trackingStatus,
                 lastProgressUpdate: new Date(),
               },
@@ -2193,6 +2302,8 @@ export class AnimeService {
           });
 
           if (savedUserAnime) {
+            const epLocal = this.getLocalEpisodeNumber(savedUserAnime.anime, savedUserAnime.seasonAtual, savedUserAnime.epAtual);
+            const totalEps = this.getTotalEpisodes(savedUserAnime.anime);
             status.importedShows.push({
               id: savedUserAnime.id,
               animeId: savedUserAnime.animeId,
@@ -2200,8 +2311,8 @@ export class AnimeService {
               capaUrl: savedUserAnime.anime.capaUrl,
               status: savedUserAnime.status,
               seasonAtual: savedUserAnime.seasonAtual,
-              epAtual: savedUserAnime.epAtual,
-              numEpisodiosTotal: savedUserAnime.anime.numEpisodiosTotal,
+              epAtual: epLocal,
+              numEpisodiosTotal: totalEps,
             });
           } else {
             status.importedShows.push({

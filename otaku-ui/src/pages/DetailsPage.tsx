@@ -807,6 +807,12 @@ const DetailsPage = () => {
     if ('status' in updates && updates.status === 'COMPLETED') {
       const prop = mediaType === 'anime' ? 'epAtual' : 'capAtual';
       optimisticUpdates[prop] = totalAll;
+      if (mediaType === 'anime') {
+        const { season, episode } = getSeasonAndEpisodeFromGlobal(totalAll);
+        optimisticUpdates.seasonAtual = season;
+        optimisticUpdates.epAtual = episode;
+        optimisticUpdates.epAtualGlobal = totalAll;
+      }
     }
     
     if ('epAtual' in updates || 'capAtual' in updates) {
@@ -824,18 +830,21 @@ const DetailsPage = () => {
       }
 
       if (field === 'epAtual') {
-        const computedSeason = getSeasonFromGlobalEpisodeNumber(val);
-        optimisticUpdates.seasonAtual = computedSeason;
+        const { season, episode } = getSeasonAndEpisodeFromGlobal(val);
+        optimisticUpdates.seasonAtual = season;
+        optimisticUpdates.epAtual = episode;
+        optimisticUpdates.epAtualGlobal = val;
       }
     }
 
     setSelectedItem((prev: any) => ({ ...prev, ...optimisticUpdates }));
     const url = `${API_BASE_URL}/${mediaType}/${targetId}`;
     try {
+      const { epAtualGlobal, ...payload } = optimisticUpdates;
       const response = await customFetch(url, {
         method: 'PATCH',
         headers: getHeaders(),
-        body: JSON.stringify(optimisticUpdates)
+        body: JSON.stringify(payload)
       });
       if (response.ok) {
         const data = await response.json();
@@ -850,44 +859,80 @@ const DetailsPage = () => {
     }
   };
 
-  const getGlobalEpisodeNumber = (seasonNumber: number, episodeNumber: number) => {
-    if (!selectedItem) return episodeNumber;
-    const edges = selectedItem.relations?.edges?.filter((edge: any) => edge.node.format === 'TV_SEASON') || [];
-    if (edges.length === 0) return episodeNumber;
-    
-    const sortedEdges = [...edges].sort((a: any, b: any) => a.node.seasonNumber - b.node.seasonNumber);
-    let previousEpisodesSum = 0;
-    for (const edge of sortedEdges) {
-      if (edge.node.seasonNumber < seasonNumber) {
-        previousEpisodesSum += edge.node.episodes || 0;
-      }
+  const getSeasonsList = (): number[] => {
+    if (!selectedItem) return [1];
+    if (selectedItem.episodes && selectedItem.episodes.length > 0) {
+      const seasons = Array.from(new Set(selectedItem.episodes.map((ep: any) => ep.season as number)))
+        .filter((s: any) => typeof s === 'number' && s > 0)
+        .sort((a: any, b: any) => a - b) as number[];
+      if (seasons.length > 0) return seasons;
     }
-    return previousEpisodesSum + episodeNumber;
+    const edges = selectedItem.relations?.edges?.filter((edge: any) => edge.node.format === 'TV_SEASON' && edge.node.seasonNumber > 0) || [];
+    if (edges.length > 0) {
+      return edges.map((e: any) => e.node.seasonNumber).sort((a: number, b: number) => a - b);
+    }
+    return [1];
   };
 
-  const getSeasonFromGlobalEpisodeNumber = (globalEp: number) => {
-    if (!selectedItem) return 1;
-    const edges = selectedItem.relations?.edges?.filter((edge: any) => edge.node.format === 'TV_SEASON') || [];
-    if (edges.length === 0) return 1;
-    
-    const sortedEdges = [...edges].sort((a: any, b: any) => a.node.seasonNumber - b.node.seasonNumber);
-    let cumulativeEpisodes = 0;
-    for (const edge of sortedEdges) {
-      cumulativeEpisodes += edge.node.episodes || 0;
-      if (globalEp <= cumulativeEpisodes) {
-        return edge.node.seasonNumber;
+  const getEpisodesCountForSeason = (seasonNum: number): number => {
+    if (!selectedItem) return 0;
+    if (selectedItem.episodes && selectedItem.episodes.length > 0) {
+      const count = selectedItem.episodes.filter((ep: any) => ep.season === seasonNum).length;
+      if (count > 0) return count;
+    }
+    const seasonEdge = selectedItem.relations?.edges?.find(
+      (ed: any) => ed.node.seasonNumber === seasonNum && ed.node.format === 'TV_SEASON'
+    );
+    if (seasonEdge && seasonEdge.node.episodes) return seasonEdge.node.episodes;
+    return selectedItem.numEpisodiosTotal || 12;
+  };
+
+  const getGlobalEpisodeNumber = (seasonNumber: number, episodeNumber: number) => {
+    if (!selectedItem) return episodeNumber;
+    const seasons = getSeasonsList();
+    let sum = 0;
+    for (const s of seasons) {
+      if (s < seasonNumber) {
+        sum += getEpisodesCountForSeason(s);
       }
     }
-    return sortedEdges.length > 0 ? sortedEdges[sortedEdges.length - 1].node.seasonNumber : 1;
+    return sum + episodeNumber;
+  };
+
+  const getSeasonAndEpisodeFromGlobal = (globalEp: number): { season: number, episode: number } => {
+    if (!selectedItem) return { season: 1, episode: globalEp };
+    const seasons = getSeasonsList();
+    if (seasons.length === 0) return { season: 1, episode: globalEp };
+    if (globalEp <= 0) return { season: seasons[0] || 1, episode: 0 };
+    
+    let remaining = globalEp;
+    let lastSeason = seasons[0];
+    let lastCount = 0;
+    
+    for (const s of seasons) {
+      lastSeason = s;
+      lastCount = getEpisodesCountForSeason(s);
+      if (remaining <= lastCount) {
+        return { season: s, episode: remaining };
+      }
+      remaining -= lastCount;
+    }
+    return { season: lastSeason, episode: lastCount };
   };
 
 
   const atualizarProgresso = async (delta: number) => {
     if (!mediaType || !selectedItem || selectedItem.isExternal) return;
-    const campo = mediaType === 'anime' ? 'epAtual' : 'capAtual';
-    const novoValor = (selectedItem[campo] || 0) + delta;
-    if (novoValor < 0) return;
-    atualizarCampo(campo, novoValor);
+    if (mediaType === 'anime') {
+      const currentGlobal = selectedItem.epAtualGlobal !== undefined ? selectedItem.epAtualGlobal : (selectedItem.epAtual || 0);
+      const novoValor = currentGlobal + delta;
+      if (novoValor < 0) return;
+      atualizarCampo('epAtual', novoValor);
+    } else {
+      const novoValor = (selectedItem.capAtual || 0) + delta;
+      if (novoValor < 0) return;
+      atualizarCampo('capAtual', novoValor);
+    }
   };
 
   const adicionarLinkPessoal = async () => {
@@ -1090,7 +1135,7 @@ const DetailsPage = () => {
   const renderDesktopVersion = () => {
     if (!selectedItem) return null;
 
-    const epAtualDisplay = mediaType === 'anime' ? (selectedItem.epAtual || 0) : (selectedItem.capAtual || 0);
+    const epAtualDisplay = mediaType === 'anime' ? (selectedItem.epAtualGlobal || selectedItem.epAtual || 0) : (selectedItem.capAtual || 0);
     const totalEps = totalEpisodesAllSeasons;
     const progressPercentage = globalPercentage;
 
@@ -1115,7 +1160,7 @@ const DetailsPage = () => {
               <div className="flex justify-between items-center text-[9px] text-on-surface-variant uppercase font-bold tracking-widest">
                 <span>Progresso Global</span>
                 <span className="text-white text-xs font-mono font-bold">
-                  {mediaType === 'anime' ? selectedItem.epAtual : selectedItem.capAtual} / {totalEpisodesAllSeasons || '?'}
+                  {mediaType === 'anime' ? (selectedItem.epAtualGlobal || selectedItem.epAtual || 0) : selectedItem.capAtual} / {totalEpisodesAllSeasons || '?'}
                 </span>
               </div>
               <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden border border-white/5 relative">
@@ -1575,7 +1620,7 @@ const DetailsPage = () => {
                             const isSpecial = ep.season === 0 || ep.season_number === 0 || viewedSeason === 0;
                             const isWatched = isSpecial
                               ? Array.isArray(selectedItem.watchedSpecials) && selectedItem.watchedSpecials.includes(ep.episode_number)
-                              : (ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number)) <= (selectedItem.epAtual || 0);
+                              : (ep.globalEpisodeNumber || getGlobalEpisodeNumber(viewedSeason || 1, ep.episode_number)) <= (selectedItem.epAtualGlobal || selectedItem.epAtual || 0);
                             const hasAired = ep.episode_number <= lastAiredEpNumber;
                             const airDateStr = ep.air_date
                               ? new Date(ep.air_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -1685,10 +1730,9 @@ const DetailsPage = () => {
                           })}
                         </div>
                       ) : (
-                         <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                        <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                           {(() => {
-                            // Para o picker de eps usa os eps da temporada atual (local), não o numEpisodiosTotal global
-                            const currentSeasonNum = selectedItem.seasonAtual || 1;
+                            const currentSeasonNum = viewedSeason || 1;
                             let pickerTotal: number;
                             if (selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) {
                               pickerTotal = selectedItem.proximoEpisodio - 1;
@@ -1700,12 +1744,21 @@ const DetailsPage = () => {
                             }
                             return [...Array(pickerTotal)].map((_, i) => {
                               const num = i + 1;
-                              const isWatched = num <= selectedItem.epAtual;
+                              const isWatched = (viewedSeason || 1) < (selectedItem.seasonAtual || 1)
+                                ? true
+                                : ((viewedSeason || 1) === (selectedItem.seasonAtual || 1)
+                                    ? num <= (selectedItem.epAtual || 0)
+                                    : false);
                               const hasAired = num <= lastAiredEpNumber;
                               return (
                                 <button
                                   key={num}
-                                  onClick={() => hasAired && atualizarCampo('epAtual', num)}
+                                  onClick={() => {
+                                    if (hasAired) {
+                                      const globalEpNum = getGlobalEpisodeNumber(viewedSeason || 1, num);
+                                      atualizarCampo('epAtual', globalEpNum);
+                                    }
+                                  }}
                                   disabled={isSavingDetailsProgress || !hasAired}
                                   className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all cursor-pointer disabled:opacity-50 ${
                                     !hasAired
@@ -1987,7 +2040,7 @@ const DetailsPage = () => {
     : 0;
 
   const globalPercentage = selectedItem && totalEpisodesAllSeasons > 0
-    ? Math.min(100, Math.max(0, ((mediaType === 'anime' ? selectedItem.epAtual : selectedItem.capAtual) / totalEpisodesAllSeasons) * 100))
+    ? Math.min(100, Math.max(0, ((mediaType === 'anime' ? (selectedItem.epAtualGlobal || selectedItem.epAtual || 0) : selectedItem.capAtual) / totalEpisodesAllSeasons) * 100))
     : 0;
 
   return (
@@ -2295,7 +2348,7 @@ const DetailsPage = () => {
                                   type="number" 
                                   min="0" 
                                   max={totalEpisodesAllSeasons || 9999} 
-                                  value={mediaType === 'anime' ? (selectedItem.epAtual || 0) : (selectedItem.capAtual || 0)} 
+                                  value={mediaType === 'anime' ? (selectedItem.epAtualGlobal || selectedItem.epAtual || 0) : (selectedItem.capAtual || 0)} 
                                   onChange={(e) => { 
                                     const val = parseInt(e.target.value) || 0; 
                                     if (mediaType === 'anime') { 
@@ -2340,7 +2393,7 @@ const DetailsPage = () => {
                                       const isSpecial = ep.season === 0 || ep.season_number === 0 || viewedSeason === 0;
                                       const isWatched = isSpecial
                                         ? Array.isArray(selectedItem.watchedSpecials) && selectedItem.watchedSpecials.includes(ep.episode_number)
-                                        : (ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number)) <= (selectedItem.epAtual || 0);
+                                        : (ep.globalEpisodeNumber || getGlobalEpisodeNumber(viewedSeason || 1, ep.episode_number)) <= (selectedItem.epAtualGlobal || selectedItem.epAtual || 0);
                                       const hasAired = ep.episode_number <= lastAiredEpNumber;
                                       const airDateStr = ep.air_date
                                         ? new Date(ep.air_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -2421,7 +2474,7 @@ const DetailsPage = () => {
                                                       : [...currentSpecials, ep.episode_number];
                                                     atualizarCampo('watchedSpecials', updatedSpecials);
                                                   } else {
-                                                    const globalEpNum = ep.globalEpisodeNumber || getGlobalEpisodeNumber(selectedItem.seasonAtual || 1, ep.episode_number);
+                                                    const globalEpNum = ep.globalEpisodeNumber || getGlobalEpisodeNumber(viewedSeason || 1, ep.episode_number);
                                                     if (isWatched) {
                                                       atualizarCampo('epAtual', globalEpNum - 1);
                                                     } else {
@@ -2452,8 +2505,7 @@ const DetailsPage = () => {
                                 ) : (
                                   <div className="grid grid-cols-5 sm:grid-cols-6 gap-2 max-h-[240px] overflow-y-auto pr-1 custom-scrollbar">
                                     {(() => {
-                                      // Para o picker de eps usa os eps da temporada atual (local), não o numEpisodiosTotal global
-                                      const currentSeasonNum2 = selectedItem.seasonAtual || 1;
+                                      const currentSeasonNum2 = viewedSeason || 1;
                                       let pickerTotal2: number;
                                       if (selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) {
                                         pickerTotal2 = selectedItem.proximoEpisodio - 1;
@@ -2465,18 +2517,27 @@ const DetailsPage = () => {
                                       }
                                       return [...Array(pickerTotal2)].map((_, i) => {
                                         const num = i + 1;
-                                        const isWatched = num <= selectedItem.epAtual;
+                                        const isWatched = (viewedSeason || 1) < (selectedItem.seasonAtual || 1)
+                                          ? true
+                                          : ((viewedSeason || 1) === (selectedItem.seasonAtual || 1)
+                                              ? num <= (selectedItem.epAtual || 0)
+                                              : false);
                                         const hasAired = num <= lastAiredEpNumber;
                                         return (
                                           <button
                                             key={num}
-                                            onClick={() => hasAired && atualizarCampo('epAtual', num)}
+                                            onClick={() => {
+                                              if (hasAired) {
+                                                const globalEpNum = getGlobalEpisodeNumber(viewedSeason || 1, num);
+                                                atualizarCampo('epAtual', globalEpNum);
+                                              }
+                                            }}
                                             disabled={isSavingDetailsProgress || !hasAired}
                                             className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                                               !hasAired
                                                 ? 'bg-surface-variant/10 text-on-surface-variant/20 border border-white/5 cursor-not-allowed'
                                                 : isWatched
-                                                ? 'bg-primary text-on-primary scale-105'
+                                                ? 'bg-primary text-on-primary scale-105 shadow-md shadow-primary/25'
                                                 : 'bg-surface-variant/30 text-on-surface-variant border border-white/5'
                                             }`}
                                           >

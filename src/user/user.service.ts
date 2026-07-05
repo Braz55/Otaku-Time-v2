@@ -370,6 +370,16 @@ export class UserService {
     return { success: true, message: 'Library cleared successfully' };
   }
 
+  async clearUserAnimeLibrary(userId: number) {
+    await this.prisma.userAnime.deleteMany({ where: { userId } });
+    return { success: true, message: 'Anime library cleared successfully' };
+  }
+
+  async clearUserMangaLibrary(userId: number) {
+    await this.prisma.userManga.deleteMany({ where: { userId } });
+    return { success: true, message: 'Manga library cleared successfully' };
+  }
+
   // --- Destaques (Top Favorites) ---
   async getFavorites(userId: number) {
     return this.prisma.userTopFavorite.findMany({

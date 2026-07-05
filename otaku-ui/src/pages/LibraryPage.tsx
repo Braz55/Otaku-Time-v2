@@ -529,7 +529,7 @@ const LibraryPage = () => {
               paginatedItems.map(item => {
                 const coverUrl = item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl;
                 const title = item.anime?.titulo || item.manga?.titulo || item.titulo;
-                const current = categoria === 'anime' ? (item.epAtual || 0) : (item.capAtual || 0);
+                const currentGlobal = categoria === 'anime' ? (item.epAtualGlobal !== undefined ? item.epAtualGlobal : (item.epAtual || 0)) : (item.capAtual || 0);
                 
                 const statusLancamento = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
                 const proxNum = categoria === 'anime' ? (item.anime?.proximoEpisodio || item.proximoEpisodio) : (item.manga?.proximoCapituloNumero || item.proximoCapituloNumero);
@@ -596,7 +596,7 @@ const LibraryPage = () => {
                         {/* Progress Info & Bar */}
                         {(() => {
                           const totalVal = (statusLancamento === 'RELEASING' && proxNum) ? proxNum - 1 : (numTotal || '?');
-                          const percentVal = typeof totalVal === 'number' && totalVal > 0 ? (current / totalVal) * 100 : (current > 0 ? ((current / (current + 1)) * 100) : 0);
+                          const percentVal = typeof totalVal === 'number' && totalVal > 0 ? (currentGlobal / totalVal) * 100 : (currentGlobal > 0 ? ((currentGlobal / (currentGlobal + 1)) * 100) : 0);
                           return (
                             <div className="space-y-1.5 pt-1 border-t border-white/10">
                               <div className="flex justify-between items-center text-[11px] font-medium">
@@ -606,13 +606,13 @@ const LibraryPage = () => {
                                 </span>
                                 <span className="text-white font-bold">
                                   {categoria === 'anime' && item.seasonAtual !== undefined && `T${item.seasonAtual} `}
-                                  {current} / {totalVal}
+                                  {currentGlobal} / {totalVal}
                                 </span>
                               </div>
                               <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden border border-white/5 backdrop-blur-sm">
                                 <div 
                                   className={`h-full transition-all duration-500 rounded-full ${categoria === 'anime' ? 'bg-primary shadow-md' : 'bg-secondary shadow-md'}`}
-                                  style={{ width: `${Math.max(current > 0 ? 3 : 0, Math.min(percentVal, 100))}%` }}
+                                  style={{ width: `${Math.max(currentGlobal > 0 ? 3 : 0, Math.min(percentVal, 100))}%` }}
                                 ></div>
                               </div>
                             </div>

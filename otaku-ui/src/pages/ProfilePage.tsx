@@ -235,9 +235,9 @@ const ProfilePage = () => {
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
   const [importJsonInput, setImportJsonInput] = useState('');
   const [cleanRestore, setCleanRestore] = useState(false);
-  const [showWipeConfirm, setShowWipeConfirm] = useState(false);
+  const [showWipeAnimeConfirm, setShowWipeAnimeConfirm] = useState(false);
+  const [showWipeMangaConfirm, setShowWipeMangaConfirm] = useState(false);
   const [isWiping, setIsWiping] = useState(false);
-  const [isClearingCatalog, setIsClearingCatalog] = useState(false);
 
   // TV Time Import State
   const [showTvTimeModal, setShowTvTimeModal] = useState(false);
@@ -1054,45 +1054,39 @@ const ProfilePage = () => {
   };
 
   // Wipe, Backups, Sync controllers
-  const handleWipeLibrary = async () => {
+  const handleWipeAnimeLibrary = async () => {
     setIsWiping(true);
     try {
-      const res = await customFetch(`${API_BASE_URL}/user/library`, {
+      const res = await customFetch(`${API_BASE_URL}/user/library/anime`, {
         method: 'DELETE',
         headers: getHeaders()
       });
-      if (!res.ok) throw new Error('Falha ao apagar dados no servidor.');
-      showToast('Biblioteca apagada com sucesso!', 'success');
-      setShowWipeConfirm(false);
+      if (!res.ok) throw new Error('Falha ao apagar animes no servidor.');
+      showToast('Biblioteca de animes apagada com sucesso!', 'success');
+      setShowWipeAnimeConfirm(false);
+      fetchProfile();
     } catch (err: any) {
-      showToast(`Erro ao apagar biblioteca: ${err.message || err}`, 'error');
+      showToast(`Erro ao apagar animes: ${err.message || err}`, 'error');
     } finally {
       setIsWiping(false);
     }
   };
 
-  const handleClearCatalog = async () => {
-    if (!window.confirm("ATENÇÃO: Isto irá apagar TODOS os animes da base de dados global, todo o progresso (UserAnime), classificações e comentários de todos os utilizadores. Desejas continuar?")) {
-      return;
-    }
-
-    setIsClearingCatalog(true);
+  const handleWipeMangaLibrary = async () => {
+    setIsWiping(true);
     try {
-      const res = await customFetch(`${API_BASE_URL}/anime/clear-catalog`, {
+      const res = await customFetch(`${API_BASE_URL}/user/library/manga`, {
         method: 'DELETE',
         headers: getHeaders()
       });
-      if (res.ok) {
-        showToast("Catálogo global e progresso de animes limpos com sucesso!", "success");
-        fetchProfile();
-      } else {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.message || "Erro ao limpar catálogo.");
-      }
+      if (!res.ok) throw new Error('Falha ao apagar mangás no servidor.');
+      showToast('Biblioteca de mangás apagada com sucesso!', 'success');
+      setShowWipeMangaConfirm(false);
+      fetchProfile();
     } catch (err: any) {
-      showToast(err.message || "Erro ao limpar catálogo.", "error");
+      showToast(`Erro ao apagar mangás: ${err.message || err}`, 'error');
     } finally {
-      setIsClearingCatalog(false);
+      setIsWiping(false);
     }
   };
 
@@ -2157,34 +2151,33 @@ const ProfilePage = () => {
               <div className="pt-6 border-t border-red-500/10 space-y-4">
                 <h4 className="text-sm font-bold text-red-400 uppercase tracking-wider">Zona de Perigo</h4>
                 
-                {/* Limpar Biblioteca Pessoal */}
+                {/* Limpar Animes da Biblioteca */}
                 <div className="p-4 rounded-2xl bg-red-500/5 border border-red-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div>
-                    <h5 className="font-bold text-sm text-white">Limpar Biblioteca</h5>
-                    <p className="text-xs text-gray-500 mt-0.5">Apaga permanentemente todos os registos de animes, mangás e progresso da tua conta.</p>
+                    <h5 className="font-bold text-sm text-white">Limpar Animes da Biblioteca</h5>
+                    <p className="text-xs text-gray-500 mt-0.5">Apaga permanentemente todos os registos de animes e progresso da tua biblioteca pessoal.</p>
                   </div>
                   <button 
                     type="button"
-                    onClick={() => setShowWipeConfirm(true)}
+                    onClick={() => setShowWipeAnimeConfirm(true)}
                     className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow cursor-pointer"
                   >
-                    Apagar Tudo
+                    Apagar Animes
                   </button>
                 </div>
 
-                {/* Limpar Catálogo Global */}
+                {/* Limpar Mangas da Biblioteca */}
                 <div className="p-4 rounded-2xl bg-red-500/5 border border-red-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div>
-                    <h5 className="font-bold text-sm text-white">Limpar Catálogo Global de Animes</h5>
-                    <p className="text-xs text-gray-500 mt-0.5">Apaga todas as séries, episódios, progresso (UserAnime), classificações e comentários da base de dados global.</p>
+                    <h5 className="font-bold text-sm text-white">Limpar Mangás da Biblioteca</h5>
+                    <p className="text-xs text-gray-500 mt-0.5">Apaga permanentemente todos os registos de mangás e progresso da tua biblioteca pessoal.</p>
                   </div>
                   <button 
                     type="button"
-                    onClick={handleClearCatalog}
-                    disabled={isClearingCatalog}
-                    className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow cursor-pointer disabled:opacity-50"
+                    onClick={() => setShowWipeMangaConfirm(true)}
+                    className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow cursor-pointer"
                   >
-                    {isClearingCatalog ? 'A Limpar...' : 'Limpar Catálogo'}
+                    Apagar Mangás
                   </button>
                 </div>
               </div>
@@ -3263,8 +3256,8 @@ const ProfilePage = () => {
         </div>
       )}
 
-      {/* Wipe Confirmation Modal */}
-      {showWipeConfirm && (
+      {/* Wipe Anime Confirmation Modal */}
+      {showWipeAnimeConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
           <div className="glass-panel w-full max-w-md p-6 sm:p-8 rounded-[32px] border border-red-500/30 space-y-6 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300">
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-red-500/15 to-transparent rounded-full blur-2xl"></div>
@@ -3272,22 +3265,22 @@ const ProfilePage = () => {
             <div className="space-y-2 text-center sm:text-left">
               <h3 className="text-xl sm:text-2xl font-black text-white flex items-center justify-center sm:justify-start gap-2">
                 <AlertCircle className="w-6 h-6 text-red-500 animate-bounce" />
-                <span>Apagar Biblioteca?</span>
+                <span>Apagar Biblioteca de Animes?</span>
               </h3>
               <p className="text-xs sm:text-sm text-gray-400">
-                Esta ação é <span className="text-red-500 font-bold">destrutiva e irreversível</span>. Todos os animes, mangás, episódios/capítulos atuais e prioridades serão removidos da sua conta.
+                Esta ação é <span className="text-red-500 font-bold">destrutiva e irreversível</span>. Todos os animes, episódios atuais e prioridades serão removidos da sua biblioteca pessoal. O catálogo global de animes não será afetado.
               </p>
             </div>
 
             <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
               <button
-                onClick={() => setShowWipeConfirm(false)}
+                onClick={() => setShowWipeAnimeConfirm(false)}
                 className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-surface-variant/30 text-on-surface-variant hover:text-white font-bold text-sm transition-all"
               >
                 Cancelar
               </button>
               <button
-                onClick={handleWipeLibrary}
+                onClick={handleWipeAnimeLibrary}
                 disabled={isWiping}
                 className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2"
               >
@@ -3299,7 +3292,52 @@ const ProfilePage = () => {
                 ) : (
                   <>
                     <AlertCircle className="w-4 h-4" />
-                    <span>SIM, APAGAR TUDO</span>
+                    <span>SIM, APAGAR ANIMES</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Wipe Manga Confirmation Modal */}
+      {showWipeMangaConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="glass-panel w-full max-w-md p-6 sm:p-8 rounded-[32px] border border-red-500/30 space-y-6 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-red-500/15 to-transparent rounded-full blur-2xl"></div>
+            
+            <div className="space-y-2 text-center sm:text-left">
+              <h3 className="text-xl sm:text-2xl font-black text-white flex items-center justify-center sm:justify-start gap-2">
+                <AlertCircle className="w-6 h-6 text-red-500 animate-bounce" />
+                <span>Apagar Biblioteca de Mangás?</span>
+              </h3>
+              <p className="text-xs sm:text-sm text-gray-400">
+                Esta ação é <span className="text-red-500 font-bold">destrutiva e irreversível</span>. Todos os mangás, capítulos atuais e prioridades serão removidos da sua biblioteca pessoal. O catálogo global de mangás não será afetado.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowWipeMangaConfirm(false)}
+                className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-surface-variant/30 text-on-surface-variant hover:text-white font-bold text-sm transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleWipeMangaLibrary}
+                disabled={isWiping}
+                className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2"
+              >
+                {isWiping ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>A APAGAR...</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="w-4 h-4" />
+                    <span>SIM, APAGAR MANGÁS</span>
                   </>
                 )}
               </button>

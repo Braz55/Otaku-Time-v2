@@ -215,15 +215,20 @@ const HomePage = () => {
     if (savingItems[item.id]) return;
     setSavingItems(prev => ({ ...prev, [item.id]: true }));
 
-    const campo = type === 'anime' ? 'epAtual' : 'capAtual';
-    const novoValor = (item[campo] || 0) + 1;
+    let payload: Record<string, any> = {};
+    if (type === 'anime') {
+      const currentGlobal = item.epAtualGlobal !== undefined ? item.epAtualGlobal : (item.epAtual || 0);
+      payload = { epAtual: currentGlobal + 1 };
+    } else {
+      payload = { capAtual: (item.capAtual || 0) + 1 };
+    }
     const url = `${API_BASE_URL}/${type}/${item.id}`;
     
     try {
       const response = await customFetch(url, {
         method: 'PATCH',
         headers: getHeaders(),
-        body: JSON.stringify({ [campo]: novoValor })
+        body: JSON.stringify(payload)
       });
       if (response.ok) {
         await carregarDashboard();
@@ -547,14 +552,16 @@ const HomePage = () => {
                     {dashboardItems.map((item) => {
                       const coverUrl = item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl;
                       const title = item.anime?.titulo || item.manga?.titulo || item.titulo;
-                      const current = categoria === 'anime' ? (item.epAtual || 0) : (item.capAtual || 0);
-                      const epQueVouVer = current + 1;
+                      
+                      const currentLocal = categoria === 'anime' ? (item.epAtual || 0) : (item.capAtual || 0);
+                      const currentGlobal = categoria === 'anime' ? (item.epAtualGlobal !== undefined ? item.epAtualGlobal : (item.epAtual || 0)) : (item.capAtual || 0);
+                      const epQueVouVer = currentLocal + 1;
                       
                       const status = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
                       const proxNum = categoria === 'anime' ? (item.anime?.proximoEpisodio || item.proximoEpisodio) : (item.manga?.proximoCapituloNumero || item.proximoCapituloNumero);
                       const numTotal = categoria === 'anime' ? (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal) : (item.manga?.numCapitulosTotal || item.numCapitulosTotal);
                       const total = (status === 'RELEASING' && proxNum) ? proxNum - 1 : (numTotal || 12);
-                      const percent = typeof total === 'number' && total > 0 ? (current / total) * 100 : 0;
+                      const percent = typeof total === 'number' && total > 0 ? (currentGlobal / total) * 100 : 0;
                       
                       return (
                         <div 
@@ -570,7 +577,11 @@ const HomePage = () => {
                             <div className="min-w-0">
                               <h4 className="font-bold text-[11px] text-white truncate mb-0.5">{title}</h4>
                               <p className="text-[10px] text-on-surface-variant font-medium">
-                                {categoria === 'anime' ? `Episódio ${epQueVouVer}` : `Capítulo ${epQueVouVer}`}
+                                {categoria === 'anime'
+                                  ? (item.seasonAtual && item.seasonAtual > 1
+                                      ? `T${item.seasonAtual} Ep. ${epQueVouVer}`
+                                      : `Episódio ${epQueVouVer}`)
+                                  : `Capítulo ${epQueVouVer}`}
                               </p>
                             </div>
                           </div>
@@ -587,7 +598,7 @@ const HomePage = () => {
                               <div className="text-[8px] text-on-surface-variant flex items-center gap-0.5 font-bold">
                                 <span className={`material-symbols-outlined text-[10px] ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`}>hourglass_empty</span>
                                 <span>{(() => {
-                                  const left = total > current ? total - current : 0;
+                                  const left = total > currentGlobal ? total - currentGlobal : 0;
                                   return left === 1 
                                     ? (categoria === 'anime' ? '1 ep' : '1 cap')
                                     : (categoria === 'anime' ? `${left} eps` : `${left} caps`);
@@ -617,14 +628,16 @@ const HomePage = () => {
                     {dashboardItems.map((item) => {
                       const coverUrl = item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl;
                       const title = item.anime?.titulo || item.manga?.titulo || item.titulo;
-                      const current = categoria === 'anime' ? (item.epAtual || 0) : (item.capAtual || 0);
-                      const epQueVouVer = current + 1;
+                      
+                      const currentLocal = categoria === 'anime' ? (item.epAtual || 0) : (item.capAtual || 0);
+                      const currentGlobal = categoria === 'anime' ? (item.epAtualGlobal !== undefined ? item.epAtualGlobal : (item.epAtual || 0)) : (item.capAtual || 0);
+                      const epQueVouVer = currentLocal + 1;
                       
                       const status = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
                       const proxNum = categoria === 'anime' ? (item.anime?.proximoEpisodio || item.proximoEpisodio) : (item.manga?.proximoCapituloNumero || item.proximoCapituloNumero);
                       const numTotal = categoria === 'anime' ? (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal) : (item.manga?.numCapitulosTotal || item.numCapitulosTotal);
                       const total = (status === 'RELEASING' && proxNum) ? proxNum - 1 : (numTotal || 12);
-                      const percent = typeof total === 'number' && total > 0 ? (current / total) * 100 : 0;
+                      const percent = typeof total === 'number' && total > 0 ? (currentGlobal / total) * 100 : 0;
                       
                       return (
                         <div 
@@ -639,7 +652,11 @@ const HomePage = () => {
                             <div className="min-w-0 space-y-1">
                               <h4 className="font-label-md text-sm text-white mb-0.5 group-hover:text-primary transition-colors truncate">{title}</h4>
                               <p className="text-xs text-on-surface-variant font-medium">
-                                {categoria === 'anime' ? `Episódio ${epQueVouVer}` : `Capítulo ${epQueVouVer}`}
+                                {categoria === 'anime'
+                                  ? (item.seasonAtual && item.seasonAtual > 1
+                                      ? `T${item.seasonAtual} Ep. ${epQueVouVer}`
+                                      : `Episódio ${epQueVouVer}`)
+                                  : `Capítulo ${epQueVouVer}`}
                               </p>
                               <div className="w-full pt-1">
                                 <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden border border-white/5 backdrop-blur-sm">
@@ -654,7 +671,7 @@ const HomePage = () => {
                               <div className="text-[10px] text-on-surface-variant flex items-center gap-1 font-bold">
                                 <span className={`material-symbols-outlined text-[12px] ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`}>hourglass_empty</span>
                                 <span>{(() => {
-                                  const left = total > current ? total - current : 0;
+                                  const left = total > currentGlobal ? total - currentGlobal : 0;
                                   return left === 1 
                                     ? (categoria === 'anime' ? 'Falta 1 ep' : 'Falta 1 cap')
                                     : (categoria === 'anime' ? `Faltam ${left} eps` : `Faltam ${left} caps`);

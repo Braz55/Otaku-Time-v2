@@ -38,6 +38,18 @@ export class UserController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Delete('library/anime')
+  clearAnimeLibrary(@Request() req) {
+    return this.userService.clearUserAnimeLibrary(req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('library/manga')
+  clearMangaLibrary(@Request() req) {
+    return this.userService.clearUserMangaLibrary(req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Patch('profile')
   updateProfile(@Request() req, @Body() updateDto: any) {
     return this.userService.update(req.user.userId, updateDto);

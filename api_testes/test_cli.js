@@ -29,7 +29,26 @@ async function searchMangaList(nome) {
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ query, variables: { s: nome } })
     });
+
+    if (!response.ok) {
+      console.error(`[AniList Search] HTTP Error! Status: ${response.status} ${response.statusText}`);
+      try {
+        const text = await response.text();
+        console.error(`[AniList Search] Response Body: ${text}`);
+      } catch (e) {}
+      return [];
+    }
+
     const data = await response.json();
+
+    if (data.errors) {
+      console.error('[AniList Search] GraphQL Errors:', JSON.stringify(data.errors, null, 2));
+    }
+
+    if (!data.data?.Page?.media) {
+      console.log('[AniList Search] No media page found in response. Full response:', JSON.stringify(data, null, 2));
+    }
+
     return data.data?.Page?.media || [];
   } catch (error) {
     console.error('Erro ao pesquisar no AniList:', error);
@@ -60,7 +79,26 @@ async function searchAniListById(id) {
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ query, variables: { id } }),
     });
+
+    if (!response.ok) {
+      console.error(`[AniList Details] HTTP Error! Status: ${response.status} ${response.statusText}`);
+      try {
+        const text = await response.text();
+        console.error(`[AniList Details] Response Body: ${text}`);
+      } catch (e) {}
+      return null;
+    }
+
     const result = await response.json();
+
+    if (result.errors) {
+      console.error(`[AniList Details] GraphQL Errors for ID ${id}:`, JSON.stringify(result.errors, null, 2));
+    }
+
+    if (!result?.data?.Media) {
+      console.log(`[AniList Details] No media found for ID ${id}. Full response:`, JSON.stringify(result, null, 2));
+    }
+
     return result?.data?.Media || null;
   } catch (error) {
     console.error(`Erro ao pesquisar detalhes no AniList para ID ${id}:`, error);

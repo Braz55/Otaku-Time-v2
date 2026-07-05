@@ -2050,6 +2050,9 @@ export class AnimeService {
           let hasWatched = false;
           let watchedCount = 0;
 
+          let jsonMaxSeason = 1;
+          let jsonMaxEpisode = 0;
+
           if (show.seasons && Array.isArray(show.seasons)) {
             for (const season of show.seasons) {
               if (season.is_specials) continue;
@@ -2061,18 +2064,49 @@ export class AnimeService {
                     hasWatched = true;
                     watchedCount++;
                     const epNum = Number(ep.number);
-                    if (seasonNum > maxSeason) {
-                      maxSeason = seasonNum;
-                      maxEpisode = epNum;
-                    } else if (seasonNum === maxSeason) {
-                      if (epNum > maxEpisode) {
-                        maxEpisode = epNum;
+                    if (seasonNum > jsonMaxSeason) {
+                      jsonMaxSeason = seasonNum;
+                      jsonMaxEpisode = epNum;
+                    } else if (seasonNum === jsonMaxSeason) {
+                      if (epNum > jsonMaxEpisode) {
+                        jsonMaxEpisode = epNum;
                       }
                     }
                   }
                 }
               }
             }
+          }
+
+          // Tentar mapear a contagem total de episódios assistidos à nossa lista local ordenada
+          if (dbAnime && dbAnime.episodesList && Array.isArray(dbAnime.episodesList) && dbAnime.episodesList.length > 0) {
+            // Filtrar especiais (temporada 0) e ordenar por temporada e número de episódio
+            const filteredEpisodes = (dbAnime.episodesList as any[])
+              .filter(ep => ep.season > 0)
+              .sort((a, b) => {
+                if (a.season !== b.season) return a.season - b.season;
+                return a.episodeNumber - b.episodeNumber;
+              });
+
+            if (watchedCount > 0 && filteredEpisodes.length > 0) {
+              if (watchedCount <= filteredEpisodes.length) {
+                const targetEp = filteredEpisodes[watchedCount - 1];
+                maxSeason = targetEp.season;
+                maxEpisode = targetEp.episodeNumber;
+              } else {
+                // Se assistiu a mais episódios do que temos registados, assume o último disponível
+                const targetEp = filteredEpisodes[filteredEpisodes.length - 1];
+                maxSeason = targetEp.season;
+                maxEpisode = targetEp.episodeNumber;
+              }
+            } else {
+              maxSeason = 1;
+              maxEpisode = 0;
+            }
+          } else {
+            // Fallback caso não haja episódios registados localmente: usa a maior temporada/episódio obtido do JSON
+            maxSeason = jsonMaxSeason;
+            maxEpisode = jsonMaxEpisode;
           }
 
           // 4. Mapear status

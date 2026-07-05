@@ -845,9 +845,20 @@ export class MangaService {
   }
 
   // CRUD básico
-  async findAll(userId: number) {
+  async findAll(userId: number, status?: string) {
+    const whereClause: any = { userId };
+    if (status) {
+      const statusArr = status
+        .split(',')
+        .map((s) => s.trim().toUpperCase())
+        .filter((s) => ['WATCHING', 'PLANNED', 'COMPLETED', 'PAUSED', 'DROPPED'].includes(s));
+      if (statusArr.length > 0) {
+        whereClause.status = { in: statusArr };
+      }
+    }
+
     const list = await this.prisma.userManga.findMany({
-      where: { userId },
+      where: whereClause,
       include: { manga: true },
     });
     const mangaIds = list.map((item) => item.mangaId);

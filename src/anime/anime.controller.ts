@@ -132,8 +132,8 @@ export class AnimeController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  findAll(@Request() req) {
-    return this.animeService.findAll(req.user.userId);
+  findAll(@Request() req, @Query('status') status?: string) {
+    return this.animeService.findAll(req.user.userId, status);
   }
 
   @UseGuards(JwtAuthGuard)

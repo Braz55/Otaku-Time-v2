@@ -52,8 +52,8 @@ export class MangaController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  findAll(@Request() req) {
-    return this.mangaService.findAll(req.user.userId);
+  findAll(@Request() req, @Query('status') status?: string) {
+    return this.mangaService.findAll(req.user.userId, status);
   }
 
   @UseGuards(JwtAuthGuard)

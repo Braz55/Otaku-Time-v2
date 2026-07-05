@@ -13,15 +13,22 @@ const HomePage = () => {
   const { token } = useAuth();
   const { showToast } = useToast();
   const { t } = useTranslation();
-  const { categoria, isSearchOpen, searchTerm, homeTrigger } = useMedia();
+  const { 
+    categoria, 
+    isSearchOpen, 
+    searchTerm, 
+    homeTrigger,
+    animeDashboardData,
+    setAnimeDashboardData,
+    mangaDashboardData,
+    setMangaDashboardData
+  } = useMedia();
   const isMobile = useIsMobile();
   const navigate = useNavigate();
 
   const [termoPesquisa, setTermoPesquisa] = useState('');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [resultadosPesquisa, setResultadosPesquisa] = useState<any[]>([]);
-  const [animeDashboardData, setAnimeDashboardData] = useState<{ items: any[]; featured: any }>({ items: [], featured: null });
-  const [mangaDashboardData, setMangaDashboardData] = useState<{ items: any[]; featured: any }>({ items: [], featured: null });
   const [loading, setLoading] = useState(false);
   const [searchPage, setSearchPage] = useState(1);
   const [hasMoreResults, setHasMoreResults] = useState(false);
@@ -112,24 +119,53 @@ const HomePage = () => {
   });
 
   const carregarDashboard = async () => {
-    setLoading(true);
+    const hasCache = (categoria === 'anime' ? animeDashboardData.items : mangaDashboardData.items).length > 0;
+    if (!hasCache) {
+      setLoading(true);
+    }
     try {
       const [animeRes, mangaRes] = await Promise.all([
-        customFetch(`${API_BASE_URL}/anime`, { headers: getHeaders() }),
-        customFetch(`${API_BASE_URL}/manga`, { headers: getHeaders() })
+        customFetch(`${API_BASE_URL}/anime?status=WATCHING`, { headers: getHeaders() }),
+        customFetch(`${API_BASE_URL}/manga?status=WATCHING`, { headers: getHeaders() })
       ]);
       
-      const animes = await animeRes.json();
-      const mangas = await mangaRes.json();
+      const activeAnimes = await animeRes.json();
+      const activeMangas = await mangaRes.json();
 
       let allAnimes: any[] = [];
       let allMangas: any[] = [];
       let filteredAnimes: any[] = [];
       let filteredMangas: any[] = [];
 
-      if (Array.isArray(animes)) {
-        allAnimes = animes;
-        filteredAnimes = animes
+      // If active lists are empty, fetch fallback candidates for the highlight feature
+      if (!Array.isArray(activeAnimes) || activeAnimes.length === 0) {
+        try {
+          const fallbackRes = await customFetch(`${API_BASE_URL}/anime?status=PLANNED,PAUSED`, { headers: getHeaders() });
+          if (fallbackRes.ok) {
+            allAnimes = await fallbackRes.json();
+          }
+        } catch (e) {
+          console.error("Erro ao carregar fallback anime:", e);
+        }
+      } else {
+        allAnimes = activeAnimes;
+      }
+
+      if (!Array.isArray(activeMangas) || activeMangas.length === 0) {
+        try {
+          const fallbackRes = await customFetch(`${API_BASE_URL}/manga?status=PLANNED,PAUSED`, { headers: getHeaders() });
+          if (fallbackRes.ok) {
+            allMangas = await fallbackRes.json();
+          }
+        } catch (e) {
+          console.error("Erro ao carregar fallback manga:", e);
+        }
+      } else {
+        allMangas = activeMangas;
+      }
+
+      if (Array.isArray(activeAnimes)) {
+        filteredAnimes = activeAnimes
           .filter(a => {
             if (a.status !== 'WATCHING') return false;
             const status = a.anime?.statusLancamento || a.statusLancamento;
@@ -140,9 +176,8 @@ const HomePage = () => {
           })
           .sort((a, b) => (a.prioridade || 999) - (b.prioridade || 999));
       }
-      if (Array.isArray(mangas)) {
-        allMangas = mangas;
-        filteredMangas = mangas
+      if (Array.isArray(activeMangas)) {
+        filteredMangas = activeMangas
           .filter(m => {
             if (m.status !== 'WATCHING') return false;
             const status = m.manga?.statusLancamento || m.statusLancamento;
@@ -436,6 +471,7 @@ const HomePage = () => {
                      src={heroCover} 
                      className="w-full h-full object-cover scale-125 blur-3xl opacity-20 transition-transform duration-700 group-hover:scale-130" 
                      alt="" 
+                     loading="lazy"
                   />
                   <div className="absolute inset-0 bg-[#0F1014]/40"></div>
                   <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-background via-background/40 to-transparent"></div>
@@ -474,6 +510,7 @@ const HomePage = () => {
                       src={heroCover} 
                       className="w-full h-full object-cover" 
                       alt="Hero cover" 
+                      loading="lazy"
                     />
                   </div>
                 </div>
@@ -527,7 +564,7 @@ const HomePage = () => {
                         >
                           <div className="space-y-1.5">
                             <div className="relative aspect-[2/3] rounded-xl overflow-hidden border border-white/5">
-                              <img src={coverUrl} className="w-full h-full object-cover" alt="" />
+                              <img src={coverUrl} className="w-full h-full object-cover" alt="" loading="lazy" />
                               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-transparent opacity-60"></div>
                             </div>
                             <div className="min-w-0">
@@ -596,7 +633,7 @@ const HomePage = () => {
                           onClick={() => navigate(`/details/${categoria}/${item.id}`)}
                         >
                           <div className="w-24 h-36 rounded-xl overflow-hidden flex-shrink-0 relative">
-                            <img src={coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" />
+                            <img src={coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" loading="lazy" />
                           </div>
                           <div className="flex flex-col justify-between py-1 min-w-0 flex-1">
                             <div className="min-w-0 space-y-1">

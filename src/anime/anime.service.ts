@@ -603,9 +603,20 @@ export class AnimeService {
     });
   }
 
-  async findAll(userId: number) {
+  async findAll(userId: number, status?: string) {
+    const whereClause: any = { userId };
+    if (status) {
+      const statusArr = status
+        .split(',')
+        .map((s) => s.trim().toUpperCase())
+        .filter((s) => ['WATCHING', 'PLANNED', 'COMPLETED', 'PAUSED', 'DROPPED'].includes(s));
+      if (statusArr.length > 0) {
+        whereClause.status = { in: statusArr };
+      }
+    }
+
     const list = await this.prisma.userAnime.findMany({
-      where: { userId },
+      where: whereClause,
       include: { anime: true },
     });
     const animeIds = list.map((item) => item.animeId);

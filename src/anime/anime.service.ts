@@ -81,12 +81,13 @@ function hasGenreOrTag(generos: any, target: string): boolean {
   return false;
 }
 
-function hasCJK(text: string): boolean {
+function hasCJK(text: string | null | undefined): boolean {
+  if (!text) return false;
   return /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]/.test(text);
 }
 
 function resolveLatinTitle(item: any, defaultTitle: string): string {
-  if (item.translations?.translations) {
+  if (item && item.translations && Array.isArray(item.translations.translations)) {
     const enTranslation = item.translations.translations.find((t: any) => t.iso_639_1 === 'en');
     const enName = enTranslation?.data?.name || enTranslation?.data?.title;
     if (enName && !hasCJK(enName)) {
@@ -121,7 +122,7 @@ async function resolveLatinTitleForSearchItem(
       const details = isMovie 
         ? await tmdbService.getMovieDetails(item.id)
         : await tmdbService.getTVShowDetails(item.id);
-      if (details && details.translations?.translations) {
+      if (details && details.translations && Array.isArray(details.translations.translations)) {
         const enTranslation = details.translations.translations.find((t: any) => t.iso_639_1 === 'en');
         const enName = enTranslation?.data?.name || enTranslation?.data?.title;
         if (enName && !hasCJK(enName)) {
@@ -164,7 +165,8 @@ function normalizeTMDBToAniList(media: any, mediaTypeForce?: 'tv' | 'movie'): an
   const status = statusMap[media.status] || (media.status ? media.status.toUpperCase() : 'FINISHED');
   
   const releaseDate = isMovie ? media.release_date : media.first_air_date;
-  const year = releaseDate ? new Date(releaseDate).getFullYear() : null;
+  const parsedYear = releaseDate ? new Date(releaseDate).getFullYear() : null;
+  const year = parsedYear && !isNaN(parsedYear) ? parsedYear : null;
   
   const posterPath = media.poster_path ? `https://image.tmdb.org/t/p/w500${media.poster_path}` : null;
   const format = isMovie ? 'MOVIE' : 'TV';
@@ -195,10 +197,13 @@ function normalizeTMDBToAniList(media: any, mediaTypeForce?: 'tv' | 'movie'): an
     tipo,
     source: 'TMDB',
     externalLinks: [],
-    nextAiringEpisode: media.next_episode_to_air ? {
-      airingAt: Math.round(new Date(media.next_episode_to_air.air_date + "T12:00:00Z").getTime() / 1000),
-      episode: media.next_episode_to_air.episode_number,
-    } : null,
+    nextAiringEpisode: media.next_episode_to_air && media.next_episode_to_air.air_date ? (() => {
+      const time = new Date(media.next_episode_to_air.air_date + "T12:00:00Z").getTime();
+      return isNaN(time) ? null : {
+        airingAt: Math.round(time / 1000),
+        episode: media.next_episode_to_air.episode_number,
+      };
+    })() : null,
     number_of_seasons: media.number_of_seasons || 1,
     seasons: media.seasons || [],
   };
@@ -407,12 +412,21 @@ export class AnimeService {
             const latestSeason = details.seasons.filter((s: any) => s.season_number > 0).sort((a: any, b: any) => b.season_number - a.season_number)[0];
             if (latestSeason) {
               const seasonDetails = await this.tmdbService.getTVSeasonDetails(tmdbId, latestSeason.season_number);
-              proximosEpisodiosJson = (seasonDetails.episodes || []).map((ep: any) => ({
-                season: ep.season_number,
-                episode: ep.episode_number,
-                airDate: ep.air_date ? new Date(ep.air_date + "T12:00:00Z").toISOString() : null,
-                notified: false
-              }));
+              proximosEpisodiosJson = (seasonDetails.episodes || []).map((ep: any) => {
+                let epAirDate: string | null = null;
+                if (ep.air_date) {
+                  const parsedDate = new Date(ep.air_date.includes('T') ? ep.air_date : ep.air_date + "T12:00:00Z");
+                  if (!isNaN(parsedDate.getTime())) {
+                    epAirDate = parsedDate.toISOString();
+                  }
+                }
+                return {
+                  season: ep.season_number,
+                  episode: ep.episode_number,
+                  airDate: epAirDate,
+                  notified: false
+                };
+              });
             }
           } catch {}
         }
@@ -420,19 +434,22 @@ export class AnimeService {
         // Create new Anime record
         await this.prisma.anime.upsert({
           where: { id: tmdbId },
-          update: {},
+          update: {
+            tipo: detectMediaType(generosDict, normalized.format),
+          },
           create: {
             id: tmdbId,
-            titulo: normalized.title.english || normalized.title.romaji,
+            titulo: normalized.title.english || normalized.title.romaji || 'Sem título',
             statusLancamento: normalized.status,
             descricao: normalized.description,
             generos: generosDict,
             capaUrl: normalized.coverImage.large,
             numEpisodiosTotal: normalized.episodes,
             temporada: normalized.season,
-            ano: normalized.seasonYear,
+            ano: normalized.seasonYear && !isNaN(normalized.seasonYear) ? normalized.seasonYear : null,
             paisOrigem: normalized.countryOfOrigin,
             formato: normalized.format,
+            tipo: detectMediaType(generosDict, normalized.format),
           },
         });
 
@@ -686,28 +703,30 @@ export class AnimeService {
         statusLancamento: tmdbData.status,
         linksExternos: null,
         proximoEpisodio: tmdbData.nextAiringEpisode?.episode,
-        proximoEpisodioData: tmdbData.nextAiringEpisode
+        proximoEpisodioData: tmdbData.nextAiringEpisode && tmdbData.nextAiringEpisode.airingAt && !isNaN(tmdbData.nextAiringEpisode.airingAt)
           ? new Date(tmdbData.nextAiringEpisode.airingAt * 1000)
           : null,
         generos: generosDict,
         paisOrigem: tmdbData.countryOfOrigin,
         formato: tmdbData.format,
+        tipo: detectMediaType(generosDict, tmdbData.format),
       },
       create: {
         id: tmdbData.id,
-        titulo: tmdbData.title.english || tmdbData.title.romaji,
+        titulo: tmdbData.title.english || tmdbData.title.romaji || 'Sem título',
         statusLancamento: tmdbData.status,
         descricao: tmdbData.description,
         generos: generosDict,
         capaUrl: tmdbData.coverImage.large,
         numEpisodiosTotal: tmdbData.episodes,
         temporada: tmdbData.season,
-        ano: tmdbData.seasonYear,
+        ano: tmdbData.seasonYear && !isNaN(tmdbData.seasonYear) ? tmdbData.seasonYear : null,
         paisOrigem: tmdbData.countryOfOrigin,
         formato: tmdbData.format,
+        tipo: detectMediaType(generosDict, tmdbData.format),
         linksExternos: null,
         proximoEpisodio: tmdbData.nextAiringEpisode?.episode,
-        proximoEpisodioData: tmdbData.nextAiringEpisode
+        proximoEpisodioData: tmdbData.nextAiringEpisode && tmdbData.nextAiringEpisode.airingAt && !isNaN(tmdbData.nextAiringEpisode.airingAt)
           ? new Date(tmdbData.nextAiringEpisode.airingAt * 1000)
           : null,
       },
@@ -2261,7 +2280,13 @@ export class AnimeService {
             globalCounter++;
             globalEpNum = globalCounter;
           }
-          const airDateVal = ep.air_date ? new Date(ep.air_date + "T12:00:00Z").toISOString() : null;
+          let airDateVal: string | null = null;
+          if (ep.air_date) {
+            const parsedDate = new Date(ep.air_date.includes('T') ? ep.air_date : ep.air_date + "T12:00:00Z");
+            if (!isNaN(parsedDate.getTime())) {
+              airDateVal = parsedDate.toISOString();
+            }
+          }
           const key = `${ep.season_number}-${ep.episode_number}`;
           const isNotified = existingNotifiedMap.get(key) || false;
 
@@ -2353,28 +2378,30 @@ export class AnimeService {
           statusLancamento: tmdbData.status,
           linksExternos: null,
           proximoEpisodio: tmdbData.nextAiringEpisode?.episode,
-          proximoEpisodioData: tmdbData.nextAiringEpisode
+          proximoEpisodioData: tmdbData.nextAiringEpisode && tmdbData.nextAiringEpisode.airingAt && !isNaN(tmdbData.nextAiringEpisode.airingAt)
             ? new Date(tmdbData.nextAiringEpisode.airingAt * 1000)
             : null,
           generos: generosDict,
           paisOrigem: tmdbData.countryOfOrigin,
           formato: tmdbData.format,
+          tipo: detectMediaType(generosDict, tmdbData.format),
         },
         create: {
           id: tmdbData.id,
-          titulo: tmdbData.title.english || tmdbData.title.romaji,
+          titulo: tmdbData.title.english || tmdbData.title.romaji || 'Sem título',
           statusLancamento: tmdbData.status,
           descricao: tmdbData.description,
           generos: generosDict,
           capaUrl: tmdbData.coverImage.large,
           numEpisodiosTotal: tmdbData.episodes,
           temporada: tmdbData.season,
-          ano: tmdbData.seasonYear,
+          ano: tmdbData.seasonYear && !isNaN(tmdbData.seasonYear) ? tmdbData.seasonYear : null,
           paisOrigem: tmdbData.countryOfOrigin,
           formato: tmdbData.format,
+          tipo: detectMediaType(generosDict, tmdbData.format),
           linksExternos: null,
           proximoEpisodio: tmdbData.nextAiringEpisode?.episode,
-          proximoEpisodioData: tmdbData.nextAiringEpisode
+          proximoEpisodioData: tmdbData.nextAiringEpisode && tmdbData.nextAiringEpisode.airingAt && !isNaN(tmdbData.nextAiringEpisode.airingAt)
             ? new Date(tmdbData.nextAiringEpisode.airingAt * 1000)
             : null,
         },

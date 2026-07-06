@@ -7,14 +7,16 @@ export class TMDBService {
 
   constructor() {
     if (!this.apiKey) {
-      this.logger.error('TMDB_API_KEY is not defined in the environment variables!');
+      this.logger.error(
+        'TMDB_API_KEY is not defined in the environment variables!',
+      );
     }
   }
 
   private get headers(): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'Accept': 'application/json',
+      Accept: 'application/json',
     };
     if (this.apiKey && this.apiKey.startsWith('eyJ')) {
       headers['Authorization'] = `Bearer ${this.apiKey}`;
@@ -22,17 +24,20 @@ export class TMDBService {
     return headers;
   }
 
-  private buildUrl(endpoint: string, params: Record<string, string> = {}): string {
+  private buildUrl(
+    endpoint: string,
+    params: Record<string, string> = {},
+  ): string {
     const url = new URL(`https://api.themoviedb.org/3${endpoint}`);
-    
+
     // If not using Bearer Token, add api_key parameter
     if (this.apiKey && !this.apiKey.startsWith('eyJ')) {
       url.searchParams.append('api_key', this.apiKey);
     }
-    
-    // Default language is Portuguese (PT) if not overridden
+
+    // Default language is English (US) if not overridden
     if (!params.language) {
-      url.searchParams.append('language', 'pt-PT');
+      url.searchParams.append('language', 'en-US');
     }
 
     for (const [key, val] of Object.entries(params)) {
@@ -40,11 +45,16 @@ export class TMDBService {
         url.searchParams.append(key, val);
       }
     }
-    
+
     return url.toString();
   }
 
-  private async fetchFromTMDB(endpoint: string, params: Record<string, string> = {}, retries = 3, delay = 500): Promise<any> {
+  private async fetchFromTMDB(
+    endpoint: string,
+    params: Record<string, string> = {},
+    retries = 3,
+    delay = 500,
+  ): Promise<any> {
     if (!this.apiKey) {
       throw new Error('TMDB_API_KEY is not configured');
     }
@@ -55,27 +65,44 @@ export class TMDBService {
         const response = await fetch(url, { headers: this.headers });
         if (response.status === 429) {
           const retryAfter = response.headers.get('Retry-After');
-          const waitTime = retryAfter ? parseInt(retryAfter, 10) * 1000 : delay * Math.pow(2, i);
-          this.logger.warn(`TMDB rate limit hit (429) on ${endpoint}. Waiting ${waitTime}ms before retry...`);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
+          const waitTime = retryAfter
+            ? parseInt(retryAfter, 10) * 1000
+            : delay * Math.pow(2, i);
+          this.logger.warn(
+            `TMDB rate limit hit (429) on ${endpoint}. Waiting ${waitTime}ms before retry...`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
           continue;
         }
         if (!response.ok) {
           if (response.status >= 500 && i < retries - 1) {
-            this.logger.warn(`TMDB server error (${response.status}) on ${endpoint}. Retrying in ${delay * Math.pow(2, i)}ms...`);
-            await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+            this.logger.warn(
+              `TMDB server error (${response.status}) on ${endpoint}. Retrying in ${delay * Math.pow(2, i)}ms...`,
+            );
+            await new Promise((resolve) =>
+              setTimeout(resolve, delay * Math.pow(2, i)),
+            );
             continue;
           }
-          throw new Error(`TMDB API error: ${response.status} ${response.statusText}`);
+          throw new Error(
+            `TMDB API error: ${response.status} ${response.statusText}`,
+          );
         }
         return await response.json();
       } catch (error: any) {
         if (i === retries - 1) {
-          this.logger.error(`Error fetching from TMDB endpoint ${endpoint} after ${retries} attempts:`, error);
+          this.logger.error(
+            `Error fetching from TMDB endpoint ${endpoint} after ${retries} attempts:`,
+            error,
+          );
           throw error;
         }
-        this.logger.warn(`Error fetching from TMDB endpoint ${endpoint} (attempt ${i + 1}/${retries}): ${error.message || error}. Retrying...`);
-        await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+        this.logger.warn(
+          `Error fetching from TMDB endpoint ${endpoint} (attempt ${i + 1}/${retries}): ${error.message || error}. Retrying...`,
+        );
+        await new Promise((resolve) =>
+          setTimeout(resolve, delay * Math.pow(2, i)),
+        );
       }
     }
   }
@@ -84,7 +111,11 @@ export class TMDBService {
    * Search for TV Shows or Movies on TMDB.
    * If type is multi, it searches both.
    */
-  async search(query: string, page: number = 1, language?: string): Promise<any[]> {
+  async search(
+    query: string,
+    page: number = 1,
+    language?: string,
+  ): Promise<any[]> {
     try {
       const results = await this.fetchFromTMDB('/search/multi', {
         query,
@@ -95,10 +126,16 @@ export class TMDBService {
       const mediaItems = results.results || [];
       // Filter only TV and Movie results, and sort by popularity desc
       return mediaItems
-        .filter((item: any) => item.media_type === 'tv' || item.media_type === 'movie')
+        .filter(
+          (item: any) =>
+            item.media_type === 'tv' || item.media_type === 'movie',
+        )
         .sort((a: any, b: any) => (b.popularity || 0) - (a.popularity || 0));
     } catch (error: any) {
-      this.logger.error(`TMDB search error: ${error.message || error}`, error.stack);
+      this.logger.error(
+        `TMDB search error: ${error.message || error}`,
+        error.stack,
+      );
       return [];
     }
   }
@@ -107,7 +144,9 @@ export class TMDBService {
    * Get TV Show details.
    */
   async getTVShowDetails(id: number): Promise<any> {
-    return this.fetchFromTMDB(`/tv/${id}`, { append_to_response: 'translations' });
+    return this.fetchFromTMDB(`/tv/${id}`, {
+      append_to_response: 'translations',
+    });
   }
 
   /**
@@ -121,7 +160,9 @@ export class TMDBService {
    * Get Movie details.
    */
   async getMovieDetails(id: number): Promise<any> {
-    return this.fetchFromTMDB(`/movie/${id}`, { append_to_response: 'translations' });
+    return this.fetchFromTMDB(`/movie/${id}`, {
+      append_to_response: 'translations',
+    });
   }
 
   /**
@@ -129,7 +170,8 @@ export class TMDBService {
    */
   async getKeywords(id: number, type: 'tv' | 'movie'): Promise<string[]> {
     try {
-      const endpoint = type === 'tv' ? `/tv/${id}/keywords` : `/movie/${id}/keywords`;
+      const endpoint =
+        type === 'tv' ? `/tv/${id}/keywords` : `/movie/${id}/keywords`;
       const response = await this.fetchFromTMDB(endpoint);
       const list = type === 'tv' ? response.results : response.keywords;
       if (list && Array.isArray(list)) {
@@ -137,7 +179,9 @@ export class TMDBService {
       }
       return [];
     } catch (error: any) {
-      this.logger.error(`Error fetching keywords for ${type} ID ${id}: ${error.message || error}`);
+      this.logger.error(
+        `Error fetching keywords for ${type} ID ${id}: ${error.message || error}`,
+      );
       return [];
     }
   }
@@ -159,7 +203,9 @@ export class TMDBService {
   /**
    * Find TV show or movie by TVDB ID.
    */
-  async findByTVDBId(tvdbId: number): Promise<{ id: number; type: 'tv' | 'movie' } | null> {
+  async findByTVDBId(
+    tvdbId: number,
+  ): Promise<{ id: number; type: 'tv' | 'movie' } | null> {
     try {
       const results = await this.fetchFromTMDB(`/find/${tvdbId}`, {
         external_source: 'tvdb_id',

@@ -248,7 +248,9 @@ export class UserService {
             capaUrl: metadata ? metadata.coverImage?.large : undefined,
             generos: metadata ? generosDict : undefined,
             descricao: metadata ? descricaoLimpa : undefined,
-            numEpisodiosTotal: metadata ? metadata.episodes : numEpisodiosFallback,
+            numEpisodiosTotal: metadata
+              ? metadata.episodes
+              : numEpisodiosFallback,
             paisOrigem: metadata ? metadata.countryOfOrigin : undefined,
             formato: metadata ? metadata.format : undefined,
             materialOrigem: metadata ? metadata.source : undefined,
@@ -262,7 +264,9 @@ export class UserService {
             capaUrl: metadata ? metadata.coverImage?.large : '',
             generos: generosDict,
             descricao: descricaoLimpa,
-            numEpisodiosTotal: metadata ? metadata.episodes : numEpisodiosFallback,
+            numEpisodiosTotal: metadata
+              ? metadata.episodes
+              : numEpisodiosFallback,
             paisOrigem: metadata ? metadata.countryOfOrigin : null,
             formato: metadata ? metadata.format : null,
             materialOrigem: metadata ? metadata.source : null,
@@ -317,7 +321,9 @@ export class UserService {
             capaUrl: metadata ? metadata.coverImage?.large : undefined,
             generos: metadata ? generosDict : undefined,
             descricao: metadata ? descricaoLimpa : undefined,
-            numCapitulosTotal: metadata ? metadata.chapters : numCapitulosFallback,
+            numCapitulosTotal: metadata
+              ? metadata.chapters
+              : numCapitulosFallback,
             paisOrigem: metadata ? metadata.countryOfOrigin : undefined,
             formato: metadata ? metadata.format : undefined,
             materialOrigem: metadata ? metadata.source : undefined,
@@ -331,7 +337,9 @@ export class UserService {
             capaUrl: metadata ? metadata.coverImage?.large : '',
             generos: generosDict,
             descricao: descricaoLimpa,
-            numCapitulosTotal: metadata ? metadata.chapters : numCapitulosFallback,
+            numCapitulosTotal: metadata
+              ? metadata.chapters
+              : numCapitulosFallback,
             paisOrigem: metadata ? metadata.countryOfOrigin : null,
             formato: metadata ? metadata.format : null,
             materialOrigem: metadata ? metadata.source : null,

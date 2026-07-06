@@ -506,11 +506,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               Progresso: <span className="font-bold text-primary">{tvTimeStatus.processed} / {tvTimeStatus.total}</span>
             </p>
           </div>
-
-          {/* Maximize Icon */}
-          <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center border border-white/5">
-            <span className="material-symbols-outlined text-xs text-gray-400 group-hover:text-white transition-colors">open_in_full</span>
-          </div>
         </div>
       )}
 

@@ -39,7 +39,7 @@ export class SyncService implements OnApplicationBootstrap {
   async handleLocalNotificationsCron() {
     this.logger.log('CRON Triggered: Checking local episode schedules...');
     const now = new Date();
-    
+
     const releasingAnimes = await this.prisma.anime.findMany({
       where: {
         statusLancamento: 'RELEASING',
@@ -50,10 +50,10 @@ export class SyncService implements OnApplicationBootstrap {
 
     for (const anime of releasingAnimes) {
       if (!anime.episodesList) continue;
-      
+
       const episodes = anime.episodesList as any[];
       let updated = false;
-      
+
       for (const ep of episodes) {
         if (ep.airDate) {
           const epDate = new Date(ep.airDate);
@@ -83,7 +83,9 @@ export class SyncService implements OnApplicationBootstrap {
 
             ep.notified = true;
             updated = true;
-            this.logger.log(`[LocalSync] Sent local notification for ${anime.titulo} Season ${ep.season} Ep ${ep.episodeNumber}`);
+            this.logger.log(
+              `[LocalSync] Sent local notification for ${anime.titulo} Season ${ep.season} Ep ${ep.episodeNumber}`,
+            );
           }
         }
       }
@@ -137,7 +139,29 @@ export class SyncService implements OnApplicationBootstrap {
 
     try {
       const animes = await this.prisma.anime.findMany({
-        where: { statusLancamento: 'RELEASING' },
+        where: {
+          OR: [
+            { statusLancamento: 'RELEASING' },
+            {
+              statusLancamento: {
+                notIn: ['FINISHED', 'CANCELLED', 'ENDED', 'CANCELED'],
+              },
+              utilizadores: {
+                some: {
+                  status: 'PLANNED',
+                },
+              },
+            },
+            {
+              statusLancamento: null,
+              utilizadores: {
+                some: {
+                  status: 'PLANNED',
+                },
+              },
+            },
+          ],
+        },
       });
       const mangas = await this.prisma.manga.findMany({
         where: { statusLancamento: 'RELEASING' },
@@ -145,7 +169,7 @@ export class SyncService implements OnApplicationBootstrap {
 
       this.totalItemsToSync = animes.length + mangas.length;
       this.logger.log(
-        `Found ${animes.length} Animes and ${mangas.length} Mangas in RELEASING status to sync.`,
+        `Found ${animes.length} Animes and ${mangas.length} Mangas to sync.`,
       );
 
       // Processar Animes em lotes de 3

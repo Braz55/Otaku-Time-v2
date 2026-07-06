@@ -168,11 +168,10 @@ const HomePage = () => {
         filteredAnimes = activeAnimes
           .filter(a => {
             if (a.status !== 'WATCHING') return false;
-            const status = a.anime?.statusLancamento || a.statusLancamento;
-            const proxEp = a.anime?.proximoEpisodio || a.proximoEpisodio;
             const numTotal = a.anime?.numEpisodiosTotal || a.numEpisodiosTotal;
-            const maxDisp = (status === 'RELEASING' && proxEp) ? proxEp - 1 : (numTotal || 9999);
-            return (a.epAtual || 0) < maxDisp;
+            const maxDisp = numTotal || 9999;
+            const currentGlobal = a.epAtualGlobal !== undefined ? a.epAtualGlobal : (a.epAtual || 0);
+            return currentGlobal < maxDisp;
           })
           .sort((a, b) => (a.prioridade || 999) - (b.prioridade || 999));
       }
@@ -568,7 +567,9 @@ const HomePage = () => {
                       const status = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
                       const proxNum = categoria === 'anime' ? (item.anime?.proximoEpisodio || item.proximoEpisodio) : (item.manga?.proximoCapituloNumero || item.proximoCapituloNumero);
                       const numTotal = categoria === 'anime' ? (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal) : (item.manga?.numCapitulosTotal || item.numCapitulosTotal);
-                      const total = (status === 'RELEASING' && proxNum) ? proxNum - 1 : (numTotal || 12);
+                      const total = categoria === 'anime'
+                        ? (numTotal || 12)
+                        : ((status === 'RELEASING' && proxNum) ? proxNum - 1 : (numTotal || 12));
                       const percent = typeof total === 'number' && total > 0 ? (currentGlobal / total) * 100 : 0;
                       
                       return (
@@ -644,7 +645,9 @@ const HomePage = () => {
                       const status = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
                       const proxNum = categoria === 'anime' ? (item.anime?.proximoEpisodio || item.proximoEpisodio) : (item.manga?.proximoCapituloNumero || item.proximoCapituloNumero);
                       const numTotal = categoria === 'anime' ? (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal) : (item.manga?.numCapitulosTotal || item.numCapitulosTotal);
-                      const total = (status === 'RELEASING' && proxNum) ? proxNum - 1 : (numTotal || 12);
+                      const total = categoria === 'anime'
+                        ? (numTotal || 12)
+                        : ((status === 'RELEASING' && proxNum) ? proxNum - 1 : (numTotal || 12));
                       const percent = typeof total === 'number' && total > 0 ? (currentGlobal / total) * 100 : 0;
                       
                       return (

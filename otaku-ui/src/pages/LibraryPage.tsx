@@ -63,16 +63,38 @@ const LibraryPage = () => {
   const resultadosDB = categoria === 'anime' ? animeLibraryData : mangaLibraryData;
   const [loading, setLoading] = useState(false);
 
-  const [filtroStatus, setFiltroStatus] = useState<string>('ALL');
-  const [filtroLancamento, setFiltroLancamento] = useState<string>('ALL');
-  const [ordenacao, setOrdenacao] = useState<string>('PRIORITY');
+  const navigatingToDetailsRef = useRef(false);
+
+  // Helper to load initial state synchronously from sessionStorage (only if coming from details)
+  const getInitialState = <T,>(key: string, defaultValue: T): T => {
+    const prevPath = sessionStorage.getItem('otaku_prev_path') || '';
+    const cameFromDetails = prevPath.startsWith('/details/');
+    if (!cameFromDetails) return defaultValue;
+
+    const saved = sessionStorage.getItem(`otaku_library_state_${categoria}`);
+    if (saved) {
+      try {
+        const state = JSON.parse(saved);
+        if (state[key] !== undefined) {
+          return state[key] as T;
+        }
+      } catch (e) {
+        console.error(`Error restoring state for ${key}:`, e);
+      }
+    }
+    return defaultValue;
+  };
+
+  const [filtroStatus, setFiltroStatus] = useState<string>(() => getInitialState('filtroStatus', 'WATCHING'));
+  const [filtroLancamento, setFiltroLancamento] = useState<string>(() => getInitialState('filtroLancamento', 'ALL'));
+  const [ordenacao, setOrdenacao] = useState<string>(() => getInitialState('ordenacao', 'PRIORITY'));
   const [showLancamentoMenu, setShowLancamentoMenu] = useState(false);
   const [showOrdemMenu, setShowOrdemMenu] = useState(false);
 
   // Genre/Tag selector states
   const [metadata, setMetadata] = useState<any[]>([]);
-  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedGenres, setSelectedGenres] = useState<string[]>(() => getInitialState('selectedGenres', []));
+  const [selectedTags, setSelectedTags] = useState<string[]>(() => getInitialState('selectedTags', []));
   const [pickerOpen, setPickerOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(24);
 
@@ -117,7 +139,7 @@ const LibraryPage = () => {
   // Save state on unmount
   useEffect(() => {
     return () => {
-      if (stateRef.current) {
+      if (stateRef.current && !navigatingToDetailsRef.current) {
         stateRef.current.scrollPosition = window.scrollY;
         const activeCat = prevCategoryRef.current || categoria;
         sessionStorage.setItem(`otaku_library_state_${activeCat}`, JSON.stringify(stateRef.current));
@@ -141,7 +163,7 @@ const LibraryPage = () => {
     if (saved) {
       try {
         const state = JSON.parse(saved);
-        setFiltroStatus(state.filtroStatus || 'ALL');
+        setFiltroStatus(state.filtroStatus || 'WATCHING');
         setFiltroLancamento(state.filtroLancamento || 'ALL');
         setOrdenacao(state.ordenacao || 'PRIORITY');
         setSelectedGenres(state.selectedGenres || []);
@@ -151,7 +173,7 @@ const LibraryPage = () => {
         console.error("Error restoring library state:", e);
       }
     } else {
-      setFiltroStatus('ALL');
+      setFiltroStatus('WATCHING');
       setFiltroLancamento('ALL');
       setOrdenacao('PRIORITY');
       setSelectedGenres([]);
@@ -170,6 +192,20 @@ const LibraryPage = () => {
       }, 100);
     }
   }, [resultadosDB]);
+
+  const handleNavigateToDetails = (itemId: number) => {
+    navigatingToDetailsRef.current = true;
+    const currentState = {
+      filtroStatus,
+      filtroLancamento,
+      ordenacao,
+      selectedGenres,
+      selectedTags,
+      scrollPosition: window.scrollY
+    };
+    sessionStorage.setItem(`otaku_library_state_${categoria}`, JSON.stringify(currentState));
+    navigate(`/details/${categoria}/${itemId}`);
+  };
 
   const getHeaders = () => ({
     'Content-Type': 'application/json',
@@ -272,7 +308,7 @@ const LibraryPage = () => {
     }
 
     if (selected) {
-      navigate(`/details/${categoria}/${selected.id}`);
+      handleNavigateToDetails(selected.id);
     }
   };
 
@@ -539,7 +575,7 @@ const LibraryPage = () => {
                   <div 
                     key={item.id} 
                     className="group cursor-pointer" 
-                    onClick={() => navigate(`/details/${categoria}/${item.id}`)}
+                    onClick={() => handleNavigateToDetails(item.id)}
                   >
                     <div className={`relative aspect-[2/3] rounded-3xl overflow-hidden shadow-xl transform transition-all duration-500 group-hover:scale-[1.03] group-hover:-translate-y-2 border border-white/10 ${categoria === 'anime' ? 'group-hover:border-secondary/60 group-hover:shadow-[0_0_30px_rgba(194,24,91,0.25)]' : 'group-hover:border-primary/60 group-hover:shadow-[0_0_30px_rgba(106,27,154,0.25)]'}`}>
                       <img src={coverUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={title} loading="lazy" />
@@ -606,7 +642,9 @@ const LibraryPage = () => {
 
                         {/* Progress Info & Bar */}
                         {(() => {
-                          const totalVal = (statusLancamento === 'RELEASING' && proxNum) ? proxNum - 1 : (numTotal || '?');
+                          const totalVal = categoria === 'anime'
+                            ? (numTotal || '?')
+                            : ((statusLancamento === 'RELEASING' && proxNum) ? proxNum - 1 : (numTotal || '?'));
                           const percentVal = typeof totalVal === 'number' && totalVal > 0 ? (currentGlobal / totalVal) * 100 : (currentGlobal > 0 ? ((currentGlobal / (currentGlobal + 1)) * 100) : 0);
                           return (
                             <div className="space-y-1.5 pt-1 border-t border-white/10">

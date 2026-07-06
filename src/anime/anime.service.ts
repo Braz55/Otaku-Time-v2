@@ -4,42 +4,42 @@ import { ListService } from '../list/list.service';
 import { TMDBService } from './tmdb.service';
 
 const TMDB_GENRE_MAP: Record<string, string[]> = {
-  'Ação': ['Action'],
+  Ação: ['Action'],
   'Ação e Aventura': ['Action', 'Adventure'],
   'Action & Adventure': ['Action', 'Adventure'],
-  'Aventura': ['Adventure'],
-  'Animação': ['Animation'],
-  'Animation': ['Animation'],
-  'Comédia': ['Comedy'],
-  'Comedy': ['Comedy'],
-  'Crime': ['Crime'],
-  'Documentário': ['Documentary'],
-  'Documentary': ['Documentary'],
-  'Drama': ['Drama'],
-  'Família': ['Family'],
-  'Family': ['Family'],
-  'Fantasia': ['Fantasy'],
-  'Fantasy': ['Fantasy'],
+  Aventura: ['Adventure'],
+  Animação: ['Animation'],
+  Animation: ['Animation'],
+  Comédia: ['Comedy'],
+  Comedy: ['Comedy'],
+  Crime: ['Crime'],
+  Documentário: ['Documentary'],
+  Documentary: ['Documentary'],
+  Drama: ['Drama'],
+  Família: ['Family'],
+  Family: ['Family'],
+  Fantasia: ['Fantasy'],
+  Fantasy: ['Fantasy'],
   'Ficção Científica': ['Sci-Fi'],
   'Ficção Científica e Fantasia': ['Sci-Fi', 'Fantasy'],
   'Sci-Fi & Fantasy': ['Sci-Fi', 'Fantasy'],
-  'História': ['History'],
-  'History': ['History'],
-  'Terror': ['Horror'],
-  'Horror': ['Horror'],
-  'Música': ['Music'],
-  'Music': ['Music'],
-  'Mistério': ['Mystery'],
-  'Mystery': ['Mystery'],
-  'Romance': ['Romance'],
-  'Suspense': ['Thriller'],
-  'Thriller': ['Thriller'],
-  'Guerra': ['War'],
-  'War': ['War'],
+  História: ['History'],
+  History: ['History'],
+  Terror: ['Horror'],
+  Horror: ['Horror'],
+  Música: ['Music'],
+  Music: ['Music'],
+  Mistério: ['Mystery'],
+  Mystery: ['Mystery'],
+  Romance: ['Romance'],
+  Suspense: ['Thriller'],
+  Thriller: ['Thriller'],
+  Guerra: ['War'],
+  War: ['War'],
   'Guerra e Política': ['War', 'Drama'],
   'War & Politics': ['War', 'Drama'],
-  'Faroeste': ['Western'],
-  'Western': ['Western']
+  Faroeste: ['Western'],
+  Western: ['Western'],
 };
 
 function buildGenerosDict(
@@ -81,28 +81,42 @@ function hasGenreOrTag(generos: any, target: string): boolean {
   return false;
 }
 
-function hasCJK(text: string | null | undefined): boolean {
+function hasNonLatin(text: string | null | undefined): boolean {
   if (!text) return false;
-  return /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]/.test(text);
+  // Detects Cyrillic, Greek, Hebrew, Arabic, Thai, Devanagari, Georgian, Armenian, and CJK (Chinese, Japanese, Korean) characters.
+  return /[\u0400-\u04FF\u0370-\u03FF\u0590-\u05FF\u0600-\u06FF\u0E00-\u0E7F\u0900-\u097F\u10A0-\u10FF\u0530-\u058F\u3000-\u9FFF\uAC00-\uD7AF\uFF00-\uFFEF]/.test(text);
 }
 
 function resolveLatinTitle(item: any, defaultTitle: string): string {
-  if (item && item.translations && Array.isArray(item.translations.translations)) {
-    const enTranslation = item.translations.translations.find((t: any) => t.iso_639_1 === 'en');
+  // If the default title is already in Latin script, use it directly
+  if (defaultTitle && !hasNonLatin(defaultTitle)) {
+    return defaultTitle;
+  }
+
+  if (
+    item &&
+    item.translations &&
+    Array.isArray(item.translations.translations)
+  ) {
+    const enTranslation = item.translations.translations.find(
+      (t: any) => t.iso_639_1 === 'en',
+    );
     const enName = enTranslation?.data?.name || enTranslation?.data?.title;
-    if (enName && !hasCJK(enName)) {
+    if (enName && !hasNonLatin(enName)) {
       return enName;
     }
-    
-    const ptTranslation = item.translations.translations.find((t: any) => t.iso_639_1 === 'pt');
+
+    const ptTranslation = item.translations.translations.find(
+      (t: any) => t.iso_639_1 === 'pt',
+    );
     const ptName = ptTranslation?.data?.name || ptTranslation?.data?.title;
-    if (ptName && !hasCJK(ptName)) {
+    if (ptName && !hasNonLatin(ptName)) {
       return ptName;
     }
 
     for (const t of item.translations.translations) {
       const name = t.data?.name || t.data?.title;
-      if (name && !hasCJK(name)) {
+      if (name && !hasNonLatin(name)) {
         return name;
       }
     }
@@ -116,64 +130,86 @@ async function resolveLatinTitleForSearchItem(
   defaultTitle: string,
   isMovie: boolean,
 ): Promise<string> {
-  // If the default title has CJK, or if we just want to ensure we get English if possible
-  if (hasCJK(defaultTitle)) {
-    try {
-      const details = isMovie 
-        ? await tmdbService.getMovieDetails(item.id)
-        : await tmdbService.getTVShowDetails(item.id);
-      if (details && details.translations && Array.isArray(details.translations.translations)) {
-        const enTranslation = details.translations.translations.find((t: any) => t.iso_639_1 === 'en');
-        const enName = enTranslation?.data?.name || enTranslation?.data?.title;
-        if (enName && !hasCJK(enName)) {
-          return enName;
-        }
+  // If the default title is already in Latin script, use it directly
+  if (defaultTitle && !hasNonLatin(defaultTitle)) {
+    return defaultTitle;
+  }
 
-        const ptTranslation = details.translations.translations.find((t: any) => t.iso_639_1 === 'pt');
-        const ptName = ptTranslation?.data?.name || ptTranslation?.data?.title;
-        if (ptName && !hasCJK(ptName)) {
-          return ptName;
-        }
+  try {
+    const details = isMovie
+      ? await tmdbService.getMovieDetails(item.id)
+      : await tmdbService.getTVShowDetails(item.id);
+    if (
+      details &&
+      details.translations &&
+      Array.isArray(details.translations.translations)
+    ) {
+      const enTranslation = details.translations.translations.find(
+        (t: any) => t.iso_639_1 === 'en',
+      );
+      const enName = enTranslation?.data?.name || enTranslation?.data?.title;
+      if (enName && !hasNonLatin(enName)) {
+        return enName;
+      }
 
-        for (const t of details.translations.translations) {
-          const name = t.data?.name || t.data?.title;
-          if (name && !hasCJK(name)) {
-            return name;
-          }
+      const ptTranslation = details.translations.translations.find(
+        (t: any) => t.iso_639_1 === 'pt',
+      );
+      const ptName = ptTranslation?.data?.name || ptTranslation?.data?.title;
+      if (ptName && !hasNonLatin(ptName)) {
+        return ptName;
+      }
+
+      for (const t of details.translations.translations) {
+        const name = t.data?.name || t.data?.title;
+        if (name && !hasNonLatin(name)) {
+          return name;
         }
       }
-    } catch {
-      // ignore
     }
+  } catch {
+    // ignore
   }
   return defaultTitle;
 }
 
-function normalizeTMDBToAniList(media: any, mediaTypeForce?: 'tv' | 'movie'): any {
+function normalizeTMDBToAniList(
+  media: any,
+  mediaTypeForce?: 'tv' | 'movie',
+): any {
   if (!media) return null;
-  const isMovie = mediaTypeForce === 'movie' || media.title !== undefined || media.media_type === 'movie';
-  
-  let title = isMovie ? (media.title || media.original_title) : (media.name || media.original_name);
+  const isMovie =
+    mediaTypeForce === 'movie' ||
+    media.title !== undefined ||
+    media.media_type === 'movie';
+
+  let title = isMovie
+    ? media.title || media.original_title
+    : media.name || media.original_name;
   title = resolveLatinTitle(media, title);
   const statusMap: Record<string, string> = {
     'Returning Series': 'RELEASING',
-    'Ended': 'FINISHED',
-    'Released': 'FINISHED',
+    Ended: 'FINISHED',
+    Released: 'FINISHED',
     'Post Production': 'RELEASING',
     'In Production': 'RELEASING',
   };
-  const status = statusMap[media.status] || (media.status ? media.status.toUpperCase() : 'FINISHED');
-  
+  const status =
+    statusMap[media.status] ||
+    (media.status ? media.status.toUpperCase() : 'FINISHED');
+
   const releaseDate = isMovie ? media.release_date : media.first_air_date;
   const parsedYear = releaseDate ? new Date(releaseDate).getFullYear() : null;
   const year = parsedYear && !isNaN(parsedYear) ? parsedYear : null;
-  
-  const posterPath = media.poster_path ? `https://image.tmdb.org/t/p/w500${media.poster_path}` : null;
+
+  const posterPath = media.poster_path
+    ? `https://image.tmdb.org/t/p/w500${media.poster_path}`
+    : null;
   const format = isMovie ? 'MOVIE' : 'TV';
 
   const genres = media.genres ? media.genres.map((g: any) => g.name) : [];
   const tipo = detectMediaType(genres, format);
-  
+
   return {
     id: media.id,
     title: {
@@ -184,38 +220,56 @@ function normalizeTMDBToAniList(media: any, mediaTypeForce?: 'tv' | 'movie'): an
     coverImage: {
       large: posterPath,
     },
-    averageScore: media.vote_average ? Math.round(media.vote_average * 10) : null,
+    averageScore: media.vote_average
+      ? Math.round(media.vote_average * 10)
+      : null,
     status,
     description: media.overview || 'Sem descrição.',
     genres,
     tags: [],
-    episodes: isMovie ? 1 : (media.number_of_episodes || null),
-    season: isMovie ? 'MOVIE' : (year ? 'YEAR' : null),
+    episodes: isMovie ? 1 : media.number_of_episodes || null,
+    season: isMovie ? 'MOVIE' : year ? 'YEAR' : null,
     seasonYear: year,
-    countryOfOrigin: media.origin_country ? media.origin_country[0] : (media.production_countries ? media.production_countries[0]?.iso_3166_1 : null),
+    countryOfOrigin: media.origin_country
+      ? media.origin_country[0]
+      : media.production_countries
+        ? media.production_countries[0]?.iso_3166_1
+        : null,
     format,
     tipo,
     source: 'TMDB',
     externalLinks: [],
-    nextAiringEpisode: media.next_episode_to_air && media.next_episode_to_air.air_date ? (() => {
-      const time = new Date(media.next_episode_to_air.air_date + "T12:00:00Z").getTime();
-      return isNaN(time) ? null : {
-        airingAt: Math.round(time / 1000),
-        episode: media.next_episode_to_air.episode_number,
-      };
-    })() : null,
+    nextAiringEpisode:
+      media.next_episode_to_air && media.next_episode_to_air.air_date
+        ? (() => {
+            const time = new Date(
+              media.next_episode_to_air.air_date + 'T12:00:00Z',
+            ).getTime();
+            return isNaN(time)
+              ? null
+              : {
+                  airingAt: Math.round(time / 1000),
+                  episode: media.next_episode_to_air.episode_number,
+                };
+          })()
+        : null,
     number_of_seasons: media.number_of_seasons || 1,
     seasons: media.seasons || [],
   };
 }
 
-function detectMediaType(genresJson: any, format?: string | null): 'ANIME' | 'SERIE' | 'FILME' {
+function detectMediaType(
+  genresJson: any,
+  format?: string | null,
+): 'ANIME' | 'SERIE' | 'FILME' {
   let isAnimation = false;
 
   if (genresJson) {
     let genresList: string[] = [];
     if (Array.isArray(genresJson)) {
-      genresList = genresJson.map((g: any) => typeof g === 'object' ? g.name : String(g));
+      genresList = genresJson.map((g: any) =>
+        typeof g === 'object' ? g.name : String(g),
+      );
     } else if (typeof genresJson === 'object') {
       genresList = Object.keys(genresJson);
     } else if (typeof genresJson === 'string') {
@@ -276,12 +330,15 @@ export class AnimeService {
     const bestMatch = results[0];
     const isMovie = bestMatch.media_type === 'movie';
     try {
-      const details = isMovie 
+      const details = isMovie
         ? await this.tmdbService.getMovieDetails(bestMatch.id)
         : await this.tmdbService.getTVShowDetails(bestMatch.id);
       return normalizeTMDBToAniList(details, isMovie ? 'movie' : 'tv');
     } catch (error: any) {
-      this.logger.error(`TMDB detail fetch error in searchAniList: ${error.message || error}`, error.stack);
+      this.logger.error(
+        `TMDB detail fetch error in searchAniList: ${error.message || error}`,
+        error.stack,
+      );
       return null;
     }
   }
@@ -290,12 +347,12 @@ export class AnimeService {
   async searchAniListById(id: number, userId?: number, format?: string) {
     let details: any = null;
     let isMovie = false;
-    
+
     const tryTV = async () => {
       details = await this.tmdbService.getTVShowDetails(id);
       isMovie = false;
     };
-    
+
     const tryMovie = async () => {
       details = await this.tmdbService.getMovieDetails(id);
       isMovie = true;
@@ -334,10 +391,14 @@ export class AnimeService {
           return null;
         }
 
-        this.logger.log(`[Migration] Detected AniList ID ${id} for "${localAnime.titulo}". Migrating to TMDB...`);
+        this.logger.log(
+          `[Migration] Detected AniList ID ${id} for "${localAnime.titulo}". Migrating to TMDB...`,
+        );
         const searchResults = await this.tmdbService.search(localAnime.titulo);
         if (searchResults.length === 0) {
-          this.logger.error(`[Migration] Could not find any TMDB match for "${localAnime.titulo}".`);
+          this.logger.error(
+            `[Migration] Could not find any TMDB match for "${localAnime.titulo}".`,
+          );
           return null;
         }
 
@@ -346,23 +407,29 @@ export class AnimeService {
         const isTV = bestMatch.media_type === 'tv';
 
         try {
-          details = isTV 
+          details = isTV
             ? await this.tmdbService.getTVShowDetails(tmdbId)
             : await this.tmdbService.getMovieDetails(tmdbId);
           isMovie = !isTV;
         } catch (e) {
-          this.logger.error(`[Migration] Failed to fetch details for new TMDB ID ${tmdbId}:`, e);
+          this.logger.error(
+            `[Migration] Failed to fetch details for new TMDB ID ${tmdbId}:`,
+            e,
+          );
           return null;
         }
 
         // Perform DB updates
-        const normalized = normalizeTMDBToAniList(details, isMovie ? 'movie' : 'tv');
+        const normalized = normalizeTMDBToAniList(
+          details,
+          isMovie ? 'movie' : 'tv',
+        );
         const generosDict: Record<string, number> = {};
         if (normalized.genres) {
           normalized.genres.forEach((g: string) => {
             const trimmed = g.trim();
             generosDict[trimmed] = 100;
-            
+
             const mapped = TMDB_GENRE_MAP[trimmed];
             if (mapped) {
               mapped.forEach((m) => {
@@ -382,7 +449,9 @@ export class AnimeService {
         }
 
         const isAnimation = normalized.genres?.some(
-          (g: string) => g.trim().toLowerCase() === 'animação' || g.trim().toLowerCase() === 'animation'
+          (g: string) =>
+            g.trim().toLowerCase() === 'animação' ||
+            g.trim().toLowerCase() === 'animation',
         );
         if (isAnimation) {
           generosDict['Animation'] = 100;
@@ -403,30 +472,44 @@ export class AnimeService {
             });
           }
         } catch (e) {
-          this.logger.error(`[Migration] Error fetching TMDB keywords for ID ${tmdbId}:`, e);
+          this.logger.error(
+            `[Migration] Error fetching TMDB keywords for ID ${tmdbId}:`,
+            e,
+          );
         }
 
         let proximosEpisodiosJson: any[] = [];
         if (!isMovie && details.number_of_seasons > 0) {
           try {
-            const latestSeason = details.seasons.filter((s: any) => s.season_number > 0).sort((a: any, b: any) => b.season_number - a.season_number)[0];
+            const latestSeason = details.seasons
+              .filter((s: any) => s.season_number > 0)
+              .sort((a: any, b: any) => b.season_number - a.season_number)[0];
             if (latestSeason) {
-              const seasonDetails = await this.tmdbService.getTVSeasonDetails(tmdbId, latestSeason.season_number);
-              proximosEpisodiosJson = (seasonDetails.episodes || []).map((ep: any) => {
-                let epAirDate: string | null = null;
-                if (ep.air_date) {
-                  const parsedDate = new Date(ep.air_date.includes('T') ? ep.air_date : ep.air_date + "T12:00:00Z");
-                  if (!isNaN(parsedDate.getTime())) {
-                    epAirDate = parsedDate.toISOString();
+              const seasonDetails = await this.tmdbService.getTVSeasonDetails(
+                tmdbId,
+                latestSeason.season_number,
+              );
+              proximosEpisodiosJson = (seasonDetails.episodes || []).map(
+                (ep: any) => {
+                  let epAirDate: string | null = null;
+                  if (ep.air_date) {
+                    const parsedDate = new Date(
+                      ep.air_date.includes('T')
+                        ? ep.air_date
+                        : ep.air_date + 'T12:00:00Z',
+                    );
+                    if (!isNaN(parsedDate.getTime())) {
+                      epAirDate = parsedDate.toISOString();
+                    }
                   }
-                }
-                return {
-                  season: ep.season_number,
-                  episode: ep.episode_number,
-                  airDate: epAirDate,
-                  notified: false
-                };
-              });
+                  return {
+                    season: ep.season_number,
+                    episode: ep.episode_number,
+                    airDate: epAirDate,
+                    notified: false,
+                  };
+                },
+              );
             }
           } catch {}
         }
@@ -439,14 +522,20 @@ export class AnimeService {
           },
           create: {
             id: tmdbId,
-            titulo: normalized.title.english || normalized.title.romaji || 'Sem título',
+            titulo:
+              normalized.title.english ||
+              normalized.title.romaji ||
+              'Sem título',
             statusLancamento: normalized.status,
             descricao: normalized.description,
             generos: generosDict,
             capaUrl: normalized.coverImage.large,
             numEpisodiosTotal: normalized.episodes,
             temporada: normalized.season,
-            ano: normalized.seasonYear && !isNaN(normalized.seasonYear) ? normalized.seasonYear : null,
+            ano:
+              normalized.seasonYear && !isNaN(normalized.seasonYear)
+                ? normalized.seasonYear
+                : null,
             paisOrigem: normalized.countryOfOrigin,
             formato: normalized.format,
             tipo: detectMediaType(generosDict, normalized.format),
@@ -457,8 +546,12 @@ export class AnimeService {
         await this.syncAnimeEpisodes(tmdbId, details.seasons);
 
         // Ensure Media rating exists
-        const averageScore = normalized.averageScore ? normalized.averageScore / 10 : 0;
-        const existingMedia = await this.prisma.media.findUnique({ where: { id: tmdbId } });
+        const averageScore = normalized.averageScore
+          ? normalized.averageScore / 10
+          : 0;
+        const existingMedia = await this.prisma.media.findUnique({
+          where: { id: tmdbId },
+        });
         if (!existingMedia) {
           await this.prisma.media.create({
             data: {
@@ -509,17 +602,22 @@ export class AnimeService {
         id = tmdbId;
       }
     }
-    
+
     const media = normalizeTMDBToAniList(details, isMovie ? 'movie' : 'tv');
     if (!media) return null;
-    
+
     if (!isMovie && details.number_of_seasons > 0) {
-      const latestSeason = details.seasons.filter((s: any) => s.season_number > 0).sort((a: any, b: any) => b.season_number - a.season_number)[0];
+      const latestSeason = details.seasons
+        .filter((s: any) => s.season_number > 0)
+        .sort((a: any, b: any) => b.season_number - a.season_number)[0];
       if (latestSeason) {
         try {
-          const seasonDetails = await this.tmdbService.getTVSeasonDetails(id, latestSeason.season_number);
+          const seasonDetails = await this.tmdbService.getTVSeasonDetails(
+            id,
+            latestSeason.season_number,
+          );
           const episodesList = seasonDetails.episodes || [];
-                    media.relations = {
+          media.relations = {
             edges: details.seasons
               .filter((s: any) => s.season_number >= 0)
               .map((s: any) => ({
@@ -530,17 +628,26 @@ export class AnimeService {
                   seasonNumber: s.season_number,
                   type: 'ANIME',
                   title: { english: s.name || `Temporada ${s.season_number}` },
-                  coverImage: { large: s.poster_path ? `https://image.tmdb.org/t/p/w500${s.poster_path}` : media.coverImage.large },
+                  coverImage: {
+                    large: s.poster_path
+                      ? `https://image.tmdb.org/t/p/w500${s.poster_path}`
+                      : media.coverImage.large,
+                  },
                   episodes: s.episode_count,
                   season: s.name,
-                  seasonYear: s.air_date ? new Date(s.air_date).getFullYear() : null,
+                  seasonYear: s.air_date
+                    ? new Date(s.air_date).getFullYear()
+                    : null,
                   status: media.status,
-                  format: 'TV_SEASON'
-                }
-              }))
+                  format: 'TV_SEASON',
+                },
+              })),
           };
         } catch (e) {
-          this.logger.error(`Error fetching season details for TV ID ${id}:`, e);
+          this.logger.error(
+            `Error fetching season details for TV ID ${id}:`,
+            e,
+          );
         }
       }
     }
@@ -549,7 +656,7 @@ export class AnimeService {
       const userAnimes = await this.prisma.userAnime.findMany({
         where: { userId },
       });
-      
+
       const matched = userAnimes.find((ua) => ua.animeId === id);
       media.libraryInfo = matched
         ? {
@@ -561,7 +668,7 @@ export class AnimeService {
             watchedSpecials: matched.watchedSpecials || [],
           }
         : null;
-        
+
       if (media.relations && media.relations.edges) {
         media.relations.edges = media.relations.edges.map((edge: any) => {
           return {
@@ -574,15 +681,16 @@ export class AnimeService {
                     status: matched.status,
                     seasonAtual: matched.seasonAtual,
                     epAtual: matched.epAtual,
-                    isCurrentSeason: matched.seasonAtual === edge.node.seasonNumber
+                    isCurrentSeason:
+                      matched.seasonAtual === edge.node.seasonNumber,
                   }
-                : null
-            }
+                : null,
+            },
           };
         });
       }
     }
-    
+
     const localAnimeRecord = await this.prisma.anime.findUnique({
       where: { id },
     });
@@ -616,7 +724,13 @@ export class AnimeService {
       const userAnime = await this.prisma.userAnime.upsert({
         where: { userId_animeId: { userId, animeId: anime.id } },
         update: {},
-        create: { userId, animeId: anime.id, status: 'PLANNED', epAtual: 0, seasonAtual: 1 },
+        create: {
+          userId,
+          animeId: anime.id,
+          status: 'PLANNED',
+          epAtual: 0,
+          seasonAtual: 1,
+        },
         include: { anime: true },
       });
 
@@ -634,7 +748,7 @@ export class AnimeService {
     const tmdbData = tmdbId
       ? await this.searchAniListById(tmdbId, userId, format)
       : await this.searchAniList(nomeAnime, userId);
-      
+
     if (!tmdbData) throw new Error('Conteúdo não encontrado no TMDB');
 
     const generosDict: Record<string, number> = {};
@@ -642,7 +756,7 @@ export class AnimeService {
       tmdbData.genres.forEach((g: string) => {
         const trimmed = g.trim();
         generosDict[trimmed] = 100;
-        
+
         const mapped = TMDB_GENRE_MAP[trimmed];
         if (mapped) {
           mapped.forEach((m) => {
@@ -662,7 +776,9 @@ export class AnimeService {
     }
 
     const isAnimation = tmdbData.genres?.some(
-      (g: string) => g.trim().toLowerCase() === 'animação' || g.trim().toLowerCase() === 'animation'
+      (g: string) =>
+        g.trim().toLowerCase() === 'animação' ||
+        g.trim().toLowerCase() === 'animation',
     );
     if (isAnimation) {
       generosDict['Animation'] = 100;
@@ -703,9 +819,12 @@ export class AnimeService {
         statusLancamento: tmdbData.status,
         linksExternos: null,
         proximoEpisodio: tmdbData.nextAiringEpisode?.episode,
-        proximoEpisodioData: tmdbData.nextAiringEpisode && tmdbData.nextAiringEpisode.airingAt && !isNaN(tmdbData.nextAiringEpisode.airingAt)
-          ? new Date(tmdbData.nextAiringEpisode.airingAt * 1000)
-          : null,
+        proximoEpisodioData:
+          tmdbData.nextAiringEpisode &&
+          tmdbData.nextAiringEpisode.airingAt &&
+          !isNaN(tmdbData.nextAiringEpisode.airingAt)
+            ? new Date(tmdbData.nextAiringEpisode.airingAt * 1000)
+            : null,
         generos: generosDict,
         paisOrigem: tmdbData.countryOfOrigin,
         formato: tmdbData.format,
@@ -720,15 +839,21 @@ export class AnimeService {
         capaUrl: tmdbData.coverImage.large,
         numEpisodiosTotal: tmdbData.episodes,
         temporada: tmdbData.season,
-        ano: tmdbData.seasonYear && !isNaN(tmdbData.seasonYear) ? tmdbData.seasonYear : null,
+        ano:
+          tmdbData.seasonYear && !isNaN(tmdbData.seasonYear)
+            ? tmdbData.seasonYear
+            : null,
         paisOrigem: tmdbData.countryOfOrigin,
         formato: tmdbData.format,
         tipo: detectMediaType(generosDict, tmdbData.format),
         linksExternos: null,
         proximoEpisodio: tmdbData.nextAiringEpisode?.episode,
-        proximoEpisodioData: tmdbData.nextAiringEpisode && tmdbData.nextAiringEpisode.airingAt && !isNaN(tmdbData.nextAiringEpisode.airingAt)
-          ? new Date(tmdbData.nextAiringEpisode.airingAt * 1000)
-          : null,
+        proximoEpisodioData:
+          tmdbData.nextAiringEpisode &&
+          tmdbData.nextAiringEpisode.airingAt &&
+          !isNaN(tmdbData.nextAiringEpisode.airingAt)
+            ? new Date(tmdbData.nextAiringEpisode.airingAt * 1000)
+            : null,
       },
     });
 
@@ -755,7 +880,13 @@ export class AnimeService {
     const userAnime = await this.prisma.userAnime.upsert({
       where: { userId_animeId: { userId, animeId: anime.id } },
       update: {},
-      create: { userId, animeId: anime.id, status: 'PLANNED', epAtual: 0, seasonAtual: 1 },
+      create: {
+        userId,
+        animeId: anime.id,
+        status: 'PLANNED',
+        epAtual: 0,
+        seasonAtual: 1,
+      },
       include: { anime: true },
     });
 
@@ -800,15 +931,12 @@ export class AnimeService {
     try {
       const existingAnime = await this.prisma.anime.findUnique({
         where: { id: animeId },
-        select: { formato: true }
+        select: { formato: true },
       });
       const format = existingAnime?.formato || undefined;
       const tmdbData = await this.searchAniListById(animeId, userId, format);
       if (tmdbData) {
-        const generosDict = buildGenerosDict(
-          tmdbData.genres,
-          undefined,
-        );
+        const generosDict = buildGenerosDict(tmdbData.genres, undefined);
 
         let details: any = null;
         if (tmdbData.format === 'TV') {
@@ -837,7 +965,9 @@ export class AnimeService {
           await this.syncAnimeEpisodes(animeId, details.seasons);
         }
 
-        const averageScore = tmdbData.averageScore ? tmdbData.averageScore / 10 : 0;
+        const averageScore = tmdbData.averageScore
+          ? tmdbData.averageScore / 10
+          : 0;
         const existingMedia = await this.prisma.media.findUnique({
           where: { id: animeId },
         });
@@ -867,40 +997,51 @@ export class AnimeService {
 
   async searchAnimeList(nomeAnime: string, page: number = 1, userId?: number) {
     const results = await this.tmdbService.search(nomeAnime, page, 'en-US');
-    
-    return Promise.all(results.map(async (item: any) => {
-      const isMovie = item.media_type === 'movie';
-      let title = isMovie ? (item.title || item.original_title) : (item.name || item.original_name);
-      title = await resolveLatinTitleForSearchItem(this.tmdbService, item, title, isMovie);
-      const posterPath = item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null;
-      
-      const statusMap: Record<string, string> = {
-        'Returning Series': 'RELEASING',
-        'Ended': 'FINISHED',
-        'Released': 'FINISHED',
-      };
-      const status = statusMap[item.status] || 'FINISHED';
 
-      const isAnimation = item.genre_ids?.includes(16);
-      let detectedType: 'ANIME' | 'SERIE' | 'FILME' = 'ANIME';
-      if (!isAnimation) {
-        detectedType = isMovie ? 'FILME' : 'SERIE';
-      }
+    return Promise.all(
+      results.map(async (item: any) => {
+        const isMovie = item.media_type === 'movie';
+        let title = isMovie
+          ? item.title || item.original_title
+          : item.name || item.original_name;
+        title = await resolveLatinTitleForSearchItem(
+          this.tmdbService,
+          item,
+          title,
+          isMovie,
+        );
+        const posterPath = item.poster_path
+          ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
+          : null;
 
-      return {
-        id: item.id,
-        title: {
-          romaji: title,
-          english: title,
-        },
-        coverImage: {
-          large: posterPath,
-        },
-        status,
-        format: isMovie ? 'MOVIE' : 'TV',
-        tipo: detectedType,
-      };
-    }));
+        const statusMap: Record<string, string> = {
+          'Returning Series': 'RELEASING',
+          Ended: 'FINISHED',
+          Released: 'FINISHED',
+        };
+        const status = statusMap[item.status] || 'FINISHED';
+
+        const isAnimation = item.genre_ids?.includes(16);
+        let detectedType: 'ANIME' | 'SERIE' | 'FILME' = 'ANIME';
+        if (!isAnimation) {
+          detectedType = isMovie ? 'FILME' : 'SERIE';
+        }
+
+        return {
+          id: item.id,
+          title: {
+            romaji: title,
+            english: title,
+          },
+          coverImage: {
+            large: posterPath,
+          },
+          status,
+          format: isMovie ? 'MOVIE' : 'TV',
+          tipo: detectedType,
+        };
+      }),
+    );
   }
 
   async findAll(userId: number, status?: string) {
@@ -909,7 +1050,9 @@ export class AnimeService {
       const statusArr = status
         .split(',')
         .map((s) => s.trim().toUpperCase())
-        .filter((s) => ['WATCHING', 'PLANNED', 'COMPLETED', 'PAUSED', 'DROPPED'].includes(s));
+        .filter((s) =>
+          ['WATCHING', 'PLANNED', 'COMPLETED', 'PAUSED', 'DROPPED'].includes(s),
+        );
       if (statusArr.length > 0) {
         whereClause.status = { in: statusArr };
       }
@@ -927,7 +1070,11 @@ export class AnimeService {
 
     return list.map((item) => {
       const rating = ratingMap.get(item.animeId);
-      const epLocal = this.getLocalEpisodeNumber(item.anime, item.seasonAtual, item.epAtual);
+      const epLocal = this.getLocalEpisodeNumber(
+        item.anime,
+        item.seasonAtual,
+        item.epAtual,
+      );
       const totalEpisodes = this.getTotalEpisodes(item.anime);
       return {
         id: item.id,
@@ -969,7 +1116,11 @@ export class AnimeService {
     const rating = await this.prisma.media.findUnique({
       where: { id: item.animeId },
     });
-    const epLocal = this.getLocalEpisodeNumber(item.anime, item.seasonAtual, item.epAtual);
+    const epLocal = this.getLocalEpisodeNumber(
+      item.anime,
+      item.seasonAtual,
+      item.epAtual,
+    );
     const totalEpisodes = this.getTotalEpisodes(item.anime);
     return {
       id: item.id,
@@ -1048,21 +1199,35 @@ export class AnimeService {
           ? atual.anime.proximoEpisodio - 1
           : totalEpisodes || atual.epAtual;
       novosDados.epAtual = totalDisponivel;
-      const mapped = this.getSeasonAndEpisodeFromGlobal(atual.anime, totalDisponivel);
+      const mapped = this.getSeasonAndEpisodeFromGlobal(
+        atual.anime,
+        totalDisponivel,
+      );
       novosDados.seasonAtual = mapped.season;
     }
 
     if (updateDto.epAtual !== undefined) {
-      const incomingSeason = updateDto.seasonAtual !== undefined ? updateDto.seasonAtual : atual.seasonAtual;
+      const incomingSeason =
+        updateDto.seasonAtual !== undefined
+          ? updateDto.seasonAtual
+          : atual.seasonAtual;
       const incomingEp = updateDto.epAtual;
-      
-      const globalEp = this.getGlobalEpisodeNumber(atual.anime, incomingSeason, incomingEp);
-      const { season, episode } = this.getSeasonAndEpisodeFromGlobal(atual.anime, globalEp);
-      
+
+      const globalEp = this.getGlobalEpisodeNumber(
+        atual.anime,
+        incomingSeason,
+        incomingEp,
+      );
+      const { season, episode } = this.getSeasonAndEpisodeFromGlobal(
+        atual.anime,
+        globalEp,
+      );
+
       novosDados.seasonAtual = season;
       novosDados.epAtual = globalEp;
 
-      if (atual.status === 'PLANNED' && globalEp > 0) novosDados.status = 'WATCHING';
+      if (atual.status === 'PLANNED' && globalEp > 0)
+        novosDados.status = 'WATCHING';
       if (
         atual.status === 'COMPLETED' &&
         totalEpisodes &&
@@ -1077,7 +1242,10 @@ export class AnimeService {
       ) {
         novosDados.status = 'COMPLETED';
         novosDados.epAtual = totalEpisodes;
-        const lastState = this.getSeasonAndEpisodeFromGlobal(atual.anime, totalEpisodes);
+        const lastState = this.getSeasonAndEpisodeFromGlobal(
+          atual.anime,
+          totalEpisodes,
+        );
         novosDados.seasonAtual = lastState.season;
       }
     }
@@ -1100,7 +1268,11 @@ export class AnimeService {
     const rating = await this.prisma.media.findUnique({
       where: { id: updated.animeId },
     });
-    const epLocal = this.getLocalEpisodeNumber(updated.anime, updated.seasonAtual, updated.epAtual);
+    const epLocal = this.getLocalEpisodeNumber(
+      updated.anime,
+      updated.seasonAtual,
+      updated.epAtual,
+    );
     const totalEpisodesUpdated = this.getTotalEpisodes(updated.anime);
     return {
       id: updated.id,
@@ -1151,15 +1323,15 @@ export class AnimeService {
 
   async searchByGenre(genre: string, page: number = 1, userId?: number) {
     const tvGenreMap: Record<string, number> = {
-      'Action': 10759,
-      'Adventure': 10759,
-      'Comedy': 35,
-      'Drama': 18,
-      'Fantasy': 10765,
+      Action: 10759,
+      Adventure: 10759,
+      Comedy: 35,
+      Drama: 18,
+      Fantasy: 10765,
       'Sci-Fi': 10765,
-      'Mystery': 9648,
+      Mystery: 9648,
     };
-    
+
     const genreId = tvGenreMap[genre] || 16; // Fallback to Animation (16)
     try {
       const results = await this.tmdbService.discoverTV({
@@ -1167,11 +1339,13 @@ export class AnimeService {
         page: page.toString(),
         sort_by: 'popularity.desc',
       });
-      
+
       const mediaItems = results.results || [];
       return mediaItems.map((item: any) => {
         const title = item.name || item.original_name;
-        const posterPath = item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null;
+        const posterPath = item.poster_path
+          ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
+          : null;
         return {
           id: item.id,
           title: { english: title, romaji: title },
@@ -1181,7 +1355,10 @@ export class AnimeService {
         };
       });
     } catch (error: any) {
-      this.logger.error(`TMDB genre search error: ${error.message || error}`, error.stack);
+      this.logger.error(
+        `TMDB genre search error: ${error.message || error}`,
+        error.stack,
+      );
       return [];
     }
   }
@@ -1192,7 +1369,11 @@ export class AnimeService {
     });
     if (!dbAnime) return { latest: null };
 
-    const media = await this.searchAniListById(tmdbId, undefined, dbAnime.formato || undefined);
+    const media = await this.searchAniListById(
+      tmdbId,
+      undefined,
+      dbAnime.formato || undefined,
+    );
     if (!media) return { latest: null };
     if (!dbAnime) return { latest: null };
 
@@ -1233,7 +1414,7 @@ export class AnimeService {
     let episodesUpdated = false;
     const now = new Date();
     let notificationCount = 0;
-    
+
     const userAnimes = await this.prisma.userAnime.findMany({
       where: {
         animeId: tmdbId,
@@ -1270,12 +1451,20 @@ export class AnimeService {
       });
     }
 
-    return { latest: episodes, source: 'TMDB', notificationsSent: notificationCount };
+    return {
+      latest: episodes,
+      source: 'TMDB',
+      notificationsSent: notificationCount,
+    };
   }
 
   getGlobalEpisodeNumber(anime: any, season: number, episode: number): number {
     if (!anime) return episode;
-    if (anime.episodesList && Array.isArray(anime.episodesList) && anime.episodesList.length > 0) {
+    if (
+      anime.episodesList &&
+      Array.isArray(anime.episodesList) &&
+      anime.episodesList.length > 0
+    ) {
       const sorted = (anime.episodesList as any[])
         .filter((ep) => ep.season > 0)
         .sort((a, b) => {
@@ -1289,7 +1478,9 @@ export class AnimeService {
         return index + 1;
       }
       let sum = 0;
-      const seasons = Array.from(new Set(sorted.map((ep) => ep.season))).sort((a, b) => a - b);
+      const seasons = Array.from(new Set(sorted.map((ep) => ep.season))).sort(
+        (a, b) => a - b,
+      );
       for (const s of seasons) {
         if (s < season) {
           sum += sorted.filter((ep) => ep.season === s).length;
@@ -1300,18 +1491,25 @@ export class AnimeService {
     return episode;
   }
 
-  getSeasonAndEpisodeFromGlobal(anime: any, globalEp: number): { season: number; episode: number } {
+  getSeasonAndEpisodeFromGlobal(
+    anime: any,
+    globalEp: number,
+  ): { season: number; episode: number } {
     if (!anime) return { season: 1, episode: globalEp };
     if (globalEp <= 0) return { season: 1, episode: 0 };
-    
-    if (anime.episodesList && Array.isArray(anime.episodesList) && anime.episodesList.length > 0) {
+
+    if (
+      anime.episodesList &&
+      Array.isArray(anime.episodesList) &&
+      anime.episodesList.length > 0
+    ) {
       const sorted = (anime.episodesList as any[])
         .filter((ep) => ep.season > 0)
         .sort((a, b) => {
           if (a.season !== b.season) return a.season - b.season;
           return a.episodeNumber - b.episodeNumber;
         });
-      
+
       if (sorted.length > 0) {
         if (globalEp <= sorted.length) {
           const targetEp = sorted[globalEp - 1];
@@ -1327,14 +1525,18 @@ export class AnimeService {
 
   getLocalEpisodeNumber(anime: any, season: number, globalEp: number): number {
     if (!anime) return globalEp;
-    if (anime.episodesList && Array.isArray(anime.episodesList) && anime.episodesList.length > 0) {
+    if (
+      anime.episodesList &&
+      Array.isArray(anime.episodesList) &&
+      anime.episodesList.length > 0
+    ) {
       const sorted = (anime.episodesList as any[])
         .filter((ep) => ep.season > 0)
         .sort((a, b) => {
           if (a.season !== b.season) return a.season - b.season;
           return a.episodeNumber - b.episodeNumber;
         });
-      
+
       let previousEpisodesSum = 0;
       let currentSeasonCount = 0;
       for (const ep of sorted) {
@@ -1344,10 +1546,11 @@ export class AnimeService {
           currentSeasonCount++;
         }
       }
-      
+
       const localEp = globalEp - previousEpisodesSum;
       if (localEp < 0) return 0;
-      if (currentSeasonCount > 0 && localEp > currentSeasonCount) return currentSeasonCount;
+      if (currentSeasonCount > 0 && localEp > currentSeasonCount)
+        return currentSeasonCount;
       return localEp;
     }
     return globalEp;
@@ -1355,8 +1558,13 @@ export class AnimeService {
 
   getTotalEpisodes(anime: any): number {
     if (!anime) return 0;
-    if (anime.episodesList && Array.isArray(anime.episodesList) && anime.episodesList.length > 0) {
-      return anime.episodesList.filter((ep: any) => ep.season > 0).length;
+    if (
+      anime.episodesList &&
+      Array.isArray(anime.episodesList) &&
+      anime.episodesList.length > 0
+    ) {
+      const now = new Date();
+      return anime.episodesList.filter((ep: any) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now).length;
     }
     return anime.numEpisodiosTotal || 0;
   }
@@ -1654,7 +1862,9 @@ export class AnimeService {
         include: { anime: true },
       });
       userLibraryIds = new Set<number>(userAnimes.map((ua) => ua.animeId));
-      userLibraryTitles = new Set<string>(userAnimes.map((ua) => ua.anime?.titulo?.toLowerCase() || ''));
+      userLibraryTitles = new Set<string>(
+        userAnimes.map((ua) => ua.anime?.titulo?.toLowerCase() || ''),
+      );
       userInteractedItems = userAnimes.map((ua) => ({
         generos: ua.anime?.generos,
         status: ua.status,
@@ -2060,28 +2270,28 @@ export class AnimeService {
 
     if (type === 'ANIME') {
       const tvGenreMap: Record<string, number> = {
-        'Action': 10759,
-        'Adventure': 10759,
-        'Comedy': 35,
-        'Drama': 18,
-        'Fantasy': 10765,
+        Action: 10759,
+        Adventure: 10759,
+        Comedy: 35,
+        Drama: 18,
+        Fantasy: 10765,
         'Sci-Fi': 10765,
-        'Mystery': 9648,
+        Mystery: 9648,
       };
-      
+
       const isMovieFormat = format === 'MOVIE';
       const params: Record<string, string> = {
         page: page.toString(),
         language: 'en-US',
       };
-      
+
       if (genres && genres.length > 0) {
         const genreId = tvGenreMap[genres[0]];
         if (genreId) {
           params.with_genres = genreId.toString();
         }
       }
-      
+
       if (year) {
         if (isMovieFormat) {
           params.primary_release_year = year.toString();
@@ -2089,39 +2299,50 @@ export class AnimeService {
           params.first_air_date_year = year.toString();
         }
       }
-      
+
       if (sort === 'POPULARITY_DESC' || sort === 'TRENDING_DESC') {
         params.sort_by = 'popularity.desc';
       } else if (sort === 'SCORE_DESC') {
         params.sort_by = 'vote_average.desc';
       }
-      
+
       try {
-        const results = isMovieFormat 
+        const results = isMovieFormat
           ? await this.tmdbService.discoverMovies(params)
           : await this.tmdbService.discoverTV(params);
-        
-        const mediaItems = results.results || [];
-        return Promise.all(mediaItems.map(async (item: any) => {
-          let title = isMovieFormat ? (item.title || item.original_title) : (item.name || item.original_name);
-          title = await resolveLatinTitleForSearchItem(this.tmdbService, item, title, isMovieFormat);
-          const posterPath = item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null;
-          const isAnimation = item.genre_ids?.includes(16);
-          let detectedType: 'ANIME' | 'SERIE' | 'FILME' = 'ANIME';
-          if (!isAnimation) {
-            detectedType = isMovieFormat ? 'FILME' : 'SERIE';
-          }
 
-          return {
-            id: item.id,
-            title: { english: title, romaji: title },
-            coverImage: { large: posterPath },
-            genres: genres || [],
-            format: isMovieFormat ? 'MOVIE' : 'TV',
-            status: 'FINISHED',
-            tipo: detectedType,
-          };
-        }));
+        const mediaItems = results.results || [];
+        return Promise.all(
+          mediaItems.map(async (item: any) => {
+            let title = isMovieFormat
+              ? item.title || item.original_title
+              : item.name || item.original_name;
+            title = await resolveLatinTitleForSearchItem(
+              this.tmdbService,
+              item,
+              title,
+              isMovieFormat,
+            );
+            const posterPath = item.poster_path
+              ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
+              : null;
+            const isAnimation = item.genre_ids?.includes(16);
+            let detectedType: 'ANIME' | 'SERIE' | 'FILME' = 'ANIME';
+            if (!isAnimation) {
+              detectedType = isMovieFormat ? 'FILME' : 'SERIE';
+            }
+
+            return {
+              id: item.id,
+              title: { english: title, romaji: title },
+              coverImage: { large: posterPath },
+              genres: genres || [],
+              format: isMovieFormat ? 'MOVIE' : 'TV',
+              status: 'FINISHED',
+              tipo: detectedType,
+            };
+          }),
+        );
       } catch (error) {
         this.logger.error('Error in TMDB explore discover:', error);
         return [];
@@ -2234,7 +2455,9 @@ export class AnimeService {
         where: { id: animeId },
       });
       if (!anime) {
-        this.logger.warn(`Anime ID ${animeId} not found in DB, skipping episodes sync.`);
+        this.logger.warn(
+          `Anime ID ${animeId} not found in DB, skipping episodes sync.`,
+        );
         return;
       }
 
@@ -2248,32 +2471,43 @@ export class AnimeService {
             existingNotifiedMap.set(key, !!ep.notified);
           });
         } catch (e) {
-          this.logger.error(`Error parsing existing episodes list for anime ID ${animeId}:`, e);
+          this.logger.error(
+            `Error parsing existing episodes list for anime ID ${animeId}:`,
+            e,
+          );
         }
       }
 
       const activeSeasons = (detailsSeasons || [])
         .filter((s: any) => s.season_number >= 0)
         .sort((a: any, b: any) => a.season_number - b.season_number);
-        
+
       let globalCounter = 0;
       const episodesList: any[] = [];
-      
+
       for (const season of activeSeasons) {
         let seasonDetails: any = null;
         try {
-          seasonDetails = await this.tmdbService.getTVSeasonDetails(animeId, season.season_number);
+          seasonDetails = await this.tmdbService.getTVSeasonDetails(
+            animeId,
+            season.season_number,
+          );
           // Pequeno delay entre temporadas para evitar sobrecarregar a API
           await new Promise((resolve) => setTimeout(resolve, 150));
         } catch (err) {
-          this.logger.error(`Error fetching season ${season.season_number} details for TV ID ${animeId}:`, err);
+          this.logger.error(
+            `Error fetching season ${season.season_number} details for TV ID ${animeId}:`,
+            err,
+          );
           continue;
         }
-        
+
         if (!seasonDetails || !seasonDetails.episodes) continue;
-        
-        const sortedEpisodes = [...seasonDetails.episodes].sort((a: any, b: any) => a.episode_number - b.episode_number);
-        
+
+        const sortedEpisodes = [...seasonDetails.episodes].sort(
+          (a: any, b: any) => a.episode_number - b.episode_number,
+        );
+
         for (const ep of sortedEpisodes) {
           let globalEpNum: number | null = null;
           if (season.season_number > 0) {
@@ -2282,7 +2516,11 @@ export class AnimeService {
           }
           let airDateVal: string | null = null;
           if (ep.air_date) {
-            const parsedDate = new Date(ep.air_date.includes('T') ? ep.air_date : ep.air_date + "T12:00:00Z");
+            const parsedDate = new Date(
+              ep.air_date.includes('T')
+                ? ep.air_date
+                : ep.air_date + 'T12:00:00Z',
+            );
             if (!isNaN(parsedDate.getTime())) {
               airDateVal = parsedDate.toISOString();
             }
@@ -2296,25 +2534,105 @@ export class AnimeService {
             globalEpisodeNumber: globalEpNum,
             name: ep.name || null,
             airDate: airDateVal,
-            stillPath: ep.still_path ? `https://image.tmdb.org/t/p/w300${ep.still_path}` : null,
+            stillPath: ep.still_path
+              ? `https://image.tmdb.org/t/p/w300${ep.still_path}`
+              : null,
             notified: isNotified,
           });
         }
       }
-      
+
       await this.prisma.anime.update({
         where: { id: animeId },
         data: { episodesList },
       });
 
-      this.logger.log(`Successfully synced ${globalCounter} episodes in JSON for anime ID ${animeId}`);
+      await this.autoTransitionPlannedToWatching(animeId, episodesList, anime.titulo);
+
+      this.logger.log(
+        `Successfully synced ${globalCounter} episodes in JSON for anime ID ${animeId}`,
+      );
     } catch (err) {
-      this.logger.error(`Error in syncAnimeEpisodes for anime ID ${animeId}:`, err);
+      this.logger.error(
+        `Error in syncAnimeEpisodes for anime ID ${animeId}:`,
+        err,
+      );
+    }
+  }
+
+  async autoTransitionPlannedToWatching(
+    animeId: number,
+    episodesList: any[],
+    animeTitle: string,
+  ) {
+    if (!episodesList || !Array.isArray(episodesList) || episodesList.length === 0) {
+      return;
+    }
+
+    const now = new Date();
+
+    const sorted = [...episodesList]
+      .filter((ep) => ep.season > 0)
+      .sort((a, b) => {
+        if (a.season !== b.season) return a.season - b.season;
+        return a.episodeNumber - b.episodeNumber;
+      });
+
+    const firstEp = sorted[0];
+    if (!firstEp || !firstEp.airDate) {
+      return;
+    }
+
+    const firstEpAirDate = new Date(firstEp.airDate);
+    if (now < firstEpAirDate) {
+      return;
+    }
+
+    const plannedUserAnimes = await this.prisma.userAnime.findMany({
+      where: {
+        animeId,
+        status: 'PLANNED',
+      },
+    });
+
+    for (const ua of plannedUserAnimes) {
+      if (ua.updatedAt.getTime() < firstEpAirDate.getTime()) {
+        await this.prisma.userAnime.update({
+          where: { id: ua.id },
+          data: {
+            status: 'WATCHING',
+            lastProgressUpdate: now,
+          },
+        });
+
+        await this.prisma.notification.create({
+          data: {
+            userId: ua.userId,
+            title: 'Anime planeado estreou!',
+            message: `O primeiro episódio de "${animeTitle}" estreou! Mudámos o status para "A ver".`,
+            type: 'ANIME',
+            mediaId: animeId,
+          },
+        });
+
+        this.logger.log(
+          `[AutoTransition] Moved user ${ua.userId} tracking of anime "${animeTitle}" (${animeId}) from PLANNED to WATCHING.`,
+        );
+      }
     }
   }
 
   getTvTimeImportStatus(userId: number) {
-    return this.tvTimeImportStatus.get(userId) || { isImporting: false, total: 0, processed: 0, currentShow: '', errors: [], importedShows: [] };
+    return (
+      this.tvTimeImportStatus.get(userId) || {
+        isImporting: false,
+        total: 0,
+        processed: 0,
+        currentShow: '',
+        errors: [],
+        importedShows: [],
+      }
+    );
   }
 
   async importFromTVTime(userId: number, tvTimeShows: any[]) {
@@ -2338,7 +2656,10 @@ export class AnimeService {
 
     // Inicia o processo em background
     this.runTVTimeImportBackground(userId, tvTimeShows).catch((err) => {
-      this.logger.error(`Erro grave na importação em background do utilizador ${userId}:`, err);
+      this.logger.error(
+        `Erro grave na importação em background do utilizador ${userId}:`,
+        err,
+      );
     });
 
     return { message: 'Importação iniciada com sucesso em segundo plano.' };
@@ -2346,12 +2667,22 @@ export class AnimeService {
 
   private async ensureAnimeExists(tmdbId: number): Promise<boolean> {
     try {
-      const existing = await this.prisma.anime.findUnique({ where: { id: tmdbId } });
-      
-      const hasEpisodes = existing && existing.episodesList && Array.isArray(existing.episodesList) && existing.episodesList.length > 0;
+      const existing = await this.prisma.anime.findUnique({
+        where: { id: tmdbId },
+      });
+
+      const hasEpisodes =
+        existing &&
+        existing.episodesList &&
+        Array.isArray(existing.episodesList) &&
+        existing.episodesList.length > 0;
       if (existing && hasEpisodes) return true;
 
-      const tmdbData = await this.searchAniListById(tmdbId, undefined, existing?.formato || 'TV');
+      const tmdbData = await this.searchAniListById(
+        tmdbId,
+        undefined,
+        existing?.formato || 'TV',
+      );
       if (!tmdbData) return false;
 
       const generosDict: Record<string, number> = {};
@@ -2378,9 +2709,12 @@ export class AnimeService {
           statusLancamento: tmdbData.status,
           linksExternos: null,
           proximoEpisodio: tmdbData.nextAiringEpisode?.episode,
-          proximoEpisodioData: tmdbData.nextAiringEpisode && tmdbData.nextAiringEpisode.airingAt && !isNaN(tmdbData.nextAiringEpisode.airingAt)
-            ? new Date(tmdbData.nextAiringEpisode.airingAt * 1000)
-            : null,
+          proximoEpisodioData:
+            tmdbData.nextAiringEpisode &&
+            tmdbData.nextAiringEpisode.airingAt &&
+            !isNaN(tmdbData.nextAiringEpisode.airingAt)
+              ? new Date(tmdbData.nextAiringEpisode.airingAt * 1000)
+              : null,
           generos: generosDict,
           paisOrigem: tmdbData.countryOfOrigin,
           formato: tmdbData.format,
@@ -2388,22 +2722,29 @@ export class AnimeService {
         },
         create: {
           id: tmdbData.id,
-          titulo: tmdbData.title.english || tmdbData.title.romaji || 'Sem título',
+          titulo:
+            tmdbData.title.english || tmdbData.title.romaji || 'Sem título',
           statusLancamento: tmdbData.status,
           descricao: tmdbData.description,
           generos: generosDict,
           capaUrl: tmdbData.coverImage.large,
           numEpisodiosTotal: tmdbData.episodes,
           temporada: tmdbData.season,
-          ano: tmdbData.seasonYear && !isNaN(tmdbData.seasonYear) ? tmdbData.seasonYear : null,
+          ano:
+            tmdbData.seasonYear && !isNaN(tmdbData.seasonYear)
+              ? tmdbData.seasonYear
+              : null,
           paisOrigem: tmdbData.countryOfOrigin,
           formato: tmdbData.format,
           tipo: detectMediaType(generosDict, tmdbData.format),
           linksExternos: null,
           proximoEpisodio: tmdbData.nextAiringEpisode?.episode,
-          proximoEpisodioData: tmdbData.nextAiringEpisode && tmdbData.nextAiringEpisode.airingAt && !isNaN(tmdbData.nextAiringEpisode.airingAt)
-            ? new Date(tmdbData.nextAiringEpisode.airingAt * 1000)
-            : null,
+          proximoEpisodioData:
+            tmdbData.nextAiringEpisode &&
+            tmdbData.nextAiringEpisode.airingAt &&
+            !isNaN(tmdbData.nextAiringEpisode.airingAt)
+              ? new Date(tmdbData.nextAiringEpisode.airingAt * 1000)
+              : null,
         },
       });
 
@@ -2411,7 +2752,9 @@ export class AnimeService {
         await this.syncAnimeEpisodes(tmdbData.id, details.seasons);
       }
 
-      const averageScore = tmdbData.averageScore ? tmdbData.averageScore / 10 : 0;
+      const averageScore = tmdbData.averageScore
+        ? tmdbData.averageScore / 10
+        : 0;
       const existingMedia = await this.prisma.media.findUnique({
         where: { id: anime.id },
       });
@@ -2428,7 +2771,10 @@ export class AnimeService {
       }
       return true;
     } catch (err) {
-      this.logger.error(`Error in ensureAnimeExists for TMDB ID ${tmdbId}:`, err);
+      this.logger.error(
+        `Error in ensureAnimeExists for TMDB ID ${tmdbId}:`,
+        err,
+      );
       return false;
     }
   }
@@ -2451,7 +2797,9 @@ export class AnimeService {
 
           // 1. Resolver ID pelo TVDB ID
           if (show.id && show.id.tvdb) {
-            const resolved = await this.tmdbService.findByTVDBId(Number(show.id.tvdb));
+            const resolved = await this.tmdbService.findByTVDBId(
+              Number(show.id.tvdb),
+            );
             if (resolved) {
               tmdbId = resolved.id;
             }
@@ -2466,7 +2814,9 @@ export class AnimeService {
           }
 
           if (!tmdbId) {
-            status.errors.push(`Não foi possível mapear a série: "${show.title}" (TVDB ID: ${show.id?.tvdb})`);
+            status.errors.push(
+              `Não foi possível mapear a série: "${show.title}" (TVDB ID: ${show.id?.tvdb})`,
+            );
             processedSuccessfully = true;
             continue;
           }
@@ -2474,7 +2824,9 @@ export class AnimeService {
           // 2. Garantir que a série/anime existe na tabela Anime (e Media)
           const ok = await this.ensureAnimeExists(tmdbId);
           if (!ok) {
-            throw new Error(`Falha ao obter dados e registar a série: "${show.title}" (TMDB ID: ${tmdbId})`);
+            throw new Error(
+              `Falha ao obter dados e registar a série: "${show.title}" (TMDB ID: ${tmdbId})`,
+            );
           }
 
           const dbAnime = await this.prisma.anime.findUnique({
@@ -2517,10 +2869,15 @@ export class AnimeService {
           }
 
           // Tentar mapear a contagem total de episódios assistidos à nossa lista local ordenada
-          if (dbAnime && dbAnime.episodesList && Array.isArray(dbAnime.episodesList) && dbAnime.episodesList.length > 0) {
+          if (
+            dbAnime &&
+            dbAnime.episodesList &&
+            Array.isArray(dbAnime.episodesList) &&
+            dbAnime.episodesList.length > 0
+          ) {
             // Filtrar especiais (temporada 0) e ordenar por temporada e número de episódio
             const filteredEpisodes = (dbAnime.episodesList as any[])
-              .filter(ep => ep.season > 0)
+              .filter((ep) => ep.season > 0)
               .sort((a, b) => {
                 if (a.season !== b.season) return a.season - b.season;
                 return a.episodeNumber - b.episodeNumber;
@@ -2548,24 +2905,53 @@ export class AnimeService {
           }
 
           // 4. Mapear status
-          let trackingStatus: 'WATCHING' | 'COMPLETED' | 'PAUSED' | 'DROPPED' | 'PLANNED' = 'WATCHING';
+          let trackingStatus:
+            | 'WATCHING'
+            | 'COMPLETED'
+            | 'PAUSED'
+            | 'DROPPED'
+            | 'PLANNED' = 'WATCHING';
           const showStatus = String(show.status || '').toLowerCase();
-          const completedAll = totalEpisodes > 0 && watchedCount >= totalEpisodes;
+          const completedAll =
+            totalEpisodes > 0 && watchedCount >= totalEpisodes;
 
-          if (showStatus === 'completed' || showStatus === 'finished' || completedAll) {
+          if (
+            showStatus === 'completed' ||
+            showStatus === 'finished' ||
+            completedAll
+          ) {
             trackingStatus = 'COMPLETED';
-          } else if (showStatus === 'stopped' || showStatus === 'dropped' || showStatus === 'abandoned') {
-            trackingStatus = 'DROPPED';
-          } else if (showStatus === 'archived' || showStatus === 'archive' || showStatus === 'paused' || showStatus === 'pause') {
+          } else if (
+            showStatus === 'paused' ||
+            showStatus === 'pause' ||
+            showStatus === 'archived' ||
+            showStatus === 'archive'
+          ) {
             trackingStatus = 'PAUSED';
-          } else if (showStatus === 'watching') {
+          } else if (showStatus === 'watch_later') {
+            trackingStatus = 'PLANNED';
+          } else if (
+            showStatus === 'stopped' ||
+            showStatus === 'dropped' ||
+            showStatus === 'abandoned'
+          ) {
+            trackingStatus = 'DROPPED';
+          } else if (
+            showStatus === 'watching' ||
+            showStatus === 'continuing' ||
+            showStatus === 'up_to_date'
+          ) {
             trackingStatus = 'WATCHING';
           } else {
             trackingStatus = hasWatched ? 'WATCHING' : 'PLANNED';
           }
 
           // Se estiver COMPLETED, garante que o progresso está no último episódio da última temporada
-          if (trackingStatus === 'COMPLETED' && dbAnime && dbAnime.episodesList) {
+          if (
+            trackingStatus === 'COMPLETED' &&
+            dbAnime &&
+            dbAnime.episodesList
+          ) {
             const episodesList = dbAnime.episodesList as any[];
             if (episodesList.length > 0) {
               let highestS = 1;
@@ -2574,7 +2960,10 @@ export class AnimeService {
                 if (ep.season > highestS) {
                   highestS = ep.season;
                   highestE = ep.episodeNumber;
-                } else if (ep.season === highestS && ep.episodeNumber > highestE) {
+                } else if (
+                  ep.season === highestS &&
+                  ep.episodeNumber > highestE
+                ) {
                   highestE = ep.episodeNumber;
                 }
               }
@@ -2588,22 +2977,40 @@ export class AnimeService {
             where: { userId_animeId: { userId, animeId: tmdbId } },
           });
 
-          const globalEpToSave = trackingStatus === 'COMPLETED'
-            ? (totalEpisodes > 0 ? totalEpisodes : watchedCount)
-            : watchedCount;
+          const globalEpToSave =
+            trackingStatus === 'COMPLETED'
+              ? totalEpisodes > 0
+                ? totalEpisodes
+                : watchedCount
+              : watchedCount;
 
           if (existingUserAnime) {
             const isMoreAdvanced = globalEpToSave > existingUserAnime.epAtual;
             const isSameProgress = globalEpToSave === existingUserAnime.epAtual;
-            const statusChanged = existingUserAnime.status !== trackingStatus;
-            
-            if (isMoreAdvanced || (isSameProgress && statusChanged) || existingUserAnime.status === 'PLANNED') {
+            let statusChanged = existingUserAnime.status !== trackingStatus;
+
+            // Se o progresso for o mesmo, não sobrescrevemos status locais mais restritivos (PAUSED/DROPPED) com WATCHING/PLANNED
+            if (isSameProgress && statusChanged) {
+              if (
+                (existingUserAnime.status === 'PAUSED' ||
+                  existingUserAnime.status === 'DROPPED') &&
+                (trackingStatus === 'WATCHING' || trackingStatus === 'PLANNED')
+              ) {
+                statusChanged = false;
+              }
+            }
+
+            if (
+              isMoreAdvanced ||
+              (isSameProgress && statusChanged) ||
+              existingUserAnime.status === 'PLANNED'
+            ) {
               await this.prisma.userAnime.update({
                 where: { id: existingUserAnime.id },
                 data: {
                   seasonAtual: maxSeason,
                   epAtual: globalEpToSave,
-                  status: trackingStatus,
+                  ...(statusChanged ? { status: trackingStatus } : {}),
                   lastProgressUpdate: new Date(),
                 },
               });
@@ -2627,7 +3034,11 @@ export class AnimeService {
           });
 
           if (savedUserAnime) {
-            const epLocal = this.getLocalEpisodeNumber(savedUserAnime.anime, savedUserAnime.seasonAtual, savedUserAnime.epAtual);
+            const epLocal = this.getLocalEpisodeNumber(
+              savedUserAnime.anime,
+              savedUserAnime.seasonAtual,
+              savedUserAnime.epAtual,
+            );
             const totalEps = this.getTotalEpisodes(savedUserAnime.anime);
             status.importedShows.push({
               id: savedUserAnime.id,
@@ -2655,12 +3066,16 @@ export class AnimeService {
 
           // Pequeno delay para respeitar taxas da API do TMDB
           await new Promise((resolve) => setTimeout(resolve, 200));
-
         } catch (err: any) {
           attempts++;
-          this.logger.error(`Erro ao processar série "${show.title}" (tentativa ${attempts}/${maxAttempts}):`, err);
+          this.logger.error(
+            `Erro ao processar série "${show.title}" (tentativa ${attempts}/${maxAttempts}):`,
+            err,
+          );
           if (attempts >= maxAttempts) {
-            status.errors.push(`Erro definitivo na série "${show.title}": ${err.message || err}`);
+            status.errors.push(
+              `Erro definitivo na série "${show.title}": ${err.message || err}`,
+            );
             processedSuccessfully = true;
           } else {
             status.currentShow = `Erro em ${show.title}. A tentar novamente em 5s... (Tentativa ${attempts}/${maxAttempts})`;
@@ -2682,7 +3097,10 @@ export class AnimeService {
     try {
       await this.recalculateUserStats(userId);
     } catch (err) {
-      this.logger.error(`Erro ao recalcular estatísticas do utilizador ${userId}:`, err);
+      this.logger.error(
+        `Erro ao recalcular estatísticas do utilizador ${userId}:`,
+        err,
+      );
     }
   }
 
@@ -2694,17 +3112,17 @@ export class AnimeService {
 
       await this.prisma.userAnime.deleteMany({});
       await this.prisma.customListItem.deleteMany({
-        where: { mediaType: 'ANIME' }
+        where: { mediaType: 'ANIME' },
       });
       await this.prisma.comment.deleteMany({
-        where: { mediaId: { in: animeIds } }
+        where: { mediaId: { in: animeIds } },
       });
       await this.prisma.userRating.deleteMany({
-        where: { mediaId: { in: animeIds } }
+        where: { mediaId: { in: animeIds } },
       });
       await this.prisma.anime.deleteMany({});
       await this.prisma.media.deleteMany({
-        where: { id: { in: animeIds } }
+        where: { id: { in: animeIds } },
       });
 
       const users = await this.prisma.user.findMany({ select: { id: true } });
@@ -2712,7 +3130,11 @@ export class AnimeService {
         await this.recalculateUserStats(user.id).catch(() => {});
       }
 
-      return { success: true, message: 'Catálogo de animes e progresso de utilizadores limpos com sucesso.' };
+      return {
+        success: true,
+        message:
+          'Catálogo de animes e progresso de utilizadores limpos com sucesso.',
+      };
     } catch (err: any) {
       this.logger.error('Erro ao limpar catálogo de animes:', err);
       throw err;

@@ -800,11 +800,11 @@ const DetailsPage = () => {
 
     let optimisticUpdates: any = { ...updates };
 
-    // Calculate total episodes/chapters across all seasons
+    // Calculate total episodes/chapters across all seasons (only counting aired episodes for anime)
     const totalAll = mediaType === 'anime'
       ? (
           selectedItem.episodes && selectedItem.episodes.length > 0
-            ? selectedItem.episodes.filter((ep: any) => ep.season > 0).length
+            ? selectedItem.episodes.filter((ep: any) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= new Date()).length
             : (selectedItem.relations?.edges
                 ?.filter((edge: any) => edge.node.format === 'TV_SEASON' && edge.node.seasonNumber > 0)
                 ?.reduce((sum: number, edge: any) => sum + (edge.node.episodes || 0), 0) || selectedItem.numEpisodiosTotal || 0)
@@ -883,6 +883,13 @@ const DetailsPage = () => {
 
   const getEpisodesCountForSeason = (seasonNum: number): number => {
     if (!selectedItem) return 0;
+    if (selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) {
+      const seasons = getSeasonsList();
+      const maxSeason = seasons.length > 0 ? Math.max(...seasons) : 1;
+      if (seasonNum === maxSeason) {
+        return selectedItem.proximoEpisodio - 1;
+      }
+    }
     if (selectedItem.episodes && selectedItem.episodes.length > 0) {
       const count = selectedItem.episodes.filter((ep: any) => ep.season === seasonNum).length;
       if (count > 0) return count;
@@ -892,6 +899,18 @@ const DetailsPage = () => {
     );
     if (seasonEdge && seasonEdge.node.episodes) return seasonEdge.node.episodes;
     return selectedItem.numEpisodiosTotal || 12;
+  };
+
+  const getAiredEpisodesCountForSeason = (seasonNum: number): number => {
+    if (!selectedItem) return 0;
+    if (selectedItem.episodes && selectedItem.episodes.length > 0) {
+      const hasSeason = selectedItem.episodes.some((ep: any) => ep.season === seasonNum);
+      if (hasSeason) {
+        const now = new Date();
+        return selectedItem.episodes.filter((ep: any) => ep.season === seasonNum && ep.airDate && new Date(ep.airDate) <= now).length;
+      }
+    }
+    return getEpisodesCountForSeason(seasonNum);
   };
 
   const getGlobalEpisodeNumber = (seasonNumber: number, episodeNumber: number) => {
@@ -1445,13 +1464,7 @@ const DetailsPage = () => {
                               >
                                 {(() => {
                                   const currentSeasonNum = viewedSeason;
-                                  let epsCount = 12;
-                                  if (selectedItem.episodes && selectedItem.episodes.length > 0) {
-                                    epsCount = selectedItem.episodes.filter((ep: any) => ep.season === currentSeasonNum).length;
-                                  } else {
-                                    const edge = selectedItem.relations?.edges?.find((ed: any) => ed.node.seasonNumber === currentSeasonNum);
-                                    if (edge) epsCount = edge.node.episodes || 12;
-                                  }
+                                  const epsCount = getEpisodesCountForSeason(currentSeasonNum);
                                   return (
                                     <div className="flex items-center gap-1.5 justify-between w-full pr-1.5 min-w-0">
                                       <span className="truncate">{currentSeasonNum === 0 ? 'Especiais' : `Temporada ${currentSeasonNum}`}</span>
@@ -1485,13 +1498,7 @@ const DetailsPage = () => {
                                       }
 
                                       return uniqueSeasonNums.map((seasonNum: number) => {
-                                        let epsCount = 12;
-                                        if (selectedItem.episodes && selectedItem.episodes.length > 0) {
-                                          epsCount = selectedItem.episodes.filter((ep: any) => ep.season === seasonNum).length;
-                                        } else {
-                                          const edge = selectedItem.relations?.edges?.find((ed: any) => ed.node.seasonNumber === seasonNum);
-                                          if (edge) epsCount = edge.node.episodes || 12;
-                                        }
+                                        const epsCount = getEpisodesCountForSeason(seasonNum);
 
                                         const isSelected = viewedSeason === seasonNum;
                                         let optColor = 'text-on-surface-variant hover:text-white hover:bg-white/5 border border-transparent';
@@ -1720,15 +1727,7 @@ const DetailsPage = () => {
                         <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                           {(() => {
                             const currentSeasonNum = viewedSeason || 1;
-                            let pickerTotal: number;
-                            if (selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) {
-                              pickerTotal = selectedItem.proximoEpisodio - 1;
-                            } else if (selectedItem.episodes && selectedItem.episodes.length > 0) {
-                              pickerTotal = selectedItem.episodes.filter((ep: any) => ep.season === currentSeasonNum).length || selectedItem.episodes.length;
-                            } else {
-                              const seasonEdge = selectedItem.relations?.edges?.find((ed: any) => ed.node.seasonNumber === currentSeasonNum && ed.node.format === 'TV_SEASON');
-                              pickerTotal = seasonEdge ? (seasonEdge.node.episodes || 0) : (selectedItem.numEpisodiosTotal || 0);
-                            }
+                            const pickerTotal = getEpisodesCountForSeason(currentSeasonNum);
                             return [...Array(pickerTotal)].map((_, i) => {
                               const num = i + 1;
                               const isWatched = (viewedSeason || 1) < (selectedItem.seasonAtual || 1)
@@ -2015,14 +2014,10 @@ const DetailsPage = () => {
 
   const totalEpisodesAllSeasons = selectedItem
     ? (mediaType === 'anime'
-        ? (
-            selectedItem.episodes && selectedItem.episodes.length > 0
-              ? selectedItem.episodes.filter((ep: any) => ep.season > 0).length
-              : (selectedItem.relations?.edges
-                  ?.filter((edge: any) => edge.node.format === 'TV_SEASON' && edge.node.seasonNumber > 0)
-                  ?.reduce((sum: number, edge: any) => sum + (edge.node.episodes || 0), 0) || selectedItem.numEpisodiosTotal || 0)
-          )
-        : (selectedItem.numCapitulosTotal || 0)
+        ? getSeasonsList().reduce((sum: number, s: number) => sum + getAiredEpisodesCountForSeason(s), 0)
+        : (selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero
+            ? selectedItem.proximoCapituloNumero - 1
+            : (selectedItem.numCapitulosTotal || 0))
       )
     : 0;
 
@@ -2295,13 +2290,7 @@ const DetailsPage = () => {
                                   <div className="flex overflow-x-auto gap-2 pb-2 pt-1 w-full justify-start scrollbar-none snap-x">
                                     {uniqueSeasonNums.map((seasonNum) => {
                                       const isSelected = viewedSeason === seasonNum;
-                                      let epsCount = 0;
-                                      if (selectedItem.episodes && selectedItem.episodes.length > 0) {
-                                        epsCount = selectedItem.episodes.filter((ep: any) => ep.season === seasonNum).length;
-                                      } else {
-                                        const edge = selectedItem.relations?.edges?.find((ed: any) => ed.node.seasonNumber === seasonNum);
-                                        if (edge) epsCount = edge.node.episodes || 0;
-                                      }
+                                      const epsCount = getEpisodesCountForSeason(seasonNum);
                                       
                                       return (
                                         <button
@@ -2493,15 +2482,7 @@ const DetailsPage = () => {
                                   <div className="grid grid-cols-5 sm:grid-cols-6 gap-2 max-h-[240px] overflow-y-auto pr-1 custom-scrollbar">
                                     {(() => {
                                       const currentSeasonNum2 = viewedSeason || 1;
-                                      let pickerTotal2: number;
-                                      if (selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) {
-                                        pickerTotal2 = selectedItem.proximoEpisodio - 1;
-                                      } else if (selectedItem.episodes && selectedItem.episodes.length > 0) {
-                                        pickerTotal2 = selectedItem.episodes.filter((ep: any) => ep.season === currentSeasonNum2).length || selectedItem.episodes.length;
-                                      } else {
-                                        const seasonEdge2 = selectedItem.relations?.edges?.find((ed: any) => ed.node.seasonNumber === currentSeasonNum2 && ed.node.format === 'TV_SEASON');
-                                        pickerTotal2 = seasonEdge2 ? (seasonEdge2.node.episodes || 0) : (selectedItem.numEpisodiosTotal || 0);
-                                      }
+                                      const pickerTotal2 = getEpisodesCountForSeason(currentSeasonNum2);
                                       return [...Array(pickerTotal2)].map((_, i) => {
                                         const num = i + 1;
                                         const isWatched = (viewedSeason || 1) < (selectedItem.seasonAtual || 1)

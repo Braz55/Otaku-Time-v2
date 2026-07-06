@@ -519,7 +519,10 @@ export class MangaService {
       const result = await response.json();
       return result?.data?.Page?.media[0] || null;
     } catch (error: any) {
-      console.error(`AniList searchAniListManga error: ${error.message || error}`, error.stack);
+      console.error(
+        `AniList searchAniListManga error: ${error.message || error}`,
+        error.stack,
+      );
       return null;
     }
   }
@@ -557,7 +560,10 @@ export class MangaService {
       const result = await response.json();
       return result?.data?.Media || null;
     } catch (error: any) {
-      console.error(`AniList searchAniListById error: ${error.message || error}`, error.stack);
+      console.error(
+        `AniList searchAniListById error: ${error.message || error}`,
+        error.stack,
+      );
       return null;
     }
   }
@@ -599,7 +605,10 @@ export class MangaService {
       const data = await response.json();
       return data.data?.Page?.media || [];
     } catch (error: any) {
-      console.error(`AniList search error: ${error.message || error}`, error.stack);
+      console.error(
+        `AniList search error: ${error.message || error}`,
+        error.stack,
+      );
       return [];
     }
   }
@@ -641,7 +650,10 @@ export class MangaService {
       const data = await response.json();
       return data.data?.Page?.media || [];
     } catch (error: any) {
-      console.error(`AniList genre search error: ${error.message || error}`, error.stack);
+      console.error(
+        `AniList genre search error: ${error.message || error}`,
+        error.stack,
+      );
       return [];
     }
   }
@@ -851,7 +863,9 @@ export class MangaService {
       const statusArr = status
         .split(',')
         .map((s) => s.trim().toUpperCase())
-        .filter((s) => ['WATCHING', 'PLANNED', 'COMPLETED', 'PAUSED', 'DROPPED'].includes(s));
+        .filter((s) =>
+          ['WATCHING', 'PLANNED', 'COMPLETED', 'PAUSED', 'DROPPED'].includes(s),
+        );
       if (statusArr.length > 0) {
         whereClause.status = { in: statusArr };
       }

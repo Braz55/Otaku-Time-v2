@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -40,7 +44,9 @@ export class NotificationService {
     }
 
     if (notification.userId !== userId) {
-      throw new ForbiddenException('Não tem permissão para alterar esta notificação.');
+      throw new ForbiddenException(
+        'Não tem permissão para alterar esta notificação.',
+      );
     }
 
     return this.prisma.notification.update({
@@ -66,7 +72,9 @@ export class NotificationService {
     }
 
     if (notification.userId !== userId) {
-      throw new ForbiddenException('Não tem permissão para eliminar esta notificação.');
+      throw new ForbiddenException(
+        'Não tem permissão para eliminar esta notificação.',
+      );
     }
 
     return this.prisma.notification.delete({

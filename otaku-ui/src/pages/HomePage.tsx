@@ -169,7 +169,19 @@ const HomePage = () => {
           .filter(a => {
             if (a.status !== 'WATCHING') return false;
             const numTotal = a.anime?.numEpisodiosTotal || a.numEpisodiosTotal;
-            const maxDisp = numTotal || 9999;
+            let maxDisp = numTotal || 9999;
+            if (a.anime?.statusLancamento !== 'FINISHED') {
+              const now = new Date();
+              const eps = a.episodes || [];
+              if (Array.isArray(eps) && eps.length > 0) {
+                maxDisp = eps.filter((ep: any) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now).length;
+              } else {
+                const proxEp = a.anime?.proximoEpisodio || a.proximoEpisodio;
+                if ((a.anime?.statusLancamento === 'RELEASING' || a.statusLancamento === 'RELEASING') && proxEp) {
+                  maxDisp = proxEp - 1;
+                }
+              }
+            }
             const currentGlobal = a.epAtualGlobal !== undefined ? a.epAtualGlobal : (a.epAtual || 0);
             return currentGlobal < maxDisp;
           })
@@ -212,15 +224,42 @@ const HomePage = () => {
 
   const marcarComoVisto = async (item: any, type: 'anime' | 'manga') => {
     if (savingItems[item.id]) return;
-    setSavingItems(prev => ({ ...prev, [item.id]: true }));
 
     let payload: Record<string, any> = {};
     if (type === 'anime') {
       const currentGlobal = item.epAtualGlobal !== undefined ? item.epAtualGlobal : (item.epAtual || 0);
+      let maxDisp = item.anime?.numEpisodiosTotal || item.numEpisodiosTotal || 9999;
+      if (item.anime?.statusLancamento !== 'FINISHED') {
+        const now = new Date();
+        const eps = item.episodes || [];
+        if (Array.isArray(eps) && eps.length > 0) {
+          maxDisp = eps.filter((ep: any) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now).length;
+        } else {
+          const proxEp = item.anime?.proximoEpisodio || item.proximoEpisodio;
+          if ((item.anime?.statusLancamento === 'RELEASING' || item.statusLancamento === 'RELEASING') && proxEp) {
+            maxDisp = proxEp - 1;
+          }
+        }
+      }
+      if (currentGlobal >= maxDisp) {
+        showToast('Não é possível marcar episódios que ainda não estrearam.', 'error');
+        return;
+      }
       payload = { epAtual: currentGlobal + 1 };
     } else {
-      payload = { capAtual: (item.capAtual || 0) + 1 };
+      const status = item.manga?.statusLancamento || item.statusLancamento;
+      const proxCap = item.manga?.proximoCapituloNumero || item.proximoCapituloNumero;
+      const numTotal = item.manga?.numCapitulosTotal || item.numCapitulosTotal;
+      const maxDisp = (status === 'RELEASING' && proxCap) ? proxCap - 1 : (numTotal || 9999);
+      const currentCap = item.capAtual || 0;
+      if (currentCap >= maxDisp) {
+        showToast('Não é possível marcar capítulos que ainda não foram lançados.', 'error');
+        return;
+      }
+      payload = { capAtual: currentCap + 1 };
     }
+
+    setSavingItems(prev => ({ ...prev, [item.id]: true }));
     const url = `${API_BASE_URL}/${type}/${item.id}`;
     
     try {

@@ -206,6 +206,23 @@ const DetailsPage = () => {
     return lastAired ? lastAired.episode_number : 0;
   }, [seasonEpisodes, selectedItem?.statusLancamento]);
 
+  const totalAiredEpisodes = useMemo(() => {
+    if (mediaType !== 'anime' || !selectedItem) return Infinity;
+    if (selectedItem.statusLancamento === 'FINISHED') {
+      return selectedItem.numEpisodiosTotal || Infinity;
+    }
+    if (selectedItem.episodes && Array.isArray(selectedItem.episodes) && selectedItem.episodes.length > 0) {
+      const now = new Date();
+      return selectedItem.episodes.filter(
+        (ep: any) => ep.season > 0 && (ep.airDate || ep.air_date) && new Date(ep.airDate || ep.air_date) <= now
+      ).length;
+    }
+    if (selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) {
+      return selectedItem.proximoEpisodio - 1;
+    }
+    return selectedItem.numEpisodiosTotal || Infinity;
+  }, [selectedItem, mediaType]);
+
   const [viewedSeason, setViewedSeason] = useState<number>(1);
 
   // Sync viewedSeason with selectedItem.seasonAtual when it changes (initial load or automatic update)
@@ -953,10 +970,21 @@ const DetailsPage = () => {
       const currentGlobal = selectedItem.epAtualGlobal !== undefined ? selectedItem.epAtualGlobal : (selectedItem.epAtual || 0);
       const novoValor = currentGlobal + delta;
       if (novoValor < 0) return;
+      if (delta > 0 && novoValor > totalAiredEpisodes) {
+        showToast('Não é possível marcar episódios que ainda não estrearam.', 'error');
+        return;
+      }
       atualizarCampo('epAtual', novoValor);
     } else {
       const novoValor = (selectedItem.capAtual || 0) + delta;
       if (novoValor < 0) return;
+      const maxDisp = (selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero)
+        ? selectedItem.proximoCapituloNumero - 1
+        : (latestChapter || selectedItem.numCapitulosTotal || 9999);
+      if (delta > 0 && novoValor > maxDisp) {
+        showToast('Não é possível marcar capítulos que ainda não foram lançados.', 'error');
+        return;
+      }
       atualizarCampo('capAtual', novoValor);
     }
   };
@@ -1573,7 +1601,15 @@ const DetailsPage = () => {
                               {/* Plus Button */}
                               <button 
                                 onClick={() => atualizarProgresso(1)} 
-                                disabled={isSavingDetailsProgress} 
+                                disabled={
+                                  isSavingDetailsProgress || 
+                                  (mediaType === 'anime' 
+                                    ? epAtualDisplay >= totalAiredEpisodes 
+                                    : (selectedItem.capAtual || 0) >= ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero)
+                                        ? selectedItem.proximoCapituloNumero - 1
+                                        : (latestChapter || selectedItem.numCapitulosTotal || 9999))
+                                  )
+                                } 
                                 title="Adicionar 1" 
                                 className={`w-8 h-8 rounded-xl transition-all flex items-center justify-center cursor-pointer active:scale-95 font-bold ${mediaType === 'anime' ? 'bg-primary text-on-primary shadow-sm shadow-primary/20 hover:bg-primary/80' : 'bg-secondary text-on-secondary shadow-sm shadow-secondary/20 hover:bg-secondary/80'} disabled:opacity-50 disabled:cursor-not-allowed`}
                               >
@@ -2328,8 +2364,19 @@ const DetailsPage = () => {
                                   onChange={(e) => { 
                                     const val = parseInt(e.target.value) || 0; 
                                     if (mediaType === 'anime') { 
+                                      if (val > totalAiredEpisodes) {
+                                        showToast('Não é possível marcar episódios que ainda não estrearam.', 'error');
+                                        return;
+                                      }
                                       atualizarCampo('epAtual', val); 
                                     } else { 
+                                      const maxDisp = (selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero)
+                                        ? selectedItem.proximoCapituloNumero - 1
+                                        : (latestChapter || selectedItem.numCapitulosTotal || 9999);
+                                      if (val > maxDisp) {
+                                        showToast('Não é possível marcar capítulos que ainda não foram lançados.', 'error');
+                                        return;
+                                      }
                                       atualizarCampo('capAtual', val); 
                                     } 
                                   }} 
@@ -2347,7 +2394,20 @@ const DetailsPage = () => {
                             <button onClick={() => atualizarProgresso(-1)} disabled={isSavingDetailsProgress} title="Subtract 1" className={`w-9 h-9 rounded-xl bg-surface-variant/40 hover:bg-surface-variant border border-white/5 text-on-surface-variant hover:text-white transition-all flex items-center justify-center shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}>
                               <span className="material-symbols-outlined text-base">remove</span>
                             </button>
-                            <button onClick={() => atualizarProgresso(1)} disabled={isSavingDetailsProgress} title="Add 1" className={`w-9 h-9 rounded-xl transition-all flex items-center justify-center shadow-md active:scale-95 font-bold ${mediaType === 'anime' ? 'bg-primary text-on-primary shadow-sm shadow-primary/20' : 'bg-secondary text-on-secondary shadow-sm shadow-secondary/20'} disabled:opacity-50 disabled:cursor-not-allowed`}>
+                            <button 
+                              onClick={() => atualizarProgresso(1)} 
+                              disabled={
+                                isSavingDetailsProgress || 
+                                (mediaType === 'anime' 
+                                  ? (selectedItem.epAtualGlobal || selectedItem.epAtual || 0) >= totalAiredEpisodes 
+                                  : (selectedItem.capAtual || 0) >= ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero)
+                                      ? selectedItem.proximoCapituloNumero - 1
+                                      : (latestChapter || selectedItem.numCapitulosTotal || 9999))
+                                )
+                              } 
+                              title="Add 1" 
+                              className={`w-9 h-9 rounded-xl transition-all flex items-center justify-center shadow-md active:scale-95 font-bold ${mediaType === 'anime' ? 'bg-primary text-on-primary shadow-sm shadow-primary/20' : 'bg-secondary text-on-secondary shadow-sm shadow-secondary/20'} disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
                               <span className="material-symbols-outlined text-base">add</span>
                             </button>
                             <button onClick={() => setShowEpList(!showEpList)} className={`px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold border active:scale-95 ${showEpList ? (mediaType === 'anime' ? 'bg-primary/20 border-primary text-primary' : 'bg-secondary/20 border-secondary text-secondary') : 'bg-surface-variant/30 border-white/5 text-on-surface-variant'}`}>

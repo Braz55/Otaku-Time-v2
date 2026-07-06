@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ListService } from '../list/list.service';
 import { TMDBService } from './tmdb.service';
@@ -1222,6 +1222,12 @@ export class AnimeService {
         atual.anime,
         globalEp,
       );
+
+      const totalAired = this.getTotalEpisodes(atual.anime);
+      const hasEpisodeList = atual.anime.episodesList && Array.isArray(atual.anime.episodesList) && atual.anime.episodesList.length > 0;
+      if (atual.anime.statusLancamento !== 'FINISHED' && (hasEpisodeList || totalAired > 0) && globalEp > totalAired) {
+        throw new BadRequestException('Não é possível marcar episódios que ainda não estrearam.');
+      }
 
       novosDados.seasonAtual = season;
       novosDados.epAtual = globalEp;

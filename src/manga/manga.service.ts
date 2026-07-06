@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ListService } from '../list/list.service';
 
@@ -983,6 +983,16 @@ export class MangaService {
         atual.manga.proximoCapituloNumero
           ? atual.manga.proximoCapituloNumero - 1
           : atual.manga.numCapitulosTotal;
+
+      if (
+        atual.manga.statusLancamento !== 'FINISHED' &&
+        totalDisponivel !== null &&
+        totalDisponivel !== undefined &&
+        totalDisponivel > 0 &&
+        cap > totalDisponivel
+      ) {
+        throw new BadRequestException('Não é possível marcar capítulos que ainda não foram lançados.');
+      }
 
       if (atual.status === 'PLANNED' && cap > 0) novosDados.status = 'WATCHING';
       if (

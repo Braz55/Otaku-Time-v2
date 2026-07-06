@@ -2556,7 +2556,7 @@ export class AnimeService {
             trackingStatus = 'COMPLETED';
           } else if (showStatus === 'stopped' || showStatus === 'dropped' || showStatus === 'abandoned') {
             trackingStatus = 'DROPPED';
-          } else if (showStatus === 'archived' || showStatus === 'paused') {
+          } else if (showStatus === 'archived' || showStatus === 'archive' || showStatus === 'paused' || showStatus === 'pause') {
             trackingStatus = 'PAUSED';
           } else if (showStatus === 'watching') {
             trackingStatus = 'WATCHING';
@@ -2594,7 +2594,10 @@ export class AnimeService {
 
           if (existingUserAnime) {
             const isMoreAdvanced = globalEpToSave > existingUserAnime.epAtual;
-            if (isMoreAdvanced || existingUserAnime.status === 'PLANNED') {
+            const isSameProgress = globalEpToSave === existingUserAnime.epAtual;
+            const statusChanged = existingUserAnime.status !== trackingStatus;
+            
+            if (isMoreAdvanced || (isSameProgress && statusChanged) || existingUserAnime.status === 'PLANNED') {
               await this.prisma.userAnime.update({
                 where: { id: existingUserAnime.id },
                 data: {

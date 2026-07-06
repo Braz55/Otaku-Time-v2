@@ -554,6 +554,7 @@ const LibraryPage = () => {
                             item.status === 'COMPLETED' ? 'bg-emerald-500/30 border-emerald-500/50 text-emerald-200' :
                             item.status === 'PAUSED' ? 'bg-amber-500/30 border-amber-500/50 text-amber-200' :
                             item.status === 'PLANNED' ? 'bg-blue-500/30 border-blue-500/50 text-blue-200' :
+                            item.status === 'DROPPED' ? 'bg-red-500/30 border-red-500/50 text-red-200' :
                             'bg-surface-variant/50 border-white/10 text-on-surface-variant'
                           }`}>
                             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
@@ -561,13 +562,15 @@ const LibraryPage = () => {
                               item.status === 'COMPLETED' ? 'bg-emerald-400' :
                               item.status === 'PAUSED' ? 'bg-amber-400' :
                               item.status === 'PLANNED' ? 'bg-blue-400' :
+                              item.status === 'DROPPED' ? 'bg-red-400' :
                               'bg-on-surface-variant'
                             }`}></span>
                             <span className="truncate">
                               {item.status === 'WATCHING' ? (categoria === 'anime' ? 'A Ver' : 'A Ler') :
                                item.status === 'COMPLETED' ? 'Completo' :
                                item.status === 'PAUSED' ? 'Pausado' :
-                               item.status === 'PLANNED' ? 'Planeado' : 'Salvo'}
+                               item.status === 'PLANNED' ? 'Planeado' :
+                               item.status === 'DROPPED' ? 'Desistido' : 'Salvo'}
                             </span>
                           </span>
                         )}

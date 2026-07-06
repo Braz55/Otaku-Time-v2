@@ -102,8 +102,16 @@ const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'account' | 'admin'>('dashboard');
 
   useEffect(() => {
+    let stateChanged = false;
     if (location.state?.activeTab) {
       setActiveTab(location.state.activeTab);
+      stateChanged = true;
+    }
+    if (location.state?.openTvTime) {
+      setShowTvTimeModal(true);
+      stateChanged = true;
+    }
+    if (stateChanged) {
       window.history.replaceState(null, '');
     }
   }, [location]);
@@ -282,6 +290,31 @@ const ProfilePage = () => {
       if (intervalId) clearInterval(intervalId);
     };
   }, [isImportingTvTime]);
+
+  // Restore TV Time import status on mount if running
+  useEffect(() => {
+    if (!token) return;
+    const checkActiveImport = async () => {
+      try {
+        const res = await customFetch(`${API_BASE_URL}/anime/import-tvtime/status`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.isImporting) {
+            setTvTimeImportStatus(data);
+            setIsImportingTvTime(true);
+            setShowTvTimeModal(true);
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao restabelecer importacao no mount:", err);
+      }
+    };
+    checkActiveImport();
+  }, [token]);
 
   // AutoSync Releases State
   const [syncStatus, setSyncStatus] = useState<{ isSyncing: boolean; total: number; current: number; currentItemTitle: string }>({
@@ -3246,9 +3279,17 @@ const ProfilePage = () => {
                   Fechar
                 </button>
               ) : (
-                <div className="flex items-center gap-2 text-xs text-primary font-bold animate-pulse py-3 select-none">
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>A IMPORTAR... INTERFACE BLOQUEADA POR SEGURANÇA</span>
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2 text-xs text-primary font-bold animate-pulse py-3 select-none">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>A IMPORTAR...</span>
+                  </div>
+                  <button
+                    onClick={() => setShowTvTimeModal(false)}
+                    className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-light text-on-primary font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-md"
+                  >
+                    Minimizar Janela
+                  </button>
                 </div>
               )}
             </div>

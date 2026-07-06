@@ -24,6 +24,34 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const [pendingNavigation, setPendingNavigation] = React.useState<{ path: string; action?: () => void } | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = React.useState(false);
+  const [tvTimeStatus, setTvTimeStatus] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    if (!token) return;
+    let isMounted = true;
+
+    const checkStatus = async () => {
+      try {
+        const res = await customFetch(`${API_BASE_URL}/anime/import-tvtime/status`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          setTvTimeStatus(data);
+        }
+      } catch (err) {
+        console.error("Erro ao verificar status do TV Time no Layout:", err);
+      }
+    };
+
+    checkStatus();
+    const intervalId = setInterval(checkStatus, 4000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [token]);
 
   const isAndroid = Capacitor.getPlatform() === 'android';
 
@@ -458,6 +486,32 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         >
           <span className="material-symbols-outlined text-lg font-bold">travel_explore</span>
         </button>
+      )}
+
+      {/* Floating TV Time Import Progress Card */}
+      {tvTimeStatus && tvTimeStatus.isImporting && (
+        <div 
+          onClick={() => navigate('/profile', { state: { openTvTime: true } })}
+          className="fixed bottom-32 right-4 md:bottom-6 md:right-6 z-[99] glass-panel p-3.5 rounded-2xl border border-white/10 shadow-2xl flex items-center gap-3 cursor-pointer hover:bg-white/10 transition-all hover:scale-[1.02] max-w-[280px] sm:max-w-xs animate-in slide-in-from-bottom-5 duration-300 group select-none"
+        >
+          {/* Progress Spinner */}
+          <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center relative flex-shrink-0">
+            <span className="material-symbols-outlined text-primary text-base animate-spin">sync</span>
+          </div>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0 pr-1">
+            <p className="text-xs font-black text-white truncate">Importação do TV Time</p>
+            <p className="text-[10px] text-gray-400 mt-0.5">
+              Progresso: <span className="font-bold text-primary">{tvTimeStatus.processed} / {tvTimeStatus.total}</span>
+            </p>
+          </div>
+
+          {/* Maximize Icon */}
+          <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center border border-white/5">
+            <span className="material-symbols-outlined text-xs text-gray-400 group-hover:text-white transition-colors">open_in_full</span>
+          </div>
+        </div>
       )}
 
     </div>

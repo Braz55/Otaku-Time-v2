@@ -102,6 +102,7 @@ function normalizeTMDBToAniList(media: any, mediaTypeForce?: 'tv' | 'movie'): an
   const format = isMovie ? 'MOVIE' : 'TV';
 
   const genres = media.genres ? media.genres.map((g: any) => g.name) : [];
+  const tipo = detectMediaType(genres, format);
   
   return {
     id: media.id,
@@ -123,6 +124,7 @@ function normalizeTMDBToAniList(media: any, mediaTypeForce?: 'tv' | 'movie'): an
     seasonYear: year,
     countryOfOrigin: media.origin_country ? media.origin_country[0] : (media.production_countries ? media.production_countries[0]?.iso_3166_1 : null),
     format,
+    tipo,
     source: 'TMDB',
     externalLinks: [],
     nextAiringEpisode: media.next_episode_to_air ? {
@@ -132,6 +134,45 @@ function normalizeTMDBToAniList(media: any, mediaTypeForce?: 'tv' | 'movie'): an
     number_of_seasons: media.number_of_seasons || 1,
     seasons: media.seasons || [],
   };
+}
+
+function detectMediaType(genresJson: any, format?: string | null): 'ANIME' | 'SERIE' | 'FILME' {
+  let isAnimation = false;
+
+  if (genresJson) {
+    let genresList: string[] = [];
+    if (Array.isArray(genresJson)) {
+      genresList = genresJson.map((g: any) => typeof g === 'object' ? g.name : String(g));
+    } else if (typeof genresJson === 'object') {
+      genresList = Object.keys(genresJson);
+    } else if (typeof genresJson === 'string') {
+      try {
+        const parsed = JSON.parse(genresJson);
+        if (Array.isArray(parsed)) {
+          genresList = parsed;
+        } else if (typeof parsed === 'object') {
+          genresList = Object.keys(parsed);
+        }
+      } catch {
+        genresList = genresJson.split(',').map((g: string) => g.trim());
+      }
+    }
+
+    isAnimation = genresList.some((g: string) => {
+      const lower = g.toLowerCase();
+      return lower === 'anime' || lower === 'animation' || lower === 'animação';
+    });
+  }
+
+  if (isAnimation) {
+    return 'ANIME';
+  }
+
+  if (format?.toUpperCase() === 'MOVIE') {
+    return 'FILME';
+  }
+
+  return 'SERIE';
 }
 
 @Injectable()
@@ -173,17 +214,44 @@ export class AnimeService {
   }
 
   // Busca dados detalhados do TMDB por ID
-  async searchAniListById(id: number, userId?: number) {
+  async searchAniListById(id: number, userId?: number, format?: string) {
     let details: any = null;
     let isMovie = false;
     
-    try {
+    const tryTV = async () => {
       details = await this.tmdbService.getTVShowDetails(id);
-    } catch {
+      isMovie = false;
+    };
+    
+    const tryMovie = async () => {
+      details = await this.tmdbService.getMovieDetails(id);
+      isMovie = true;
+    };
+
+    try {
+      if (format) {
+        if (format.toUpperCase() === 'MOVIE') {
+          await tryMovie();
+        } else {
+          await tryTV();
+        }
+      } else {
+        try {
+          await tryTV();
+        } catch {
+          await tryMovie();
+        }
+      }
+    } catch (error) {
       try {
-        details = await this.tmdbService.getMovieDetails(id);
-        isMovie = true;
-      } catch (error) {
+        if (format && format.toUpperCase() === 'MOVIE') {
+          await tryTV();
+        } else if (format) {
+          await tryMovie();
+        } else {
+          throw error;
+        }
+      } catch (error2) {
         // Both failed. Let's see if we can perform a lazy migration from AniList ID to TMDB ID.
         const localAnime = await this.prisma.anime.findUnique({
           where: { id },
@@ -453,6 +521,7 @@ export class AnimeService {
     nomeAnime: string,
     userId: number,
     anilistId?: number,
+    format?: string,
   ) {
     let anime = anilistId
       ? await this.prisma.anime.findUnique({ where: { id: anilistId } })
@@ -478,8 +547,8 @@ export class AnimeService {
 
     const tmdbId = anilistId;
     const tmdbData = tmdbId
-      ? await this.searchAniListById(tmdbId)
-      : await this.searchAniList(nomeAnime);
+      ? await this.searchAniListById(tmdbId, userId, format)
+      : await this.searchAniList(nomeAnime, userId);
       
     if (!tmdbData) throw new Error('Conteúdo não encontrado no TMDB');
 
@@ -498,11 +567,11 @@ export class AnimeService {
       });
     }
 
-    const format = tmdbData.format;
-    if (format === 'MOVIE') {
+    const mediaFormat = tmdbData.format;
+    if (mediaFormat === 'MOVIE') {
       generosDict['Movie'] = 100;
       generosDict['Filme'] = 100;
-    } else if (format === 'TV') {
+    } else if (mediaFormat === 'TV') {
       generosDict['TV Show'] = 100;
       generosDict['Série'] = 100;
     }
@@ -642,7 +711,12 @@ export class AnimeService {
 
   async backgroundUpdateAnime(animeId: number, userId: number) {
     try {
-      const tmdbData = await this.searchAniListById(animeId);
+      const existingAnime = await this.prisma.anime.findUnique({
+        where: { id: animeId },
+        select: { formato: true }
+      });
+      const format = existingAnime?.formato || undefined;
+      const tmdbData = await this.searchAniListById(animeId, userId, format);
       if (tmdbData) {
         const generosDict = buildGenerosDict(
           tmdbData.genres,
@@ -719,6 +793,12 @@ export class AnimeService {
       };
       const status = statusMap[item.status] || 'FINISHED';
 
+      const isAnimation = item.genre_ids?.includes(16);
+      let detectedType: 'ANIME' | 'SERIE' | 'FILME' = 'ANIME';
+      if (!isAnimation) {
+        detectedType = isMovie ? 'FILME' : 'SERIE';
+      }
+
       return {
         id: item.id,
         title: {
@@ -730,6 +810,7 @@ export class AnimeService {
         },
         status,
         format: isMovie ? 'MOVIE' : 'TV',
+        tipo: detectedType,
       };
     });
   }
@@ -780,7 +861,8 @@ export class AnimeService {
         linksPersonalizados: item.linksPersonalizados,
         proximoEpisodio: item.anime.proximoEpisodio,
         proximoEpisodioData: item.anime.proximoEpisodioData,
-        tipo: item.anime.tipo,
+        tipo: detectMediaType(item.anime.generos, item.anime.formato),
+        formato: item.anime.formato,
         watchedSpecials: item.watchedSpecials || [],
         updatedAt: item.updatedAt,
         lastProgressUpdate: item.lastProgressUpdate,
@@ -823,7 +905,8 @@ export class AnimeService {
       proximoEpisodioData: item.anime.proximoEpisodioData,
       episodes: item.anime.episodesList || [],
       watchedSpecials: item.watchedSpecials || [],
-      tipo: item.anime.tipo,
+      tipo: detectMediaType(item.anime.generos, item.anime.formato),
+      formato: item.anime.formato,
       updatedAt: item.updatedAt,
       lastProgressUpdate: item.lastProgressUpdate,
       avaliacaoGeral: rating?.avaliacao_geral ?? null,
@@ -1016,12 +1099,13 @@ export class AnimeService {
   }
 
   async syncLatestEpisode(tmdbId: number) {
-    const media = await this.searchAniListById(tmdbId);
-    if (!media) return { latest: null };
-
     const dbAnime = await this.prisma.anime.findUnique({
       where: { id: tmdbId },
     });
+    if (!dbAnime) return { latest: null };
+
+    const media = await this.searchAniListById(tmdbId, undefined, dbAnime.formato || undefined);
+    if (!media) return { latest: null };
     if (!dbAnime) return { latest: null };
 
     let details: any = null;
@@ -1932,6 +2016,12 @@ export class AnimeService {
         return mediaItems.map((item: any) => {
           const title = isMovieFormat ? (item.title || item.original_title) : (item.name || item.original_name);
           const posterPath = item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null;
+          const isAnimation = item.genre_ids?.includes(16);
+          let detectedType: 'ANIME' | 'SERIE' | 'FILME' = 'ANIME';
+          if (!isAnimation) {
+            detectedType = isMovieFormat ? 'FILME' : 'SERIE';
+          }
+
           return {
             id: item.id,
             title: { english: title, romaji: title },
@@ -1939,6 +2029,7 @@ export class AnimeService {
             genres: genres || [],
             format: isMovieFormat ? 'MOVIE' : 'TV',
             status: 'FINISHED',
+            tipo: detectedType,
           };
         });
       } catch (error) {
@@ -2164,7 +2255,7 @@ export class AnimeService {
       const hasEpisodes = existing && existing.episodesList && Array.isArray(existing.episodesList) && existing.episodesList.length > 0;
       if (existing && hasEpisodes) return true;
 
-      const tmdbData = await this.searchAniListById(tmdbId);
+      const tmdbData = await this.searchAniListById(tmdbId, undefined, existing?.formato || 'TV');
       if (!tmdbData) return false;
 
       const generosDict: Record<string, number> = {};

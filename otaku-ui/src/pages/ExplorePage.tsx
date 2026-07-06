@@ -35,6 +35,7 @@ interface ExploreMedia {
   episodes?: number;
   chapters?: number;
   status?: string;
+  format?: string;
 }
 
 const ExplorePage = () => {
@@ -472,14 +473,15 @@ const ExplorePage = () => {
   ];
 
   // Handle card click
-  const handleCardClick = (id: number) => {
+  const handleCardClick = (id: number, format?: string) => {
     if (stateRef.current) {
       stateRef.current.scrollPosition = window.scrollY;
       const activeCat = stateRef.current.categoria;
       console.log("[Explore] Card clicked. Saving state for:", activeCat, stateRef.current);
       sessionStorage.setItem(`otaku_explore_state_${activeCat}`, JSON.stringify(stateRef.current));
     }
-    navigate(`/details/${categoria}/${id}?external=true`);
+    const formatQuery = format ? `&format=${format}` : '';
+    navigate(`/details/${categoria}/${id}?external=true${formatQuery}`);
   };
 
   return (
@@ -878,7 +880,7 @@ const ExplorePage = () => {
                     capaUrl={item.coverImage.large}
                     ranking={displayRanking}
                     progresso={progressText}
-                    onClick={() => handleCardClick(item.id)}
+                    onClick={() => handleCardClick(item.id, item.format)}
                   />
                 );
               })}

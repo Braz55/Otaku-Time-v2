@@ -586,8 +586,16 @@ const LibraryPage = () => {
 
                       {/* Bottom Content: Title & Progress Bar */}
                       <div className="absolute bottom-4 left-4 right-4 z-10 flex flex-col justify-end pointer-events-none">
-                        <span className={`w-fit px-2 py-0.5 rounded-lg text-[9px] font-extrabold tracking-wider mb-1.5 border ${categoria === 'anime' ? 'bg-primary/20 border-primary/30 text-primary' : 'bg-secondary/20 border-secondary/30 text-secondary'}`}>
-                          {categoria === 'anime' ? 'ANIME' : 'MANGÁ'}
+                        <span className={`w-fit px-2 py-0.5 rounded-lg text-[9px] font-extrabold tracking-wider mb-1.5 border ${
+                          categoria === 'anime' 
+                            ? (item.tipo === 'ANIME' 
+                              ? 'bg-primary/20 border-primary/30 text-primary shadow-[0_0_10px_rgba(221,184,255,0.1)]' 
+                              : item.tipo === 'SERIE'
+                                ? 'bg-red-500/20 border-red-500/30 text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.1)]'
+                                : 'bg-amber-500/20 border-amber-500/30 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.1)]')
+                            : 'bg-secondary/20 border-secondary/30 text-secondary'
+                        }`}>
+                          {categoria === 'anime' ? (item.tipo === 'SERIE' ? 'SÉRIE' : (item.tipo || 'ANIME')) : 'MANGÁ'}
                         </span>
                         <p className={`font-bold text-sm text-white line-clamp-2 mb-2 ${categoria === 'anime' ? 'group-hover:text-primary-light' : 'group-hover:text-secondary-light'} transition-colors`}>
                           {title}

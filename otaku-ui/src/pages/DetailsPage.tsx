@@ -129,6 +129,7 @@ const DetailsPage = () => {
   const { mediaType, id } = useParams<{ mediaType: 'anime' | 'manga'; id: string }>();
   const [searchParams] = useSearchParams();
   const isExternalParam = searchParams.get('external') === 'true';
+  const formatParam = searchParams.get('format') || undefined;
   const navigate = useNavigate();
 
   const { user, token } = useAuth();
@@ -370,8 +371,9 @@ const DetailsPage = () => {
         }
       }
 
+      const formatQuery = formatParam ? `?format=${formatParam}` : '';
       const url = isExternal 
-        ? `${API_BASE_URL}/${mediaType}/anilist/${targetId}`
+        ? `${API_BASE_URL}/${mediaType}/anilist/${targetId}${formatQuery}`
         : `${API_BASE_URL}/${mediaType}/${targetId}`;
 
       try {
@@ -398,7 +400,8 @@ const DetailsPage = () => {
             temporada: data.season,
             ano: data.seasonYear,
             linksExternos: data.externalLinks ? JSON.stringify(data.externalLinks) : null,
-            isExternal: true
+            isExternal: true,
+            formato: data.format
           };
           setSelectedItem(normalized);
         } else if (data) {
@@ -408,8 +411,10 @@ const DetailsPage = () => {
 
           // Fetch AniList metadata in the background to populate relations
           const externalId = data.animeId || data.mangaId || itemData.animeId || itemData.mangaId;
+          const formatVal = itemData.formato;
           if (externalId) {
-            customFetch(`${API_BASE_URL}/${mediaType}/anilist/${externalId}`, { headers: getHeaders() })
+            const formatQueryVal = formatVal ? `?format=${formatVal}` : '';
+            customFetch(`${API_BASE_URL}/${mediaType}/anilist/${externalId}${formatQueryVal}`, { headers: getHeaders() })
               .then(res => {
                 if (res.ok) return res.json();
                 throw new Error("Failed to fetch external metadata");
@@ -637,7 +642,7 @@ const DetailsPage = () => {
     }
   };
 
-  const adicionarAoBanco = async (titulo: string, anilistId?: number) => {
+  const adicionarAoBanco = async (titulo: string, anilistId?: number, format?: string) => {
     if (!mediaType) return;
     setIsAddingToLibrary(true);
     const url = `${API_BASE_URL}/${mediaType}/import`;
@@ -645,7 +650,7 @@ const DetailsPage = () => {
       const response = await customFetch(url, {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify({ nome: titulo, userId: user?.id, anilistId })
+        body: JSON.stringify({ nome: titulo, userId: user?.id, anilistId, format })
       });
       
       if (response.ok) {
@@ -660,8 +665,10 @@ const DetailsPage = () => {
 
         // Fetch relations in background immediately after adding to library
         const externalId = localItem.animeId || localItem.mangaId || localItem.id;
+        const formatVal = localItem.formato;
         if (externalId) {
-          customFetch(`${API_BASE_URL}/${mediaType}/anilist/${externalId}`, { headers: getHeaders() })
+          const formatQuery = formatVal ? `?format=${formatVal}` : '';
+          customFetch(`${API_BASE_URL}/${mediaType}/anilist/${externalId}${formatQuery}`, { headers: getHeaders() })
             .then(res => {
               if (res.ok) return res.json();
               throw new Error("Failed to fetch external metadata after import");
@@ -1173,34 +1180,6 @@ const DetailsPage = () => {
 
             {/* Info Card (Below poster) */}
             <div className="bg-[#18181c]/90 border border-white/5 rounded-2xl p-5 flex flex-col gap-4 shadow-xl backdrop-blur-md">
-              {/* Type Selector (Anime / Série) */}
-              {!selectedItem.isExternal && mediaType === 'anime' && (
-                <div className="flex items-center justify-between gap-2 p-1 bg-black/40 rounded-xl border border-white/5">
-                  <span className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest pl-2">Tipo</span>
-                  <div className="flex gap-1 shrink-0">
-                    <button
-                      onClick={() => atualizarCampo('tipo', 'ANIME')}
-                      className={`px-2.5 py-1 rounded-lg text-[9px] font-black tracking-wider uppercase transition-all ${
-                        (selectedItem.tipo || 'ANIME') === 'ANIME'
-                          ? 'bg-primary text-on-primary font-bold shadow-md shadow-primary/25'
-                          : 'text-on-surface-variant hover:text-white bg-transparent'
-                      }`}
-                    >
-                      Anime
-                    </button>
-                    <button
-                      onClick={() => atualizarCampo('tipo', 'SERIE')}
-                      className={`px-2.5 py-1 rounded-lg text-[9px] font-black tracking-wider uppercase transition-all ${
-                        (selectedItem.tipo || 'ANIME') === 'SERIE'
-                          ? 'bg-[#e50914] text-white font-bold shadow-md shadow-red-600/25'
-                          : 'text-on-surface-variant hover:text-white bg-transparent'
-                      }`}
-                    >
-                      Série
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {/* Stars and Rating */}
               <div className="flex flex-col items-center justify-center text-center py-2.5 bg-white/5 rounded-xl border border-white/5">
@@ -1300,8 +1279,16 @@ const DetailsPage = () => {
             {/* Web Header Info */}
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-3">
-                <span className={`px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider ${mediaType === 'anime' ? 'bg-primary/20 text-primary border-primary/30 shadow-[0_0_10px_rgba(221,184,255,0.2)]' : 'bg-secondary/20 text-secondary border-secondary/30 shadow-[0_0_10px_rgba(255,176,203,0.2)]'}`}>
-                  {mediaType}
+                <span className={`px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider ${
+                  mediaType === 'anime' 
+                    ? (selectedItem.tipo === 'ANIME' 
+                      ? 'bg-primary/20 text-primary border-primary/30 shadow-[0_0_10px_rgba(221,184,255,0.2)]' 
+                      : selectedItem.tipo === 'SERIE'
+                        ? 'bg-red-500/20 text-red-400 border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.2)]'
+                        : 'bg-amber-500/20 text-amber-400 border-amber-500/30 shadow-[0_0_10px_rgba(245,158,11,0.2)]')
+                    : 'bg-secondary/20 text-secondary border-secondary/30 shadow-[0_0_10px_rgba(255,176,203,0.2)]'
+                }`}>
+                  {mediaType === 'anime' ? (selectedItem.tipo === 'SERIE' ? 'SÉRIE' : (selectedItem.tipo || 'ANIME')) : 'MANGA'}
                 </span>
                 <span className="text-xs font-bold text-yellow-400 flex items-center gap-1">
                   <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
@@ -1361,7 +1348,7 @@ const DetailsPage = () => {
                     
                     {selectedItem.isExternal ? (
                       <button 
-                        onClick={() => { adicionarAoBanco(selectedItem.titulo, selectedItem.id); }} 
+                        onClick={() => { adicionarAoBanco(selectedItem.titulo, selectedItem.id, selectedItem.formato); }} 
                         disabled={isAddingToLibrary}
                         className="w-full bg-primary hover:bg-primary/80 text-on-primary py-3.5 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 shadow-lg disabled:opacity-50"
                       >
@@ -2190,7 +2177,7 @@ const DetailsPage = () => {
                   <div className="space-y-4">
                     {selectedItem.isExternal ? (
                       <button 
-                        onClick={() => { adicionarAoBanco(selectedItem.titulo, selectedItem.id); }} 
+                        onClick={() => { adicionarAoBanco(selectedItem.titulo, selectedItem.id, selectedItem.formato); }} 
                         disabled={isAddingToLibrary}
                         className="w-full bg-primary hover:bg-primary/80 text-on-primary py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                       >

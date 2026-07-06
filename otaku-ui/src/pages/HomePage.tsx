@@ -402,15 +402,23 @@ const HomePage = () => {
                 <div 
                   key={item.id} 
                   className="group cursor-pointer space-y-2" 
-                  onClick={() => navigate(`/details/${categoria}/${item.id}?external=true`)}
+                  onClick={() => navigate(`/details/${categoria}/${item.id}?external=true&format=${item.format}`)}
                 >
                   <div className="relative aspect-[2/3] rounded-2xl overflow-hidden glass-panel border border-white/5 hover:border-primary/50 transition-all duration-300 group-hover:scale-[1.02] group-hover:-translate-y-1 shadow-lg">
                     <img src={item.coverImage.large} className="w-full h-full object-cover" alt="" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity"></div>
                     
                     <div className="absolute bottom-3 left-3 right-3 z-10">
-                      <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-bold mb-1.5 ${categoria === 'anime' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary'}`}>
-                        {categoria.toUpperCase()}
+                      <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-bold mb-1.5 ${
+                        categoria === 'anime' 
+                          ? (item.tipo === 'ANIME' 
+                            ? 'bg-primary text-on-primary shadow-[0_0_10px_rgba(221,184,255,0.25)]' 
+                            : item.tipo === 'SERIE'
+                              ? 'bg-[#e50914] text-white shadow-[0_0_10px_rgba(229,9,20,0.25)]'
+                              : 'bg-amber-600 text-white shadow-[0_0_10px_rgba(217,119,6,0.25)]')
+                          : 'bg-secondary text-on-secondary'
+                      }`}>
+                        {categoria === 'anime' ? (item.tipo === 'SERIE' ? 'SÉRIE' : (item.tipo || 'ANIME')) : categoria.toUpperCase()}
                       </span>
                       <p className="font-bold text-xs text-white line-clamp-1">{item.title.english || item.title.romaji}</p>
                     </div>

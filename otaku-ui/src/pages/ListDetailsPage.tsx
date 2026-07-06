@@ -713,13 +713,13 @@ const ListDetailsPage = () => {
                     </div>
                   )}
 
-                  <Link to={`/details/${mediaTypePath}/${item.anilistMediaId}?external=true`} onClick={(e) => handleLinkClick(e, `/details/${mediaTypePath}/${item.anilistMediaId}?external=true`)} className="aspect-[3/4] rounded-xl overflow-hidden bg-white/5 flex-shrink-0">
+                  <Link to={`/details/${mediaTypePath}/${item.anilistMediaId}?external=true${media?.formato ? `&format=${media.formato}` : ''}`} onClick={(e) => handleLinkClick(e, `/details/${mediaTypePath}/${item.anilistMediaId}?external=true${media?.formato ? `&format=${media.formato}` : ''}`)} className="aspect-[3/4] rounded-xl overflow-hidden bg-white/5 flex-shrink-0">
                     {media?.capaUrl ? <img src={media.capaUrl} alt={media?.titulo} className="w-full h-full object-cover" /> : null}
                   </Link>
 
                   <div className="min-w-0">
                     <p className="text-primary text-xs font-black">#{index + 1} · {item.mediaType}</p>
-                    <Link to={`/details/${mediaTypePath}/${item.anilistMediaId}?external=true`} onClick={(e) => handleLinkClick(e, `/details/${mediaTypePath}/${item.anilistMediaId}?external=true`)} className="text-white font-black text-base sm:text-lg truncate block hover:text-primary transition-colors">{media?.titulo || `Media ${item.anilistMediaId}`}</Link>
+                    <Link to={`/details/${mediaTypePath}/${item.anilistMediaId}?external=true${media?.formato ? `&format=${media.formato}` : ''}`} onClick={(e) => handleLinkClick(e, `/details/${mediaTypePath}/${item.anilistMediaId}?external=true${media?.formato ? `&format=${media.formato}` : ''}`)} className="text-white font-black text-base sm:text-lg truncate block hover:text-primary transition-colors">{media?.titulo || `Media ${item.anilistMediaId}`}</Link>
                     <p className="text-on-surface-variant text-xs line-clamp-2 mt-0.5">{media?.descricao || 'Sem descrição.'}</p>
                   </div>
 

@@ -71,20 +71,25 @@ export class AnimeController {
   @UseGuards(JwtAuthGuard)
   @Post('import')
   importAnime(
-    @Body() body: { nome: string; anilistId?: number },
+    @Body() body: { nome: string; anilistId?: number; format?: string },
     @Request() req,
   ) {
     return this.animeService.importFromAniList(
       body.nome,
       req.user.userId,
       body.anilistId,
+      body.format,
     );
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('anilist/:id')
-  getAniListById(@Param('id') id: string, @Request() req) {
-    return this.animeService.searchAniListById(+id, req.user.userId);
+  getAniListById(
+    @Param('id') id: string,
+    @Query('format') format: string,
+    @Request() req,
+  ) {
+    return this.animeService.searchAniListById(+id, req.user.userId, format);
   }
 
   @UseGuards(JwtAuthGuard)

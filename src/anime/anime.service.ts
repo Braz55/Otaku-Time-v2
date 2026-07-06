@@ -2552,9 +2552,11 @@ export class AnimeService {
           const showStatus = String(show.status || '').toLowerCase();
           const completedAll = totalEpisodes > 0 && watchedCount >= totalEpisodes;
 
-          if (showStatus === 'completed' || completedAll) {
+          if (showStatus === 'completed' || showStatus === 'finished' || completedAll) {
             trackingStatus = 'COMPLETED';
-          } else if (showStatus === 'stopped' || showStatus === 'archived') {
+          } else if (showStatus === 'stopped' || showStatus === 'dropped' || showStatus === 'abandoned') {
+            trackingStatus = 'DROPPED';
+          } else if (showStatus === 'archived' || showStatus === 'paused') {
             trackingStatus = 'PAUSED';
           } else if (showStatus === 'watching') {
             trackingStatus = 'WATCHING';

@@ -30,8 +30,10 @@ export class TMDBService {
       url.searchParams.append('api_key', this.apiKey);
     }
     
-    // Default language is Portuguese (PT)
-    url.searchParams.append('language', 'pt-PT');
+    // Default language is Portuguese (PT) if not overridden
+    if (!params.language) {
+      url.searchParams.append('language', 'pt-PT');
+    }
 
     for (const [key, val] of Object.entries(params)) {
       if (val !== undefined && val !== null) {
@@ -82,11 +84,12 @@ export class TMDBService {
    * Search for TV Shows or Movies on TMDB.
    * If type is multi, it searches both.
    */
-  async search(query: string, page: number = 1): Promise<any[]> {
+  async search(query: string, page: number = 1, language?: string): Promise<any[]> {
     try {
       const results = await this.fetchFromTMDB('/search/multi', {
         query,
         page: page.toString(),
+        ...(language ? { language } : {}),
       });
 
       const mediaItems = results.results || [];
@@ -104,7 +107,7 @@ export class TMDBService {
    * Get TV Show details.
    */
   async getTVShowDetails(id: number): Promise<any> {
-    return this.fetchFromTMDB(`/tv/${id}`);
+    return this.fetchFromTMDB(`/tv/${id}`, { append_to_response: 'translations' });
   }
 
   /**
@@ -118,7 +121,7 @@ export class TMDBService {
    * Get Movie details.
    */
   async getMovieDetails(id: number): Promise<any> {
-    return this.fetchFromTMDB(`/movie/${id}`);
+    return this.fetchFromTMDB(`/movie/${id}`, { append_to_response: 'translations' });
   }
 
   /**

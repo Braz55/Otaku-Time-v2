@@ -81,11 +81,79 @@ function hasGenreOrTag(generos: any, target: string): boolean {
   return false;
 }
 
+function hasCJK(text: string): boolean {
+  return /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]/.test(text);
+}
+
+function resolveLatinTitle(item: any, defaultTitle: string): string {
+  if (item.translations?.translations) {
+    const enTranslation = item.translations.translations.find((t: any) => t.iso_639_1 === 'en');
+    const enName = enTranslation?.data?.name || enTranslation?.data?.title;
+    if (enName && !hasCJK(enName)) {
+      return enName;
+    }
+    
+    const ptTranslation = item.translations.translations.find((t: any) => t.iso_639_1 === 'pt');
+    const ptName = ptTranslation?.data?.name || ptTranslation?.data?.title;
+    if (ptName && !hasCJK(ptName)) {
+      return ptName;
+    }
+
+    for (const t of item.translations.translations) {
+      const name = t.data?.name || t.data?.title;
+      if (name && !hasCJK(name)) {
+        return name;
+      }
+    }
+  }
+  return defaultTitle;
+}
+
+async function resolveLatinTitleForSearchItem(
+  tmdbService: TMDBService,
+  item: any,
+  defaultTitle: string,
+  isMovie: boolean,
+): Promise<string> {
+  // If the default title has CJK, or if we just want to ensure we get English if possible
+  if (hasCJK(defaultTitle)) {
+    try {
+      const details = isMovie 
+        ? await tmdbService.getMovieDetails(item.id)
+        : await tmdbService.getTVShowDetails(item.id);
+      if (details && details.translations?.translations) {
+        const enTranslation = details.translations.translations.find((t: any) => t.iso_639_1 === 'en');
+        const enName = enTranslation?.data?.name || enTranslation?.data?.title;
+        if (enName && !hasCJK(enName)) {
+          return enName;
+        }
+
+        const ptTranslation = details.translations.translations.find((t: any) => t.iso_639_1 === 'pt');
+        const ptName = ptTranslation?.data?.name || ptTranslation?.data?.title;
+        if (ptName && !hasCJK(ptName)) {
+          return ptName;
+        }
+
+        for (const t of details.translations.translations) {
+          const name = t.data?.name || t.data?.title;
+          if (name && !hasCJK(name)) {
+            return name;
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return defaultTitle;
+}
+
 function normalizeTMDBToAniList(media: any, mediaTypeForce?: 'tv' | 'movie'): any {
   if (!media) return null;
   const isMovie = mediaTypeForce === 'movie' || media.title !== undefined || media.media_type === 'movie';
   
-  const title = isMovie ? (media.title || media.original_title) : (media.name || media.original_name);
+  let title = isMovie ? (media.title || media.original_title) : (media.name || media.original_name);
+  title = resolveLatinTitle(media, title);
   const statusMap: Record<string, string> = {
     'Returning Series': 'RELEASING',
     'Ended': 'FINISHED',
@@ -779,11 +847,12 @@ export class AnimeService {
   }
 
   async searchAnimeList(nomeAnime: string, page: number = 1, userId?: number) {
-    const results = await this.tmdbService.search(nomeAnime, page);
+    const results = await this.tmdbService.search(nomeAnime, page, 'en-US');
     
-    return results.map((item: any) => {
+    return Promise.all(results.map(async (item: any) => {
       const isMovie = item.media_type === 'movie';
-      const title = isMovie ? (item.title || item.original_title) : (item.name || item.original_name);
+      let title = isMovie ? (item.title || item.original_title) : (item.name || item.original_name);
+      title = await resolveLatinTitleForSearchItem(this.tmdbService, item, title, isMovie);
       const posterPath = item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null;
       
       const statusMap: Record<string, string> = {
@@ -812,7 +881,7 @@ export class AnimeService {
         format: isMovie ? 'MOVIE' : 'TV',
         tipo: detectedType,
       };
-    });
+    }));
   }
 
   async findAll(userId: number, status?: string) {
@@ -1984,6 +2053,7 @@ export class AnimeService {
       const isMovieFormat = format === 'MOVIE';
       const params: Record<string, string> = {
         page: page.toString(),
+        language: 'en-US',
       };
       
       if (genres && genres.length > 0) {
@@ -2013,8 +2083,9 @@ export class AnimeService {
           : await this.tmdbService.discoverTV(params);
         
         const mediaItems = results.results || [];
-        return mediaItems.map((item: any) => {
-          const title = isMovieFormat ? (item.title || item.original_title) : (item.name || item.original_name);
+        return Promise.all(mediaItems.map(async (item: any) => {
+          let title = isMovieFormat ? (item.title || item.original_title) : (item.name || item.original_name);
+          title = await resolveLatinTitleForSearchItem(this.tmdbService, item, title, isMovieFormat);
           const posterPath = item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null;
           const isAnimation = item.genre_ids?.includes(16);
           let detectedType: 'ANIME' | 'SERIE' | 'FILME' = 'ANIME';
@@ -2031,7 +2102,7 @@ export class AnimeService {
             status: 'FINISHED',
             tipo: detectedType,
           };
-        });
+        }));
       } catch (error) {
         this.logger.error('Error in TMDB explore discover:', error);
         return [];

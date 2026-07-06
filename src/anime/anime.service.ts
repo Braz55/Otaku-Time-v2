@@ -3,6 +3,45 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ListService } from '../list/list.service';
 import { TMDBService } from './tmdb.service';
 
+const TMDB_GENRE_MAP: Record<string, string[]> = {
+  'Ação': ['Action'],
+  'Ação e Aventura': ['Action', 'Adventure'],
+  'Action & Adventure': ['Action', 'Adventure'],
+  'Aventura': ['Adventure'],
+  'Animação': ['Animation'],
+  'Animation': ['Animation'],
+  'Comédia': ['Comedy'],
+  'Comedy': ['Comedy'],
+  'Crime': ['Crime'],
+  'Documentário': ['Documentary'],
+  'Documentary': ['Documentary'],
+  'Drama': ['Drama'],
+  'Família': ['Family'],
+  'Family': ['Family'],
+  'Fantasia': ['Fantasy'],
+  'Fantasy': ['Fantasy'],
+  'Ficção Científica': ['Sci-Fi'],
+  'Ficção Científica e Fantasia': ['Sci-Fi', 'Fantasy'],
+  'Sci-Fi & Fantasy': ['Sci-Fi', 'Fantasy'],
+  'História': ['History'],
+  'History': ['History'],
+  'Terror': ['Horror'],
+  'Horror': ['Horror'],
+  'Música': ['Music'],
+  'Music': ['Music'],
+  'Mistério': ['Mystery'],
+  'Mystery': ['Mystery'],
+  'Romance': ['Romance'],
+  'Suspense': ['Thriller'],
+  'Thriller': ['Thriller'],
+  'Guerra': ['War'],
+  'War': ['War'],
+  'Guerra e Política': ['War', 'Drama'],
+  'War & Politics': ['War', 'Drama'],
+  'Faroeste': ['Western'],
+  'Western': ['Western']
+};
+
 function buildGenerosDict(
   genres: string[] | undefined,
   tags: { name: string; rank?: number }[] | undefined,
@@ -19,6 +58,14 @@ function buildGenerosDict(
     });
   }
   return dict;
+}
+
+function capitalizeKeyword(name: string): string {
+  if (!name) return '';
+  return name
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 }
 
 function hasGenreOrTag(generos: any, target: string): boolean {
@@ -172,8 +219,50 @@ export class AnimeService {
         const generosDict: Record<string, number> = {};
         if (normalized.genres) {
           normalized.genres.forEach((g: string) => {
-            generosDict[g.trim()] = 100;
+            const trimmed = g.trim();
+            generosDict[trimmed] = 100;
+            
+            const mapped = TMDB_GENRE_MAP[trimmed];
+            if (mapped) {
+              mapped.forEach((m) => {
+                generosDict[m] = 100;
+              });
+            }
           });
+        }
+
+        const format = normalized.format;
+        if (format === 'MOVIE') {
+          generosDict['Movie'] = 100;
+          generosDict['Filme'] = 100;
+        } else if (format === 'TV') {
+          generosDict['TV Show'] = 100;
+          generosDict['Série'] = 100;
+        }
+
+        const isAnimation = normalized.genres?.some(
+          (g: string) => g.trim().toLowerCase() === 'animação' || g.trim().toLowerCase() === 'animation'
+        );
+        if (isAnimation) {
+          generosDict['Animation'] = 100;
+          generosDict['Animação'] = 100;
+        }
+
+        try {
+          const tmdbKeywords = await this.tmdbService.getKeywords(
+            tmdbId,
+            isMovie ? 'movie' : 'tv',
+          );
+          if (tmdbKeywords && tmdbKeywords.length > 0) {
+            tmdbKeywords.forEach((k: string) => {
+              const capitalized = capitalizeKeyword(k.trim());
+              if (capitalized) {
+                generosDict[capitalized] = 100;
+              }
+            });
+          }
+        } catch (e) {
+          this.logger.error(`[Migration] Error fetching TMDB keywords for ID ${tmdbId}:`, e);
         }
 
         let proximosEpisodiosJson: any[] = [];
@@ -397,8 +486,50 @@ export class AnimeService {
     const generosDict: Record<string, number> = {};
     if (tmdbData.genres) {
       tmdbData.genres.forEach((g: string) => {
-        generosDict[g.trim()] = 100;
+        const trimmed = g.trim();
+        generosDict[trimmed] = 100;
+        
+        const mapped = TMDB_GENRE_MAP[trimmed];
+        if (mapped) {
+          mapped.forEach((m) => {
+            generosDict[m] = 100;
+          });
+        }
       });
+    }
+
+    const format = tmdbData.format;
+    if (format === 'MOVIE') {
+      generosDict['Movie'] = 100;
+      generosDict['Filme'] = 100;
+    } else if (format === 'TV') {
+      generosDict['TV Show'] = 100;
+      generosDict['Série'] = 100;
+    }
+
+    const isAnimation = tmdbData.genres?.some(
+      (g: string) => g.trim().toLowerCase() === 'animação' || g.trim().toLowerCase() === 'animation'
+    );
+    if (isAnimation) {
+      generosDict['Animation'] = 100;
+      generosDict['Animação'] = 100;
+    }
+
+    try {
+      const tmdbKeywords = await this.tmdbService.getKeywords(
+        tmdbData.id,
+        tmdbData.format === 'TV' ? 'tv' : 'movie',
+      );
+      if (tmdbKeywords && tmdbKeywords.length > 0) {
+        tmdbKeywords.forEach((k: string) => {
+          const capitalized = capitalizeKeyword(k.trim());
+          if (capitalized) {
+            generosDict[capitalized] = 100;
+          }
+        });
+      }
+    } catch (e) {
+      this.logger.error(`Error fetching TMDB keywords during import:`, e);
     }
 
     let details: any = null;

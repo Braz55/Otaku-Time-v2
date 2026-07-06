@@ -122,6 +122,24 @@ export class TMDBService {
   }
 
   /**
+   * Get keywords for a TV Show or Movie from TMDB.
+   */
+  async getKeywords(id: number, type: 'tv' | 'movie'): Promise<string[]> {
+    try {
+      const endpoint = type === 'tv' ? `/tv/${id}/keywords` : `/movie/${id}/keywords`;
+      const response = await this.fetchFromTMDB(endpoint);
+      const list = type === 'tv' ? response.results : response.keywords;
+      if (list && Array.isArray(list)) {
+        return list.map((k: any) => k.name);
+      }
+      return [];
+    } catch (error: any) {
+      this.logger.error(`Error fetching keywords for ${type} ID ${id}: ${error.message || error}`);
+      return [];
+    }
+  }
+
+  /**
    * Discover TV Shows with filters.
    */
   async discoverTV(params: Record<string, string> = {}): Promise<any> {

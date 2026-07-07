@@ -41,6 +41,9 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboar
   const location = useLocation();
   const isMobile = useIsMobile();
   const { searchTerm, setSearchTerm, isSearchOpen, setIsSearchOpen, setIsShowingFavorites, isViewingDetails } = useMedia();
+
+  const isCalendarActive = location.pathname === '/calendar';
+  const isSwitcherDisabled = isViewingDetails || isCalendarActive;
   
   const [isSyncing, setIsSyncing] = useState(false);
   const [mobileSearchActive, setMobileSearchActive] = useState(false);
@@ -262,7 +265,7 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboar
                   </h1>
                   
                   {/* Category Switcher Mobile */}
-                  <div className={`flex p-0.5 bg-black/40 border border-white/10 rounded-lg shrink-0 ml-1 sm:ml-2 ${isViewingDetails ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}`}>
+                  <div className={`flex p-0.5 bg-black/40 border border-white/10 rounded-lg shrink-0 ml-1 sm:ml-2 ${isSwitcherDisabled ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}`}>
                     <button 
                       type="button"
                       onClick={() => setCategoria('anime')}
@@ -394,7 +397,7 @@ const Header: React.FC<HeaderProps> = ({ categoria, setCategoria, onShowDashboar
             </div>
             
             {/* Categoria Switcher */}
-            <div className={`flex p-0.5 bg-black/40 border border-white/10 rounded-xl shrink-0 ${isViewingDetails ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}`}>
+            <div className={`flex p-0.5 bg-black/40 border border-white/10 rounded-xl shrink-0 ${isSwitcherDisabled ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}`}>
               <button 
                 type="button"
                 onClick={() => setCategoria('anime')}

@@ -367,25 +367,27 @@ const DetailsPage = () => {
       let targetId = parseInt(id);
       let isExternal = isExternalParam;
 
-      // Check if it already exists in database if marked external
-      if (isExternal) {
-        try {
-          const libraryRes = await customFetch(`${API_BASE_URL}/${mediaType}`, { headers: getHeaders() });
-          if (libraryRes.ok) {
-            const libraryItems = await libraryRes.json();
-            if (Array.isArray(libraryItems)) {
-              const matched = libraryItems.find(item => 
-                (mediaType === 'manga' ? item.mangaId : item.animeId) === targetId
-              );
-              if (matched) {
-                targetId = matched.id;
-                isExternal = false;
-              }
+      // Check if it already exists in database (user library)
+      try {
+        const libraryRes = await customFetch(`${API_BASE_URL}/${mediaType}`, { headers: getHeaders() });
+        if (libraryRes.ok) {
+          const libraryItems = await libraryRes.json();
+          if (Array.isArray(libraryItems)) {
+            const matched = libraryItems.find(item => 
+              item.id === targetId || (mediaType === 'manga' ? item.mangaId : item.animeId) === targetId
+            );
+            if (matched) {
+              targetId = matched.id;
+              isExternal = false;
+            } else {
+              // If not found in the library, treat as external since GET /anime/:id or /manga/:id
+              // only works for user tracked items.
+              isExternal = true;
             }
           }
-        } catch (e) {
-          console.error("Error verifying item in library:", e);
         }
+      } catch (e) {
+        console.error("Error verifying item in library:", e);
       }
 
       const formatQuery = formatParam ? `?format=${formatParam}` : '';
@@ -849,8 +851,15 @@ const DetailsPage = () => {
       if (selectedItem.status === 'COMPLETED' && totalAll && val < totalAll) {
         optimisticUpdates.status = 'WATCHING';
       }
-      if (totalAll && val >= totalAll) {
-        optimisticUpdates.status = 'COMPLETED';
+      if (mediaType === 'anime') {
+        if (totalAll && val >= totalAll) {
+          optimisticUpdates.status = 'COMPLETED';
+        }
+      } else {
+        const isReleasing = selectedItem.statusLancamento === 'RELEASING' || selectedItem.manga?.statusLancamento === 'RELEASING';
+        if (!isReleasing && totalAll && val === totalAll) {
+          optimisticUpdates.status = 'COMPLETED';
+        }
       }
 
       if (field === 'epAtual') {
@@ -978,13 +987,6 @@ const DetailsPage = () => {
     } else {
       const novoValor = (selectedItem.capAtual || 0) + delta;
       if (novoValor < 0) return;
-      const maxDisp = (selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero)
-        ? selectedItem.proximoCapituloNumero - 1
-        : (latestChapter || selectedItem.numCapitulosTotal || 9999);
-      if (delta > 0 && novoValor > maxDisp) {
-        showToast('Não é possível marcar capítulos que ainda não foram lançados.', 'error');
-        return;
-      }
       atualizarCampo('capAtual', novoValor);
     }
   };
@@ -1603,12 +1605,7 @@ const DetailsPage = () => {
                                 onClick={() => atualizarProgresso(1)} 
                                 disabled={
                                   isSavingDetailsProgress || 
-                                  (mediaType === 'anime' 
-                                    ? epAtualDisplay >= totalAiredEpisodes 
-                                    : (selectedItem.capAtual || 0) >= ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero)
-                                        ? selectedItem.proximoCapituloNumero - 1
-                                        : (latestChapter || selectedItem.numCapitulosTotal || 9999))
-                                  )
+                                  (mediaType === 'anime' && epAtualDisplay >= totalAiredEpisodes)
                                 } 
                                 title="Adicionar 1" 
                                 className={`w-8 h-8 rounded-xl transition-all flex items-center justify-center cursor-pointer active:scale-95 font-bold ${mediaType === 'anime' ? 'bg-primary text-on-primary shadow-sm shadow-primary/20 hover:bg-primary/80' : 'bg-secondary text-on-secondary shadow-sm shadow-secondary/20 hover:bg-secondary/80'} disabled:opacity-50 disabled:cursor-not-allowed`}
@@ -1799,7 +1796,7 @@ const DetailsPage = () => {
                       )
                     ) : (
                       <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                        {[...Array((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 0))].map((_, i) => {
+                        {[...Array(Math.max(selectedItem.capAtual || 0, (selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 0)))].map((_, i) => {
                           const num = i + 1;
                           const isWatched = num <= selectedItem.capAtual;
                           return (
@@ -2370,13 +2367,6 @@ const DetailsPage = () => {
                                       }
                                       atualizarCampo('epAtual', val); 
                                     } else { 
-                                      const maxDisp = (selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero)
-                                        ? selectedItem.proximoCapituloNumero - 1
-                                        : (latestChapter || selectedItem.numCapitulosTotal || 9999);
-                                      if (val > maxDisp) {
-                                        showToast('Não é possível marcar capítulos que ainda não foram lançados.', 'error');
-                                        return;
-                                      }
                                       atualizarCampo('capAtual', val); 
                                     } 
                                   }} 
@@ -2398,12 +2388,7 @@ const DetailsPage = () => {
                               onClick={() => atualizarProgresso(1)} 
                               disabled={
                                 isSavingDetailsProgress || 
-                                (mediaType === 'anime' 
-                                  ? (selectedItem.epAtualGlobal || selectedItem.epAtual || 0) >= totalAiredEpisodes 
-                                  : (selectedItem.capAtual || 0) >= ((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero)
-                                      ? selectedItem.proximoCapituloNumero - 1
-                                      : (latestChapter || selectedItem.numCapitulosTotal || 9999))
-                                )
+                                (mediaType === 'anime' && (selectedItem.epAtualGlobal || selectedItem.epAtual || 0) >= totalAiredEpisodes)
                               } 
                               title="Add 1" 
                               className={`w-9 h-9 rounded-xl transition-all flex items-center justify-center shadow-md active:scale-95 font-bold ${mediaType === 'anime' ? 'bg-primary text-on-primary shadow-sm shadow-primary/20' : 'bg-secondary text-on-secondary shadow-sm shadow-secondary/20'} disabled:opacity-50 disabled:cursor-not-allowed`}
@@ -2578,7 +2563,7 @@ const DetailsPage = () => {
                                 )
                               ) : (
                                 <div className="grid grid-cols-5 sm:grid-cols-6 gap-2 max-h-[240px] overflow-y-auto pr-1 custom-scrollbar">
-                                  {[...Array((selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 0))].map((_, i) => {
+                                  {[...Array(Math.max(selectedItem.capAtual || 0, (selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoCapituloNumero) ? selectedItem.proximoCapituloNumero - 1 : (latestChapter || selectedItem.numCapitulosTotal || 0)))].map((_, i) => {
                                     const num = i + 1;
                                     const isWatched = num <= selectedItem.capAtual;
                                     return (

@@ -62,6 +62,45 @@ const HomePage = () => {
       return null;
     }
 
+    // Option C: Check if there are any releasing items that were recently updated or had a new episode/chapter recently (within 7 days)
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const nowTime = new Date().getTime();
+
+    const newReleaseCandidates = dashboardItems.filter(item => {
+      // Must be releasing
+      const isReleasing = item.statusLancamento === 'RELEASING';
+      if (!isReleasing) return false;
+
+      // Check if update/sync is recent (within 7 days)
+      let isRecentUpdate = false;
+      if (item.mediaUpdatedAt) {
+        const updateTime = new Date(item.mediaUpdatedAt).getTime();
+        if (nowTime - updateTime <= SEVEN_DAYS_MS) {
+          isRecentUpdate = true;
+        }
+      }
+
+      // For anime, also check if the last aired episode date is recent
+      if (type === 'anime' && item.ultimoEpisodioEstreadoData) {
+        const airedTime = new Date(item.ultimoEpisodioEstreadoData).getTime();
+        if (nowTime - airedTime <= SEVEN_DAYS_MS) {
+          isRecentUpdate = true;
+        }
+      }
+
+      return isRecentUpdate;
+    });
+
+    if (newReleaseCandidates.length > 0) {
+      // Pick the most recently updated one
+      const sortedNewReleases = [...newReleaseCandidates].sort((a, b) => {
+        const timeA = a.mediaUpdatedAt ? new Date(a.mediaUpdatedAt).getTime() : 0;
+        const timeB = b.mediaUpdatedAt ? new Date(b.mediaUpdatedAt).getTime() : 0;
+        return timeB - timeA;
+      });
+      return { ...sortedNewReleases[0], highlightReason: 'new_release' };
+    }
+
     const roll = Math.random();
     const isRecent = roll < 0.5;
 
@@ -172,13 +211,17 @@ const HomePage = () => {
             let maxDisp = numTotal || 9999;
             if (a.anime?.statusLancamento !== 'FINISHED') {
               const now = new Date();
-              const eps = a.episodes || [];
-              if (Array.isArray(eps) && eps.length > 0) {
-                maxDisp = eps.filter((ep: any) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now).length;
+              if (typeof a.numEpisodiosAired === 'number') {
+                maxDisp = a.numEpisodiosAired;
               } else {
-                const proxEp = a.anime?.proximoEpisodio || a.proximoEpisodio;
-                if ((a.anime?.statusLancamento === 'RELEASING' || a.statusLancamento === 'RELEASING') && proxEp) {
-                  maxDisp = proxEp - 1;
+                const eps = a.episodes || [];
+                if (Array.isArray(eps) && eps.length > 0) {
+                  maxDisp = eps.filter((ep: any) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now).length;
+                } else {
+                  const proxEp = a.anime?.proximoEpisodio || a.proximoEpisodio;
+                  if ((a.anime?.statusLancamento === 'RELEASING' || a.statusLancamento === 'RELEASING') && proxEp) {
+                    maxDisp = proxEp - 1;
+                  }
                 }
               }
             }
@@ -231,13 +274,17 @@ const HomePage = () => {
       let maxDisp = item.anime?.numEpisodiosTotal || item.numEpisodiosTotal || 9999;
       if (item.anime?.statusLancamento !== 'FINISHED') {
         const now = new Date();
-        const eps = item.episodes || [];
-        if (Array.isArray(eps) && eps.length > 0) {
-          maxDisp = eps.filter((ep: any) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now).length;
+        if (typeof item.numEpisodiosAired === 'number') {
+          maxDisp = item.numEpisodiosAired;
         } else {
-          const proxEp = item.anime?.proximoEpisodio || item.proximoEpisodio;
-          if ((item.anime?.statusLancamento === 'RELEASING' || item.statusLancamento === 'RELEASING') && proxEp) {
-            maxDisp = proxEp - 1;
+          const eps = item.episodes || [];
+          if (Array.isArray(eps) && eps.length > 0) {
+            maxDisp = eps.filter((ep: any) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now).length;
+          } else {
+            const proxEp = item.anime?.proximoEpisodio || item.proximoEpisodio;
+            if ((item.anime?.statusLancamento === 'RELEASING' || item.statusLancamento === 'RELEASING') && proxEp) {
+              maxDisp = proxEp - 1;
+            }
           }
         }
       }
@@ -247,15 +294,7 @@ const HomePage = () => {
       }
       payload = { epAtual: currentGlobal + 1 };
     } else {
-      const status = item.manga?.statusLancamento || item.statusLancamento;
-      const proxCap = item.manga?.proximoCapituloNumero || item.proximoCapituloNumero;
-      const numTotal = item.manga?.numCapitulosTotal || item.numCapitulosTotal;
-      const maxDisp = (status === 'RELEASING' && proxCap) ? proxCap - 1 : (numTotal || 9999);
       const currentCap = item.capAtual || 0;
-      if (currentCap >= maxDisp) {
-        showToast('Não é possível marcar capítulos que ainda não foram lançados.', 'error');
-        return;
-      }
       payload = { capAtual: currentCap + 1 };
     }
 
@@ -530,15 +569,21 @@ const HomePage = () => {
                 
                 <div className="relative w-full h-full flex items-center justify-between gap-6 p-5 md:p-8 z-10">
                   <div className="flex-1 min-w-0 flex flex-col justify-center space-y-2">
-                    <span className={`w-fit px-2.5 py-0.5 rounded-full text-white font-label-sm text-[9px] uppercase tracking-wider font-bold ${categoria === 'anime' ? 'bg-primary' : 'bg-secondary'}`}>
+                    <span className={`w-fit px-2.5 py-0.5 rounded-full text-white font-label-sm text-[9px] uppercase tracking-wider font-bold ${
+                      featured?.highlightReason === 'new_release'
+                        ? 'bg-gradient-to-r from-amber-500 to-orange-600 shadow-[0_0_10px_rgba(245,158,11,0.4)] animate-pulse'
+                        : categoria === 'anime' ? 'bg-primary' : 'bg-secondary'
+                    }`}>
                       {featured 
-                        ? (featured.highlightReason === 'recent'
-                          ? (categoria === 'anime' ? t('A ver mais no momento') : t('A ler mais no momento'))
-                          : featured.highlightReason === 'dust'
-                            ? t('A apanhar pó na lista')
-                            : featured.highlightReason === 'random_library'
-                              ? t('Sugestão da tua lista')
-                              : t('EM DESTAQUE NA TUA LISTA'))
+                        ? (featured.highlightReason === 'new_release'
+                          ? (categoria === 'anime' ? t('Novo Episódio') : t('Novo Capítulo'))
+                          : featured.highlightReason === 'recent'
+                            ? (categoria === 'anime' ? t('A ver mais no momento') : t('A ler mais no momento'))
+                            : featured.highlightReason === 'dust'
+                              ? t('A apanhar pó na lista')
+                              : featured.highlightReason === 'random_library'
+                                ? t('Sugestão da tua lista')
+                                : t('EM DESTAQUE NA TUA LISTA'))
                         : t('DESTAQUE DA SEMANA')}
                     </span>
                     <h2 className="font-display-lg text-lg md:text-2xl text-white leading-tight font-black truncate">{heroTitle}</h2>

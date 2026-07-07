@@ -160,6 +160,12 @@ export class AnimeController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('calendar')
+  getCalendar(@Request() req, @Query('start_date') startDate?: string) {
+    return this.animeService.getCalendar(req.user.userId, startDate);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.animeService.findOne(+id);

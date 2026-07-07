@@ -87,7 +87,11 @@ const LibraryPage = () => {
 
   const [filtroStatus, setFiltroStatus] = useState<string>(() => getInitialState('filtroStatus', 'WATCHING'));
   const [filtroLancamento, setFiltroLancamento] = useState<string>(() => getInitialState('filtroLancamento', 'ALL'));
-  const [ordenacao, setOrdenacao] = useState<string>(() => getInitialState('ordenacao', 'PRIORITY'));
+  const [ordenacao, setOrdenacao] = useState<string>(() => {
+    const defaultOrder = categoria === 'anime' ? 'LATEST_EPISODE' : 'PRIORITY';
+    const initial = getInitialState<string>('ordenacao', defaultOrder);
+    return initial === 'LAST_UPDATED' ? defaultOrder : initial;
+  });
   const [showLancamentoMenu, setShowLancamentoMenu] = useState(false);
   const [showOrdemMenu, setShowOrdemMenu] = useState(false);
 
@@ -158,6 +162,8 @@ const LibraryPage = () => {
     }
     prevCategoryRef.current = categoria;
 
+    const defaultOrder = categoria === 'anime' ? 'LATEST_EPISODE' : 'PRIORITY';
+
     // 2. Try to load the state for the new category
     const saved = sessionStorage.getItem(`otaku_library_state_${categoria}`);
     if (saved) {
@@ -165,7 +171,8 @@ const LibraryPage = () => {
         const state = JSON.parse(saved);
         setFiltroStatus(state.filtroStatus || 'WATCHING');
         setFiltroLancamento(state.filtroLancamento || 'ALL');
-        setOrdenacao(state.ordenacao || 'PRIORITY');
+        const restoredOrder = state.ordenacao === 'LAST_UPDATED' ? null : state.ordenacao;
+        setOrdenacao(restoredOrder || defaultOrder);
         setSelectedGenres(state.selectedGenres || []);
         setSelectedTags(state.selectedTags || []);
         (window as any)._pendingLibraryScroll = state.scrollPosition || 0;
@@ -175,7 +182,7 @@ const LibraryPage = () => {
     } else {
       setFiltroStatus('WATCHING');
       setFiltroLancamento('ALL');
-      setOrdenacao('PRIORITY');
+      setOrdenacao(defaultOrder);
       setSelectedGenres([]);
       setSelectedTags([]);
       (window as any)._pendingLibraryScroll = 0;
@@ -352,7 +359,156 @@ const LibraryPage = () => {
     return 0;
   });
 
+  const hasPendingEpisodes = (item: any) => {
+    if (categoria === 'anime') {
+      const currentGlobal = item.epAtualGlobal !== undefined ? item.epAtualGlobal : (item.epAtual || 0);
+      let totalAired = 0;
+      if (typeof item.numEpisodiosAired === 'number') {
+        totalAired = item.numEpisodiosAired;
+      } else if (item.episodes && Array.isArray(item.episodes) && item.episodes.length > 0) {
+        const now = new Date();
+        totalAired = item.episodes.filter((ep: any) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now).length;
+      } else {
+        totalAired = item.numEpisodiosTotal || 0;
+      }
+      return currentGlobal < totalAired;
+    } else {
+      const currentGlobal = item.capAtual || 0;
+      const statusLancamento = item.manga?.statusLancamento || item.statusLancamento;
+      const proxNum = item.manga?.proximoCapituloNumero || item.proximoCapituloNumero;
+      const numTotal = item.manga?.numCapitulosTotal || item.numCapitulosTotal;
+      let totalReleased = 0;
+      if (statusLancamento === 'RELEASING' && typeof proxNum === 'number') {
+        totalReleased = proxNum - 1;
+      } else {
+        totalReleased = typeof numTotal === 'number' ? numTotal : 0;
+      }
+      return currentGlobal < totalReleased;
+    }
+  };
+
+  // Split items when in WATCHING status
+  const comPendentes = filtroStatus === 'WATCHING' ? ordenados.filter(hasPendingEpisodes) : [];
+  const emDia = filtroStatus === 'WATCHING' ? ordenados.filter(item => !hasPendingEpisodes(item)) : [];
+
   const paginatedItems = ordenados.slice(0, visibleCount);
+  const paginatedComPendentes = comPendentes.slice(0, visibleCount);
+  const paginatedEmDia = emDia.slice(0, visibleCount);
+
+  const hasMore = filtroStatus === 'WATCHING' 
+    ? (comPendentes.length > visibleCount || emDia.length > visibleCount)
+    : (filtrados.length > visibleCount);
+
+  const renderLibraryItem = (item: any) => {
+    const coverUrl = item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl;
+    const title = item.anime?.titulo || item.manga?.titulo || item.titulo;
+    const currentGlobal = categoria === 'anime' ? (item.epAtualGlobal !== undefined ? item.epAtualGlobal : (item.epAtual || 0)) : (item.capAtual || 0);
+    
+    const statusLancamento = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
+    const proxNum = categoria === 'anime' ? (item.anime?.proximoEpisodio || item.proximoEpisodio) : (item.manga?.proximoCapituloNumero || item.proximoCapituloNumero);
+    const numTotal = categoria === 'anime' ? (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal) : (item.manga?.numCapitulosTotal || item.numCapitulosTotal);
+    
+    return (
+      <div 
+        key={item.id} 
+        className="group cursor-pointer" 
+        onClick={() => handleNavigateToDetails(item.id)}
+      >
+        <div className={`relative aspect-[2/3] rounded-3xl overflow-hidden shadow-xl transform transition-all duration-500 group-hover:scale-[1.03] group-hover:-translate-y-2 border border-white/10 ${categoria === 'anime' ? 'group-hover:border-secondary/60 group-hover:shadow-[0_0_30px_rgba(194,24,91,0.25)]' : 'group-hover:border-primary/60 group-hover:shadow-[0_0_30px_rgba(106,27,154,0.25)]'}`}>
+          <img src={coverUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={title} loading="lazy" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-80 group-hover:opacity-90 transition-opacity"></div>
+          
+          {/* Top Badges: Status & Priority */}
+          <div className="absolute top-2 sm:top-4 left-2 sm:left-4 right-2 sm:right-4 flex items-center justify-between z-10 pointer-events-none gap-1 sm:gap-2">
+            {/* Tracking Status Badge */}
+            {item.status && (
+              <span className={`px-2 py-0.5 sm:py-1 rounded-lg text-[9px] sm:text-[10px] font-bold flex items-center gap-1 backdrop-blur-md border shadow-lg ${
+                item.status === 'WATCHING' ? (categoria === 'anime' ? 'bg-secondary/30 border-secondary/50 text-secondary' : 'bg-primary/30 border-primary/50 text-primary') :
+                item.status === 'COMPLETED' ? 'bg-emerald-500/30 border-emerald-500/50 text-emerald-200' :
+                item.status === 'PAUSED' ? 'bg-amber-500/30 border-amber-500/50 text-amber-200' :
+                item.status === 'PLANNED' ? 'bg-blue-500/30 border-blue-500/50 text-blue-200' :
+                item.status === 'DROPPED' ? 'bg-red-500/30 border-red-500/50 text-red-200' :
+                'bg-surface-variant/50 border-white/10 text-on-surface-variant'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                  item.status === 'WATCHING' ? (categoria === 'anime' ? 'bg-secondary animate-pulse shadow-[0_0_8px_rgba(194,24,91,0.8)]' : 'bg-primary animate-pulse shadow-[0_0_8px_rgba(106,27,154,0.8)]') :
+                  item.status === 'COMPLETED' ? 'bg-emerald-400' :
+                  item.status === 'PAUSED' ? 'bg-amber-400' :
+                  item.status === 'PLANNED' ? 'bg-blue-400' :
+                  item.status === 'DROPPED' ? 'bg-red-400' :
+                  'bg-on-surface-variant'
+                }`}></span>
+                <span className="truncate">
+                  {item.status === 'WATCHING' ? (categoria === 'anime' ? 'A Ver' : 'A Ler') :
+                   item.status === 'COMPLETED' ? 'Completo' :
+                   item.status === 'PAUSED' ? 'Pausado' :
+                   item.status === 'PLANNED' ? 'Planeado' :
+                   item.status === 'DROPPED' ? 'Desistido' : 'Salvo'}
+                </span>
+              </span>
+            )}
+
+            {/* Priority Badge */}
+            {item.prioridade && (
+              <span className={`backdrop-blur-md px-2 py-0.5 sm:py-1 rounded-lg text-[9px] sm:text-[10px] font-bold flex items-center gap-0.5 border shadow-lg flex-shrink-0 ${
+                getPriorityBadgeClass(item.prioridade)
+              }`}>
+                <span className={`material-symbols-outlined text-[10px] sm:text-[12px] ${
+                  getPriorityStarColor(item.prioridade)
+                }`} style={{ fontVariationSettings: "'FILL' 1" }}>star</span> #{item.prioridade}
+              </span>
+            )}
+          </div>
+
+          {/* Bottom Content: Title & Progress Bar */}
+          <div className="absolute bottom-4 left-4 right-4 z-10 flex flex-col justify-end pointer-events-none">
+            <span className={`w-fit px-2 py-0.5 rounded-lg text-[9px] font-extrabold tracking-wider mb-1.5 border ${
+              categoria === 'anime' 
+                ? (item.tipo === 'ANIME' 
+                  ? 'bg-primary/20 border-primary/30 text-primary shadow-[0_0_10px_rgba(221,184,255,0.1)]' 
+                  : item.tipo === 'SERIE'
+                    ? 'bg-red-500/20 border-red-500/30 text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.1)]'
+                    : 'bg-amber-500/20 border-amber-500/30 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.1)]')
+                : 'bg-secondary/20 border-secondary/30 text-secondary'
+            }`}>
+              {categoria === 'anime' ? (item.tipo === 'SERIE' ? 'SÉRIE' : (item.tipo || 'ANIME')) : 'MANGÁ'}
+            </span>
+            <p className={`font-bold text-sm text-white line-clamp-2 mb-2 ${categoria === 'anime' ? 'group-hover:text-primary-light' : 'group-hover:text-secondary-light'} transition-colors`}>
+              {title}
+            </p>
+
+            {/* Progress Info & Bar */}
+            {(() => {
+              const totalVal = categoria === 'anime'
+                ? (numTotal || '?')
+                : ((statusLancamento === 'RELEASING' && proxNum) ? proxNum - 1 : (numTotal || '?'));
+              const percentVal = typeof totalVal === 'number' && totalVal > 0 ? (currentGlobal / totalVal) * 100 : (currentGlobal > 0 ? ((currentGlobal / (currentGlobal + 1)) * 100) : 0);
+              return (
+                <div className="space-y-1.5 pt-1 border-t border-white/10">
+                  <div className="flex justify-between items-center text-[11px] font-medium">
+                    <span className="text-on-surface-variant flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[12px]">timelapse</span>
+                      Progresso
+                    </span>
+                    <span className="text-white font-bold">
+                      {categoria === 'anime' && item.seasonAtual !== undefined && `T${item.seasonAtual} `}
+                      {currentGlobal} / {totalVal}
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden border border-white/5 backdrop-blur-sm">
+                    <div 
+                      className={`h-full transition-all duration-500 rounded-full ${categoria === 'anime' ? 'bg-primary shadow-md' : 'bg-secondary shadow-md'}`}
+                      style={{ width: `${Math.max(currentGlobal > 0 ? 3 : 0, Math.min(percentVal, 100))}%` }}
+                    ></div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-margin-mobile md:px-margin-desktop py-4 md:py-8">
@@ -399,7 +555,6 @@ const LibraryPage = () => {
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-surface-variant/10 p-2 rounded-2xl border border-white/5 backdrop-blur-md w-full sm:w-fit relative z-30">
           <div className="flex flex-wrap items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/5 w-full sm:w-auto justify-center">
             {[
-              { id: 'ALL', label: 'Todos' },
               { id: 'WATCHING', label: categoria === 'anime' ? 'A Ver' : 'A Ler' },
               { id: 'COMPLETED', label: 'Completo' },
               { id: 'PLANNED', label: 'Planeado' },
@@ -465,7 +620,6 @@ const LibraryPage = () => {
                 <span className="truncate">
                   {ordenacao === 'PRIORITY' ? 'Ordem: Prioridade' : 
                    ordenacao === 'TITLE' ? 'Ordem: Nome' : 
-                   ordenacao === 'LAST_UPDATED' ? 'Ordem: Atualizado' : 
                    ordenacao === 'LATEST_EPISODE' ? 'Ordem: Ep. Mais Recente' :
                    'Ordem: Progresso'}
                 </span>
@@ -477,7 +631,6 @@ const LibraryPage = () => {
                   {[
                     { id: 'PRIORITY', label: 'Prioridade' },
                     { id: 'TITLE', label: 'Nome' },
-                    { id: 'LAST_UPDATED', label: 'Última Atualização' },
                     ...(categoria === 'anime' ? [{ id: 'LATEST_EPISODE', label: 'Episódio Mais Recente Estreado' }] : []),
                     { id: 'PROGRESS', label: 'Progresso' },
                   ].map(opt => (
@@ -558,139 +711,72 @@ const LibraryPage = () => {
               setSelectedTags([]);
             }}
             hideInlineTrigger={true}
+            categoria={categoria}
           />
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6 relative z-10">
-          {loading ? (
-            <div className="col-span-full py-16 flex flex-col items-center justify-center space-y-4">
-              <Loader2 className={`w-8 h-8 animate-spin ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`} />
-              <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">{t("A carregar biblioteca...")}</span>
+        {loading ? (
+          <div className="py-16 flex flex-col items-center justify-center space-y-4 w-full">
+            <Loader2 className={`w-8 h-8 animate-spin ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`} />
+            <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">{t("A carregar biblioteca...")}</span>
+          </div>
+        ) : filtroStatus === 'WATCHING' ? (
+          <div className="space-y-10 w-full relative z-10 animate-in fade-in duration-300">
+            {/* Section 1: Pending */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+                <span className="material-symbols-outlined text-secondary text-xl">play_circle</span>
+                <h3 className="text-base sm:text-lg font-black text-white tracking-wide">
+                  {categoria === 'anime' ? 'Episódios por Ver' : 'Capítulos por Ler'} ({comPendentes.length})
+                </h3>
+              </div>
+              {paginatedComPendentes.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6">
+                  {paginatedComPendentes.map(item => renderLibraryItem(item))}
+                </div>
+              ) : (
+                <div className="py-8 text-center glass-panel rounded-3xl border border-white/5">
+                  <p className="text-on-surface-variant text-xs sm:text-sm font-medium italic">Nenhum título com novos episódios/capítulos por ver/ler.</p>
+                </div>
+              )}
             </div>
-          ) : (
-            paginatedItems.length > 0 ? (
-              paginatedItems.map(item => {
-                const coverUrl = item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl;
-                const title = item.anime?.titulo || item.manga?.titulo || item.titulo;
-                const currentGlobal = categoria === 'anime' ? (item.epAtualGlobal !== undefined ? item.epAtualGlobal : (item.epAtual || 0)) : (item.capAtual || 0);
-                
-                const statusLancamento = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
-                const proxNum = categoria === 'anime' ? (item.anime?.proximoEpisodio || item.proximoEpisodio) : (item.manga?.proximoCapituloNumero || item.proximoCapituloNumero);
-                const numTotal = categoria === 'anime' ? (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal) : (item.manga?.numCapitulosTotal || item.numCapitulosTotal);
-                
-                return (
-                  <div 
-                    key={item.id} 
-                    className="group cursor-pointer" 
-                    onClick={() => handleNavigateToDetails(item.id)}
-                  >
-                    <div className={`relative aspect-[2/3] rounded-3xl overflow-hidden shadow-xl transform transition-all duration-500 group-hover:scale-[1.03] group-hover:-translate-y-2 border border-white/10 ${categoria === 'anime' ? 'group-hover:border-secondary/60 group-hover:shadow-[0_0_30px_rgba(194,24,91,0.25)]' : 'group-hover:border-primary/60 group-hover:shadow-[0_0_30px_rgba(106,27,154,0.25)]'}`}>
-                      <img src={coverUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={title} loading="lazy" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-80 group-hover:opacity-90 transition-opacity"></div>
-                      
-                      {/* Top Badges: Status & Priority */}
-                      <div className="absolute top-2 sm:top-4 left-2 sm:left-4 right-2 sm:right-4 flex items-center justify-between z-10 pointer-events-none gap-1 sm:gap-2">
-                        {/* Tracking Status Badge */}
-                        {item.status && (
-                          <span className={`px-2 py-0.5 sm:py-1 rounded-lg text-[9px] sm:text-[10px] font-bold flex items-center gap-1 backdrop-blur-md border shadow-lg ${
-                            item.status === 'WATCHING' ? (categoria === 'anime' ? 'bg-secondary/30 border-secondary/50 text-secondary' : 'bg-primary/30 border-primary/50 text-primary') :
-                            item.status === 'COMPLETED' ? 'bg-emerald-500/30 border-emerald-500/50 text-emerald-200' :
-                            item.status === 'PAUSED' ? 'bg-amber-500/30 border-amber-500/50 text-amber-200' :
-                            item.status === 'PLANNED' ? 'bg-blue-500/30 border-blue-500/50 text-blue-200' :
-                            item.status === 'DROPPED' ? 'bg-red-500/30 border-red-500/50 text-red-200' :
-                            'bg-surface-variant/50 border-white/10 text-on-surface-variant'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                              item.status === 'WATCHING' ? (categoria === 'anime' ? 'bg-secondary animate-pulse shadow-[0_0_8px_rgba(194,24,91,0.8)]' : 'bg-primary animate-pulse shadow-[0_0_8px_rgba(106,27,154,0.8)]') :
-                              item.status === 'COMPLETED' ? 'bg-emerald-400' :
-                              item.status === 'PAUSED' ? 'bg-amber-400' :
-                              item.status === 'PLANNED' ? 'bg-blue-400' :
-                              item.status === 'DROPPED' ? 'bg-red-400' :
-                              'bg-on-surface-variant'
-                            }`}></span>
-                            <span className="truncate">
-                              {item.status === 'WATCHING' ? (categoria === 'anime' ? 'A Ver' : 'A Ler') :
-                               item.status === 'COMPLETED' ? 'Completo' :
-                               item.status === 'PAUSED' ? 'Pausado' :
-                               item.status === 'PLANNED' ? 'Planeado' :
-                               item.status === 'DROPPED' ? 'Desistido' : 'Salvo'}
-                            </span>
-                          </span>
-                        )}
 
-                        {/* Priority Badge */}
-                        {item.prioridade && (
-                          <span className={`backdrop-blur-md px-2 py-0.5 sm:py-1 rounded-lg text-[9px] sm:text-[10px] font-bold flex items-center gap-0.5 border shadow-lg flex-shrink-0 ${
-                            getPriorityBadgeClass(item.prioridade)
-                          }`}>
-                            <span className={`material-symbols-outlined text-[10px] sm:text-[12px] ${
-                              getPriorityStarColor(item.prioridade)
-                            }`} style={{ fontVariationSettings: "'FILL' 1" }}>star</span> #{item.prioridade}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Bottom Content: Title & Progress Bar */}
-                      <div className="absolute bottom-4 left-4 right-4 z-10 flex flex-col justify-end pointer-events-none">
-                        <span className={`w-fit px-2 py-0.5 rounded-lg text-[9px] font-extrabold tracking-wider mb-1.5 border ${
-                          categoria === 'anime' 
-                            ? (item.tipo === 'ANIME' 
-                              ? 'bg-primary/20 border-primary/30 text-primary shadow-[0_0_10px_rgba(221,184,255,0.1)]' 
-                              : item.tipo === 'SERIE'
-                                ? 'bg-red-500/20 border-red-500/30 text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.1)]'
-                                : 'bg-amber-500/20 border-amber-500/30 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.1)]')
-                            : 'bg-secondary/20 border-secondary/30 text-secondary'
-                        }`}>
-                          {categoria === 'anime' ? (item.tipo === 'SERIE' ? 'SÉRIE' : (item.tipo || 'ANIME')) : 'MANGÁ'}
-                        </span>
-                        <p className={`font-bold text-sm text-white line-clamp-2 mb-2 ${categoria === 'anime' ? 'group-hover:text-primary-light' : 'group-hover:text-secondary-light'} transition-colors`}>
-                          {title}
-                        </p>
-
-                        {/* Progress Info & Bar */}
-                        {(() => {
-                          const totalVal = categoria === 'anime'
-                            ? (numTotal || '?')
-                            : ((statusLancamento === 'RELEASING' && proxNum) ? proxNum - 1 : (numTotal || '?'));
-                          const percentVal = typeof totalVal === 'number' && totalVal > 0 ? (currentGlobal / totalVal) * 100 : (currentGlobal > 0 ? ((currentGlobal / (currentGlobal + 1)) * 100) : 0);
-                          return (
-                            <div className="space-y-1.5 pt-1 border-t border-white/10">
-                              <div className="flex justify-between items-center text-[11px] font-medium">
-                                <span className="text-on-surface-variant flex items-center gap-1">
-                                  <span className="material-symbols-outlined text-[12px]">timelapse</span>
-                                  Progresso
-                                </span>
-                                <span className="text-white font-bold">
-                                  {categoria === 'anime' && item.seasonAtual !== undefined && `T${item.seasonAtual} `}
-                                  {currentGlobal} / {totalVal}
-                                </span>
-                              </div>
-                              <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden border border-white/5 backdrop-blur-sm">
-                                <div 
-                                  className={`h-full transition-all duration-500 rounded-full ${categoria === 'anime' ? 'bg-primary shadow-md' : 'bg-secondary shadow-md'}`}
-                                  style={{ width: `${Math.max(currentGlobal > 0 ? 3 : 0, Math.min(percentVal, 100))}%` }}
-                                ></div>
-                              </div>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
+            {/* Section 2: Up to Date */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+                <span className="material-symbols-outlined text-emerald-400 text-xl flex-shrink-0">check_circle</span>
+                <h3 className="text-base sm:text-lg font-black text-white tracking-wide">
+                  Em Dia ({emDia.length})
+                </h3>
+              </div>
+              {paginatedEmDia.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6">
+                  {paginatedEmDia.map(item => renderLibraryItem(item))}
+                </div>
+              ) : (
+                <div className="py-8 text-center glass-panel rounded-3xl border border-white/5">
+                  <p className="text-on-surface-variant text-xs sm:text-sm font-medium italic">Nenhum título em dia.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* Normal grid for other statuses */
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6 relative z-10">
+            {paginatedItems.length > 0 ? (
+              paginatedItems.map(item => renderLibraryItem(item))
             ) : (
-              <div className="col-span-full py-16 text-center glass-panel rounded-3xl border border-white/5 space-y-4">
+              <div className="col-span-full py-16 text-center glass-panel rounded-3xl border border-white/5 space-y-4 w-full">
                 <span className="material-symbols-outlined text-5xl text-on-surface-variant">search_off</span>
                 <p className="text-on-surface font-bold text-lg">Sem títulos na biblioteca com este filtro.</p>
                 <p className="text-on-surface-variant text-sm">Adiciona títulos novos usando a pesquisa superior!</p>
               </div>
-            )
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* Load More Button */}
-        {!loading && filtrados.length > visibleCount && (
+        {!loading && hasMore && (
           <div className="flex justify-center pt-8 pb-4 relative z-20">
             <button
               onClick={() => setVisibleCount(prev => prev + 24)}

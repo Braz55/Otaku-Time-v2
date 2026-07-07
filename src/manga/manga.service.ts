@@ -903,6 +903,7 @@ export class MangaService {
         lastProgressUpdate: item.lastProgressUpdate,
         avaliacaoGeral: rating?.avaliacao_geral ?? null,
         totalVotosUsers: rating?.total_votos_users ?? 0,
+        mediaUpdatedAt: item.manga.updatedAt,
       };
     });
   }
@@ -984,31 +985,24 @@ export class MangaService {
           ? atual.manga.proximoCapituloNumero - 1
           : atual.manga.numCapitulosTotal;
 
-      if (
-        atual.manga.statusLancamento !== 'FINISHED' &&
-        totalDisponivel !== null &&
-        totalDisponivel !== undefined &&
-        totalDisponivel > 0 &&
-        cap > totalDisponivel
-      ) {
-        throw new BadRequestException('Não é possível marcar capítulos que ainda não foram lançados.');
-      }
-
       if (atual.status === 'PLANNED' && cap > 0) novosDados.status = 'WATCHING';
       if (
         atual.status === 'COMPLETED' &&
         totalDisponivel &&
         cap < totalDisponivel
-      )
+      ) {
         novosDados.status = 'WATCHING';
+      }
 
       if (
         atual.manga.statusLancamento !== 'RELEASING' &&
         atual.manga.numCapitulosTotal &&
-        cap >= atual.manga.numCapitulosTotal
+        cap === atual.manga.numCapitulosTotal
       ) {
         novosDados.status = 'COMPLETED';
         novosDados.capAtual = atual.manga.numCapitulosTotal;
+      } else {
+        novosDados.capAtual = cap;
       }
     }
 

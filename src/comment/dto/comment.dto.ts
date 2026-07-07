@@ -1,4 +1,10 @@
+import { IsInt, IsString, IsNotEmpty } from 'class-validator';
+
 export class CreateCommentDto {
-  mediaId: number;
-  text: string;
+  @IsInt()
+  mediaId!: number;
+
+  @IsString()
+  @IsNotEmpty()
+  text!: string;
 }

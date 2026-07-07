@@ -1,4 +1,11 @@
+import { IsInt, IsNumber, Min, Max } from 'class-validator';
+
 export class CreateRatingDto {
-  mediaId: number;
-  score: number;
+  @IsInt()
+  mediaId!: number;
+
+  @IsNumber()
+  @Min(0)
+  @Max(10)
+  score!: number;
 }

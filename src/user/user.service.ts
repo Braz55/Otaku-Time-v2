@@ -1,5 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 
@@ -54,10 +56,28 @@ export class UserService {
     });
   }
 
-  async update(id: number, updateDto: any) {
-    const data = { ...updateDto };
-    if (data.password) {
-      if (!data.currentPassword) {
+  async update(id: number, updateDto: UpdateProfileDto | UpdateUserDto) {
+    const data: any = {};
+    if (updateDto.nome !== undefined) data.nome = updateDto.nome;
+    if (updateDto.theme !== undefined) data.theme = updateDto.theme;
+    if (updateDto.preferredLanguage !== undefined) {
+      data.preferredLanguage = updateDto.preferredLanguage;
+    }
+    if (updateDto.iconUrl !== undefined) data.iconUrl = updateDto.iconUrl;
+    if (updateDto.bannerUrl !== undefined) data.bannerUrl = updateDto.bannerUrl;
+    if (updateDto.showAdultContent !== undefined) {
+      data.showAdultContent = updateDto.showAdultContent;
+    }
+    if (updateDto.preferences !== undefined) data.preferences = updateDto.preferences;
+
+    // Apenas permitir a atualização do email se ele for passado e fizer parte do DTO (e.g. UpdateUserDto)
+    if ('email' in updateDto && updateDto.email !== undefined) {
+      data.email = updateDto.email;
+    }
+
+    if (updateDto.password) {
+      const currentPassword = (updateDto as any).currentPassword;
+      if (!currentPassword) {
         throw new BadRequestException(
           'A palavra-passe atual é obrigatória para definir uma nova.',
         );
@@ -66,13 +86,12 @@ export class UserService {
       if (!user) {
         throw new BadRequestException('Utilizador não encontrado.');
       }
-      const isMatch = await bcrypt.compare(data.currentPassword, user.password);
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
       if (!isMatch) {
         throw new BadRequestException('A palavra-passe atual está incorreta.');
       }
-      data.password = await bcrypt.hash(data.password, 10);
+      data.password = await bcrypt.hash(updateDto.password, 10);
       data.tokenVersion = user.tokenVersion + 1;
-      delete data.currentPassword;
     }
     return this.prisma.user.update({
       where: { id },

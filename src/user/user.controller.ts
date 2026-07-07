@@ -12,6 +12,7 @@ import {
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 
@@ -51,7 +52,7 @@ export class UserController {
 
   @UseGuards(JwtAuthGuard)
   @Patch('profile')
-  updateProfile(@Request() req, @Body() updateDto: any) {
+  updateProfile(@Request() req, @Body() updateDto: UpdateProfileDto) {
     return this.userService.update(req.user.userId, updateDto);
   }
 

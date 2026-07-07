@@ -1,6 +1,10 @@
+import { IsInt, IsEnum } from 'class-validator';
 import { MediaType } from '@prisma/client';
 
 export class AddListItemDto {
-  anilistMediaId: number;
-  mediaType: MediaType;
+  @IsInt()
+  anilistMediaId!: number;
+
+  @IsEnum(MediaType)
+  mediaType!: MediaType;
 }

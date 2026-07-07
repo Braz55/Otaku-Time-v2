@@ -14,6 +14,7 @@ import {
 import { AnimeService } from './anime.service';
 import { UpdateAnimeDto } from './dto/update-anime.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AdminGuard } from '../auth/guards/admin.guard';
 import { ImportAnimeDto } from './dto/import-anime.dto';
 import { ImportTVTimeItemDto } from './dto/import-tvtime-item.dto';
 
@@ -157,7 +158,7 @@ export class AnimeController {
     return this.animeService.getTvTimeImportStatus(req.user.userId);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Delete('clear-catalog')
   clearCatalog() {
     return this.animeService.clearAnimeCatalog();
@@ -171,19 +172,23 @@ export class AnimeController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.animeService.findOne(+id);
+  findOne(@Param('id') id: string, @Request() req) {
+    return this.animeService.findOne(+id, req.user);
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateAnimeDto: UpdateAnimeDto) {
-    return this.animeService.update(+id, updateAnimeDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateAnimeDto: UpdateAnimeDto,
+    @Request() req,
+  ) {
+    return this.animeService.update(+id, updateAnimeDto, req.user);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.animeService.remove(+id);
+  remove(@Param('id') id: string, @Request() req) {
+    return this.animeService.remove(+id, req.user);
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ListService } from '../list/list.service';
 
@@ -908,12 +908,16 @@ export class MangaService {
     });
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, user: any) {
     const item = await this.prisma.userManga.findUnique({
       where: { id },
       include: { manga: true },
     });
     if (!item) return null;
+
+    if (item.userId !== user.userId && user.tipoConta !== 'ADMIN') {
+      throw new ForbiddenException('Não tem permissão para aceder a este registo.');
+    }
     const rating = await this.prisma.media.findUnique({
       where: { id: item.mangaId },
     });
@@ -940,12 +944,22 @@ export class MangaService {
     };
   }
 
-  async update(id: number, updateDto: any) {
+  async update(id: number, updateDto: any, user: any) {
     const atual = await this.prisma.userManga.findUnique({
       where: { id },
       include: { manga: true },
     });
     if (!atual) return null;
+
+    if (atual.userId !== user.userId && user.tipoConta !== 'ADMIN') {
+      throw new ForbiddenException('Não tem permissão para aceder a este registo.');
+    }
+
+    if (updateDto.numCapitulosTotal !== undefined && user.tipoConta !== 'ADMIN') {
+      throw new ForbiddenException(
+        'Apenas administradores podem alterar metadados do catálogo global.',
+      );
+    }
 
     if (updateDto.numCapitulosTotal !== undefined) {
       const total = updateDto.numCapitulosTotal;
@@ -1043,7 +1057,16 @@ export class MangaService {
     });
   }
 
-  async remove(id: number) {
+  async remove(id: number, user: any) {
+    const atual = await this.prisma.userManga.findUnique({
+      where: { id },
+    });
+    if (!atual) return null;
+
+    if (atual.userId !== user.userId && user.tipoConta !== 'ADMIN') {
+      throw new ForbiddenException('Não tem permissão para remover este registo.');
+    }
+
     const item = await this.prisma.userManga.delete({ where: { id } });
     if (item) {
       this.recalculateUserStats(item.userId).catch((err) => {

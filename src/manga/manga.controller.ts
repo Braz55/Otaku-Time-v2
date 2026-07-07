@@ -84,19 +84,23 @@ export class MangaController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.mangaService.findOne(+id);
+  findOne(@Param('id') id: string, @Request() req) {
+    return this.mangaService.findOne(+id, req.user);
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateMangaDto: UpdateMangaDto) {
-    return this.mangaService.update(+id, updateMangaDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateMangaDto: UpdateMangaDto,
+    @Request() req,
+  ) {
+    return this.mangaService.update(+id, updateMangaDto, req.user);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.mangaService.remove(+id);
+  remove(@Param('id') id: string, @Request() req) {
+    return this.mangaService.remove(+id, req.user);
   }
 }

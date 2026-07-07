@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ListService } from '../list/list.service';
 import { TMDBService } from './tmdb.service';
@@ -1208,12 +1208,16 @@ export class AnimeService {
     });
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, user: any) {
     const item = await this.prisma.userAnime.findUnique({
       where: { id },
       include: { anime: true },
     });
     if (!item) return null;
+
+    if (item.userId !== user.userId && user.tipoConta !== 'ADMIN') {
+      throw new ForbiddenException('Não tem permissão para aceder a este registo.');
+    }
     const rating = await this.prisma.media.findUnique({
       where: { id: item.animeId },
     });
@@ -1271,12 +1275,25 @@ export class AnimeService {
     };
   }
 
-  async update(id: number, updateDto: any) {
+  async update(id: number, updateDto: any, user: any) {
     const atual = await this.prisma.userAnime.findUnique({
       where: { id },
       include: { anime: true },
     });
     if (!atual) return null;
+
+    if (atual.userId !== user.userId && user.tipoConta !== 'ADMIN') {
+      throw new ForbiddenException('Não tem permissão para aceder a este registo.');
+    }
+
+    if (
+      (updateDto.numEpisodiosTotal !== undefined || updateDto.tipo !== undefined) &&
+      user.tipoConta !== 'ADMIN'
+    ) {
+      throw new ForbiddenException(
+        'Apenas administradores podem alterar metadados do catálogo global.',
+      );
+    }
 
     if (updateDto.numEpisodiosTotal !== undefined) {
       const total = updateDto.numEpisodiosTotal;
@@ -1444,7 +1461,16 @@ export class AnimeService {
     });
   }
 
-  async remove(id: number) {
+  async remove(id: number, user: any) {
+    const atual = await this.prisma.userAnime.findUnique({
+      where: { id },
+    });
+    if (!atual) return null;
+
+    if (atual.userId !== user.userId && user.tipoConta !== 'ADMIN') {
+      throw new ForbiddenException('Não tem permissão para remover este registo.');
+    }
+
     const item = await this.prisma.userAnime.delete({ where: { id } });
     if (item) {
       this.recalculateUserStats(item.userId).catch((err) => {

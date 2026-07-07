@@ -1076,6 +1076,22 @@ export class AnimeService {
         item.epAtual,
       );
       const totalEpisodes = this.getTotalEpisodes(item.anime);
+
+      let ultimoEpisodioEstreadoData: Date | null = null;
+      if (item.anime.episodesList && Array.isArray(item.anime.episodesList)) {
+        const now = new Date();
+        const airedEpisodes = (item.anime.episodesList as any[]).filter(
+          (ep) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now,
+        );
+        if (airedEpisodes.length > 0) {
+          const dates = airedEpisodes.map((ep) => new Date(ep.airDate).getTime());
+          ultimoEpisodioEstreadoData = new Date(Math.max(...dates));
+        }
+      }
+      if (!ultimoEpisodioEstreadoData && item.anime.dataLancamento) {
+        ultimoEpisodioEstreadoData = item.anime.dataLancamento;
+      }
+
       return {
         id: item.id,
         animeId: item.animeId,
@@ -1096,6 +1112,7 @@ export class AnimeService {
         linksPersonalizados: item.linksPersonalizados,
         proximoEpisodio: item.anime.proximoEpisodio,
         proximoEpisodioData: item.anime.proximoEpisodioData,
+        episodes: item.anime.episodesList || [],
         tipo: detectMediaType(item.anime.generos, item.anime.formato),
         formato: item.anime.formato,
         watchedSpecials: item.watchedSpecials || [],
@@ -1103,6 +1120,7 @@ export class AnimeService {
         lastProgressUpdate: item.lastProgressUpdate,
         avaliacaoGeral: rating?.avaliacao_geral ?? null,
         totalVotosUsers: rating?.total_votos_users ?? 0,
+        ultimoEpisodioEstreadoData,
       };
     });
   }
@@ -1122,6 +1140,22 @@ export class AnimeService {
       item.epAtual,
     );
     const totalEpisodes = this.getTotalEpisodes(item.anime);
+
+    let ultimoEpisodioEstreadoData: Date | null = null;
+    if (item.anime.episodesList && Array.isArray(item.anime.episodesList)) {
+      const now = new Date();
+      const airedEpisodes = (item.anime.episodesList as any[]).filter(
+        (ep) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now,
+      );
+      if (airedEpisodes.length > 0) {
+        const dates = airedEpisodes.map((ep) => new Date(ep.airDate).getTime());
+        ultimoEpisodioEstreadoData = new Date(Math.max(...dates));
+      }
+    }
+    if (!ultimoEpisodioEstreadoData && item.anime.dataLancamento) {
+      ultimoEpisodioEstreadoData = item.anime.dataLancamento;
+    }
+
     return {
       id: item.id,
       animeId: item.animeId,
@@ -1150,6 +1184,7 @@ export class AnimeService {
       lastProgressUpdate: item.lastProgressUpdate,
       avaliacaoGeral: rating?.avaliacao_geral ?? null,
       totalVotosUsers: rating?.total_votos_users ?? 0,
+      ultimoEpisodioEstreadoData,
     };
   }
 

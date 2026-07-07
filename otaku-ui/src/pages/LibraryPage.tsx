@@ -340,6 +340,10 @@ const LibraryPage = () => {
       const dateA = new Date(a.updatedAt || 0).getTime();
       const dateB = new Date(b.updatedAt || 0).getTime();
       return dateB - dateA;
+    } else if (ordenacao === 'LATEST_EPISODE') {
+      const dateA = new Date(a.ultimoEpisodioEstreadoData || a.updatedAt || 0).getTime();
+      const dateB = new Date(b.ultimoEpisodioEstreadoData || b.updatedAt || 0).getTime();
+      return dateB - dateA;
     } else if (ordenacao === 'PROGRESS') {
       const currentA = categoria === 'anime' ? (a.epAtual || 0) : (a.capAtual || 0);
       const currentB = categoria === 'anime' ? (b.epAtual || 0) : (b.capAtual || 0);
@@ -461,7 +465,9 @@ const LibraryPage = () => {
                 <span className="truncate">
                   {ordenacao === 'PRIORITY' ? 'Ordem: Prioridade' : 
                    ordenacao === 'TITLE' ? 'Ordem: Nome' : 
-                   ordenacao === 'LAST_UPDATED' ? 'Ordem: Atualizado' : 'Ordem: Progresso'}
+                   ordenacao === 'LAST_UPDATED' ? 'Ordem: Atualizado' : 
+                   ordenacao === 'LATEST_EPISODE' ? 'Ordem: Ep. Mais Recente' :
+                   'Ordem: Progresso'}
                 </span>
                 <span className="material-symbols-outlined text-xs">keyboard_arrow_down</span>
               </button>
@@ -472,6 +478,7 @@ const LibraryPage = () => {
                     { id: 'PRIORITY', label: 'Prioridade' },
                     { id: 'TITLE', label: 'Nome' },
                     { id: 'LAST_UPDATED', label: 'Última Atualização' },
+                    ...(categoria === 'anime' ? [{ id: 'LATEST_EPISODE', label: 'Episódio Mais Recente Estreado' }] : []),
                     { id: 'PROGRESS', label: 'Progresso' },
                   ].map(opt => (
                     <button

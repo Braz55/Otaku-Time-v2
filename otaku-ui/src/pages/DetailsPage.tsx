@@ -900,16 +900,16 @@ const DetailsPage = () => {
 
   const getEpisodesCountForSeason = (seasonNum: number): number => {
     if (!selectedItem) return 0;
+    if (selectedItem.episodes && selectedItem.episodes.length > 0) {
+      const count = selectedItem.episodes.filter((ep: any) => ep.season === seasonNum).length;
+      if (count > 0) return count;
+    }
     if (selectedItem.statusLancamento === 'RELEASING' && selectedItem.proximoEpisodio) {
       const seasons = getSeasonsList();
       const maxSeason = seasons.length > 0 ? Math.max(...seasons) : 1;
       if (seasonNum === maxSeason) {
         return selectedItem.proximoEpisodio - 1;
       }
-    }
-    if (selectedItem.episodes && selectedItem.episodes.length > 0) {
-      const count = selectedItem.episodes.filter((ep: any) => ep.season === seasonNum).length;
-      if (count > 0) return count;
     }
     const seasonEdge = selectedItem.relations?.edges?.find(
       (ed: any) => ed.node.seasonNumber === seasonNum && ed.node.format === 'TV_SEASON'

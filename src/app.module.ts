@@ -1,5 +1,7 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { MangaModule } from './manga/manga.module';
@@ -18,6 +20,10 @@ import { NotificationModule } from './notification/notification.module';
 @Module({
   imports: [
     ScheduleModule.forRoot(),
+    ThrottlerModule.forRoot([{
+      ttl: 60000,
+      limit: process.env.NODE_ENV === 'test' ? 999999 : 100,
+    }]),
     MangaModule,
     AnimeModule,
     UserModule,
@@ -30,7 +36,14 @@ import { NotificationModule } from './notification/notification.module';
     NotificationModule,
   ],
   controllers: [AppController],
-  providers: [AppService, KeepAwakeService],
+  providers: [
+    AppService,
+    KeepAwakeService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

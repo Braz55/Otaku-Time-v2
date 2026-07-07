@@ -8,6 +8,10 @@ import cookieParser from 'cookie-parser';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bodyParser: false });
 
+  // Configurar trust proxy para express (para obter o IP correto do cliente por trás de reverse proxies como o Render)
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.set('trust proxy', 1);
+
   app.use(cookieParser());
 
   app.useGlobalPipes(

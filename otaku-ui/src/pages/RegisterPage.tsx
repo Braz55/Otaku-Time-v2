@@ -30,7 +30,7 @@ const RegisterPage: React.FC = () => {
       const data = await response.json();
 
       if (response.ok) {
-        login(data.access_token, data.user);
+        login(data.access_token, data.user, data.refresh_token);
         navigate('/');
       } else {
         setError(data.message || 'Error creating account');

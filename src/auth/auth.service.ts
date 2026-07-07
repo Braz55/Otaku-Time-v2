@@ -26,7 +26,8 @@ export class AuthService {
       tokenVersion: user.tokenVersion,
     };
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: this.jwtService.sign(payload, { expiresIn: '15m' }),
+      refresh_token: this.jwtService.sign(payload, { expiresIn: '7d' }),
       user: {
         id: user.id,
         email: user.email,
@@ -40,6 +41,46 @@ export class AuthService {
         preferences: user.preferences,
       },
     };
+  }
+
+  async refresh(refreshToken: string) {
+    try {
+      const payload = this.jwtService.verify(refreshToken);
+      const user = await this.userService.findOne(payload.sub);
+      if (!user) {
+        throw new UnauthorizedException('Utilizador não encontrado.');
+      }
+      if (user.tokenVersion !== payload.tokenVersion) {
+        throw new UnauthorizedException(
+          'Sessão expirada. Por favor, inicia sessão novamente.',
+        );
+      }
+
+      const newPayload = {
+        email: user.email,
+        sub: user.id,
+        tokenVersion: user.tokenVersion,
+      };
+
+      return {
+        access_token: this.jwtService.sign(newPayload, { expiresIn: '15m' }),
+        refresh_token: this.jwtService.sign(newPayload, { expiresIn: '7d' }),
+        user: {
+          id: user.id,
+          email: user.email,
+          nome: user.nome,
+          preferredLanguage: user.preferredLanguage,
+          theme: user.theme,
+          showAdultContent: user.showAdultContent,
+          tipoConta: user.tipoConta,
+          iconUrl: user.iconUrl,
+          bannerUrl: user.bannerUrl,
+          preferences: user.preferences,
+        },
+      };
+    } catch (e) {
+      throw new UnauthorizedException('Token de refresh inválido ou expirado.');
+    }
   }
 
   async register(createUserDto: any) {

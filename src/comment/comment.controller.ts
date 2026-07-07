@@ -19,7 +19,10 @@ export class CommentController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async createComment(@Request() req, @Body() body: CreateCommentDto) {
+  async createComment(
+    @Request() req: { user: { userId: number } },
+    @Body() body: CreateCommentDto,
+  ) {
     const { mediaId, text } = body;
 
     if (
@@ -50,19 +53,27 @@ export class CommentController {
     return this.commentService.getCommentsByMedia(+mediaId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post(':id/like')
-  async likeComment(@Param('id') id: string) {
+  async likeComment(
+    @Request() req: { user: { userId: number } },
+    @Param('id') id: string,
+  ) {
     if (isNaN(+id)) {
       throw new BadRequestException(
         'id do comentário deve ser um número válido.',
       );
     }
-    return this.commentService.likeComment(+id);
+    const userId = req.user.userId;
+    return this.commentService.likeComment(userId, +id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  async deleteComment(@Request() req, @Param('id') id: string) {
+  async deleteComment(
+    @Request() req: { user: { userId: number } },
+    @Param('id') id: string,
+  ) {
     if (isNaN(+id)) {
       throw new BadRequestException(
         'id do comentário deve ser um número válido.',

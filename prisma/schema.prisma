@@ -40,6 +40,7 @@ model User {
   redeemedCodes     GiftCode[]
   ratings           UserRating[]
   comments          Comment[]
+  commentLikes      CommentLike[]
   customLists       CustomList[]
   notifications     Notification[]
 }
@@ -256,7 +257,8 @@ model Comment {
   likes     Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likesList CommentLike[]
 
   @@map("User_Comment")
 }
@@ -313,4 +315,18 @@ model Notification {
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+model CommentLike {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  commentId Int      @map("comment_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, commentId])
+  @@map("Comment_Like")
+}
+
 

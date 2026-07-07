@@ -1,4 +1,9 @@
-import { Injectable, Logger, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ListService } from '../list/list.service';
 import { TMDBService } from './tmdb.service';
@@ -1216,7 +1221,9 @@ export class AnimeService {
     if (!item) return null;
 
     if (item.userId !== user.userId && user.tipoConta !== 'ADMIN') {
-      throw new ForbiddenException('Não tem permissão para aceder a este registo.');
+      throw new ForbiddenException(
+        'Não tem permissão para aceder a este registo.',
+      );
     }
     const rating = await this.prisma.media.findUnique({
       where: { id: item.animeId },
@@ -1283,11 +1290,14 @@ export class AnimeService {
     if (!atual) return null;
 
     if (atual.userId !== user.userId && user.tipoConta !== 'ADMIN') {
-      throw new ForbiddenException('Não tem permissão para aceder a este registo.');
+      throw new ForbiddenException(
+        'Não tem permissão para aceder a este registo.',
+      );
     }
 
     if (
-      (updateDto.numEpisodiosTotal !== undefined || updateDto.tipo !== undefined) &&
+      (updateDto.numEpisodiosTotal !== undefined ||
+        updateDto.tipo !== undefined) &&
       user.tipoConta !== 'ADMIN'
     ) {
       throw new ForbiddenException(
@@ -1468,7 +1478,9 @@ export class AnimeService {
     if (!atual) return null;
 
     if (atual.userId !== user.userId && user.tipoConta !== 'ADMIN') {
-      throw new ForbiddenException('Não tem permissão para remover este registo.');
+      throw new ForbiddenException(
+        'Não tem permissão para remover este registo.',
+      );
     }
 
     const item = await this.prisma.userAnime.delete({ where: { id } });

@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ListService } from '../list/list.service';
 
@@ -916,7 +920,9 @@ export class MangaService {
     if (!item) return null;
 
     if (item.userId !== user.userId && user.tipoConta !== 'ADMIN') {
-      throw new ForbiddenException('Não tem permissão para aceder a este registo.');
+      throw new ForbiddenException(
+        'Não tem permissão para aceder a este registo.',
+      );
     }
     const rating = await this.prisma.media.findUnique({
       where: { id: item.mangaId },
@@ -952,10 +958,15 @@ export class MangaService {
     if (!atual) return null;
 
     if (atual.userId !== user.userId && user.tipoConta !== 'ADMIN') {
-      throw new ForbiddenException('Não tem permissão para aceder a este registo.');
+      throw new ForbiddenException(
+        'Não tem permissão para aceder a este registo.',
+      );
     }
 
-    if (updateDto.numCapitulosTotal !== undefined && user.tipoConta !== 'ADMIN') {
+    if (
+      updateDto.numCapitulosTotal !== undefined &&
+      user.tipoConta !== 'ADMIN'
+    ) {
       throw new ForbiddenException(
         'Apenas administradores podem alterar metadados do catálogo global.',
       );
@@ -1064,7 +1075,9 @@ export class MangaService {
     if (!atual) return null;
 
     if (atual.userId !== user.userId && user.tipoConta !== 'ADMIN') {
-      throw new ForbiddenException('Não tem permissão para remover este registo.');
+      throw new ForbiddenException(
+        'Não tem permissão para remover este registo.',
+      );
     }
 
     const item = await this.prisma.userManga.delete({ where: { id } });

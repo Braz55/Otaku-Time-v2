@@ -51,8 +51,8 @@ export class CommentService {
     });
   }
 
-  // Aumenta os likes de um comentário (+1)
-  async likeComment(commentId: number) {
+  // Adiciona ou remove o like de um comentário (toggle)
+  async likeComment(userId: number, commentId: number) {
     const comment = await this.prisma.comment.findUnique({
       where: { id: commentId },
     });
@@ -61,13 +61,54 @@ export class CommentService {
       throw new NotFoundException('Comentário não encontrado.');
     }
 
-    return this.prisma.comment.update({
-      where: { id: commentId },
-      data: {
-        likes: {
-          increment: 1,
+    // Verifica se o utilizador já deu like no comentário
+    const existingLike = await this.prisma.commentLike.findUnique({
+      where: {
+        userId_commentId: {
+          userId,
+          commentId,
         },
       },
+    });
+
+    return this.prisma.$transaction(async (tx) => {
+      if (existingLike) {
+        // Se já deu like, remove o like (unlike)
+        await tx.commentLike.delete({
+          where: {
+            userId_commentId: {
+              userId,
+              commentId,
+            },
+          },
+        });
+
+        return tx.comment.update({
+          where: { id: commentId },
+          data: {
+            likes: {
+              decrement: 1,
+            },
+          },
+        });
+      } else {
+        // Se não deu like, cria o registo de like
+        await tx.commentLike.create({
+          data: {
+            userId,
+            commentId,
+          },
+        });
+
+        return tx.comment.update({
+          where: { id: commentId },
+          data: {
+            likes: {
+              increment: 1,
+            },
+          },
+        });
+      }
     });
   }
 

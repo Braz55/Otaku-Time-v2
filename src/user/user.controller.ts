@@ -13,6 +13,16 @@ import { UserService } from './user.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
+import { RestoreBackupDto } from './dto/restore-backup.dto';
+import { SetFavoriteDto } from './dto/set-favorite.dto';
+import { UpdateUserStatisticsDto } from './dto/update-statistics.dto';
+import { UnlockAchievementDto } from './dto/unlock-achievement.dto';
+import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { RedeemGiftCodeDto } from './dto/redeem-gift-code.dto';
+import { GenerateGiftCodeDto } from './dto/generate-gift-code.dto';
+import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
+import { CreateAchievementDto } from './dto/create-achievement.dto';
+import { UpdateAchievementDto } from './dto/update-achievement.dto';
 
 @Controller('user')
 export class UserController {
@@ -26,7 +36,7 @@ export class UserController {
 
   @UseGuards(JwtAuthGuard)
   @Post('restore')
-  restoreBackup(@Request() req, @Body() body: any) {
+  restoreBackup(@Request() req, @Body() body: RestoreBackupDto) {
     return this.userService.restoreBackup(req.user.userId, body);
   }
 
@@ -78,11 +88,7 @@ export class UserController {
   setFavorite(
     @Request() req,
     @Body()
-    favoriteData: {
-      anilistMediaId: number;
-      mediaType: 'ANIME' | 'MANGA';
-      rankPosition: number;
-    },
+    favoriteData: SetFavoriteDto,
   ) {
     return this.userService.setFavorite(req.user.userId, favoriteData);
   }
@@ -107,7 +113,7 @@ export class UserController {
 
   @UseGuards(JwtAuthGuard)
   @Patch('statistics')
-  updateStatistics(@Request() req, @Body() statsData: any) {
+  updateStatistics(@Request() req, @Body() statsData: UpdateUserStatisticsDto) {
     return this.userService.updateStatistics(req.user.userId, statsData);
   }
 
@@ -125,11 +131,11 @@ export class UserController {
 
   @UseGuards(JwtAuthGuard)
   @Post('achievements/unlock')
-  unlockAchievement(
-    @Request() req,
-    @Body('achievementId') achievementId: number,
-  ) {
-    return this.userService.unlockAchievement(req.user.userId, +achievementId);
+  unlockAchievement(@Request() req, @Body() body: UnlockAchievementDto) {
+    return this.userService.unlockAchievement(
+      req.user.userId,
+      body.achievementId,
+    );
   }
 
   @UseGuards(JwtAuthGuard, AdminGuard)
@@ -153,17 +159,8 @@ export class UserController {
 
   @UseGuards(JwtAuthGuard, AdminGuard)
   @Patch('admin/users/:id/role')
-  updateUserRole(
-    @Param('id') id: string,
-    @Body('tipoConta') body: { tipoConta: string },
-  ) {
-    // Note: check if body is nested or raw request body. If the client sends { "tipoConta": "pro" }, NestJS can bind it.
-    // Let's support both raw Body('tipoConta') or body.tipoConta to prevent runtime payload errors.
-    const roleValue =
-      typeof body === 'object' && body !== null && 'tipoConta' in body
-        ? (body as any).tipoConta
-        : body;
-    return this.userService.updateUserRole(+id, roleValue);
+  updateUserRole(@Param('id') id: string, @Body() body: UpdateUserRoleDto) {
+    return this.userService.updateUserRole(+id, body.tipoConta);
   }
 
   @UseGuards(JwtAuthGuard, AdminGuard)
@@ -175,8 +172,8 @@ export class UserController {
   // --- Rotas de Subscrições & Gift Codes ---
   @UseGuards(JwtAuthGuard)
   @Post('subscription/redeem')
-  redeemGiftCode(@Request() req, @Body('code') code: string) {
-    return this.userService.redeemGiftCode(req.user.userId, code);
+  redeemGiftCode(@Request() req, @Body() body: RedeemGiftCodeDto) {
+    return this.userService.redeemGiftCode(req.user.userId, body.code);
   }
 
   @UseGuards(JwtAuthGuard, AdminGuard)
@@ -187,15 +184,11 @@ export class UserController {
 
   @UseGuards(JwtAuthGuard, AdminGuard)
   @Post('admin/gift-codes/generate')
-  generateGiftCode(
-    @Body('durationDays') durationDays: number,
-    @Body('customCode') customCode?: string,
-    @Body('expiresAt') expiresAt?: string,
-  ) {
+  generateGiftCode(@Body() body: GenerateGiftCodeDto) {
     return this.userService.generateGiftCode(
-      +durationDays,
-      customCode,
-      expiresAt,
+      body.durationDays,
+      body.customCode,
+      body.expiresAt,
     );
   }
 
@@ -207,7 +200,10 @@ export class UserController {
 
   @UseGuards(JwtAuthGuard, AdminGuard)
   @Patch('admin/subscriptions/:id')
-  updateSubscription(@Param('id') id: string, @Body() body: any) {
+  updateSubscription(
+    @Param('id') id: string,
+    @Body() body: UpdateSubscriptionDto,
+  ) {
     return this.userService.updateSubscription(+id, body);
   }
 
@@ -215,12 +211,7 @@ export class UserController {
   @Post('admin/achievements')
   createAchievement(
     @Body()
-    data: {
-      name: string;
-      description: string;
-      badgeImageUrl?: string;
-      rarity?: string;
-    },
+    data: CreateAchievementDto,
   ) {
     return this.userService.createAchievement(data);
   }
@@ -230,12 +221,7 @@ export class UserController {
   updateAchievement(
     @Param('id') id: string,
     @Body()
-    data: {
-      name?: string;
-      description?: string;
-      badgeImageUrl?: string;
-      rarity?: string;
-    },
+    data: UpdateAchievementDto,
   ) {
     return this.userService.updateAchievement(+id, data);
   }

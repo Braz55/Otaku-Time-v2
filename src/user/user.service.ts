@@ -4,6 +4,11 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
+import { RestoreBackupDto } from './dto/restore-backup.dto';
+import { UpdateUserStatisticsDto } from './dto/update-statistics.dto';
+import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
+import { CreateAchievementDto } from './dto/create-achievement.dto';
+import { UpdateAchievementDto } from './dto/update-achievement.dto';
 
 function buildGenerosDict(
   genres: string[] | undefined,
@@ -235,7 +240,7 @@ export class UserService {
     return this.fetchAniListGraphQL(query, { id });
   }
 
-  async restoreBackup(userId: number, backup: any) {
+  async restoreBackup(userId: number, backup: RestoreBackupDto) {
     if (!backup || !backup.data) {
       throw new Error('Backup inválido ou sem dados');
     }
@@ -489,7 +494,7 @@ export class UserService {
     return stats;
   }
 
-  async updateStatistics(userId: number, statsData: any) {
+  async updateStatistics(userId: number, statsData: UpdateUserStatisticsDto) {
     return this.prisma.userStatistics.upsert({
       where: { userId },
       update: statsData,
@@ -1265,7 +1270,7 @@ export class UserService {
     });
   }
 
-  async updateSubscription(id: number, updateData: any) {
+  async updateSubscription(id: number, updateData: UpdateSubscriptionDto) {
     const data: any = {};
     if (updateData.planType) data.planType = updateData.planType;
     if (updateData.status) data.status = updateData.status;
@@ -1297,12 +1302,7 @@ export class UserService {
     return sub;
   }
 
-  async createAchievement(data: {
-    name: string;
-    description: string;
-    badgeImageUrl?: string;
-    rarity?: string;
-  }) {
+  async createAchievement(data: CreateAchievementDto) {
     if (!data.name || !data.description) {
       throw new BadRequestException('Nome e descrição são obrigatórios.');
     }
@@ -1316,15 +1316,7 @@ export class UserService {
     });
   }
 
-  async updateAchievement(
-    id: number,
-    data: {
-      name?: string;
-      description?: string;
-      badgeImageUrl?: string;
-      rarity?: string;
-    },
-  ) {
+  async updateAchievement(id: number, data: UpdateAchievementDto) {
     const ach = await this.prisma.achievement.findUnique({
       where: { id },
     });

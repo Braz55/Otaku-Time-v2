@@ -13,6 +13,7 @@ import {
 import { MangaService } from './manga.service';
 import { UpdateMangaDto } from './dto/update-manga.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ImportMangaDto } from './dto/import-manga.dto';
 
 @Controller('manga')
 export class MangaController {
@@ -20,14 +21,11 @@ export class MangaController {
 
   @UseGuards(JwtAuthGuard)
   @Post('import')
-  importManga(
-    @Body() body: { nome: string; anilistId?: number },
-    @Request() req,
-  ) {
+  importManga(@Body() importMangaDto: ImportMangaDto, @Request() req) {
     return this.mangaService.importFromAniList(
-      body.nome,
+      importMangaDto.nome,
       req.user.userId,
-      body.anilistId,
+      importMangaDto.anilistId,
     );
   }
 

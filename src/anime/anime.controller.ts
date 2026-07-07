@@ -9,10 +9,13 @@ import {
   UseGuards,
   Request,
   Query,
+  ParseArrayPipe,
 } from '@nestjs/common';
 import { AnimeService } from './anime.service';
 import { UpdateAnimeDto } from './dto/update-anime.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ImportAnimeDto } from './dto/import-anime.dto';
+import { ImportTVTimeItemDto } from './dto/import-tvtime-item.dto';
 
 @Controller('anime')
 export class AnimeController {
@@ -70,15 +73,12 @@ export class AnimeController {
 
   @UseGuards(JwtAuthGuard)
   @Post('import')
-  importAnime(
-    @Body() body: { nome: string; anilistId?: number; format?: string },
-    @Request() req,
-  ) {
+  importAnime(@Body() importAnimeDto: ImportAnimeDto, @Request() req) {
     return this.animeService.importFromAniList(
-      body.nome,
+      importAnimeDto.nome,
       req.user.userId,
-      body.anilistId,
-      body.format,
+      importAnimeDto.anilistId,
+      importAnimeDto.format,
     );
   }
 
@@ -143,7 +143,11 @@ export class AnimeController {
 
   @UseGuards(JwtAuthGuard)
   @Post('import-tvtime')
-  importTVTime(@Body() body: any[], @Request() req) {
+  importTVTime(
+    @Body(new ParseArrayPipe({ items: ImportTVTimeItemDto }))
+    body: ImportTVTimeItemDto[],
+    @Request() req,
+  ) {
     return this.animeService.importFromTVTime(req.user.userId, body);
   }
 

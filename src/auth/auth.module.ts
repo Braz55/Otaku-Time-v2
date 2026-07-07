@@ -6,12 +6,17 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret && process.env.NODE_ENV !== 'test') {
+  throw new Error('A variável de ambiente JWT_SECRET não está definida!');
+}
+
 @Module({
   imports: [
     UserModule,
     PassportModule,
     JwtModule.register({
-      secret: 'SECRET_KEY', // Em produção, usar variável de ambiente
+      secret: jwtSecret || 'test_fallback_secret',
       signOptions: { expiresIn: '1d' },
     }),
   ],

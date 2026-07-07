@@ -14,7 +14,44 @@ async function bootstrap() {
     }),
   );
 
-  app.enableCors();
+  app.enableCors({
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      // Allow requests with no origin (like mobile apps, curl, etc.)
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      const allowedOrigins = [
+        'https://otaku-time-v2.onrender.com',
+        'capacitor://localhost',
+        'http://localhost',
+      ];
+
+      const frontendUrl = process.env.FRONTEND_URL;
+      if (frontendUrl) {
+        allowedOrigins.push(frontendUrl);
+      }
+
+      // Check if the origin matches any allowed origin or is local development/Capacitor
+      const isLocalhost =
+        /^http:\/\/localhost(:\d+)?$/.test(origin) ||
+        /^http:\/\/127\.0\.0\.1(:\d+)?$/.test(origin) ||
+        /^capacitor:\/\//.test(origin);
+
+      const isAllowed = allowedOrigins.includes(origin) || isLocalhost;
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
+    credentials: true,
+  });
 
   app.use(json({ limit: '10mb' }));
   app.use(urlencoded({ limit: '10mb', extended: true }));
@@ -23,4 +60,4 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
   console.log(`[Nest] Server is running on port ${port} (0.0.0.0)`);
 }
-bootstrap();
+void bootstrap();

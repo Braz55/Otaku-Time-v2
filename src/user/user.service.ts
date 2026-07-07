@@ -68,7 +68,8 @@ export class UserService {
     if (updateDto.showAdultContent !== undefined) {
       data.showAdultContent = updateDto.showAdultContent;
     }
-    if (updateDto.preferences !== undefined) data.preferences = updateDto.preferences;
+    if (updateDto.preferences !== undefined)
+      data.preferences = updateDto.preferences;
 
     // Apenas permitir a atualização do email se ele for passado e fizer parte do DTO (e.g. UpdateUserDto)
     if ('email' in updateDto && updateDto.email !== undefined) {

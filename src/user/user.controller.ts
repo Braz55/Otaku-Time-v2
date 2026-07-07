@@ -54,8 +54,6 @@ export class UserController {
     return this.userService.update(req.user.userId, updateDto);
   }
 
-
-
   // --- Perfil Completo ---
   @UseGuards(JwtAuthGuard)
   @Get('profile/me')

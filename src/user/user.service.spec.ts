@@ -44,7 +44,10 @@ describe('UserService', () => {
         nonExistentField: 'value',
       } as any;
 
-      mockPrismaService.user.update.mockResolvedValue({ id: userId, nome: 'New Name' });
+      mockPrismaService.user.update.mockResolvedValue({
+        id: userId,
+        nome: 'New Name',
+      });
 
       await service.update(userId, updateDto);
 

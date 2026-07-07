@@ -84,7 +84,9 @@ function hasGenreOrTag(generos: any, target: string): boolean {
 function hasNonLatin(text: string | null | undefined): boolean {
   if (!text) return false;
   // Detects Cyrillic, Greek, Hebrew, Arabic, Thai, Devanagari, Georgian, Armenian, and CJK (Chinese, Japanese, Korean) characters.
-  return /[\u0400-\u04FF\u0370-\u03FF\u0590-\u05FF\u0600-\u06FF\u0E00-\u0E7F\u0900-\u097F\u10A0-\u10FF\u0530-\u058F\u3000-\u9FFF\uAC00-\uD7AF\uFF00-\uFFEF]/.test(text);
+  return /[\u0400-\u04FF\u0370-\u03FF\u0590-\u05FF\u0600-\u06FF\u0E00-\u0E7F\u0900-\u097F\u10A0-\u10FF\u0530-\u058F\u3000-\u9FFF\uAC00-\uD7AF\uFF00-\uFFEF]/.test(
+    text,
+  );
 }
 
 function resolveLatinTitle(item: any, defaultTitle: string): string {
@@ -1073,7 +1075,8 @@ export class AnimeService {
       if (Array.isArray(episodes) && episodes.length > 0) {
         episodes.forEach((ep: any) => {
           const airDate = ep.airDate || ep.air_date;
-          const episodeNum = ep.episodeNumber ?? ep.episode ?? ep.episode_number;
+          const episodeNum =
+            ep.episodeNumber ?? ep.episode ?? ep.episode_number;
           if (airDate && episodeNum !== undefined) {
             const epTime = new Date(airDate).getTime();
             if (epTime >= startLimitTime) {
@@ -1088,7 +1091,7 @@ export class AnimeService {
                 prioridade: ua.prioridade,
                 season: ep.season,
                 epAtualGlobal: ua.epAtual,
-                epName: ep.name || null
+                epName: ep.name || null,
               });
             }
           }
@@ -1106,13 +1109,16 @@ export class AnimeService {
             type: 'anime',
             prioridade: ua.prioridade,
             epAtualGlobal: ua.epAtual,
-            epName: null
+            epName: null,
           });
         }
       }
     }
 
-    airingAnime.sort((a, b) => new Date(a.displayDate).getTime() - new Date(b.displayDate).getTime());
+    airingAnime.sort(
+      (a, b) =>
+        new Date(a.displayDate).getTime() - new Date(b.displayDate).getTime(),
+    );
     return airingAnime;
   }
 
@@ -1158,7 +1164,9 @@ export class AnimeService {
         );
         numEpisodiosAired = airedEpisodes.length;
         if (airedEpisodes.length > 0) {
-          const dates = airedEpisodes.map((ep) => new Date(ep.airDate).getTime());
+          const dates = airedEpisodes.map((ep) =>
+            new Date(ep.airDate).getTime(),
+          );
           ultimoEpisodioEstreadoData = new Date(Math.max(...dates));
         }
       }
@@ -1334,9 +1342,18 @@ export class AnimeService {
       );
 
       const totalAired = this.getTotalEpisodes(atual.anime);
-      const hasEpisodeList = atual.anime.episodesList && Array.isArray(atual.anime.episodesList) && atual.anime.episodesList.length > 0;
-      if (atual.anime.statusLancamento !== 'FINISHED' && (hasEpisodeList || totalAired > 0) && globalEp > totalAired) {
-        throw new BadRequestException('Não é possível marcar episódios que ainda não estrearam.');
+      const hasEpisodeList =
+        atual.anime.episodesList &&
+        Array.isArray(atual.anime.episodesList) &&
+        atual.anime.episodesList.length > 0;
+      if (
+        atual.anime.statusLancamento !== 'FINISHED' &&
+        (hasEpisodeList || totalAired > 0) &&
+        globalEp > totalAired
+      ) {
+        throw new BadRequestException(
+          'Não é possível marcar episódios que ainda não estrearam.',
+        );
       }
 
       novosDados.seasonAtual = season;
@@ -1680,7 +1697,9 @@ export class AnimeService {
       anime.episodesList.length > 0
     ) {
       const now = new Date();
-      return anime.episodesList.filter((ep: any) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now).length;
+      return anime.episodesList.filter(
+        (ep: any) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now,
+      ).length;
     }
     return anime.numEpisodiosTotal || 0;
   }
@@ -2663,7 +2682,11 @@ export class AnimeService {
         data: { episodesList },
       });
 
-      await this.autoTransitionPlannedToWatching(animeId, episodesList, anime.titulo);
+      await this.autoTransitionPlannedToWatching(
+        animeId,
+        episodesList,
+        anime.titulo,
+      );
 
       this.logger.log(
         `Successfully synced ${globalCounter} episodes in JSON for anime ID ${animeId}`,
@@ -2681,7 +2704,11 @@ export class AnimeService {
     episodesList: any[],
     animeTitle: string,
   ) {
-    if (!episodesList || !Array.isArray(episodesList) || episodesList.length === 0) {
+    if (
+      !episodesList ||
+      !Array.isArray(episodesList) ||
+      episodesList.length === 0
+    ) {
       return;
     }
 

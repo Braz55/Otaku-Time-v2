@@ -1168,44 +1168,53 @@ export class UserService {
   // --- Subscrições & Gift Codes ---
   async redeemGiftCode(userId: number, inputCode: string) {
     const code = inputCode.trim().toUpperCase();
-    const gift = await this.prisma.giftCode.findUnique({
-      where: { code },
-    });
-
-    if (!gift) {
-      throw new BadRequestException('Código inválido ou não encontrado.');
-    }
-    if (gift.isUsed) {
-      throw new BadRequestException('Este código já foi utilizado.');
-    }
-    if (gift.expiresAt && gift.expiresAt < new Date()) {
-      throw new BadRequestException('Este código expirou.');
-    }
-
-    const durationMs = gift.durationDays * 24 * 60 * 60 * 1000;
     const now = new Date();
-    let newEndDate: Date;
 
-    const sub = await this.prisma.userSubscription.findUnique({
-      where: { userId },
-    });
+    const result = await this.prisma.$transaction(async (tx) => {
+      const gift = await tx.giftCode.findUnique({
+        where: { code },
+      });
 
-    if (sub && sub.status === 'ACTIVE' && sub.currentPeriodEnd > now) {
-      newEndDate = new Date(sub.currentPeriodEnd.getTime() + durationMs);
-    } else {
-      newEndDate = new Date(now.getTime() + durationMs);
-    }
+      if (!gift) {
+        throw new BadRequestException('Código inválido ou não encontrado.');
+      }
+      if (gift.isUsed) {
+        throw new BadRequestException('Este código já foi utilizado.');
+      }
+      if (gift.expiresAt && gift.expiresAt < now) {
+        throw new BadRequestException('Este código expirou.');
+      }
 
-    await this.prisma.$transaction([
-      this.prisma.giftCode.update({
-        where: { id: gift.id },
+      const updateResult = await tx.giftCode.updateMany({
+        where: {
+          code,
+          isUsed: false,
+        },
         data: {
           isUsed: true,
           redeemedByUserId: userId,
           redeemedAt: now,
         },
-      }),
-      this.prisma.userSubscription.upsert({
+      });
+
+      if (updateResult.count !== 1) {
+        throw new BadRequestException('Este código já foi utilizado.');
+      }
+
+      const durationMs = gift.durationDays * 24 * 60 * 60 * 1000;
+      let newEndDate: Date;
+
+      const sub = await tx.userSubscription.findUnique({
+        where: { userId },
+      });
+
+      if (sub && sub.status === 'ACTIVE' && sub.currentPeriodEnd > now) {
+        newEndDate = new Date(sub.currentPeriodEnd.getTime() + durationMs);
+      } else {
+        newEndDate = new Date(now.getTime() + durationMs);
+      }
+
+      await tx.userSubscription.upsert({
         where: { userId },
         update: {
           status: 'ACTIVE',
@@ -1219,17 +1228,23 @@ export class UserService {
           currentPeriodEnd: newEndDate,
           planType: 'PREMIUM',
         },
-      }),
-      this.prisma.user.update({
+      });
+
+      await tx.user.update({
         where: { id: userId },
         data: { tipoConta: 'pro' },
-      }),
-    ]);
+      });
+
+      return {
+        durationDays: gift.durationDays,
+        newEndDate,
+      };
+    });
 
     return {
       success: true,
-      message: `Premium (${gift.durationDays} dias) resgatado com sucesso!`,
-      currentPeriodEnd: newEndDate,
+      message: `Premium (${result.durationDays} dias) resgatado com sucesso!`,
+      currentPeriodEnd: result.newEndDate,
     };
   }
 

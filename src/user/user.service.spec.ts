@@ -8,7 +8,22 @@ describe('UserService', () => {
   let service: UserService;
   let prisma: PrismaService;
 
+  const mockTransactionClient = {
+    giftCode: {
+      findUnique: jest.fn(),
+      updateMany: jest.fn(),
+    },
+    userSubscription: {
+      findUnique: jest.fn(),
+      upsert: jest.fn(),
+    },
+    user: {
+      update: jest.fn(),
+    },
+  };
+
   const mockPrismaService = {
+    $transaction: jest.fn(),
     user: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
@@ -176,6 +191,117 @@ describe('UserService', () => {
         },
         include: expect.any(Object),
       });
+    });
+  });
+
+  describe('redeemGiftCode', () => {
+    const userId = 1;
+    const giftCodeStr = 'GIFT-123';
+    const mockGiftCode = {
+      id: 1,
+      code: 'GIFT-123',
+      durationDays: 30,
+      isUsed: false,
+      expiresAt: null,
+    };
+
+    beforeEach(() => {
+      mockPrismaService.$transaction.mockImplementation((cb) => cb(mockTransactionClient));
+    });
+
+    it('should successfully redeem a gift code for a user without active subscription', async () => {
+      mockTransactionClient.giftCode.findUnique.mockResolvedValue(mockGiftCode);
+      mockTransactionClient.giftCode.updateMany.mockResolvedValue({ count: 1 });
+      mockTransactionClient.userSubscription.findUnique.mockResolvedValue(null);
+      mockTransactionClient.userSubscription.upsert.mockResolvedValue({});
+      mockTransactionClient.user.update.mockResolvedValue({});
+
+      const result = await service.redeemGiftCode(userId, giftCodeStr);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('30 dias');
+      expect(mockTransactionClient.giftCode.findUnique).toHaveBeenCalledWith({
+        where: { code: 'GIFT-123' },
+      });
+      expect(mockTransactionClient.giftCode.updateMany).toHaveBeenCalledWith({
+        where: { code: 'GIFT-123', isUsed: false },
+        data: expect.objectContaining({
+          isUsed: true,
+          redeemedByUserId: userId,
+          redeemedAt: expect.any(Date),
+        }),
+      });
+      expect(mockTransactionClient.userSubscription.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId },
+          update: expect.objectContaining({
+            status: 'ACTIVE',
+            planType: 'PREMIUM',
+          }),
+        }),
+      );
+      expect(mockTransactionClient.user.update).toHaveBeenCalledWith({
+        where: { id: userId },
+        data: { tipoConta: 'pro' },
+      });
+    });
+
+    it('should extend existing subscription end date if it is currently active', async () => {
+      const activeSubEnd = new Date(Date.now() + 1000 * 60 * 60 * 24 * 5); // 5 days from now
+      mockTransactionClient.giftCode.findUnique.mockResolvedValue(mockGiftCode);
+      mockTransactionClient.giftCode.updateMany.mockResolvedValue({ count: 1 });
+      mockTransactionClient.userSubscription.findUnique.mockResolvedValue({
+        userId,
+        status: 'ACTIVE',
+        currentPeriodEnd: activeSubEnd,
+      });
+      mockTransactionClient.userSubscription.upsert.mockResolvedValue({});
+      mockTransactionClient.user.update.mockResolvedValue({});
+
+      const result = await service.redeemGiftCode(userId, giftCodeStr);
+
+      expect(result.success).toBe(true);
+      const expectedEnd = new Date(activeSubEnd.getTime() + 30 * 24 * 60 * 60 * 1000);
+      expect(result.currentPeriodEnd.getTime()).toBeCloseTo(expectedEnd.getTime(), -2);
+    });
+
+    it('should throw BadRequestException if code is invalid (not found)', async () => {
+      mockTransactionClient.giftCode.findUnique.mockResolvedValue(null);
+
+      await expect(service.redeemGiftCode(userId, giftCodeStr)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException if code is already used', async () => {
+      mockTransactionClient.giftCode.findUnique.mockResolvedValue({
+        ...mockGiftCode,
+        isUsed: true,
+      });
+
+      await expect(service.redeemGiftCode(userId, giftCodeStr)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException if code is expired', async () => {
+      mockTransactionClient.giftCode.findUnique.mockResolvedValue({
+        ...mockGiftCode,
+        expiresAt: new Date(Date.now() - 10000), // expired 10s ago
+      });
+
+      await expect(service.redeemGiftCode(userId, giftCodeStr)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException if updateMany returns count 0 (race condition simulated)', async () => {
+      mockTransactionClient.giftCode.findUnique.mockResolvedValue(mockGiftCode);
+      mockTransactionClient.giftCode.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.redeemGiftCode(userId, giftCodeStr)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });

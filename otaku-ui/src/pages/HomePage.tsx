@@ -16,6 +16,7 @@ const HomePage = () => {
   const { 
     categoria, 
     isSearchOpen, 
+    setIsSearchOpen,
     searchTerm, 
     homeTrigger,
     animeDashboardData,
@@ -545,14 +546,75 @@ const HomePage = () => {
               );
             }
             
-            const heroCover = featured 
-              ? (featured.anime?.capaUrl || featured.manga?.capaUrl || featured.capaUrl) 
-              : "https://lh3.googleusercontent.com/aida-public/AB6AXuAdtT1AIxrRwBQnzU-fRoU_CPtKD9Xg1BvY8Y0s8RmV9b72bUNwYypAj6y1bSs3zGLoHsC42HBjrc-vfOd-GCn8zJ7t7_bAD64gVr-zkqRjmztIwOu65eWLmgtjLa7JAfnvqQfYW8zyifOI02asFkKaoqhR5efMIXzhP1VCrztKNkT-VnbHIY6U8jNEjGTUgZ2KmPbTyk_yFAVbf66hQw16YdK6fz4WhziI1BJhuQPEW8mcUT8GLAug_FE1_g-JhwikhX1qCIAflXZZ";
-            
-            const heroTitle = featured ? (featured.anime?.titulo || featured.manga?.titulo || featured.titulo) : "Cyberpunk: Edgerunners";
-            const heroDesc = featured 
-              ? (featured.anime?.sinopse || featured.manga?.sinopse || featured.anime?.descricao || featured.manga?.descricao || featured.descricao || "Continua a acompanhar o teu anime favorito na lista.") 
-              : "Numa distopia mergulhada em corrupção e implantes cibernéticos, um talentoso miúdo de rua decide tornar-se um fora da lei.";
+            if (!featured) {
+              return (
+                <section className={`relative rounded-3xl overflow-hidden glass-panel rim-light group ${isMobile ? 'py-5 px-5' : 'py-6 px-8'} flex flex-col md:flex-row md:items-center justify-between gap-6 bg-gradient-to-br from-surface-variant/15 to-surface-variant/5 border border-white/5`}>
+                  {/* Glowing background shapes for premium aesthetic */}
+                  <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+                    <div className={`absolute -top-24 -left-24 w-48 h-48 rounded-full blur-[80px] opacity-20 ${categoria === 'anime' ? 'bg-secondary' : 'bg-primary'}`}></div>
+                    <div className={`absolute -bottom-24 -right-24 w-48 h-48 rounded-full blur-[80px] opacity-20 ${categoria === 'anime' ? 'bg-primary' : 'bg-secondary'}`}></div>
+                  </div>
+                  
+                  <div className="relative flex-1 min-w-0 flex flex-col justify-center space-y-2.5 z-10">
+                    <span className={`w-fit px-2.5 py-0.5 rounded-full text-white font-label-sm text-[9px] uppercase tracking-wider font-bold bg-gradient-to-r ${categoria === 'anime' ? 'from-secondary to-pink-600' : 'from-primary to-purple-600'} shadow-[0_0_12px_rgba(106,27,154,0.3)]`}>
+                      {t('Bem-vindo ao Otaku Time!')}
+                    </span>
+                    <h2 className="font-display-lg text-lg md:text-2xl text-white leading-tight font-black">
+                      {t('Começa a acompanhar os teus títulos!')}
+                    </h2>
+                    <p className="font-body-lg text-[11px] md:text-xs text-on-surface-variant leading-relaxed max-w-xl">
+                      {categoria === 'anime' 
+                        ? t('Esta é a tua página inicial. Aqui podes ver os próximos episódios a estrear e gerir o teu progresso. Explora as tendências ou pesquisa pelo teu anime favorito para começar!')
+                        : t('Esta é a tua página inicial. Aqui podes ver os próximos capítulos a lançar e gerir o teu progresso. Explora as tendências ou pesquisa pelo teu manga favorito para começar!')
+                      }
+                    </p>
+                    
+                    <div className="flex flex-wrap gap-2.5 pt-1">
+                      <button 
+                        onClick={() => navigate('/explore')}
+                        className={`px-4 py-2 rounded-xl text-white font-label-md text-[11px] font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer hover:shadow-lg bg-gradient-to-r ${categoria === 'anime' ? 'from-secondary to-pink-600 hover:shadow-[0_0_20px_rgba(194,24,91,0.4)]' : 'from-primary to-purple-600 hover:shadow-[0_0_20px_rgba(106,27,154,0.4)]'}`}
+                      >
+                        <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>explore</span> 
+                        {t("Explorar Tendências")}
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setIsSearchOpen(true);
+                          setTimeout(() => {
+                            const searchInput = document.querySelector('input[type="search"]') || document.querySelector('input[placeholder*="Pesquisar"]');
+                            if (searchInput) {
+                              (searchInput as HTMLElement).focus();
+                            }
+                          }, 100);
+                        }}
+                        className="px-4 py-2 rounded-xl text-white font-label-md text-[11px] font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer hover:shadow-lg bg-white/5 hover:bg-white/10 border border-white/10"
+                      >
+                        <span className="material-symbols-outlined text-sm">search</span> 
+                        {t("Pesquisar Títulos")}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Visual card badge */}
+                  <div className="relative w-full md:w-40 lg:w-44 aspect-[16/9] md:aspect-[4/3] rounded-2xl overflow-hidden border border-white/5 flex-shrink-0 flex items-center justify-center bg-surface-variant/10 backdrop-blur-md self-center z-10">
+                    <div className="flex flex-col items-center justify-center p-4 text-center space-y-2">
+                      <div className={`relative flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br ${categoria === 'anime' ? 'from-secondary/20 to-pink-500/10' : 'from-primary/20 to-purple-500/10'} border border-white/5`}>
+                        <span className={`material-symbols-outlined text-2xl ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`}>
+                          {categoria === 'anime' ? 'live_tv' : 'menu_book'}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-on-surface-variant font-medium leading-normal max-w-[120px]">
+                        {categoria === 'anime' ? t('Adiciona animes para veres o teu progresso aqui') : t('Adiciona mangas para veres o teu progresso aqui')}
+                      </span>
+                    </div>
+                  </div>
+                </section>
+              );
+            }
+
+            const heroCover = featured.anime?.capaUrl || featured.manga?.capaUrl || featured.capaUrl;
+            const heroTitle = featured.anime?.titulo || featured.manga?.titulo || featured.titulo;
+            const heroDesc = featured.anime?.sinopse || featured.manga?.sinopse || featured.anime?.descricao || featured.manga?.descricao || featured.descricao || "Continua a acompanhar o teu anime favorito na lista.";
             
             return (
               <section className={`relative rounded-3xl overflow-hidden glass-panel rim-light group ${isMobile ? 'h-[190px]' : 'h-[240px] md:h-[280px]'} flex items-center`}>
@@ -570,21 +632,19 @@ const HomePage = () => {
                 <div className="relative w-full h-full flex items-center justify-between gap-6 p-5 md:p-8 z-10">
                   <div className="flex-1 min-w-0 flex flex-col justify-center space-y-2">
                     <span className={`w-fit px-2.5 py-0.5 rounded-full text-white font-label-sm text-[9px] uppercase tracking-wider font-bold ${
-                      featured?.highlightReason === 'new_release'
+                      featured.highlightReason === 'new_release'
                         ? 'bg-gradient-to-r from-amber-500 to-orange-600 shadow-[0_0_10px_rgba(245,158,11,0.4)] animate-pulse'
                         : categoria === 'anime' ? 'bg-primary' : 'bg-secondary'
                     }`}>
-                      {featured 
-                        ? (featured.highlightReason === 'new_release'
-                          ? (categoria === 'anime' ? t('Novo Episódio') : t('Novo Capítulo'))
-                          : featured.highlightReason === 'recent'
-                            ? (categoria === 'anime' ? t('A ver mais no momento') : t('A ler mais no momento'))
-                            : featured.highlightReason === 'dust'
-                              ? t('A apanhar pó na lista')
-                              : featured.highlightReason === 'random_library'
-                                ? t('Sugestão da tua lista')
-                                : t('EM DESTAQUE NA TUA LISTA'))
-                        : t('DESTAQUE DA SEMANA')}
+                      {featured.highlightReason === 'new_release'
+                        ? (categoria === 'anime' ? t('Novo Episódio') : t('Novo Capítulo'))
+                        : featured.highlightReason === 'recent'
+                          ? (categoria === 'anime' ? t('A ver mais no momento') : t('A ler mais no momento'))
+                          : featured.highlightReason === 'dust'
+                            ? t('A apanhar pó na lista')
+                            : featured.highlightReason === 'random_library'
+                              ? t('Sugestão da tua lista')
+                              : t('EM DESTAQUE NA TUA LISTA')}
                     </span>
                     <h2 className="font-display-lg text-lg md:text-2xl text-white leading-tight font-black truncate">{heroTitle}</h2>
                     <p className="font-body-lg text-[11px] md:text-xs text-on-surface-variant line-clamp-2 md:line-clamp-3 leading-relaxed max-w-xl">
@@ -592,7 +652,7 @@ const HomePage = () => {
                     </p>
                     <div className="flex gap-2.5 pt-1">
                       <button 
-                        onClick={() => featured ? navigate(`/details/${categoria}/${featured.id}`) : showToast(t("Procura por Cyberpunk na barra superior!"), "info")}
+                        onClick={() => navigate(`/details/${categoria}/${featured.id}`)}
                         className={`px-4 py-2 rounded-xl text-white font-label-md text-[11px] font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer hover:shadow-lg ${categoria === 'anime' ? 'bg-secondary hover:shadow-[0_0_20px_rgba(194,24,91,0.4)]' : 'bg-primary hover:shadow-[0_0_20px_rgba(106,27,154,0.4)]'}`}
                       >
                         <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>info</span> 

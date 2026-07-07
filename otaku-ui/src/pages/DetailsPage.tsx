@@ -88,19 +88,6 @@ const getPriorityStarColor = (priority?: number | null) => {
   return opt ? opt.starColor : 'text-yellow-100';
 };
 
-const formatLastModified = (item: any) => {
-  const dateStr = item?.updatedAt || item?.anime?.updatedAt || item?.manga?.updatedAt;
-  if (!dateStr) return 'N/A';
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return 'N/A';
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
-  } catch {
-    return 'N/A';
-  }
-};
-
 const formatCommentDate = (value: string) => {
   const date = new Date(value);
   if (isNaN(date.getTime())) return '';
@@ -135,7 +122,7 @@ const DetailsPage = () => {
   const { user, token } = useAuth();
   const { showToast } = useToast();
   const { t } = useTranslation();
-  const { setCategoria, setIsViewingDetails } = useMedia();
+  const { setCategoria, setIsViewingDetails, animeLibraryData, mangaLibraryData } = useMedia();
   const isMobile = useIsMobile();
 
   const [loading, setLoading] = useState(true);
@@ -366,43 +353,65 @@ const DetailsPage = () => {
 
       let targetId = parseInt(id);
       let isExternal = isExternalParam;
+      let data = null;
 
-      // Check if it already exists in database (user library)
-      try {
-        const libraryRes = await customFetch(`${API_BASE_URL}/${mediaType}`, { headers: getHeaders() });
-        if (libraryRes.ok) {
-          const libraryItems = await libraryRes.json();
-          if (Array.isArray(libraryItems)) {
-            const matched = libraryItems.find(item => 
-              item.id === targetId || (mediaType === 'manga' ? item.mangaId : item.animeId) === targetId
-            );
-            if (matched) {
-              targetId = matched.id;
-              isExternal = false;
-            } else {
-              // If not found in the library, treat as external since GET /anime/:id or /manga/:id
-              // only works for user tracked items.
-              isExternal = true;
-            }
-          }
-        }
-      } catch (e) {
-        console.error("Error verifying item in library:", e);
+      // Check if it already exists in database using local cache lookup first
+      const libraryCache = mediaType === 'manga' ? mangaLibraryData : animeLibraryData;
+      let matched = null;
+      if (libraryCache && libraryCache.length > 0) {
+        matched = libraryCache.find(item => 
+          item.id === targetId || (mediaType === 'manga' ? item.mangaId : item.animeId) === targetId
+        );
       }
 
-      const formatQuery = formatParam ? `?format=${formatParam}` : '';
-      const url = isExternal 
-        ? `${API_BASE_URL}/${mediaType}/anilist/${targetId}${formatQuery}`
-        : `${API_BASE_URL}/${mediaType}/${targetId}`;
+      if (matched) {
+        targetId = matched.id;
+        isExternal = false;
+        try {
+          const response = await customFetch(`${API_BASE_URL}/${mediaType}/${targetId}`, { headers: getHeaders() });
+          if (response.ok) {
+            data = await response.json();
+          }
+        } catch (e) {
+          console.error("Error fetching matching library details:", e);
+        }
+      } else {
+        // Fallback: Query the single item locally first. If 404/NotFound or empty, we know it's external
+        try {
+          const response = await customFetch(`${API_BASE_URL}/${mediaType}/${targetId}`, { headers: getHeaders() });
+          if (response.ok) {
+            const temp = await response.json();
+            if (temp && (temp.id || temp.animeId || temp.mangaId)) {
+              data = temp;
+              isExternal = false;
+            }
+          }
+        } catch (e) {
+          // Silent fallback to external
+        }
+      }
 
-      try {
-        const response = await customFetch(url, { headers: getHeaders() });
-        if (!response.ok) {
-          showToast('Could not load details. Please try again later.', 'error');
+      // If not resolved locally, fetch external AniList/TMDB details
+      if (!data) {
+        isExternal = true;
+        const formatQuery = formatParam ? `?format=${formatParam}` : '';
+        try {
+          const response = await customFetch(`${API_BASE_URL}/${mediaType}/anilist/${targetId}${formatQuery}`, { headers: getHeaders() });
+          if (!response.ok) {
+            showToast('Could not load details. Please try again later.', 'error');
+            navigate(-1);
+            return;
+          }
+          data = await response.json();
+        } catch (error) {
+          console.error("Error loading external details:", error);
+          showToast('Error loading details.', 'error');
           navigate(-1);
           return;
         }
-        const data = await response.json();
+      }
+
+      try {
         if (isExternal && data) {
           const normalized = {
             id: data.id,
@@ -458,7 +467,7 @@ const DetailsPage = () => {
         }
         carregarDadosInterativos(data.mangaId || data.animeId || data.id);
       } catch (error) {
-        console.error("Error loading details:", error);
+        console.error("Error parsing details:", error);
         showToast('Error loading details.', 'error');
         navigate(-1);
       } finally {
@@ -1661,60 +1670,45 @@ const DetailsPage = () => {
                             return (
                               <div
                                 key={ep.id}
-                                className={`flex items-center justify-between gap-4 p-3 rounded-xl border transition-all ${
+                                className={`flex items-center justify-between gap-3.5 p-3 rounded-xl border transition-all ${
                                   isWatched
                                     ? 'bg-primary/5 border-primary/20 hover:border-primary/45'
                                     : 'bg-surface-variant/20 border-white/5 hover:border-white/20'
                                 }`}
                               >
                                 {/* Left block: Still & details */}
-                                <div className="flex items-center gap-4 min-w-0 flex-1">
+                                <div className="flex items-center gap-3.5 min-w-0 flex-1">
                                   {/* Episode Still image */}
-                                  <div className="w-24 aspect-[16/9] rounded-lg overflow-hidden shrink-0 bg-black/40 border border-white/10">
+                                  <div className="w-20 sm:w-24 aspect-[16/9] rounded-lg overflow-hidden shrink-0 bg-black/40 border border-white/10 relative">
                                     <img src={stillUrl} className="w-full h-full object-cover" alt={ep.name} />
+                                    {!hasAired && (
+                                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                        <span className="material-symbols-outlined text-on-surface-variant/60 text-lg font-bold">schedule</span>
+                                      </div>
+                                    )}
                                   </div>
                                   
                                   {/* Episode text */}
-                                  <div className="min-w-0">
+                                  <div className="min-w-0 flex-1">
                                     <p className="text-white text-sm font-bold truncate">
                                       Ep {ep.episode_number} - {ep.name || `Episódio ${ep.episode_number}`}
                                     </p>
-                                    <p className="text-on-surface-variant text-[11px] font-medium mt-0.5 font-mono">
-                                      {airDateStr}
+                                    <p className="text-on-surface-variant text-[11px] font-medium mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                      <span className="font-mono">{airDateStr}</span>
+                                      <span className="text-white/10">•</span>
+                                      <span>{runtimeStr}</span>
+                                      {!hasAired && (
+                                        <>
+                                          <span className="text-white/10">•</span>
+                                          <span className="text-amber-500 text-[9px] font-extrabold uppercase tracking-wider">Por estrear</span>
+                                        </>
+                                      )}
                                     </p>
                                   </div>
                                 </div>
 
-                                {/* Right block: Checked state and time metadata */}
-                                <div className="flex items-center gap-5 flex-shrink-0">
-                                  {/* Checked Status */}
-                                  <div className="flex items-center gap-1.5 min-w-[85px]">
-                                    <span className={`material-symbols-outlined text-sm font-bold ${
-                                      !hasAired
-                                        ? 'text-on-surface-variant/20'
-                                        : isWatched
-                                        ? 'text-emerald-400'
-                                        : 'text-on-surface-variant/40'
-                                    }`}>
-                                      {!hasAired ? 'schedule' : isWatched ? 'check_circle' : 'radio_button_unchecked'}
-                                    </span>
-                                    <span className={`text-xs font-bold ${
-                                      !hasAired
-                                        ? 'text-on-surface-variant/30'
-                                        : isWatched
-                                        ? 'text-emerald-400'
-                                        : 'text-on-surface-variant/50'
-                                    }`}>
-                                      {!hasAired ? 'Por estrear' : isWatched ? 'Visto' : 'Não Visto'}
-                                    </span>
-                                  </div>
-
-                                  {/* Time duration details */}
-                                  <div className="text-right min-w-[50px]">
-                                    <p className="text-[10px] text-on-surface-variant font-medium uppercase">{runtimeStr}</p>
-                                  </div>
-
-                                  {/* Checked button toggle */}
+                                {/* Right block: Checked button toggle */}
+                                <div className="flex items-center gap-3 flex-shrink-0">
                                   {hasAired ? (
                                     <button
                                       onClick={() => {
@@ -2059,7 +2053,7 @@ const DetailsPage = () => {
     : 0;
 
   return (
-    <div className="max-w-7xl mx-auto px-margin-mobile md:px-margin-desktop py-4 md:py-8">
+    <div className="max-w-7xl mx-auto px-margin-mobile md:px-margin-desktop py-4 md:py-8 pb-32">
       <div className="animate-in fade-in slide-in-from-left-4 duration-500">
         <button onClick={() => navigate(-1)} className={`mb-10 flex items-center gap-2 px-5 py-2.5 rounded-full glass-panel border border-white/10 text-on-surface-variant hover:text-white transition-all group font-bold shadow-lg ${mediaType === 'anime' ? 'hover:border-secondary/50 hover:shadow-[0_0_15px_rgba(194,24,91,0.3)]' : 'hover:border-primary/50 hover:shadow-[0_0_15px_rgba(106,27,154,0.3)]'}`}>
           <span className="material-symbols-outlined group-hover:-translate-x-1 transition-transform">arrow_back</span>
@@ -2069,7 +2063,7 @@ const DetailsPage = () => {
         {selectedItem && (
           isMobile ? (
             /* VERSÃO ANDROID NATIVA: Ordem Exata Solicitada pelo Utilizador + Margens Otimizadas */
-            <div className={`glass-panel rounded-2xl sm:rounded-3xl overflow-hidden border p-4 sm:p-6 space-y-6 ${mediaType === 'anime' ? 'border-secondary/20 shadow-lg' : 'border-primary/20 shadow-lg'}`}>
+            <div className={`glass-panel rounded-2xl sm:rounded-3xl overflow-hidden border p-4 sm:p-6 space-y-4 sm:space-y-6 ${mediaType === 'anime' ? 'border-secondary/20 shadow-lg' : 'border-primary/20 shadow-lg'}`}>
               {/* 1. Capa & Título */}
               <div className="flex gap-4 items-start">
                 <div className={`w-28 sm:w-36 aspect-[2/3] rounded-xl overflow-hidden shadow-lg border-2 border-background ring-1 ${mediaType === 'anime' ? 'ring-secondary/50' : 'ring-primary/50'} flex-shrink-0`}>
@@ -2221,11 +2215,11 @@ const DetailsPage = () => {
                         )}
                       </button>
                     ) : (
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         {/* Tracking Status */}
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                           <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest">Tracking Status</label>
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="flex overflow-x-auto gap-2 pb-2 pt-1 w-full justify-start scrollbar-none snap-x">
                             {TRACKING_STATUS_OPTIONS.map((opt) => {
                               const isSelected = selectedItem.status === opt.value;
                               let pulseColor = 'rgba(255, 255, 255, 0.2)';
@@ -2240,7 +2234,7 @@ const DetailsPage = () => {
                                   key={opt.value} 
                                   onClick={() => atualizarCampo('status', opt.value)} 
                                   style={{ '--pulse-color': pulseColor } as React.CSSProperties}
-                                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all text-xs font-bold relative overflow-hidden group active:scale-95 ${
+                                  className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl border transition-all text-xs font-bold relative overflow-hidden group active:scale-95 snap-center ${
                                     isSelected 
                                       ? `${mediaType === 'anime' ? 'bg-secondary/20 border-secondary text-secondary' : 'bg-primary/20 border-primary text-primary'} animate-pulse-glow` 
                                       : 'bg-surface-variant/30 border-white/5 text-on-surface-variant hover:text-white'
@@ -2249,13 +2243,13 @@ const DetailsPage = () => {
                                   {isSelected && (
                                     <span className={`absolute left-0 top-0 bottom-0 w-1 ${mediaType === 'anime' ? 'bg-secondary' : 'bg-primary'}`}></span>
                                   )}
-                                  <span className={`material-symbols-outlined text-base ${isSelected ? (mediaType === 'anime' ? 'text-secondary' : 'text-primary') : 'text-on-surface-variant'}`} style={{ fontVariationSettings: "'FILL' 1" }}>
+                                  <span className={`material-symbols-outlined text-sm ${isSelected ? (mediaType === 'anime' ? 'text-secondary' : 'text-primary') : 'text-on-surface-variant'}`} style={{ fontVariationSettings: "'FILL' 1" }}>
                                     {opt.value === 'WATCHING' ? 'play_circle' : 
                                      opt.value === 'PLANNED' ? 'schedule' : 
                                      opt.value === 'COMPLETED' ? 'check_circle' : 
                                      opt.value === 'PAUSED' ? 'pause_circle' : 'cancel'}
                                   </span>
-                                  <span className="truncate">{mediaType === 'anime' ? opt.animeLabel : opt.mangaLabel}</span>
+                                  <span>{mediaType === 'anime' ? opt.animeLabel : opt.mangaLabel}</span>
                                 </button>
                               );
                             })}
@@ -2263,7 +2257,7 @@ const DetailsPage = () => {
                         </div>
 
                         {/* Priority Selector */}
-                        <div className="space-y-2 pt-2 border-t border-white/5">
+                        <div className="space-y-1.5 pt-1.5 border-t border-white/5">
                           <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest flex items-center gap-1.5">
                             <span className="material-symbols-outlined text-xs text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
                             Prioridade
@@ -2290,7 +2284,7 @@ const DetailsPage = () => {
                         </div>
 
                         {/* My Progress */}
-                        <div className="space-y-4 pt-4 border-t border-white/5">
+                        <div className="space-y-3 pt-3 border-t border-white/5">
                           <div className="flex items-center gap-1.5 justify-center">
                             <span className="material-symbols-outlined text-on-surface-variant text-xs">timelapse</span>
                             <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest">Meu Progresso</p>
@@ -2315,7 +2309,7 @@ const DetailsPage = () => {
                               }
                               
                               return (
-                                <div className="space-y-2 w-full pt-1">
+                                <div className="space-y-1.5 w-full pt-0.5">
                                   <label className="text-[9px] text-on-surface-variant uppercase font-bold tracking-widest flex items-center gap-1 justify-center">
                                     <span className="material-symbols-outlined text-[11px]">folder_open</span>
                                     Temporada
@@ -2346,7 +2340,7 @@ const DetailsPage = () => {
                             })()
                           )}
 
-                          <div className="flex items-baseline gap-2 mb-4 mt-2 justify-center">
+                          <div className="flex items-baseline gap-2 mb-2 mt-1 justify-center">
                             {isSavingDetailsProgress ? (
                               <div className="h-10 flex items-center justify-center">
                                 <Loader2 className={`w-6 h-6 animate-spin ${mediaType === 'anime' ? 'text-primary' : 'text-secondary'}`} />
@@ -2426,100 +2420,85 @@ const DetailsPage = () => {
                                       const runtimeStr = ep.runtime ? `${ep.runtime} min` : '24 min';
 
                                       return (
-                                        <div
-                                          key={ep.id}
-                                          className={`flex items-center justify-between gap-4 p-3 rounded-xl border transition-all ${
-                                            isWatched
-                                              ? 'bg-primary/5 border-primary/20 hover:border-primary/45'
-                                              : 'bg-surface-variant/20 border-white/5 hover:border-white/20'
-                                          }`}
-                                        >
-                                          {/* Left block: Still & details */}
-                                          <div className="flex items-center gap-4 min-w-0 flex-1">
-                                            {/* Episode Still image */}
-                                            <div className="w-24 aspect-[16/9] rounded-lg overflow-hidden shrink-0 bg-black/40 border border-white/10">
-                                              <img src={stillUrl} className="w-full h-full object-cover" alt={ep.name} />
-                                            </div>
-                                            
-                                            {/* Episode text */}
-                                            <div className="min-w-0">
-                                              <p className="text-white text-sm font-bold truncate">
-                                                Ep {ep.episode_number} - {ep.name || `Episódio ${ep.episode_number}`}
-                                              </p>
-                                              <p className="text-on-surface-variant text-[11px] font-medium mt-0.5 font-mono">
-                                                {airDateStr}
-                                              </p>
-                                            </div>
-                                          </div>
+                              <div
+                                key={ep.id}
+                                className={`flex items-center justify-between gap-3.5 p-3 rounded-xl border transition-all ${
+                                  isWatched
+                                    ? 'bg-primary/5 border-primary/20 hover:border-primary/45'
+                                    : 'bg-surface-variant/20 border-white/5 hover:border-white/20'
+                                }`}
+                              >
+                                {/* Left block: Still & details */}
+                                <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                                  {/* Episode Still image */}
+                                  <div className="w-20 sm:w-24 aspect-[16/9] rounded-lg overflow-hidden shrink-0 bg-black/40 border border-white/10 relative">
+                                    <img src={stillUrl} className="w-full h-full object-cover" alt={ep.name} />
+                                    {!hasAired && (
+                                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                        <span className="material-symbols-outlined text-on-surface-variant/60 text-lg font-bold">schedule</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  
+                                  {/* Episode text */}
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-white text-sm font-bold truncate">
+                                      Ep {ep.episode_number} - {ep.name || `Episódio ${ep.episode_number}`}
+                                    </p>
+                                    <p className="text-on-surface-variant text-[11px] font-medium mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                      <span className="font-mono">{airDateStr}</span>
+                                      <span className="text-white/10">•</span>
+                                      <span>{runtimeStr}</span>
+                                      {!hasAired && (
+                                        <>
+                                          <span className="text-white/10">•</span>
+                                          <span className="text-amber-500 text-[9px] font-extrabold uppercase tracking-wider">Por estrear</span>
+                                        </>
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
 
-                                          {/* Right block: Checked state and time metadata */}
-                                          <div className="flex items-center gap-5 flex-shrink-0">
-                                            {/* Checked Status */}
-                                            <div className="flex items-center gap-1.5 min-w-[85px]">
-                                              <span className={`material-symbols-outlined text-sm font-bold ${
-                                                !hasAired
-                                                  ? 'text-on-surface-variant/20'
-                                                  : isWatched
-                                                  ? 'text-emerald-400'
-                                                  : 'text-on-surface-variant/40'
-                                              }`}>
-                                                {!hasAired ? 'schedule' : isWatched ? 'check_circle' : 'radio_button_unchecked'}
-                                              </span>
-                                              <span className={`text-xs font-bold ${
-                                                !hasAired
-                                                  ? 'text-on-surface-variant/30'
-                                                  : isWatched
-                                                  ? 'text-emerald-400'
-                                                  : 'text-on-surface-variant/50'
-                                              }`}>
-                                                {!hasAired ? 'Por estrear' : isWatched ? 'Visto' : 'Não Visto'}
-                                              </span>
-                                            </div>
-
-                                            {/* Time duration details */}
-                                            <div className="text-right min-w-[50px]">
-                                              <p className="text-[10px] text-on-surface-variant font-medium uppercase">{runtimeStr}</p>
-                                            </div>
-
-                                            {/* Checked button toggle */}
-                                            {hasAired ? (
-                                              <button
-                                                onClick={() => {
-                                                  if (isSpecial) {
-                                                    const currentSpecials = Array.isArray(selectedItem.watchedSpecials)
-                                                      ? selectedItem.watchedSpecials
-                                                      : [];
-                                                    const isAlreadyWatched = currentSpecials.includes(ep.episode_number);
-                                                    const updatedSpecials = isAlreadyWatched
-                                                      ? currentSpecials.filter((n: number) => n !== ep.episode_number)
-                                                      : [...currentSpecials, ep.episode_number];
-                                                    atualizarCampo('watchedSpecials', updatedSpecials);
-                                                  } else {
-                                                    const globalEpNum = ep.globalEpisodeNumber || getGlobalEpisodeNumber(viewedSeason || 1, ep.episode_number);
-                                                    if (isWatched) {
-                                                      atualizarCampo('epAtual', globalEpNum - 1);
-                                                    } else {
-                                                      atualizarCampo('epAtual', globalEpNum);
-                                                    }
-                                                  }
-                                                }}
-                                                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-                                                  isWatched
-                                                    ? 'bg-primary text-on-primary scale-105 shadow-sm shadow-primary/20'
-                                                    : 'bg-surface-variant/40 hover:bg-surface-variant hover:text-white text-on-surface-variant border border-white/10'
-                                                }`}
-                                              >
-                                                <span className="material-symbols-outlined text-sm font-bold">
-                                                  {isWatched ? 'check' : 'check_box_outline_blank'}
-                                                </span>
-                                              </button>
-                                            ) : (
-                                              <div className="w-9 h-9 flex items-center justify-center text-on-surface-variant/30 font-bold" title="Não estreado">
-                                                <span className="material-symbols-outlined text-sm">schedule</span>
-                                              </div>
-                                            )}
-                                          </div>
-                                        </div>
+                                {/* Right block: Checked button toggle */}
+                                <div className="flex items-center gap-3 flex-shrink-0">
+                                  {hasAired ? (
+                                    <button
+                                      onClick={() => {
+                                        if (isSpecial) {
+                                          const currentSpecials = Array.isArray(selectedItem.watchedSpecials)
+                                            ? selectedItem.watchedSpecials
+                                            : [];
+                                          const isAlreadyWatched = currentSpecials.includes(ep.episode_number);
+                                          const updatedSpecials = isAlreadyWatched
+                                            ? currentSpecials.filter((n: number) => n !== ep.episode_number)
+                                            : [...currentSpecials, ep.episode_number];
+                                          atualizarCampo('watchedSpecials', updatedSpecials);
+                                        } else {
+                                          const globalEpNum = ep.globalEpisodeNumber || getGlobalEpisodeNumber(viewedSeason || 1, ep.episode_number);
+                                          if (isWatched) {
+                                            atualizarCampo('epAtual', globalEpNum - 1);
+                                          } else {
+                                            atualizarCampo('epAtual', globalEpNum);
+                                          }
+                                        }
+                                      }}
+                                      className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                                        isWatched
+                                          ? 'bg-primary text-on-primary scale-105 shadow-sm shadow-primary/20'
+                                          : 'bg-surface-variant/40 hover:bg-surface-variant hover:text-white text-on-surface-variant border border-white/10'
+                                      }`}
+                                    >
+                                      <span className="material-symbols-outlined text-sm font-bold">
+                                        {isWatched ? 'check' : 'check_box_outline_blank'}
+                                      </span>
+                                    </button>
+                                  ) : (
+                                    <div className="w-9 h-9 flex items-center justify-center text-on-surface-variant/30 font-bold" title="Não estreado">
+                                      <span className="material-symbols-outlined text-sm">schedule</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                                       );
                                     })}
                                   </div>
@@ -2598,13 +2577,6 @@ const DetailsPage = () => {
                           </div>
                         )}
 
-                        {/* Last Modified Card */}
-                        <div className="glass-panel p-3.5 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">
-                          <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-0.5">Last Content Update</p>
-                          <p className="font-bold text-sm text-white font-mono">
-                            {formatLastModified(selectedItem)}
-                          </p>
-                        </div>
 
                         {(() => {
                           const linksPessoais = selectedItem?.linksPersonalizados ? JSON.parse(selectedItem.linksPersonalizados) : [];

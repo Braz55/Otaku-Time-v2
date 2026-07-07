@@ -1,10 +1,10 @@
-# Otaku Time Pro (v3.0)
+# Otaku Time Pro (v3.5)
 
-**Your smart, cloud-based, and centralized Anime & Manga tracker.**
+**Your smart, cloud-based, and centralized Anime, Manga, TV Series & Movie tracker.**
 
-Otaku Time Pro is a complete Fullstack ecosystem designed to **register, organize, and track the progress** of all your favorite works. With a modern architecture that connects both your PC browser and your Android mobile app directly to a centralized cloud database, you can manage your library with real-time synchronization.
+Otaku Time Pro is a complete Fullstack ecosystem designed to **register, organize, and track the progress** of all your favorite works (Anime, Manga, TV Shows, and Movies). With a modern architecture that connects both your PC browser and your Android mobile app directly to a centralized cloud database, you can manage your library with real-time synchronization.
 
-The platform automates release time zones for episodes, tracks chapters across multiple portals, and features a highly customizable and fluid interface.
+The platform automates release schedules via integrations with AniList and TMDB APIs, tracks manga chapters across multiple portals, supports TV Time JSON imports, and features a highly customizable and fluid interface.
 
 In this repository's root folder, you will find the **otakutime_v3.apk** file, which is the pre-compiled Android application ready for installation.
 
@@ -14,7 +14,7 @@ Production Applications:
 
 ---
 
-## Main Features & Updates (v3.0)
+## Main Features & Updates (v3.5 - TV Time & TMDB Integration)
 
 ### 1. Cloud Ecosystem & Centralized Database (Neon DB + Render)
 * **PostgreSQL Database (Neon DB)**: Transitioned from local SQLite to remote cloud PostgreSQL, using connection pooling and SSL to secure library state across all user devices in real-time.
@@ -28,14 +28,17 @@ Production Applications:
 * **Global Draw**: Pull a random popular title (rank 1 to 2000) directly from the AniList API using the dice button on the search bar.
 * **Library Planner Draw**: A smart shuffle button in your library pulls a title from your planned list using a custom probability algorithm weighting priority (1 to 10) and publication status (75% FINISHED vs 25% RELEASING).
 
-### 4. Premium Tracking Dashboard (To-Watch/Read)
-* **Dual-Column View**: Home screen with dedicated, clean tracking sections for "WATCH NEXT" (Anime) and "READ NEXT" (Manga).
+### 4. Multi-Category Premium Tracking Dashboard (Anime, Séries, Filmes & Mangas)
+* **Unified Tracking Hub**: Home screen with dedicated tracking sections for "WATCH NEXT" (Anime & TV Series), "READ NEXT" (Manga), and "MOVIES" (Filmes).
+* **Divided Library Structure**: Library catalog split into clean categories (Anime, Séries, Filmes, Manga) with filters for tracking status.
 * **Optimistic UI Updates**: Immediate client-side progress updates when incrementing watched episodes or read chapters, syncing in the background with the server.
 * **Automatic Progression**: Automatic library status transition to "WATCHING" / "READING" when changing progress from 0 to 1, and to "COMPLETED" when reaching the final episode or chapter.
 
-### 5. Dynamic Personal Calendar
+### 5. TV Time-Style Personal Calendar
 * **Airing Schedule Mapping**: Automatically maps upcoming release schedules for continuing works present in your personal library.
-* **Time Zone Localization**: Fetches AniList JST (Japan Standard Time) schedules and localizes them on-the-fly to the user's timezone.
+* **Interactive TV Time Layout**: A redesigned calendar layout featuring a compact date selector on the left and a scrollable list of releases on the right categorized into sections: Yesterday, Today, Tomorrow, Next Week, and Later.
+* **Database Optimization**: Optimised performance for loading releases quickly by caching schedules locally, preventing loading slowness.
+* **Time Zone Localization**: Localizes episode release schedules on-the-fly to the user's timezone.
 
 ### 6. Triple Chapter Tracking (Manga)
 * **Multi-Source Engine**: Prevents chapter mismatches by querying MangaUpdates (Plan A) for accurate counts and special divisions, falling back to MangaDex (Plan B) or AniList API metadata (Plan C).
@@ -57,7 +60,7 @@ Production Applications:
 * **Language & Filters**: Toggle languages (Portuguese/English) and adult content filters (NSFW) directly in user profile settings.
 
 ### 10. Global Ratings & Community Comments
-* **Dynamic Evaluations**: Score anime and manga titles, dynamically recalculating the average global score on the backend.
+* **Dynamic Evaluations**: Score anime, series, movies, and manga titles, dynamically recalculating the average global score on the backend.
 * **Community Comments**: Dedicated comment sections per media title with full commenting, deletion, and comment liking capabilities.
 
 ### 11. Fun Achievement & Badge System
@@ -94,10 +97,29 @@ Production Applications:
 * **Probability-Based Hero**: The HomePage hero highlight features a 50/50 probability system that selects either a recently active item (from the profile's recent activity) or an "Up Next" high-priority item that has been gathering dust (not updated in a long time).
 * **Dynamic Badges**: Displays contextual tags depending on why it's highlighted: "A ver mais no momento" / "A ler mais no momento" for recent activity, or "A apanhar pó na lista" for long-neglected high-priority works.
 * **Empty List Fallback**: If the user has no active items in progress (watching/reading), the hero banner falls back to suggesting a random work from their library list (prioritizing `PLANNED` and `PAUSED` items) with the badge `"Sugestão da tua lista"`.
+* **New Release Badging**: Displays contextual tags like "Novidade" or "Novo EP" when new episodes or chapters are detected and synced.
 
 ### 18. User Recent Activity Feed (Atividade Recente)
 * **Automatic Activity Logs**: Whenever you increment your watched episodes or read chapters, the system updates `lastProgressUpdate` in the database.
 * **Profile Activity Feed**: Displays the 3 most recently updated items on the profile page, complete with relative time formats (e.g., "Updated 2 hours ago").
+
+### 19. TMDB Integration & Multi-Category Library (Anime, Séries & Filmes)
+* **Full TMDB API Engine**: Integrates with the TMDB (The Movie Database) API to query and track TV series, western shows, documentaries, and movies, broadening scope beyond traditional anime.
+* **English Title Fallbacks**: Automatically fetches English titles from TMDB/AniList as fallbacks for titles not fully translated in Portuguese.
+
+### 20. TV Time JSON Library Import
+* **Seamless Sync**: Users can import their existing tracking history from TV Time by uploading standard export JSON files.
+* **Smart Progress & Status Handler**: Mapped series are imported with correct episodes and seasons, and ongoing shows are automatically set to `WATCHING` (A ver) status rather than marking them as completed.
+
+### 21. Interactive Episode Checklist & Season Selector
+* **Detailed Progress Tracker**: Revamped Details page featuring an interactive list of episodes categorized by season (TV Time-style) to check off watched episodes individually.
+* **Specials Tracking**: Supports checking off special episodes and seasons without disrupting the main episode progression.
+
+### 22. Confirmed Continuations Section
+* **Airing Status Planning**: Under the "Up to Date" (Em dia) page, a new section shows tracked anime/series that are officially confirmed to continue but do not have upcoming release dates scheduled yet.
+
+### 23. Manga Chapter Flex-Tracking
+* **Over-Limit Increments**: Allows marking chapters as read beyond the officially synchronized release count, updating progress while leaving other metadata intact.
 
 ---
 
@@ -120,6 +142,7 @@ flowchart TD
         AniList["AniList GraphQL API"]
         BakaUpdates["Baka-Updates API"]
         MangaDex["MangaDex API"]
+        TMDB["TMDB API (Series & Movies)"]
     end
 
     %% Communication relationships
@@ -134,6 +157,7 @@ flowchart TD
     BE_Render -->|Metadata & Releases| AniList
     BE_Render -->|Chapters & Seasons| BakaUpdates
     BE_Render -->|Chapter Fallback| MangaDex
+    BE_Render -->|Metadata & Episodes| TMDB
 ```
 
 ### Recommendation Engine (DIBI Algorithm)
@@ -165,7 +189,7 @@ graph TD
 | ORM | Prisma (v7) | Relational database mapping and efficient migrations |
 | Frontend | React (v19) + Vite + TailwindCSS (v4) | Fast interface with theme system, useIsMobile hook, and modern CSS |
 | Mobile | Capacitor (v8) | Hybrid wrapper for Android WebView with ES2020 target |
-| APIs | AniList / MangaUpdates / MangaDex | External integrations for metadata, calendar, and chapter lookups |
+| APIs | AniList / TMDB / MangaUpdates / MangaDex | External integrations for metadata, calendar, and chapter lookups |
 
 ---
 
@@ -201,13 +225,18 @@ classDiagram
         +DateTime dataLancamento
         +String temporada
         +Int ano
-        +String linksExternos
         +String paisOrigem
+        +String formato
+        +String tipo
+        +String materialOrigem
+        +String linksExternos
+        +Json episodesList
         +DateTime updatedAt
     }
 
     class UserAnime {
         +Int id
+        +Int seasonAtual
         +Int epAtual
         +TrackingStatus status
         +Int prioridade
@@ -216,6 +245,7 @@ classDiagram
         +Int animeId
         +Boolean wasDropped
         +DateTime lastProgressUpdate
+        +Json watchedSpecials
         +DateTime updatedAt
     }
 

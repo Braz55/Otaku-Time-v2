@@ -10,8 +10,6 @@ import {
   Request,
 } from '@nestjs/common';
 import { UserService } from './user.service';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
@@ -56,30 +54,7 @@ export class UserController {
     return this.userService.update(req.user.userId, updateDto);
   }
 
-  @Post()
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.userService.create(createUserDto);
-  }
 
-  @Get()
-  findAll() {
-    return this.userService.findAll();
-  }
-
-  @Get('id/:id')
-  findOne(@Param('id') id: string) {
-    return this.userService.findOne(+id);
-  }
-
-  @Patch('id/:id')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.userService.update(+id, updateUserDto);
-  }
-
-  @Delete('id/:id')
-  remove(@Param('id') id: string) {
-    return this.userService.remove(+id);
-  }
 
   // --- Perfil Completo ---
   @UseGuards(JwtAuthGuard)
@@ -159,6 +134,7 @@ export class UserController {
     return this.userService.unlockAchievement(req.user.userId, +achievementId);
   }
 
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @Post('achievements/seed')
   seedAchievements() {
     return this.userService.seedAchievements();

@@ -52,12 +52,19 @@ export class UserService {
   }
 
   findAll() {
-    return this.prisma.user.findMany();
+    return this.prisma.user.findMany({
+      omit: {
+        password: true,
+      },
+    });
   }
 
   findOne(id: number) {
     return this.prisma.user.findUnique({
       where: { id },
+      omit: {
+        password: true,
+      },
     });
   }
 
@@ -952,6 +959,10 @@ export class UserService {
   async getUserProfile(userId: number) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
+      omit: {
+        password: true,
+        email: true,
+      },
       include: {
         statistics: true,
         subscription: true,
@@ -1071,7 +1082,7 @@ export class UserService {
       dropped: mangaCounts.find((c) => c.status === 'DROPPED')?._count ?? 0,
     };
 
-    const { password, ...profile } = user;
+    const profile = user;
     return {
       ...profile,
       topFavorites: topFavoritesWithDetails,

@@ -11,7 +11,23 @@ describe('UserService', () => {
   const mockPrismaService = {
     user: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
       update: jest.fn(),
+    },
+    anime: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    manga: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    userRating: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    userAnime: {
+      groupBy: jest.fn().mockResolvedValue([]),
+    },
+    userManga: {
+      groupBy: jest.fn().mockResolvedValue([]),
     },
   };
 
@@ -114,6 +130,52 @@ describe('UserService', () => {
       await expect(service.update(userId, updateDto)).rejects.toThrow(
         BadRequestException,
       );
+    });
+  });
+
+  describe('findAll', () => {
+    it('should omit password field', async () => {
+      mockPrismaService.user.findMany.mockResolvedValue([]);
+      await service.findAll();
+      expect(mockPrismaService.user.findMany).toHaveBeenCalledWith({
+        omit: {
+          password: true,
+        },
+      });
+    });
+  });
+
+  describe('findOne', () => {
+    it('should omit password field', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: 1 });
+      await service.findOne(1);
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 1 },
+        omit: {
+          password: true,
+        },
+      });
+    });
+  });
+
+  describe('getUserProfile', () => {
+    it('should omit password and email fields', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 1,
+        statistics: {},
+        subscription: null,
+        topFavorites: [],
+        achievements: [],
+      });
+      await service.getUserProfile(1);
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 1 },
+        omit: {
+          password: true,
+          email: true,
+        },
+        include: expect.any(Object),
+      });
     });
   });
 });

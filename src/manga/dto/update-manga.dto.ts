@@ -1,4 +1,28 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateMangaDto } from './create-manga.dto';
+import { IsString, IsOptional, IsInt, IsBoolean, IsEnum, IsNumber } from 'class-validator';
+import { TrackingStatus } from '@prisma/client';
 
-export class UpdateMangaDto extends PartialType(CreateMangaDto) {}
+export class UpdateMangaDto {
+  @IsEnum(TrackingStatus)
+  @IsOptional()
+  status?: TrackingStatus;
+
+  @IsNumber()
+  @IsOptional()
+  capAtual?: number;
+
+  @IsInt()
+  @IsOptional()
+  prioridade?: number;
+
+  @IsString()
+  @IsOptional()
+  linksPersonalizados?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  wasDropped?: boolean;
+
+  @IsInt()
+  @IsOptional()
+  numCapitulosTotal?: number;
+}

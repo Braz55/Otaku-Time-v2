@@ -4,9 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { 
   Database, RefreshCw, AlertCircle, User, Shield, 
-  Smartphone, Download, Upload, Copy, Check, Award, Heart, 
-  Edit3, Trash2, Plus, Search, BookOpen, Clock, Film, BarChart3,
-  ChevronDown, ChevronUp
+  Upload, Copy, Check, Award, Heart, 
+  Edit3, Search, Clock, Film, BarChart3
 } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 import { Capacitor } from '@capacitor/core';
@@ -16,67 +15,13 @@ import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { getCurrentPalette, savePalette, PALETTES } from '../services/paletteService';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useTranslation } from '../hooks/useTranslation';
+import { DashboardTab } from '../components/profile/DashboardTab';
+import { AccountTab } from '../components/profile/AccountTab';
+import { AdminTab } from '../components/profile/AdminTab';
 
-const formatDate = (dateStr: string) => {
-  try {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  } catch {
-    return dateStr;
-  }
-};
 
-const SubscriptionRow = ({ subscription }: { subscription: any }) => {
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'ACTIVE':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-500/10 border border-green-500/20 text-green-400 uppercase tracking-wider">
-            Ativo
-          </span>
-        );
-      case 'CANCELED':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 uppercase tracking-wider">
-            Cancelado
-          </span>
-        );
-      case 'EXPIRED':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/10 border border-red-500/20 text-red-400 uppercase tracking-wider">
-            Expirado
-          </span>
-        );
-      case 'PAST_DUE':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/10 border border-orange-500/20 text-orange-400 uppercase tracking-wider">
-            Em Dívida
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-500/10 border border-gray-500/20 text-gray-400 uppercase tracking-wider">
-            {status}
-          </span>
-        );
-    }
-  };
 
-  return (
-    <tr className="hover:bg-white/[0.01]">
-      <td className="p-3">
-        <div className="font-bold text-white">
-          {subscription.user.nome}
-          <span className="block text-[9px] text-gray-500 font-medium font-mono">{subscription.user.email}</span>
-        </div>
-      </td>
-      <td className="p-3 text-center font-bold text-amber-400 uppercase tracking-wider">{subscription.planType}</td>
-      <td className="p-3 text-center font-mono text-gray-300 font-semibold">{formatDate(subscription.currentPeriodEnd)}</td>
-      <td className="p-3 text-center">{getStatusBadge(subscription.status)}</td>
-    </tr>
-  );
-};
 
 const getRarityBadge = (rarity?: string) => {
   switch (rarity) {
@@ -394,24 +339,7 @@ const ProfilePage = () => {
     }
   };
 
-  const getRelativeTime = (dateStr?: string) => {
-    if (!dateStr) return 'Recentemente';
-    try {
-      const past = new Date(dateStr).getTime();
-      const now = new Date().getTime();
-      const diffMs = now - past;
-      const diffMins = Math.floor(diffMs / 60000);
-      const diffHours = Math.floor(diffMins / 60);
-      const diffDays = Math.floor(diffHours / 24);
 
-      if (diffMins < 1) return 'Agora mesmo';
-      if (diffMins < 60) return `Há ${diffMins} min`;
-      if (diffHours < 24) return `Há ${diffHours} h`;
-      return `Há ${diffDays} dias`;
-    } catch {
-      return 'Recentemente';
-    }
-  };
 
   const fetchAdminData = async () => {
     if (!token) return;
@@ -1367,15 +1295,7 @@ const ProfilePage = () => {
     }
   };
 
-  const isUnlocked = (achievementId: number) => {
-    return profile?.achievements?.some((ua: any) => ua.achievementId === achievementId);
-  };
 
-  const getUnlockDate = (achievementId: number) => {
-    const record = profile?.achievements?.find((ua: any) => ua.achievementId === achievementId);
-    if (!record?.unlockedAt) return '';
-    return new Date(record.unlockedAt).toLocaleDateString('pt-PT');
-  };
 
   const ALL_GENRES = [
     "Action", "Adventure", "Comedy", "Drama", "Fantasy", 
@@ -1383,72 +1303,7 @@ const ProfilePage = () => {
     "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"
   ];
 
-  const renderPodiumPosition = (rank: number) => {
-    const key = `${favoritePodiumType}-${rank}` as const;
-    const fav = favoriteDetails[key];
-    const mediaTypeLower = favoritePodiumType.toLowerCase() as 'anime' | 'manga';
 
-    let rankLabel = '';
-    let rankClass = '';
-    let ringClass = '';
-    let plusColor = '';
-
-    if (rank === 1) {
-      rankLabel = '1º GOLD';
-      rankClass = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
-      ringClass = 'border-amber-500/30 ring-2 ring-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.2)]';
-      plusColor = 'text-amber-400';
-    } else if (rank === 2) {
-      rankLabel = '2º SILVER';
-      rankClass = 'bg-slate-400/20 text-slate-300 border-slate-400/40';
-      ringClass = 'border-slate-400/30 ring-2 ring-slate-400/10 shadow-md';
-      plusColor = 'text-primary-light';
-    } else {
-      rankLabel = '3º BRONZE';
-      rankClass = 'bg-amber-700/20 text-amber-500 border-amber-700/40';
-      ringClass = 'border-amber-700/30 ring-2 ring-amber-700/10 shadow-md';
-      plusColor = 'text-orange-400';
-    }
-
-    return (
-      <div className="flex flex-col items-center gap-2">
-        <div className={`w-full aspect-[2/3] rounded-2xl border bg-black/40 overflow-hidden relative group flex items-center justify-center text-center ${ringClass}`}>
-          {fav ? (
-            <>
-              <img 
-                src={fav.coverUrl} 
-                className="w-full h-full object-cover rounded-2xl group-hover:scale-105 transition-transform duration-300" 
-                alt={`${rankLabel} Place`} 
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent flex flex-col justify-end p-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
-                <p className="text-[10px] sm:text-xs font-bold text-white line-clamp-2 leading-tight">{fav.title}</p>
-                <button 
-                  onClick={() => handleRemoveFavorite(favoritePodiumType, rank)}
-                  className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg self-center mt-2 scale-90 active:scale-75 transition-all shadow cursor-pointer"
-                  title="Remover"
-                  type="button"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </>
-          ) : (
-            <button 
-              onClick={() => openFavoritesSearch(mediaTypeLower, rank)}
-              className="w-full h-full flex flex-col items-center justify-center p-3 text-gray-500 hover:text-white transition-all bg-white/5 hover:bg-white/10 cursor-pointer"
-              type="button"
-            >
-              <Plus className={`w-6 h-6 mb-1 ${plusColor}`} />
-              <span className="text-[9px] sm:text-xs font-bold">{rank}º Lugar</span>
-            </button>
-          )}
-        </div>
-        <div className={`h-6 w-full rounded-lg flex items-center justify-center text-[9px] min-[375px]:text-[10px] sm:text-xs font-black border truncate px-1 ${rankClass}`}>
-          {rankLabel}
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="min-h-screen bg-surface-dim text-on-background font-body-md pb-24">
@@ -1584,1065 +1439,99 @@ const ProfilePage = () => {
         
         {/* TAB 1: DASHBOARD (Perfil & Conquistas) */}
         {!loadingProfile && activeTab === 'dashboard' && profile && (
-          <div className="grid grid-cols-12 gap-6 md:gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            
-            {/* Left Column: Stats & Conquistas */}
-            <div className="col-span-12 lg:col-span-4 space-y-6 md:space-y-8">
-              
-              {/* Stats Card */}
-              <div className="glass-panel p-6 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/10 to-transparent rounded-full blur-xl pointer-events-none"></div>
-                <h3 className="font-headline-lg text-lg md:text-xl text-white flex items-center gap-2.5 mb-2">
-                  <Smartphone className="w-5 h-5 text-primary" />
-                  <span>Estatísticas</span>
-                </h3>
-                
-                <div className="space-y-6">
-                  {/* Anime watchtime days */}
-                  <div className="flex justify-between items-end">
-                    <div>
-                      <p className="text-on-surface-variant text-[10px] uppercase tracking-widest mb-1">Tempo de Anime</p>
-                      <p className="text-3xl font-display-md text-white font-extrabold">
-                        {profile.statistics?.animeDaysWasted ? Number(profile.statistics.animeDaysWasted).toFixed(1) : '0.0'}
-                        <span className="text-xs font-body-md text-primary ml-1.5 font-normal">dias</span>
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {/* Progress Bar (representing watchtime relative to milestone) */}
-                  <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                    <div className="h-full bg-primary" style={{ width: `${Math.min(((profile.statistics?.totalEpisodesWatched || 0) / 1000) * 100, 100)}%` }}></div>
-                  </div>
-
-                  {/* Grid of Other stats */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-surface-container-low rounded-2xl border border-border-glass">
-                      <p className="text-on-surface-variant text-[10px] uppercase tracking-wider mb-1 font-bold">Capítulos Lidos</p>
-                      <p className="text-xl font-headline-lg text-white font-extrabold">{profile.statistics?.totalMangaRead || 0}</p>
-                    </div>
-                    <div className="p-4 bg-surface-container-low rounded-2xl border border-border-glass">
-                      <p className="text-on-surface-variant text-[10px] uppercase tracking-wider mb-1 font-bold">Episódios Vistos</p>
-                      <p className="text-xl font-headline-lg text-white font-extrabold">{profile.statistics?.totalEpisodesWatched || 0}</p>
-                    </div>
-                    <div className="p-4 bg-surface-container-low rounded-2xl border border-border-glass">
-                      <p className="text-on-surface-variant text-[10px] uppercase tracking-wider mb-1 font-bold">Animes Completos</p>
-                      <p className="text-xl font-headline-lg text-white font-extrabold">{profile.statistics?.totalAnimeCompleted || 0}</p>
-                    </div>
-                    <div className="p-4 bg-surface-container-low rounded-2xl border border-border-glass">
-                      <p className="text-on-surface-variant text-[10px] uppercase tracking-wider mb-1 font-bold">Média Score</p>
-                      <p className="text-xl font-headline-lg text-white font-extrabold">
-                        {profile.statsSummary?.averageScore ? profile.statsSummary.averageScore.toFixed(1) : '0.0'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowDetailedStatsModal(true)}
-                    className="w-full mt-2 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-                  >
-                    <BarChart3 className="w-4 h-4 text-primary" />
-                    <span>Ver Estatísticas Detalhadas</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Achievements Gallery */}
-              <div className="glass-panel p-6 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-headline-lg text-lg md:text-xl text-white">Conquistas</h3>
-                  <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded-full">
-                    {profile.achievements?.length || 0}/{catalog.length || 5}
-                  </span>
-                </div>
-                
-                {catalog.length > 0 ? (
-                  <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide no-scrollbar md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-4 md:overflow-visible">
-                    {catalog.map(ach => {
-                      const unlocked = isUnlocked(ach.id);
-                      let borderClass = 'border-white/5 bg-black/40 grayscale opacity-45';
-                      if (unlocked) {
-                        if (ach.rarity === 'RARE') borderClass = 'border-cyan-500/20 bg-cyan-500/5 hover:scale-[1.02] shadow-[0_0_15px_rgba(6,182,212,0.2)]';
-                        else if (ach.rarity === 'EPIC') borderClass = 'border-purple-500/20 bg-purple-500/5 hover:scale-[1.02] shadow-[0_0_15px_rgba(139,92,246,0.2)]';
-                        else if (ach.rarity === 'LEGENDARY') borderClass = 'border-amber-500/20 bg-amber-500/5 hover:scale-[1.02] shadow-[0_0_15px_rgba(245,158,11,0.2)]';
-                        else borderClass = 'border-primary/20 bg-primary/5 hover:scale-[1.02]';
-                      }
-                      return (
-                        <div 
-                          key={ach.id} 
-                          className={`flex-shrink-0 flex flex-col items-center w-20 md:w-auto md:p-3.5 glass-panel border rounded-2xl transition-all group relative ${borderClass}`}
-                          title={`${ach.name}: ${ach.description}${unlocked ? ` (Ganho em: ${getUnlockDate(ach.id)})` : ''}`}
-                        >
-                          <div className="w-12 h-12 rounded-full bg-white/5 p-1 relative flex items-center justify-center mb-1.5 flex-shrink-0">
-                            {ach.badgeImageUrl ? (
-                              <img src={ach.badgeImageUrl} className="w-full h-full object-contain rounded-full" alt="" />
-                            ) : (
-                              <Award className="w-6 h-6 text-primary" />
-                            )}
-                            {!unlocked && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full">
-                                <span className="material-symbols-outlined text-white !text-xs">lock</span>
-                              </div>
-                            )}
-                          </div>
-                          <span className="text-[9px] font-bold text-white text-center tracking-tight leading-tight line-clamp-1 w-full uppercase">{ach.name}</span>
-                          {unlocked && (
-                            <span className="hidden md:inline-block text-[8px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 mt-1">
-                              Ganho
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-6 bg-white/5 rounded-2xl border border-white/5 space-y-3">
-                    <p className="text-xs italic text-gray-500">Nenhuma conquista registada.</p>
-                    {user?.tipoConta === 'ADMIN' && (
-                      <button 
-                        type="button"
-                        onClick={async () => {
-                          const res = await customFetch(`${API_BASE_URL}/user/achievements/seed`, { method: 'POST' });
-                          if (res.ok) {
-                            showToast('Conquistas semeadas!', 'success');
-                            fetchCatalog();
-                            fetchProfile();
-                          }
-                        }}
-                        className="px-4 py-2 bg-primary text-on-primary text-xs font-bold rounded-xl active:scale-95 transition-all shadow"
-                      >
-                        Popular Conquistas
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Right Column: Podium Favorites & Activity Log */}
-            <div className="col-span-12 lg:col-span-8 space-y-6 md:space-y-8">
-              
-              {/* Favorites Podium Card */}
-              <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 shadow-xl relative overflow-hidden min-h-[300px] sm:min-h-[420px]">
-                <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none">
-                  <span className="material-symbols-outlined text-[150px]">stars</span>
-                </div>
-                
-                {/* Header with category selector */}
-                <div className="flex justify-between items-center mb-10 flex-wrap gap-3">
-                  <div>
-                    <span className={`font-label-md text-[10px] uppercase tracking-widest block mb-0.5 ${favoritePodiumType === 'ANIME' ? 'text-secondary' : 'text-primary'}`}>Destaques</span>
-                    <h3 className="font-headline-lg text-lg md:text-xl text-white">Favoritos de Ouro</h3>
-                  </div>
-                  
-                  {/* Category switcher */}
-                  <div className="flex p-0.5 bg-black/40 border border-white/10 rounded-xl">
-                    <button 
-                      type="button"
-                      onClick={() => setFavoritePodiumType('ANIME')}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${favoritePodiumType === 'ANIME' ? 'bg-primary text-on-primary shadow' : 'text-on-surface-variant hover:text-white'}`}
-                    >
-                      Anime
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => setFavoritePodiumType('MANGA')}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${favoritePodiumType === 'MANGA' ? 'bg-secondary text-on-secondary shadow' : 'text-on-surface-variant hover:text-white'}`}
-                    >
-                      Mangá
-                    </button>
-                  </div>
-                </div>
-
-                {/* Podium Grid */}
-                <div className="grid grid-cols-3 gap-3 sm:gap-8 items-end h-[200px] min-[400px]:h-[240px] sm:h-[340px] max-w-2xl mx-auto pt-2">
-                  {renderPodiumPosition(2)}
-                  {renderPodiumPosition(1)}
-                  {renderPodiumPosition(3)}
-                </div>
-                
-                <p className="text-center mt-6 text-xs text-on-surface-variant italic leading-relaxed">
-                  Títulos em destaque que definiram a minha jornada Otaku. Clica para alterar.
-                </p>
-              </div>
-
-              {/* Recent Activity Log */}
-              <div className="glass-panel p-6 rounded-[32px] border border-white/10 space-y-4 shadow-xl">
-                <h3 className="font-headline-lg text-lg md:text-xl text-white mb-2">Atividade Recente</h3>
-                
-                <div className="space-y-3.5">
-                  {recentActivities.length > 0 ? (
-                    <>
-                      {recentActivities.slice(0, visibleActivitiesCount).map((act: any) => {
-                        const cover = act.capaUrl || act.anime?.capaUrl || act.manga?.capaUrl;
-                        const title = act.titulo || act.anime?.titulo || act.manga?.titulo;
-                        const current = act.mediaType === 'anime' ? act.epAtual : act.capAtual;
-                        const isAnime = act.mediaType === 'anime';
-                        
-                        return (
-                          <div key={act.id} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 border border-white/[0.02] transition-colors group">
-                            <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 relative border border-white/5">
-                              <img src={cover} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="" />
-                            </div>
-                            
-                            <div className="flex-grow min-w-0">
-                              <p className="text-sm text-white font-medium truncate leading-snug">
-                                {isAnime ? 'Viu o episódio' : 'Leu o capítulo'}{' '}
-                                <span className={isAnime ? 'text-primary font-bold' : 'text-secondary font-bold'}>{current}</span>
-                                {' de '}
-                                <span className="font-bold text-white hover:underline cursor-pointer" onClick={() => navigate('/')}>{title}</span>
-                              </p>
-                              <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider mt-0.5">
-                                {getRelativeTime(act.lastProgressUpdate)}
-                              </p>
-                            </div>
-                            
-                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border uppercase ${isAnime ? 'bg-primary/10 text-primary border-primary/20' : 'bg-secondary/10 text-secondary border-secondary/20'}`}>
-                              {act.mediaType}
-                            </span>
-                          </div>
-                        );
-                      })}
-                      {recentActivities.length > 3 && (
-                        <div className="flex gap-2 mt-2 w-full">
-                          {visibleActivitiesCount < recentActivities.length && (
-                            <button
-                              onClick={() => setVisibleActivitiesCount(prev => prev + 5)}
-                              className="flex-grow py-2 px-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer"
-                            >
-                              <span>Ver Mais (+{Math.min(5, recentActivities.length - visibleActivitiesCount)})</span>
-                              <ChevronDown className="w-4 h-4" />
-                            </button>
-                          )}
-                          {visibleActivitiesCount > 3 && (
-                            <button
-                              onClick={() => setVisibleActivitiesCount(3)}
-                              className={`${visibleActivitiesCount >= recentActivities.length ? 'w-full' : 'px-4'} py-2 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white/60 hover:text-white transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer`}
-                            >
-                              <span>Ver Menos</span>
-                              <ChevronUp className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-center py-8 text-xs text-on-surface-variant italic">
-                      Ainda sem atividade registada. Começa a consumir da tua biblioteca!
-                    </p>
-                  )}
-                </div>
-              </div>
-
-            </div>
-          </div>
+          <DashboardTab
+            profile={profile}
+            catalog={catalog}
+            favoritePodiumType={favoritePodiumType}
+            setFavoritePodiumType={setFavoritePodiumType}
+            favoriteDetails={favoriteDetails}
+            recentActivities={recentActivities}
+            visibleActivitiesCount={visibleActivitiesCount}
+            setVisibleActivitiesCount={setVisibleActivitiesCount}
+            setShowDetailedStatsModal={setShowDetailedStatsModal}
+            openFavoritesSearch={openFavoritesSearch}
+            handleRemoveFavorite={handleRemoveFavorite}
+            user={user}
+            customFetch={customFetch}
+            API_BASE_URL={API_BASE_URL}
+            showToast={showToast}
+            fetchCatalog={fetchCatalog}
+            fetchProfile={fetchProfile}
+            navigate={navigate}
+          />
         )}
 
         {/* TAB 2: CONFIGURAÇÕES (Definições) */}
         {activeTab === 'account' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
-            
-            {/* General Preferences Settings Card */}
-            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
-              <h3 className="font-headline-lg text-lg md:text-xl text-white flex items-center gap-2.5 mb-2">
-                <Smartphone className="w-5 h-5 text-secondary" />
-                 <span>{t("Preferências")}</span>
-              </h3>
-              
-              <div className="space-y-6">
-                {/* Language Select */}
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="font-bold text-sm text-white">{t("Idioma do App")}</p>
-                    <p className="text-xs text-on-surface-variant">{t("Escolhe o idioma preferido da tua interface.")}</p>
-                  </div>
-                  <select 
-                    value={user?.preferredLanguage || 'PT'} 
-                    disabled={isUpdatingPreferences}
-                    onChange={(e) => handleUpdatePreference('preferredLanguage', e.target.value)}
-                    className="bg-surface-container-low border border-border-glass rounded-xl px-4 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/50 text-white cursor-pointer"
-                  >
-                    <option value="PT" className="bg-[#121317]">Português (PT)</option>
-                    <option value="EN" className="bg-[#121317]">English (EN)</option>
-                  </select>
-                </div>
-
-                {/* Notifications Switch */}
-                <div className="flex items-center justify-between gap-4 pt-4 border-t border-border-glass">
-                  <div>
-                    <p className="font-bold text-sm text-white">{t("Notificações Push")}</p>
-                    <p className="text-xs text-on-surface-variant">{t("Alertas sobre novos episódios em exibição.")}</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      checked={user?.showAdultContent === false} 
-                      disabled={isUpdatingPreferences}
-                      onChange={(e) => handleUpdatePreference('showAdultContent', !e.target.checked)}
-                      className="sr-only peer" 
-                    />
-                    <div className="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                  </label>
-                </div>
-
-                {/* Privacy Option */}
-                <div className="flex items-center justify-between gap-4 pt-4 border-t border-border-glass">
-                  <div>
-                    <p className="font-bold text-sm text-white">{t("Filtro de Conteúdo (NSFW)")}</p>
-                    <p className="text-xs text-on-surface-variant">{t("Ocultar resultados adultos na pesquisa global.")}</p>
-                  </div>
-                  <div className="flex p-0.5 bg-surface-container-low border border-border-glass rounded-xl">
-                    <button 
-                      type="button"
-                      onClick={() => handleUpdatePreference('showAdultContent', false)}
-                      className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${user?.showAdultContent === false ? 'bg-primary text-on-primary shadow' : 'text-on-surface-variant hover:text-white'}`}
-                    >
-                      Ocultar
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => handleUpdatePreference('showAdultContent', true)}
-                      className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${user?.showAdultContent === true ? 'bg-secondary text-on-secondary shadow' : 'text-on-surface-variant hover:text-white'}`}
-                    >
-                      Mostrar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Appearance Theme Card */}
-            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
-              <h3 className="font-headline-lg text-lg md:text-xl text-white flex items-center gap-2.5 mb-2">
-                <Heart className="w-5 h-5 text-secondary" />
-                <span>Aparência</span>
-              </h3>
-              
-              <div className="space-y-6">
-                {/* Theme Mode selector */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div 
-                    onClick={() => handleUpdatePreference('theme', 'dark')}
-                    className={`cursor-pointer border-2 p-3.5 rounded-2xl flex flex-col items-center gap-2 group transition-all bg-black/35 ${
-                      user?.theme !== 'light' ? 'border-primary shadow-[0_0_15px_rgba(139,92,246,0.15)]' : 'border-border-glass hover:border-primary/50'
-                    }`}
-                  >
-                    <div className="w-full h-10 rounded-lg bg-surface-container-lowest flex items-center justify-center">
-                      <div className="w-5 h-5 rounded-full bg-primary shadow-[0_0_10px_rgba(106,27,154,0.6)]"></div>
-                    </div>
-                    <p className="text-xs font-bold text-white">Cyber Dark</p>
-                  </div>
-                  
-                  <div 
-                    onClick={() => handleUpdatePreference('theme', 'light')}
-                    className={`cursor-pointer border-2 p-3.5 rounded-2xl flex flex-col items-center gap-2 group transition-all bg-white/5 ${
-                      user?.theme === 'light' ? 'border-primary shadow-[0_0_15px_rgba(139,92,246,0.15)] bg-white/15' : 'border-border-glass hover:border-primary/50'
-                    }`}
-                  >
-                    <div className="w-full h-10 rounded-lg bg-white flex items-center justify-center border border-white/10">
-                      <div className="w-5 h-5 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.6)]"></div>
-                    </div>
-                    <p className={`text-xs font-bold ${user?.theme === 'light' ? 'text-white' : 'text-gray-400'}`}>Light Mode</p>
-                  </div>
-                </div>
-
-                {/* Accent Color Palettes */}
-                <div>
-                  <p className="font-bold text-sm text-white mb-3">Accent Color / Paleta de Cores</p>
-                  <div className="flex flex-wrap gap-3">
-                    {Object.keys(PALETTES).map((pName) => {
-                      const colors = PALETTES[pName];
-                      const isActive = selectedPalette === pName;
-                      return (
-                        <button 
-                          key={pName} 
-                          type="button"
-                          onClick={() => handlePaletteChange(pName)}
-                          className="w-8 h-8 rounded-full border-2 border-surface-dim transition-transform duration-200 hover:scale-110 flex items-center justify-center cursor-pointer"
-                          style={{ 
-                            backgroundColor: colors.primary, 
-                            boxShadow: isActive ? `0 0 15px ${colors.primary}` : 'none',
-                            transform: isActive ? 'scale(1.15)' : 'none',
-                            borderColor: isActive ? '#ffffff' : 'transparent'
-                          }}
-                          title={`Tema ${pName.toUpperCase()}`}
-                        >
-                          {isActive && <span className="material-symbols-outlined text-[14px] text-white">done</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <button 
-                  type="button"
-                  onClick={() => showToast('Visita as configurações do seu terminal para customizações adicionais.', 'info')}
-                  className="w-full py-3 rounded-2xl border border-border-glass font-bold text-xs text-white hover:bg-white/5 transition-colors cursor-pointer"
-                >
-                  Customização Avançada
-                </button>
-              </div>
-            </div>
-
-            {/* Account Settings Form Card */}
-            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl lg:col-span-2">
-              <h3 className="font-headline-lg text-lg md:text-xl text-white flex items-center gap-2.5 mb-2">
-                <User className="w-5 h-5 text-primary" />
-                <span>Dados da Conta</span>
-              </h3>
-              
-              <form onSubmit={handleSaveAccountInfo} className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
-                  <div className="space-y-2">
-                    <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Nome de Utilizador</label>
-                    <input 
-                      type="text" 
-                      value={newName} 
-                      onChange={(e) => setNewName(e.target.value)} 
-                      className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-primary outline-none transition-all"
-                      placeholder="Novo nome de utilizador"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Endereço de Email</label>
-                    <p className="text-base font-bold text-gray-500 bg-black/20 p-3 rounded-xl border border-white/5 cursor-not-allowed select-none truncate">
-                      {user?.email || 'entusiasta@otakutime.com'}
-                    </p>
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Palavra-passe Atual</label>
-                    <input 
-                      type="password" 
-                      value={currentPassword} 
-                      onChange={(e) => setCurrentPassword(e.target.value)} 
-                      className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-primary outline-none transition-all"
-                      placeholder="Preenche apenas se pretenderes alterar a palavra-passe"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Nova Palavra-passe</label>
-                    <input 
-                      type="password" 
-                      value={newPassword} 
-                      onChange={(e) => setNewPassword(e.target.value)} 
-                      className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-primary outline-none transition-all"
-                      placeholder="Nova palavra-passe"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Confirmar Nova Palavra-passe</label>
-                    <input 
-                      type="password" 
-                      value={confirmPassword} 
-                      onChange={(e) => setConfirmPassword(e.target.value)} 
-                      className="w-full bg-black/40 text-white font-bold p-3 rounded-xl border border-white/10 focus:border-primary outline-none transition-all"
-                      placeholder="Confirmar nova palavra-passe"
-                    />
-                  </div>
-                </div>
-                
-                <div className="pt-6 border-t border-white/5 flex flex-wrap gap-4 justify-end">
-                  <button 
-                    type="button"
-                    onClick={logout} 
-                    className="px-6 py-3 rounded-2xl bg-red-500/10 hover:bg-red-500 text-red-300 hover:text-white font-bold text-xs md:text-sm transition-all border border-red-500/20 shadow-lg cursor-pointer"
-                  >
-                    Encerrar Sessão
-                  </button>
-                  <button 
-                    type="submit"
-                    disabled={isSavingAccount}
-                    className="px-6 py-3 rounded-2xl bg-primary hover:opacity-90 text-on-primary font-bold text-xs md:text-sm transition-all shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    {isSavingAccount ? 'A guardar...' : 'Guardar Alterações'}
-                  </button>
-                </div>
-              </form>
-            </div>
-
-            {/* Favorite Genres Card */}
-            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl lg:col-span-2">
-              <h3 className="font-headline-lg text-lg md:text-xl text-white flex items-center gap-2.5 mb-2">
-                <Heart className="w-5 h-5 text-primary" />
-                <span>Géneros Favoritos</span>
-              </h3>
-              <p className="text-xs text-on-surface-variant">Seleciona os teus géneros favoritos para recomendação ou badges do teu perfil.</p>
-              
-              <div className="flex flex-wrap gap-2 pt-2">
-                {ALL_GENRES.map(genre => {
-                  const currentFavs = profile?.preferences?.favoriteGenres || [];
-                  const isFav = currentFavs.includes(genre);
-                  return (
-                    <button
-                      key={genre}
-                      type="button"
-                      onClick={() => handleToggleGenre(genre)}
-                      disabled={isUpdatingPreferences}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border active:scale-95 cursor-pointer ${
-                        isFav 
-                          ? 'bg-primary text-on-primary border-primary shadow-md shadow-primary/20' 
-                          : 'bg-black/40 text-on-surface-variant border-white/5 hover:border-white/20 hover:text-white'
-                      }`}
-                    >
-                      {genre}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Premium Code Redeem Card */}
-            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl lg:col-span-2">
-              <h3 className="font-headline-lg text-lg md:text-xl text-white flex items-center gap-2.5 mb-2">
-                <Award className="w-5 h-5 text-amber-500 animate-pulse" />
-                <span>Resgatar Código Premium</span>
-              </h3>
-              <div className="space-y-4">
-                <p className="text-xs text-on-surface-variant">Introduz um código promocional ou de Gift Card para ativares ou prolongares o teu Premium tier.</p>
-                <form onSubmit={handleRedeemCode} className="flex flex-col sm:flex-row gap-4 items-end">
-                  <div className="space-y-2 flex-1 w-full">
-                    <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Código de Resgate</label>
-                    <input 
-                      type="text" 
-                      value={redeemCodeInput} 
-                      onChange={(e) => setRedeemCodeInput(e.target.value)} 
-                      className="w-full bg-black/40 text-white font-black p-3 rounded-xl border border-white/10 focus:border-primary outline-none transition-all uppercase placeholder-gray-600"
-                      placeholder="EX: OTAKU-XXXX-XXXX"
-                      disabled={isRedeemingCode}
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isRedeemingCode || !redeemCodeInput.trim()}
-                    className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-primary hover:from-amber-600 hover:to-primary-dark text-white font-bold text-xs sm:text-sm transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg cursor-pointer"
-                  >
-                    {isRedeemingCode ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Award className="w-4 h-4" />}
-                    <span>Ativar Premium</span>
-                  </button>
-                </form>
-              </div>
-            </div>
-
-            {/* Backup & Portability Card */}
-            <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden lg:col-span-2">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-secondary/10 via-primary/5 to-transparent rounded-full blur-3xl pointer-events-none"></div>
-              
-              <div className="flex items-center justify-between flex-wrap gap-4 relative z-10">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-primary/10 border border-primary/30 rounded-2xl text-primary shadow-inner">
-                    <Database className="w-6 h-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-white">Cópia de Segurança (Backup & Portabilidade)</h3>
-                    <p className="text-xs text-on-surface-variant mt-0.5 max-w-xl">
-                      Exporta toda a tua biblioteca de Animes e Mangas para um ficheiro JSON portátil, facilitando a migração entre o PC e o Android.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-white/5 relative z-10">
-                <button
-                  type="button"
-                  onClick={handleExportBackup}
-                  disabled={isExporting}
-                  className="py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 shadow-xl bg-primary hover:opacity-90 text-on-primary shadow-primary/20 hover:shadow-primary/40 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  {isExporting ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                      <span>A GERAR BACKUP...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-4 h-4 text-white" />
-                      <span>CRIAR CÓPIA DE SEGURANÇA</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowRestoreModal(true)}
-                  className="py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 shadow-xl bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5 hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
-                >
-                  <Upload className="w-4 h-4 text-primary" />
-                  <span>RESTAURAR CÓPIA DE SEGURANÇA</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowTvTimeModal(true)}
-                  className="py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 shadow-xl bg-surface-variant/30 text-on-surface-variant hover:text-white hover:bg-white/5 border border-white/5 hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
-                >
-                  <Database className="w-4 h-4 text-secondary" />
-                  <span>IMPORTAR DADOS DO TV TIME</span>
-                </button>
-              </div>
-
-              {/* Danger Zone: Wipe Library */}
-              <div className="pt-6 border-t border-red-500/10 space-y-4">
-                <h4 className="text-sm font-bold text-red-400 uppercase tracking-wider">Zona de Perigo</h4>
-                
-                {/* Limpar Animes da Biblioteca */}
-                <div className="p-4 rounded-2xl bg-red-500/5 border border-red-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div>
-                    <h5 className="font-bold text-sm text-white">Limpar Animes da Biblioteca</h5>
-                    <p className="text-xs text-gray-500 mt-0.5">Apaga permanentemente todos os registos de animes e progresso da tua biblioteca pessoal.</p>
-                  </div>
-                  <button 
-                    type="button"
-                    onClick={() => setShowWipeAnimeConfirm(true)}
-                    className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow cursor-pointer"
-                  >
-                    Apagar Animes
-                  </button>
-                </div>
-
-                {/* Limpar Mangas da Biblioteca */}
-                <div className="p-4 rounded-2xl bg-red-500/5 border border-red-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div>
-                    <h5 className="font-bold text-sm text-white">Limpar Mangás da Biblioteca</h5>
-                    <p className="text-xs text-gray-500 mt-0.5">Apaga permanentemente todos os registos de mangás e progresso da tua biblioteca pessoal.</p>
-                  </div>
-                  <button 
-                    type="button"
-                    onClick={() => setShowWipeMangaConfirm(true)}
-                    className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow cursor-pointer"
-                  >
-                    Apagar Mangás
-                  </button>
-                </div>
-              </div>
-            </div>
-
-          </div>
+          <AccountTab
+            user={user}
+            profile={profile}
+            t={t}
+            isUpdatingPreferences={isUpdatingPreferences}
+            handleUpdatePreference={handleUpdatePreference}
+            selectedPalette={selectedPalette}
+            PALETTES={PALETTES}
+            handlePaletteChange={handlePaletteChange}
+            showToast={showToast}
+            newName={newName}
+            setNewName={setNewName}
+            currentPassword={currentPassword}
+            setCurrentPassword={setCurrentPassword}
+            newPassword={newPassword}
+            setNewPassword={setNewPassword}
+            confirmPassword={confirmPassword}
+            setConfirmPassword={setConfirmPassword}
+            isSavingAccount={isSavingAccount}
+            handleSaveAccountInfo={handleSaveAccountInfo}
+            logout={logout}
+            ALL_GENRES={ALL_GENRES}
+            handleToggleGenre={handleToggleGenre}
+            redeemCodeInput={redeemCodeInput}
+            setRedeemCodeInput={setRedeemCodeInput}
+            handleRedeemCode={handleRedeemCode}
+            isRedeemingCode={isRedeemingCode}
+            isExporting={isExporting}
+            handleExportBackup={handleExportBackup}
+            setShowRestoreModal={setShowRestoreModal}
+            setShowTvTimeModal={setShowTvTimeModal}
+            setShowWipeAnimeConfirm={setShowWipeAnimeConfirm}
+            setShowWipeMangaConfirm={setShowWipeMangaConfirm}
+          />
         )}
 
         {/* TAB 3: PAINEL ADMIN */}
         {activeTab === 'admin' && user?.tipoConta === 'ADMIN' && (
-          <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
-            {/* Stats Summary cards */}
-            {loadingAdminData ? (
-              <div className="flex flex-col items-center justify-center py-20 space-y-3">
-                <RefreshCw className="w-10 h-10 animate-spin text-primary" />
-                <p className="text-xs text-gray-500">A carregar dados administrativos...</p>
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="glass-panel p-5 rounded-2xl border border-white/5 bg-gradient-to-br from-blue-500/5 to-transparent hover:border-blue-500/20 transition-all flex flex-col justify-between h-28 shadow relative overflow-hidden group animate-in fade-in duration-300">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-xl group-hover:bg-blue-500/15 transition-all"></div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Total Utilizadores</span>
-                    <span className="text-3xl font-black text-white">{adminStats?.totalUsers ?? 0}</span>
-                  </div>
-                  <div className="glass-panel p-5 rounded-2xl border border-white/5 bg-gradient-to-br from-green-500/5 to-transparent hover:border-green-500/20 transition-all flex flex-col justify-between h-28 shadow relative overflow-hidden group animate-in fade-in duration-300">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/10 rounded-full blur-xl group-hover:bg-green-500/15 transition-all"></div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Animes Cache</span>
-                    <span className="text-3xl font-black text-white">{adminStats?.totalAnimes ?? 0}</span>
-                  </div>
-                  <div className="glass-panel p-5 rounded-2xl border border-white/5 bg-gradient-to-br from-purple-500/5 to-transparent hover:border-purple-500/20 transition-all flex flex-col justify-between h-28 shadow relative overflow-hidden group animate-in fade-in duration-300">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/15 transition-all"></div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Mangás Cache</span>
-                    <span className="text-3xl font-black text-white">{adminStats?.totalMangas ?? 0}</span>
-                  </div>
-                  <div className="glass-panel p-5 rounded-2xl border border-white/5 bg-gradient-to-br from-primary/5 to-transparent hover:border-primary/20 transition-all flex flex-col justify-between h-28 shadow relative overflow-hidden group animate-in fade-in duration-300">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-xl group-hover:bg-primary/15 transition-all"></div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Acompanhamentos</span>
-                    <span className="text-3xl font-black text-white">{adminStats?.totalTrackedItems ?? 0}</span>
-                  </div>
-                </div>
-
-                {/* System Admin Actions */}
-                <div className="glass-panel p-6 rounded-[32px] border border-white/10 space-y-6 shadow-xl">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Database className="w-5 h-5 text-primary" />
-                    <span>Ações do Sistema</span>
-                  </h3>
-                  
-                  <div className="flex flex-wrap gap-4">
-                    <button
-                      type="button"
-                      onClick={handleAdminSeedAchievements}
-                      disabled={isSeedingAchievements}
-                      className="px-5 py-3 rounded-xl bg-surface-variant/30 hover:bg-white/10 border border-white/5 text-white font-bold text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                    >
-                      {isSeedingAchievements ? <RefreshCw className="w-4 h-4 animate-spin text-primary" /> : <Award className="w-4 h-4 text-primary-light" />}
-                      <span>Repovoar Conquistas</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowManageAchievementsModal(true)}
-                      className="px-5 py-3 rounded-xl bg-gradient-to-r from-primary/80 to-primary hover:from-primary hover:to-primary-dark text-on-primary font-bold text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 shadow-md shadow-primary/20 cursor-pointer"
-                    >
-                      <Award className="w-4 h-4 text-white" />
-                      <span>Gerir Conquistas</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={fetchAdminData}
-                      className="px-5 py-3 rounded-xl bg-surface-variant/30 hover:bg-white/10 border border-white/5 text-white font-bold text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                      <span>Atualizar Painel</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* AutoSync Releases Card */}
-                <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-secondary/10 via-primary/5 to-transparent rounded-full blur-3xl pointer-events-none"></div>
-                  
-                  <div className="flex items-center justify-between flex-wrap gap-4 relative z-10">
-                    <div className="flex items-center gap-3">
-                      <div className="p-3 bg-primary/10 border border-primary/30 rounded-2xl text-secondary shadow-inner">
-                        <RefreshCw className={`w-6 h-6 ${syncStatus.isSyncing ? 'animate-spin text-secondary' : ''}`} />
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                          <span>AutoSync Releases (Animes & Mangas)</span>
-                          {syncStatus.isSyncing && (
-                            <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/20 border border-primary/40 text-[10px] font-black text-primary animate-pulse">
-                              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span> ACTIVE
-                            </span>
-                          )}
-                        </h3>
-                        <p className="text-xs text-on-surface-variant mt-0.5 max-w-xl">
-                          Obtém automaticamente as informações de lançamentos de fontes externas.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4 pt-4 border-t border-white/5 relative z-10">
-                    <button
-                      type="button"
-                      onClick={triggerManualReleaseSync}
-                      disabled={syncStatus.isSyncing}
-                      className={`w-full py-4 rounded-2xl font-black text-base transition-all flex items-center justify-center gap-3 shadow-xl cursor-pointer ${syncStatus.isSyncing ? 'bg-primary/20 border border-primary/30 text-primary cursor-not-allowed shadow-[0_0_25px_rgba(106,27,154,0.2)]' : 'bg-primary hover:opacity-90 text-on-primary shadow-primary/20 hover:shadow-primary/40 hover:scale-[1.01] active:scale-[0.99]'}`}
-                    >
-                      {syncStatus.isSyncing ? (
-                        <>
-                          <RefreshCw className="w-5 h-5 animate-spin text-secondary" />
-                          <span>AUTOSYNC EM CURSO ({syncStatus.current}/{syncStatus.total})</span>
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="w-5 h-5" />
-                          <span>INICIAR AUTOSYNC MANUAL</span>
-                        </>
-                      )}
-                    </button>
-
-                    {syncStatus.isSyncing && (
-                      <div className="p-6 rounded-2xl bg-black/40 border border-primary/30 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500 shadow-2xl backdrop-blur-xl">
-                        <div className="flex items-center justify-between text-xs font-bold">
-                          <span className="text-secondary uppercase tracking-widest flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-primary animate-ping"></span> Progresso em Tempo Real
-                          </span>
-                          <span className="text-white bg-primary/20 px-2.5 py-1 rounded-lg border border-primary/30 font-mono">
-                            {syncStatus.current} / {syncStatus.total} Concluídos
-                          </span>
-                        </div>
-
-                        <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden border border-white/5 p-0.5 shadow-inner">
-                          <div 
-                            className="h-full bg-gradient-to-r from-primary via-secondary to-indigo-500 rounded-full transition-all duration-500 shadow-[0_0_15px_rgba(106,27,154,0.8)]" 
-                            style={{ width: `${syncStatus.total > 0 ? (syncStatus.current / syncStatus.total) * 100 : 0}%` }}
-                          ></div>
-                        </div>
-
-                        <div className="p-4 rounded-xl bg-surface-variant/40 border border-white/5 flex items-center gap-3 text-sm">
-                          <div className="w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center text-secondary flex-shrink-0 shadow-md">
-                            <span className="material-symbols-outlined text-base animate-spin">sync</span>
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">A atualizar</p>
-                            <p className="font-black text-white text-base truncate mt-0.5">
-                              {syncStatus.currentItemTitle || 'A ligar às APIs...'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {releaseSyncError && (
-                      <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center gap-3 text-red-400 animate-in fade-in zoom-in-95 duration-300 shadow-lg">
-                        <AlertCircle className="w-6 h-6 flex-shrink-0" />
-                        <div>
-                          <p className="font-bold text-sm text-white">Falha no AutoSync</p>
-                          <p className="text-xs text-red-300 mt-0.5">{releaseSyncError}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* User Management Section */}
-                <div className="glass-panel p-6 rounded-[32px] border border-white/10 space-y-6 shadow-xl">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <h3 className="text-base font-bold text-white flex items-center gap-2">
-                      <User className="w-5 h-5 text-primary" />
-                      <span>Gestão de Utilizadores</span>
-                    </h3>
-                    
-                    <div className="relative">
-                      <Search className="w-4 h-4 text-gray-500 absolute left-3 top-3" />
-                      <input
-                        type="text"
-                        placeholder="Procurar utilizador..."
-                        value={adminUserSearch}
-                        onChange={(e) => setAdminUserSearch(e.target.value)}
-                        className="bg-black/30 border border-white/5 hover:border-white/10 focus:border-primary text-white text-xs p-2.5 pl-9 rounded-xl outline-none w-full sm:w-64 transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="overflow-x-auto rounded-xl border border-white/5 bg-black/20">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-white/5 bg-white/5 text-[10px] text-gray-400 font-bold uppercase tracking-wider text-left">
-                          <th className="p-3.5 text-center">ID</th>
-                          <th className="p-3.5">Nome</th>
-                          <th className="p-3.5">Email</th>
-                          <th className="p-3.5 text-center">Itens Seguidos</th>
-                          <th className="p-3.5">Tipo de Conta</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5 text-xs">
-                        {adminUsers
-                          .filter(u => 
-                            u.nome.toLowerCase().includes(adminUserSearch.toLowerCase()) || 
-                            u.email.toLowerCase().includes(adminUserSearch.toLowerCase())
-                          )
-                          .map((u) => (
-                            <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
-                              <td className="p-3.5 text-center font-bold text-gray-400">{u.id}</td>
-                              <td className="p-3.5 font-bold text-white">{u.nome} {u.id === user?.id && <span className="text-[9px] text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded ml-1">Tu</span>}</td>
-                              <td className="p-3.5 text-gray-300 font-medium">{u.email}</td>
-                              <td className="p-3.5 text-center text-gray-400 font-bold">
-                                {u._count ? (
-                                  <span className="flex items-center justify-center gap-1.5 text-xs text-primary-light">
-                                    <Film className="w-3.5 h-3.5" /> {u._count.animes} 
-                                    <span className="text-gray-600">/</span>
-                                    <BookOpen className="w-3.5 h-3.5" /> {u._count.mangas}
-                                  </span>
-                                ) : '0'}
-                              </td>
-                              <td className="p-3.5">
-                                <select
-                                  value={u.tipoConta}
-                                  disabled={u.id === user?.id}
-                                  onChange={(e) => handleUpdateUserRole(u.id, e.target.value)}
-                                  className="bg-black/40 border border-white/10 hover:border-white/20 text-white rounded-lg p-1 px-2 text-xs font-bold outline-none focus:border-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                >
-                                  <option value="padrao" disabled={u.tipoConta === 'pro'}>Padrão</option>
-                                  <option value="pro">Pro Tier</option>
-                                  <option value="ADMIN">ADMIN</option>
-                                </select>
-                              </td>
-                            </tr>
-                          ))}
-                        {adminUsers.length === 0 && (
-                          <tr>
-                            <td colSpan={5} className="p-8 text-center text-gray-500 font-medium">Nenhum utilizador encontrado.</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* System Sync Logs */}
-                <div className="glass-panel p-6 rounded-[32px] border border-white/10 space-y-4 shadow-xl font-sans">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Database className="w-5 h-5 text-primary" />
-                    <span>Logs de Sincronização Recentes</span>
-                  </h3>
-                  <div className="max-h-72 overflow-y-auto rounded-xl border border-white/5 bg-black/35 divide-y divide-white/5">
-                    {adminSyncLogs.map((log) => (
-                      <div key={log.id} className="p-4 hover:bg-white/[0.01] transition-colors flex items-start gap-3 justify-between">
-                        <div className="space-y-1 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${log.status === 'SUCCESS' ? 'bg-green-500/10 border border-green-500/20 text-green-400' : 'bg-red-500/10 border border-red-500/20 text-red-400'}`}>
-                              {log.status}
-                            </span>
-                            <span className="text-[10px] text-gray-500 font-bold">{new Date(log.timestamp).toLocaleString('pt-PT')}</span>
-                          </div>
-                          <p className="text-xs text-gray-300 font-medium">{log.details}</p>
-                        </div>
-                        <span className="text-[10px] font-bold text-gray-600">ID #{log.id}</span>
-                      </div>
-                    ))}
-                    {adminSyncLogs.length === 0 && (
-                      <p className="p-6 text-center text-xs text-gray-500 font-medium">Nenhum log de sincronização registado.</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Gift Cards Section */}
-                <div className="glass-panel p-6 rounded-[32px] border border-white/10 space-y-6 shadow-xl">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Award className="w-5 h-5 text-amber-500 font-bold" />
-                    <span>Gestão de Gift Cards</span>
-                  </h3>
-                  
-                  {/* Generation Form */}
-                  <form onSubmit={handleGenerateGiftCode} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Dias de Premium</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={giftDays}
-                        onChange={(e) => setGiftDays(+e.target.value)}
-                        className="w-full bg-black/40 text-white font-bold p-2 rounded-xl border border-white/10 outline-none text-xs"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Código Customizado (Opcional)</label>
-                      <input
-                        type="text"
-                        placeholder="EX: VIP-30D"
-                        value={giftCustomCode}
-                        onChange={(e) => setGiftCustomCode(e.target.value)}
-                        className="w-full bg-black/40 text-white font-bold p-2.5 rounded-xl border border-white/10 outline-none text-xs uppercase"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Expiração (Opcional)</label>
-                      <input
-                        type="date"
-                        value={giftExpiresAt}
-                        onChange={(e) => setGiftExpiresAt(e.target.value)}
-                        className="w-full bg-black/40 text-white font-bold p-2.5 rounded-xl border border-white/10 outline-none text-xs text-gray-400"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={isGeneratingGift}
-                      className="w-full px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer h-9.5"
-                    >
-                      {isGeneratingGift ? <RefreshCw className="w-4 h-4 animate-spin text-white" /> : <Plus className="w-4 h-4 text-white" />}
-                      <span>GERAR GIFT CARD</span>
-                    </button>
-                  </form>
-
-                  {/* Gift Codes Table */}
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h4 className="text-xs text-gray-400 font-bold uppercase tracking-wider">Códigos Gerados</h4>
-                      <input
-                        type="text"
-                        placeholder="Pesquisar código..."
-                        value={adminGiftSearch}
-                        onChange={(e) => setAdminGiftSearch(e.target.value)}
-                        className="bg-black/30 border border-white/5 hover:border-white/10 focus:border-primary text-white text-xs p-2 px-3 rounded-lg outline-none w-48 transition-all"
-                      />
-                    </div>
-
-                    <div className="overflow-x-auto rounded-xl border border-white/5 bg-black/20">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="border-b border-white/5 bg-white/5 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                            <th className="p-3">Código</th>
-                            <th className="p-3 text-center">Dias Premium</th>
-                            <th className="p-3 text-center">Data Expiração</th>
-                            <th className="p-3 text-center">Resgatado Por</th>
-                            <th className="p-3 text-center">Data Resgate</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5 text-xs">
-                          {adminGiftCodes
-                            .filter(g => g.code.toLowerCase().includes(adminGiftSearch.toLowerCase()))
-                            .map((g) => (
-                              <tr key={g.code} className="hover:bg-white/[0.01]">
-                                <td className="p-3 font-mono font-bold text-amber-400 uppercase tracking-wider">{g.code}</td>
-                                <td className="p-3 text-center font-black text-white">{g.durationDays} dias</td>
-                                <td className="p-3 text-center font-mono text-gray-400">
-                                  {g.expiresAt ? formatDate(g.expiresAt) : <span className="text-gray-600">Nunca</span>}
-                                </td>
-                                <td className="p-3 text-center">
-                                  {g.redeemedBy ? (
-                                    <div className="font-bold text-white">
-                                      {g.redeemedBy.nome}
-                                      <span className="block text-[8px] text-gray-500 font-mono">{g.redeemedBy.email}</span>
-                                    </div>
-                                  ) : (
-                                    <span className="text-gray-500 font-bold">-</span>
-                                  )}
-                                </td>
-                                <td className="p-3 text-center text-gray-400 font-medium">
-                                  {g.redeemedAt ? new Date(g.redeemedAt).toLocaleString('pt-PT') : '-'}
-                                </td>
-                              </tr>
-                            ))}
-                          {adminGiftCodes.length === 0 && (
-                            <tr>
-                              <td colSpan={5} className="p-6 text-center text-gray-500 font-medium">Nenhum Gift Card gerado.</td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Subscriptions Section */}
-                <div className="glass-panel p-6 rounded-[32px] border border-white/10 space-y-6 shadow-xl font-sans">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-primary" />
-                    <span>Gestão de Subscrições</span>
-                  </h3>
-
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h4 className="text-xs text-gray-400 font-bold uppercase tracking-wider">Subscrições de Utilizadores</h4>
-                      <input
-                        type="text"
-                        placeholder="Pesquisar por email/nome..."
-                        value={adminSubSearch}
-                        onChange={(e) => setAdminSubSearch(e.target.value)}
-                        className="bg-black/30 border border-white/5 hover:border-white/10 focus:border-primary text-white text-xs p-2 px-3 rounded-lg outline-none w-48 transition-all"
-                      />
-                    </div>
-
-                    <div className="overflow-x-auto rounded-xl border border-white/5 bg-black/20">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="border-b border-white/5 bg-white/5 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                            <th className="p-3">Utilizador</th>
-                            <th className="p-3 text-center">Plano</th>
-                            <th className="p-3 text-center">Data Fim</th>
-                            <th className="p-3 text-center">Estado</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5 text-xs">
-                          {adminSubscriptions
-                            .filter(s => 
-                              s.user.nome.toLowerCase().includes(adminSubSearch.toLowerCase()) ||
-                              s.user.email.toLowerCase().includes(adminSubSearch.toLowerCase())
-                            )
-                            .map((s) => (
-                              <SubscriptionRow 
-                                key={s.id} 
-                                subscription={s} 
-                              />
-                            ))}
-                          {adminSubscriptions.length === 0 && (
-                            <tr>
-                              <td colSpan={4} className="p-6 text-center text-gray-500 font-medium">Nenhuma subscrição ativa ou expirada encontrada.</td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+          <AdminTab
+            loadingAdminData={loadingAdminData}
+            adminStats={adminStats}
+            adminUsers={adminUsers}
+            adminUserSearch={adminUserSearch}
+            setAdminUserSearch={setAdminUserSearch}
+            user={user}
+            handleUpdateUserRole={handleUpdateUserRole}
+            adminSyncLogs={adminSyncLogs}
+            handleAdminSeedAchievements={handleAdminSeedAchievements}
+            isSeedingAchievements={isSeedingAchievements}
+            setShowManageAchievementsModal={setShowManageAchievementsModal}
+            fetchAdminData={fetchAdminData}
+            syncStatus={syncStatus}
+            triggerManualReleaseSync={triggerManualReleaseSync}
+            releaseSyncError={releaseSyncError}
+            giftDays={giftDays}
+            setGiftDays={setGiftDays}
+            giftCustomCode={giftCustomCode}
+            setGiftCustomCode={setGiftCustomCode}
+            giftExpiresAt={giftExpiresAt}
+            setGiftExpiresAt={setGiftExpiresAt}
+            isGeneratingGift={isGeneratingGift}
+            handleGenerateGiftCode={handleGenerateGiftCode}
+            adminGiftSearch={adminGiftSearch}
+            setAdminGiftSearch={setAdminGiftSearch}
+            adminGiftCodes={adminGiftCodes}
+            adminSubscriptions={adminSubscriptions}
+            adminSubSearch={adminSubSearch}
+            setAdminSubSearch={setAdminSubSearch}
+          />
         )}
       </div>
       {/* Edit Profile Modal (Avatar and Banner) */}

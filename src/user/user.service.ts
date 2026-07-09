@@ -9,28 +9,96 @@ import { UpdateUserStatisticsDto } from './dto/update-statistics.dto';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
 import { CreateAchievementDto } from './dto/create-achievement.dto';
 import { UpdateAchievementDto } from './dto/update-achievement.dto';
-
-function buildGenerosDict(
-  genres: string[] | undefined,
-  tags: { name: string; rank?: number }[] | undefined,
-): Record<string, number> {
-  const dict: Record<string, number> = {};
-  if (genres) {
-    genres.forEach((g) => {
-      dict[g.trim()] = 100;
-    });
-  }
-  if (tags) {
-    tags.forEach((t) => {
-      dict[t.name.trim()] = t.rank !== undefined ? t.rank : 100;
-    });
-  }
-  return dict;
-}
+import { BackupService } from './backup.service';
+import { AchievementService } from './achievement.service';
+import { GiftCodeService } from './gift-code.service';
+import { SubscriptionService } from './subscription.service';
 
 @Injectable()
 export class UserService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly backupService: BackupService,
+    private readonly achievementService: AchievementService,
+    private readonly giftCodeService: GiftCodeService,
+    private readonly subscriptionService: SubscriptionService,
+  ) {}
+
+  // -------------------------------------------------------------
+  // DELEGATED METHODS
+  // -------------------------------------------------------------
+
+  async generateBackup(userId: number) {
+    return this.backupService.generateBackup(userId);
+  }
+
+  async restoreBackup(userId: number, backup: RestoreBackupDto) {
+    return this.backupService.restoreBackup(userId, backup);
+  }
+
+  async fetchAniListGraphQL(query: string, variables: any) {
+    return this.backupService.fetchAniListGraphQL(query, variables);
+  }
+
+  async getAniListAnimeById(id: number) {
+    return this.backupService.getAniListAnimeById(id);
+  }
+
+  async getAniListMangaById(id: number) {
+    return this.backupService.getAniListMangaById(id);
+  }
+
+  async getAchievements(userId: number) {
+    return this.achievementService.getAchievements(userId);
+  }
+
+  async getAchievementCatalog() {
+    return this.achievementService.getAchievementCatalog();
+  }
+
+  async unlockAchievement(userId: number, achievementId: number) {
+    return this.achievementService.unlockAchievement(userId, achievementId);
+  }
+
+  async seedAchievements() {
+    return this.achievementService.seedAchievements();
+  }
+
+  async createAchievement(data: CreateAchievementDto) {
+    return this.achievementService.createAchievement(data);
+  }
+
+  async updateAchievement(id: number, data: UpdateAchievementDto) {
+    return this.achievementService.updateAchievement(id, data);
+  }
+
+  async redeemGiftCode(userId: number, inputCode: string) {
+    return this.giftCodeService.redeemGiftCode(userId, inputCode);
+  }
+
+  async listGiftCodes() {
+    return this.giftCodeService.listGiftCodes();
+  }
+
+  async generateGiftCode(
+    durationDays: number,
+    customCode?: string,
+    expiresAt?: string,
+  ) {
+    return this.giftCodeService.generateGiftCode(durationDays, customCode, expiresAt);
+  }
+
+  async listAllSubscriptions() {
+    return this.subscriptionService.listAllSubscriptions();
+  }
+
+  async updateSubscription(id: number, updateData: UpdateSubscriptionDto) {
+    return this.subscriptionService.updateSubscription(id, updateData);
+  }
+
+  // -------------------------------------------------------------
+  // CORE USER PROFILE & LIBRARY METHODS
+  // -------------------------------------------------------------
 
   async create(createUserDto: CreateUserDto) {
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
@@ -39,7 +107,7 @@ export class UserService {
         ...createUserDto,
         password: hashedPassword,
         statistics: {
-          create: {}, // Cria automaticamente o registo de estatísticas em branco
+          create: {},
         },
       },
     });
@@ -83,7 +151,6 @@ export class UserService {
     if (updateDto.preferences !== undefined)
       data.preferences = updateDto.preferences;
 
-    // Apenas permitir a atualização do email se ele for passado e fizer parte do DTO (e.g. UpdateUserDto)
     if ('email' in updateDto && updateDto.email !== undefined) {
       data.email = updateDto.email;
     }
@@ -118,292 +185,6 @@ export class UserService {
     });
   }
 
-  async generateBackup(userId: number) {
-    const animes = await this.prisma.userAnime.findMany({
-      where: { userId },
-      include: { anime: true },
-    });
-    const mangas = await this.prisma.userManga.findMany({
-      where: { userId },
-      include: { manga: true },
-    });
-
-    const backupAnimes = animes.map((item) => ({
-      animeId: item.animeId,
-      titulo: item.anime.titulo,
-      status: item.status,
-      epAtual: item.epAtual,
-      prioridade: item.prioridade,
-      numEpisodiosTotal: item.anime.numEpisodiosTotal,
-      tipo: 'anime',
-    }));
-
-    const backupMangas = mangas.map((item) => ({
-      mangaId: item.mangaId,
-      titulo: item.manga.titulo,
-      status: item.status,
-      capAtual: item.capAtual,
-      prioridade: item.prioridade,
-      numCapitulosTotal: item.manga.numCapitulosTotal,
-      tipo: 'manga',
-    }));
-
-    return {
-      version: 1,
-      backupDate: new Date().toISOString(),
-      exporter: 'Otaku-Time',
-      userId,
-      data: {
-        animes: backupAnimes,
-        mangas: backupMangas,
-      },
-    };
-  }
-
-  async fetchAniListGraphQL(
-    query: string,
-    variables: any,
-    retries = 3,
-    delayMs = 1500,
-  ): Promise<any> {
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        const response = await fetch('https://graphql.anilist.co', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-          },
-          body: JSON.stringify({ query, variables }),
-        });
-
-        if (response.status === 429) {
-          const retryAfter = response.headers.get('Retry-After');
-          const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 5000;
-          console.warn(
-            `[Backend Restore] AniList Rate Limited (429). Waiting ${waitTime}ms before retry (attempt ${attempt}/${retries})...`,
-          );
-          await new Promise((resolve) => setTimeout(resolve, waitTime));
-          continue;
-        }
-
-        if (!response.ok) {
-          throw new Error(`HTTP Error ${response.status}`);
-        }
-
-        const result = await response.json();
-        return result?.data?.Media || null;
-      } catch (error) {
-        console.warn(
-          `[Backend Restore] Error querying AniList (attempt ${attempt}/${retries}):`,
-          error,
-        );
-        if (attempt === retries) return null;
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
-      }
-    }
-    return null;
-  }
-
-  async getAniListAnimeById(id: number) {
-    const query = `
-      query ($id: Int) {
-        Media(id: $id, type: ANIME) {
-          id
-          title { english romaji native }
-          coverImage { large }
-          status
-          description
-          genres
-          tags { name rank }
-          episodes
-          countryOfOrigin
-          format
-          source
-        }
-      }
-    `;
-    return this.fetchAniListGraphQL(query, { id });
-  }
-
-  async getAniListMangaById(id: number) {
-    const query = `
-      query ($id: Int) {
-        Media(id: $id, type: MANGA) {
-          id
-          title { english romaji native }
-          coverImage { large }
-          status
-          description
-          genres
-          tags { name rank }
-          chapters
-          countryOfOrigin
-          format
-          source
-        }
-      }
-    `;
-    return this.fetchAniListGraphQL(query, { id });
-  }
-
-  async restoreBackup(userId: number, backup: RestoreBackupDto) {
-    if (!backup || !backup.data) {
-      throw new Error('Backup inválido ou sem dados');
-    }
-
-    const { animes, mangas } = backup.data;
-
-    // Restaurar Animes
-    if (Array.isArray(animes)) {
-      for (const item of animes) {
-        const metadata = await this.getAniListAnimeById(item.animeId);
-
-        const generosDict = metadata
-          ? buildGenerosDict(metadata.genres, metadata.tags?.slice(0, 5))
-          : {};
-        const descricaoLimpa = metadata?.description
-          ? metadata.description.replace(/<[^>]*>?/gm, '')
-          : 'Sem descrição.';
-
-        // Garantir que o anime global existe
-        // Usa o numEpisodiosTotal do backup como fallback caso a AniList não devolva metadata
-        // (ex: o backup contém IDs TMDB que a AniList não reconhece)
-        const numEpisodiosFallback = item.numEpisodiosTotal ?? null;
-        await this.prisma.anime.upsert({
-          where: { id: item.animeId },
-          update: {
-            titulo: metadata
-              ? metadata.title.english || metadata.title.romaji
-              : item.titulo,
-            statusLancamento: metadata ? metadata.status : undefined,
-            capaUrl: metadata ? metadata.coverImage?.large : undefined,
-            generos: metadata ? generosDict : undefined,
-            descricao: metadata ? descricaoLimpa : undefined,
-            numEpisodiosTotal: metadata
-              ? metadata.episodes
-              : numEpisodiosFallback,
-            paisOrigem: metadata ? metadata.countryOfOrigin : undefined,
-            formato: metadata ? metadata.format : undefined,
-            materialOrigem: metadata ? metadata.source : undefined,
-          },
-          create: {
-            id: item.animeId,
-            titulo: metadata
-              ? metadata.title.english || metadata.title.romaji
-              : item.titulo,
-            statusLancamento: metadata ? metadata.status : 'UNKNOWN',
-            capaUrl: metadata ? metadata.coverImage?.large : '',
-            generos: generosDict,
-            descricao: descricaoLimpa,
-            numEpisodiosTotal: metadata
-              ? metadata.episodes
-              : numEpisodiosFallback,
-            paisOrigem: metadata ? metadata.countryOfOrigin : null,
-            formato: metadata ? metadata.format : null,
-            materialOrigem: metadata ? metadata.source : null,
-          },
-        });
-
-        // Upsert UserAnime
-        await this.prisma.userAnime.upsert({
-          where: { userId_animeId: { userId, animeId: item.animeId } },
-          update: {
-            epAtual: item.epAtual,
-            status: item.status,
-            prioridade: item.prioridade ?? 5,
-          },
-          create: {
-            userId,
-            animeId: item.animeId,
-            epAtual: item.epAtual,
-            status: item.status,
-            prioridade: item.prioridade ?? 5,
-          },
-        });
-
-        // Pausa de no mínimo 2 segundos antes de passar para o próximo item
-        // Isto garante que tudo é guardado por ordem na BD sem sobreposições e respeita o rate limiting da API
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-      }
-    }
-
-    // Restaurar Mangas
-    if (Array.isArray(mangas)) {
-      for (const item of mangas) {
-        const metadata = await this.getAniListMangaById(item.mangaId);
-
-        const generosDict = metadata
-          ? buildGenerosDict(metadata.genres, metadata.tags?.slice(0, 5))
-          : {};
-        const descricaoLimpa = metadata?.description
-          ? metadata.description.replace(/<[^>]*>?/gm, '')
-          : 'Sem descrição.';
-
-        // Garantir que o manga global existe
-        // Usa o numCapitulosTotal do backup como fallback caso a AniList não devolva metadata
-        const numCapitulosFallback = item.numCapitulosTotal ?? null;
-        await this.prisma.manga.upsert({
-          where: { id: item.mangaId },
-          update: {
-            titulo: metadata
-              ? metadata.title.english || metadata.title.romaji
-              : item.titulo,
-            statusLancamento: metadata ? metadata.status : undefined,
-            capaUrl: metadata ? metadata.coverImage?.large : undefined,
-            generos: metadata ? generosDict : undefined,
-            descricao: metadata ? descricaoLimpa : undefined,
-            numCapitulosTotal: metadata
-              ? metadata.chapters
-              : numCapitulosFallback,
-            paisOrigem: metadata ? metadata.countryOfOrigin : undefined,
-            formato: metadata ? metadata.format : undefined,
-            materialOrigem: metadata ? metadata.source : undefined,
-          },
-          create: {
-            id: item.mangaId,
-            titulo: metadata
-              ? metadata.title.english || metadata.title.romaji
-              : item.titulo,
-            statusLancamento: metadata ? metadata.status : 'UNKNOWN',
-            capaUrl: metadata ? metadata.coverImage?.large : '',
-            generos: generosDict,
-            descricao: descricaoLimpa,
-            numCapitulosTotal: metadata
-              ? metadata.chapters
-              : numCapitulosFallback,
-            paisOrigem: metadata ? metadata.countryOfOrigin : null,
-            formato: metadata ? metadata.format : null,
-            materialOrigem: metadata ? metadata.source : null,
-          },
-        });
-
-        // Upsert UserManga
-        await this.prisma.userManga.upsert({
-          where: { userId_mangaId: { userId, mangaId: item.mangaId } },
-          update: {
-            capAtual: item.capAtual,
-            status: item.status,
-            prioridade: item.prioridade ?? 5,
-          },
-          create: {
-            userId,
-            mangaId: item.mangaId,
-            capAtual: item.capAtual,
-            status: item.status,
-            prioridade: item.prioridade ?? 5,
-          },
-        });
-
-        // Pausa de no mínimo 2 segundos antes de passar para o próximo item
-        // Isto garante que tudo é guardado por ordem na BD sem sobreposições e respeita o rate limiting da API
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-      }
-    }
-
-    return { success: true, message: 'Restore completed successfully' };
-  }
-
   async clearUserLibrary(userId: number) {
     await this.prisma.userAnime.deleteMany({ where: { userId } });
     await this.prisma.userManga.deleteMany({ where: { userId } });
@@ -420,7 +201,6 @@ export class UserService {
     return { success: true, message: 'Manga library cleared successfully' };
   }
 
-  // --- Destaques (Top Favorites) ---
   async getFavorites(userId: number) {
     return this.prisma.userTopFavorite.findMany({
       where: { userId },
@@ -441,7 +221,6 @@ export class UserService {
       throw new BadRequestException('A posição do ranking deve ser 1, 2 ou 3.');
     }
 
-    // Remover se o mesmo anime/manga já estiver em outro rank para evitar violação de unique e permitir troca de posições
     await this.prisma.userTopFavorite.deleteMany({
       where: {
         userId,
@@ -488,7 +267,6 @@ export class UserService {
     });
   }
 
-  // --- Estatísticas ---
   async getStatistics(userId: number) {
     let stats = await this.prisma.userStatistics.findUnique({
       where: { userId },
@@ -510,450 +288,6 @@ export class UserService {
         ...statsData,
       },
     });
-  }
-
-  // --- Conquistas ---
-  async getAchievements(userId: number) {
-    return this.prisma.userAchievement.findMany({
-      where: { userId },
-      include: {
-        achievement: true,
-      },
-      orderBy: { unlockedAt: 'desc' },
-    });
-  }
-
-  async getAchievementCatalog() {
-    return this.prisma.achievement.findMany();
-  }
-
-  async unlockAchievement(userId: number, achievementId: number) {
-    const achievementExists = await this.prisma.achievement.findUnique({
-      where: { id: achievementId },
-    });
-    if (!achievementExists) {
-      throw new BadRequestException('Conquista não encontrada no catálogo.');
-    }
-
-    return this.prisma.userAchievement.upsert({
-      where: {
-        userId_achievementId: {
-          userId,
-          achievementId,
-        },
-      },
-      update: {},
-      create: {
-        userId,
-        achievementId,
-      },
-    });
-  }
-
-  async seedAchievements() {
-    const defaultAchievements = [
-      {
-        id: 1,
-        name: 'Primeiros Passos',
-        description: 'Criou uma conta no Otaku-Time.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-        rarity: 'COMMON',
-      },
-      {
-        id: 2,
-        name: 'Isekai Trash',
-        description: 'Assistiu a mais de 5 animes do género Isekai.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3135/3135755.png',
-        rarity: 'RARE',
-      },
-      {
-        id: 3,
-        name: 'Maratonista',
-        description: 'Terminou de ver um anime inteiro em menos de 24 horas.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3135/3135768.png',
-        rarity: 'EPIC',
-      },
-      {
-        id: 4,
-        name: 'Leitor Voraz',
-        description: 'Leu o seu primeiro capítulo de manga.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3135/3135789.png',
-        rarity: 'COMMON',
-      },
-      {
-        id: 5,
-        name: 'Crítico de Elite',
-        description:
-          'Adicionou 3 conteúdos favoritos em destaque no seu perfil.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3135/3135802.png',
-        rarity: 'LEGENDARY',
-      },
-
-      {
-        id: 6,
-        name: 'A Vítima do Camião-kun I',
-        description: 'Adicionou 3 animes Isekai à biblioteca.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/2234/2234691.png',
-        rarity: 'COMMON',
-      },
-      {
-        id: 7,
-        name: 'A Vítima do Camião-kun II',
-        description: 'Adicionou 6 animes Isekai à biblioteca.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/2234/2234691.png',
-        rarity: 'RARE',
-      },
-      {
-        id: 8,
-        name: 'A Vítima do Camião-kun III',
-        description: 'Adicionou 12 animes Isekai à biblioteca.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/2234/2234691.png',
-        rarity: 'EPIC',
-      },
-      {
-        id: 9,
-        name: 'A Vítima do Camião-kun IV',
-        description: 'Adicionou 18 animes Isekai à biblioteca.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/2234/2234691.png',
-        rarity: 'LEGENDARY',
-      },
-
-      {
-        id: 10,
-        name: 'Isekai de Bolso I',
-        description: 'Adicionou 3 mangás Isekai à biblioteca.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3594/3594164.png',
-        rarity: 'COMMON',
-      },
-      {
-        id: 11,
-        name: 'Isekai de Bolso II',
-        description: 'Adicionou 6 mangás Isekai à biblioteca.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3594/3594164.png',
-        rarity: 'RARE',
-      },
-      {
-        id: 12,
-        name: 'Isekai de Bolso III',
-        description: 'Adicionou 12 mangás Isekai à biblioteca.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3594/3594164.png',
-        rarity: 'EPIC',
-      },
-      {
-        id: 13,
-        name: 'Isekai de Bolso IV',
-        description: 'Adicionou 18 mangás Isekai à biblioteca.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3594/3594164.png',
-        rarity: 'LEGENDARY',
-      },
-
-      {
-        id: 14,
-        name: 'Resina Esgotada I',
-        description: 'Acumulou 4 horas de anime assistidos numa semana.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3565/3565418.png',
-        rarity: 'COMMON',
-      },
-      {
-        id: 15,
-        name: 'Resina Esgotada II',
-        description: 'Acumulou 8 horas de anime assistidos numa semana.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3565/3565418.png',
-        rarity: 'RARE',
-      },
-      {
-        id: 16,
-        name: 'Resina Esgotada III',
-        description: 'Acumulou 12 horas de anime assistidos numa semana.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3565/3565418.png',
-        rarity: 'EPIC',
-      },
-      {
-        id: 17,
-        name: 'Resina Esgotada IV',
-        description: 'Acumulou 24 horas de anime assistidos numa semana.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3565/3565418.png',
-        rarity: 'LEGENDARY',
-      },
-
-      {
-        id: 18,
-        name: 'Luz Acesa I',
-        description: 'Acumulou 4 horas de leitura de mangá numa semana.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/2232/2232688.png',
-        rarity: 'COMMON',
-      },
-      {
-        id: 19,
-        name: 'Luz Acesa II',
-        description: 'Acumulou 8 horas de leitura de mangá numa semana.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/2232/2232688.png',
-        rarity: 'RARE',
-      },
-      {
-        id: 20,
-        name: 'Luz Acesa III',
-        description: 'Acumulou 12 horas de leitura de mangá numa semana.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/2232/2232688.png',
-        rarity: 'EPIC',
-      },
-      {
-        id: 21,
-        name: 'Luz Acesa IV',
-        description: 'Acumulou 24 horas de leitura de mangá numa semana.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/2232/2232688.png',
-        rarity: 'LEGENDARY',
-      },
-
-      {
-        id: 22,
-        name: 'Culto da Madrugada (Anime)',
-        description: 'Terminou um episódio entre as 03:00 e as 05:00 da manhã.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3892/3892881.png',
-        rarity: 'EPIC',
-      },
-      {
-        id: 23,
-        name: 'Culto da Madrugada (Mangá)',
-        description: 'Terminou um capítulo entre as 03:00 e as 05:00 da manhã.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3892/3892881.png',
-        rarity: 'EPIC',
-      },
-
-      {
-        id: 24,
-        name: 'Protagonista em Bulking I (Anime)',
-        description: 'Completou 3 animes de Desporto ou Ação.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/2910/2910793.png',
-        rarity: 'COMMON',
-      },
-      {
-        id: 25,
-        name: 'Protagonista em Bulking II (Anime)',
-        description: 'Completou 6 animes de Desporto ou Ação.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/2910/2910793.png',
-        rarity: 'RARE',
-      },
-      {
-        id: 26,
-        name: 'Protagonista em Bulking III (Anime)',
-        description: 'Completou 12 animes de Desporto ou Ação.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/2910/2910793.png',
-        rarity: 'EPIC',
-      },
-      {
-        id: 27,
-        name: 'Protagonista em Bulking IV (Anime)',
-        description: 'Completou 18 animes de Desporto ou Ação.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/2910/2910793.png',
-        rarity: 'LEGENDARY',
-      },
-
-      {
-        id: 28,
-        name: 'Protagonista em Bulking I (Mangá)',
-        description: 'Completou 3 mangás de Desporto ou Ação.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/2910/2910793.png',
-        rarity: 'COMMON',
-      },
-      {
-        id: 29,
-        name: 'Protagonista em Bulking II (Mangá)',
-        description: 'Completou 6 mangás de Desporto ou Ação.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/2910/2910793.png',
-        rarity: 'RARE',
-      },
-      {
-        id: 30,
-        name: 'Protagonista em Bulking III (Mangá)',
-        description: 'Completou 12 mangás de Desporto ou Ação.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/2910/2910793.png',
-        rarity: 'EPIC',
-      },
-      {
-        id: 31,
-        name: 'Protagonista em Bulking IV (Mangá)',
-        description: 'Completou 18 mangás de Desporto ou Ação.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/2910/2910793.png',
-        rarity: 'LEGENDARY',
-      },
-
-      {
-        id: 32,
-        name: 'Síndrome de Shoujo I (Anime)',
-        description: 'Completou 3 animes de Romance ou Drama.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3655/3655610.png',
-        rarity: 'COMMON',
-      },
-      {
-        id: 33,
-        name: 'Síndrome de Shoujo II (Anime)',
-        description: 'Completou 6 animes de Romance ou Drama.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3655/3655610.png',
-        rarity: 'RARE',
-      },
-      {
-        id: 34,
-        name: 'Síndrome de Shoujo III (Anime)',
-        description: 'Completou 12 animes de Romance ou Drama.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3655/3655610.png',
-        rarity: 'EPIC',
-      },
-      {
-        id: 35,
-        name: 'Síndrome de Shoujo IV (Anime)',
-        description: 'Completou 18 animes de Romance ou Drama.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3655/3655610.png',
-        rarity: 'LEGENDARY',
-      },
-
-      {
-        id: 36,
-        name: 'Síndrome de Shoujo I (Mangá)',
-        description: 'Completou 3 mangás de Romance ou Drama.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3655/3655610.png',
-        rarity: 'COMMON',
-      },
-      {
-        id: 37,
-        name: 'Síndrome de Shoujo II (Mangá)',
-        description: 'Completou 6 mangás de Romance ou Drama.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3655/3655610.png',
-        rarity: 'RARE',
-      },
-      {
-        id: 38,
-        name: 'Síndrome de Shoujo III (Mangá)',
-        description: 'Completou 12 mangás de Romance ou Drama.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3655/3655610.png',
-        rarity: 'EPIC',
-      },
-      {
-        id: 39,
-        name: 'Síndrome de Shoujo IV (Mangá)',
-        description: 'Completou 18 mangás de Romance ou Drama.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3655/3655610.png',
-        rarity: 'LEGENDARY',
-      },
-
-      {
-        id: 40,
-        name: 'Nostalgia Pura (Anime)',
-        description: 'Completou 5 animes lançados antes do ano 2000.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/2889/2889312.png',
-        rarity: 'LEGENDARY',
-      },
-      {
-        id: 41,
-        name: 'Nostalgia Pura (Mangá)',
-        description: 'Completou 5 mangás lançados antes do ano 2000.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/2889/2889312.png',
-        rarity: 'LEGENDARY',
-      },
-
-      {
-        id: 42,
-        name: 'Tsundere Assumido (Anime)',
-        description:
-          'Colocou um anime na lista de "Desistiu" e depois completou-o.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3565/3565538.png',
-        rarity: 'EPIC',
-      },
-      {
-        id: 43,
-        name: 'Tsundere Assumido (Mangá)',
-        description:
-          'Colocou um mangá na lista de "Desistiu" e depois completou-o.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3565/3565538.png',
-        rarity: 'EPIC',
-      },
-
-      {
-        id: 44,
-        name: 'Roleta Russa Sobrevivida (Anime)',
-        description:
-          'Pesquisou aleatoriamente 10 vezes num dia sem adicionar nada.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3601/3601685.png',
-        rarity: 'RARE',
-      },
-      {
-        id: 45,
-        name: 'Roleta Russa Sobrevivida (Mangá)',
-        description:
-          'Pesquisou aleatoriamente 10 vezes num dia sem adicionar nada.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/3601/3601685.png',
-        rarity: 'RARE',
-      },
-
-      {
-        id: 46,
-        name: 'O Arconte da Leitura',
-        description:
-          'Tem o dobro de capítulos lidos em relação aos episódios vistos.',
-        badgeImageUrl:
-          'https://cdn-icons-png.flaticon.com/512/2232/2232677.png',
-        rarity: 'EPIC',
-      },
-    ];
-
-    for (const ach of defaultAchievements) {
-      await this.prisma.achievement.upsert({
-        where: { id: ach.id },
-        update: {
-          name: ach.name,
-          description: ach.description,
-          badgeImageUrl: ach.badgeImageUrl,
-          rarity: ach.rarity,
-        },
-        create: ach,
-      });
-    }
-    return { success: true, message: 'Achievements seeded successfully.' };
   }
 
   async getUserProfile(userId: number) {
@@ -982,7 +316,6 @@ export class UserService {
       throw new BadRequestException('Utilizador não encontrado.');
     }
 
-    // Dynamic expiration check
     if (
       user.subscription &&
       user.subscription.status === 'ACTIVE' &&
@@ -1002,7 +335,6 @@ export class UserService {
       user.tipoConta = 'padrao';
     }
 
-    // Buscar detalhes locais dos favoritos para evitar chamadas de API externas na página de perfil
     let topFavoritesWithDetails: any[] = [];
     if (user.topFavorites && user.topFavorites.length > 0) {
       const animeIds = user.topFavorites
@@ -1095,7 +427,6 @@ export class UserService {
     };
   }
 
-  // --- Métodos de Administração ---
   async getAdminUsersList() {
     const users = await this.prisma.user.findMany({
       include: {
@@ -1162,203 +493,6 @@ export class UserService {
     return this.prisma.syncLog.findMany({
       orderBy: { timestamp: 'desc' },
       take: 50,
-    });
-  }
-
-  // --- Subscrições & Gift Codes ---
-  async redeemGiftCode(userId: number, inputCode: string) {
-    const code = inputCode.trim().toUpperCase();
-    const now = new Date();
-
-    const result = await this.prisma.$transaction(async (tx) => {
-      const gift = await tx.giftCode.findUnique({
-        where: { code },
-      });
-
-      if (!gift) {
-        throw new BadRequestException('Código inválido ou não encontrado.');
-      }
-      if (gift.isUsed) {
-        throw new BadRequestException('Este código já foi utilizado.');
-      }
-      if (gift.expiresAt && gift.expiresAt < now) {
-        throw new BadRequestException('Este código expirou.');
-      }
-
-      const updateResult = await tx.giftCode.updateMany({
-        where: {
-          code,
-          isUsed: false,
-        },
-        data: {
-          isUsed: true,
-          redeemedByUserId: userId,
-          redeemedAt: now,
-        },
-      });
-
-      if (updateResult.count !== 1) {
-        throw new BadRequestException('Este código já foi utilizado.');
-      }
-
-      const durationMs = gift.durationDays * 24 * 60 * 60 * 1000;
-      let newEndDate: Date;
-
-      const sub = await tx.userSubscription.findUnique({
-        where: { userId },
-      });
-
-      if (sub && sub.status === 'ACTIVE' && sub.currentPeriodEnd > now) {
-        newEndDate = new Date(sub.currentPeriodEnd.getTime() + durationMs);
-      } else {
-        newEndDate = new Date(now.getTime() + durationMs);
-      }
-
-      await tx.userSubscription.upsert({
-        where: { userId },
-        update: {
-          status: 'ACTIVE',
-          currentPeriodEnd: newEndDate,
-          planType: 'PREMIUM',
-        },
-        create: {
-          userId,
-          status: 'ACTIVE',
-          startDate: now,
-          currentPeriodEnd: newEndDate,
-          planType: 'PREMIUM',
-        },
-      });
-
-      await tx.user.update({
-        where: { id: userId },
-        data: { tipoConta: 'pro' },
-      });
-
-      return {
-        durationDays: gift.durationDays,
-        newEndDate,
-      };
-    });
-
-    return {
-      success: true,
-      message: `Premium (${result.durationDays} dias) resgatado com sucesso!`,
-      currentPeriodEnd: result.newEndDate,
-    };
-  }
-
-  async listGiftCodes() {
-    return this.prisma.giftCode.findMany({
-      include: {
-        redeemedByUser: {
-          select: { id: true, nome: true, email: true },
-        },
-      },
-      orderBy: { id: 'desc' },
-    });
-  }
-
-  async generateGiftCode(
-    durationDays: number,
-    customCode?: string,
-    expiresAt?: string,
-  ) {
-    let code = customCode?.trim().toUpperCase();
-    if (!code) {
-      const rand = () =>
-        Math.random().toString(36).substring(2, 6).toUpperCase();
-      code = `OTAKU-${rand()}-${rand()}`;
-    }
-
-    const exists = await this.prisma.giftCode.findUnique({ where: { code } });
-    if (exists) {
-      throw new BadRequestException('O código inserido já existe.');
-    }
-
-    return this.prisma.giftCode.create({
-      data: {
-        code,
-        durationDays,
-        expiresAt: expiresAt ? new Date(expiresAt) : null,
-      },
-    });
-  }
-
-  async listAllSubscriptions() {
-    return this.prisma.userSubscription.findMany({
-      include: {
-        user: {
-          select: { id: true, nome: true, email: true },
-        },
-      },
-      orderBy: { currentPeriodEnd: 'desc' },
-    });
-  }
-
-  async updateSubscription(id: number, updateData: UpdateSubscriptionDto) {
-    const data: any = {};
-    if (updateData.planType) data.planType = updateData.planType;
-    if (updateData.status) data.status = updateData.status;
-    if (updateData.currentPeriodEnd)
-      data.currentPeriodEnd = new Date(updateData.currentPeriodEnd);
-
-    const sub = await this.prisma.userSubscription.update({
-      where: { id },
-      data,
-      include: {
-        user: {
-          select: { id: true, nome: true, email: true },
-        },
-      },
-    });
-
-    if (data.status === 'EXPIRED') {
-      await this.prisma.user.update({
-        where: { id: sub.userId },
-        data: { tipoConta: 'padrao' },
-      });
-    } else if (data.status === 'ACTIVE') {
-      await this.prisma.user.update({
-        where: { id: sub.userId },
-        data: { tipoConta: 'pro' },
-      });
-    }
-
-    return sub;
-  }
-
-  async createAchievement(data: CreateAchievementDto) {
-    if (!data.name || !data.description) {
-      throw new BadRequestException('Nome e descrição são obrigatórios.');
-    }
-    return this.prisma.achievement.create({
-      data: {
-        name: data.name,
-        description: data.description,
-        badgeImageUrl: data.badgeImageUrl || null,
-        rarity: data.rarity || 'COMMON',
-      },
-    });
-  }
-
-  async updateAchievement(id: number, data: UpdateAchievementDto) {
-    const ach = await this.prisma.achievement.findUnique({
-      where: { id },
-    });
-    if (!ach) {
-      throw new BadRequestException('Conquista não encontrada.');
-    }
-    return this.prisma.achievement.update({
-      where: { id },
-      data: {
-        name: data.name !== undefined ? data.name : undefined,
-        description:
-          data.description !== undefined ? data.description : undefined,
-        badgeImageUrl:
-          data.badgeImageUrl !== undefined ? data.badgeImageUrl : undefined,
-        rarity: data.rarity !== undefined ? data.rarity : undefined,
-      },
     });
   }
 }

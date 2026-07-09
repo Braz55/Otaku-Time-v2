@@ -8,4 +8,12 @@ export class ImportMangaDto {
   @IsInt()
   @IsOptional()
   anilistId?: number;
+
+  @IsInt()
+  @IsOptional()
+  userId?: number;
+
+  @IsString()
+  @IsOptional()
+  format?: string;
 }

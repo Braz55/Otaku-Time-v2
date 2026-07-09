@@ -12,4 +12,8 @@ export class ImportAnimeDto {
   @IsString()
   @IsOptional()
   format?: string;
+
+  @IsInt()
+  @IsOptional()
+  userId?: number;
 }

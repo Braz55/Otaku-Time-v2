@@ -1,39 +1,4 @@
-import { IsString, IsOptional, IsInt, IsBoolean, IsEnum } from 'class-validator';
-import { TrackingStatus } from '@prisma/client';
+import { PartialType } from '@nestjs/mapped-types';
+import { CreateAnimeDto } from './create-anime.dto';
 
-export class UpdateAnimeDto {
-  @IsEnum(TrackingStatus)
-  @IsOptional()
-  status?: TrackingStatus;
-
-  @IsInt()
-  @IsOptional()
-  seasonAtual?: number;
-
-  @IsInt()
-  @IsOptional()
-  epAtual?: number;
-
-  @IsInt()
-  @IsOptional()
-  prioridade?: number;
-
-  @IsString()
-  @IsOptional()
-  linksPersonalizados?: string;
-
-  @IsBoolean()
-  @IsOptional()
-  wasDropped?: boolean;
-
-  @IsOptional()
-  watchedSpecials?: any;
-
-  @IsInt()
-  @IsOptional()
-  numEpisodiosTotal?: number;
-
-  @IsString()
-  @IsOptional()
-  tipo?: string;
-}
+export class UpdateAnimeDto extends PartialType(CreateAnimeDto) {}

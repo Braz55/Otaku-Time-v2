@@ -3,10 +3,6 @@ import { UserService } from './user.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
-import { BackupService } from './backup.service';
-import { AchievementService } from './achievement.service';
-import { GiftCodeService } from './gift-code.service';
-import { SubscriptionService } from './subscription.service';
 
 describe('UserService', () => {
   let service: UserService;
@@ -54,10 +50,6 @@ describe('UserService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UserService,
-        BackupService,
-        AchievementService,
-        GiftCodeService,
-        SubscriptionService,
         {
           provide: PrismaService,
           useValue: mockPrismaService,

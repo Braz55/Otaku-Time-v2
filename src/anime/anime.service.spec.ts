@@ -3,10 +3,6 @@ import { AnimeService } from './anime.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ListService } from '../list/list.service';
 import { TMDBService } from './tmdb.service';
-import { AniListService } from './anilist.service';
-import { RecommendationService } from './recommendation.service';
-import { TVTimeImportService } from './tvtime-import.service';
-import { CalendarService } from './calendar.service';
 
 describe('AnimeService', () => {
   let service: AnimeService;
@@ -71,10 +67,6 @@ describe('AnimeService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AnimeService,
-        AniListService,
-        RecommendationService,
-        TVTimeImportService,
-        CalendarService,
         {
           provide: PrismaService,
           useValue: mockPrismaService,

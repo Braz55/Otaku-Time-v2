@@ -17,6 +17,7 @@ import { Capacitor } from '@capacitor/core';
 import { applyPalette, getCurrentPalette } from './services/paletteService';
 import { API_BASE_URL } from './config';
 import { customFetch } from './services/apiBridge';
+import { useMedia } from './context/MediaContext';
 
 // Listener para o botão físico / gesto de voltar no Android
 const AndroidBackButtonListener = () => {
@@ -77,6 +78,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 function App() {
   const { user, token } = useAuth();
+  const { setAnimeLibraryData, setMangaLibraryData } = useMedia();
 
   useEffect(() => {
     // Aplicar a paleta de cores guardada no localStorage
@@ -98,8 +100,39 @@ function App() {
       customFetch(`${API_BASE_URL}/sync/start`, { method: 'POST' }).catch(err => {
         console.error('Error starting auto-sync on load:', err);
       });
+
+      const getHeaders = () => ({
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      });
+
+      customFetch(`${API_BASE_URL}/anime`, { headers: getHeaders() })
+        .then(res => {
+          if (res.ok) return res.json();
+          throw new Error('Failed to fetch anime library');
+        })
+        .then(data => {
+          if (Array.isArray(data)) {
+            const sorted = data.sort((a, b) => (a.prioridade || 999) - (b.prioridade || 999));
+            setAnimeLibraryData(sorted);
+          }
+        })
+        .catch(err => console.error('Error prefetching anime library:', err));
+
+      customFetch(`${API_BASE_URL}/manga`, { headers: getHeaders() })
+        .then(res => {
+          if (res.ok) return res.json();
+          throw new Error('Failed to fetch manga library');
+        })
+        .then(data => {
+          if (Array.isArray(data)) {
+            const sorted = data.sort((a, b) => (a.prioridade || 999) - (b.prioridade || 999));
+            setMangaLibraryData(sorted);
+          }
+        })
+        .catch(err => console.error('Error prefetching manga library:', err));
     }
-  }, [token]);
+  }, [token, setAnimeLibraryData, setMangaLibraryData]);
 
   return (
     <Router>

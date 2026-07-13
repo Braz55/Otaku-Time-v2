@@ -122,7 +122,7 @@ const DetailsPage = () => {
   const { user, token } = useAuth();
   const { showToast } = useToast();
   const { t } = useTranslation();
-  const { setCategoria, setIsViewingDetails, animeLibraryData, mangaLibraryData } = useMedia();
+  const { setCategoria, setIsViewingDetails, animeLibraryData, mangaLibraryData, setAnimeLibraryData, setMangaLibraryData } = useMedia();
   const isMobile = useIsMobile();
 
   const [loading, setLoading] = useState(true);
@@ -353,11 +353,31 @@ const DetailsPage = () => {
       let isExternal = isExternalParam;
       let data = null;
 
+      // Ensure library cache is populated before checking if it already exists
+      let currentCache = mediaType === 'manga' ? mangaLibraryData : animeLibraryData;
+      if (!currentCache || currentCache.length === 0) {
+        try {
+          const response = await customFetch(`${API_BASE_URL}/${mediaType}`, { headers: getHeaders() });
+          if (response.ok) {
+            const listData = await response.json();
+            if (Array.isArray(listData)) {
+              currentCache = listData;
+              if (mediaType === 'anime') {
+                setAnimeLibraryData(listData);
+              } else {
+                setMangaLibraryData(listData);
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Error fetching library data in DetailsPage:", e);
+        }
+      }
+
       // Check if it already exists in database using local cache lookup first
-      const libraryCache = mediaType === 'manga' ? mangaLibraryData : animeLibraryData;
       let matched = null;
-      if (libraryCache && libraryCache.length > 0) {
-        matched = libraryCache.find(item => 
+      if (currentCache && currentCache.length > 0) {
+        matched = currentCache.find(item => 
           item.id === targetId || (mediaType === 'manga' ? item.mangaId : item.animeId) === targetId
         );
       }
@@ -681,6 +701,12 @@ const DetailsPage = () => {
         const localItem = { ...itemData, ...novoItem, dbId: novoItem.id, isExternal: false };
         setSelectedItem(localItem);
 
+        if (mediaType === 'anime') {
+          setAnimeLibraryData((prev: any[]) => [...prev, localItem]);
+        } else {
+          setMangaLibraryData((prev: any[]) => [...prev, localItem]);
+        }
+
         // Fetch relations in background immediately after adding to library
         const externalId = localItem.animeId || localItem.mangaId || localItem.id;
         const formatVal = localItem.formato;
@@ -728,6 +754,11 @@ const DetailsPage = () => {
       if (response.ok) {
         showToast('Removido da biblioteca com sucesso.', 'success');
         setShowDeleteConfirm(false);
+        if (mediaType === 'anime') {
+          setAnimeLibraryData((prev: any[]) => prev.filter((item: any) => item.id !== targetId));
+        } else {
+          setMangaLibraryData((prev: any[]) => prev.filter((item: any) => item.id !== targetId));
+        }
         navigate('/library');
       } else {
         showToast('Não foi possível remover da biblioteca.', 'error');

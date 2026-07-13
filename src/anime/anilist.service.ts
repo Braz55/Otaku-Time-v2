@@ -228,6 +228,7 @@ export class AniListService {
           where: { id: tmdbId },
           update: {
             tipo: detectMediaType(generosDict, normalized.format),
+            dataLancamento: normalized.dataLancamento,
           },
           create: {
             id: tmdbId,
@@ -248,6 +249,7 @@ export class AniListService {
             paisOrigem: normalized.countryOfOrigin,
             formato: normalized.format,
             tipo: detectMediaType(generosDict, normalized.format),
+            dataLancamento: normalized.dataLancamento,
           },
         });
 
@@ -453,6 +455,8 @@ export class AniListService {
         ano: anime.ano,
         formato: anime.formato,
         tipo: anime.tipo,
+        statusLancamento: anime.statusLancamento,
+        dataLancamento: anime.dataLancamento,
       };
     }
 
@@ -505,6 +509,8 @@ export class AniListService {
         ano: matchedInDb.ano,
         formato: matchedInDb.formato,
         tipo: matchedInDb.tipo,
+        statusLancamento: matchedInDb.statusLancamento,
+        dataLancamento: matchedInDb.dataLancamento,
       };
     }
 
@@ -536,6 +542,7 @@ export class AniListService {
         paisOrigem: tmdbData.countryOfOrigin,
         formato: tmdbData.format,
         tipo: detectMediaType(generosDict, tmdbData.format),
+        dataLancamento: tmdbData.dataLancamento,
       },
     });
 
@@ -589,6 +596,8 @@ export class AniListService {
       ano: createdAnime.ano,
       formato: createdAnime.formato,
       tipo: updatedAnime ? updatedAnime.tipo : createdAnime.tipo,
+      statusLancamento: createdAnime.statusLancamento,
+      dataLancamento: createdAnime.dataLancamento,
     };
   }
 

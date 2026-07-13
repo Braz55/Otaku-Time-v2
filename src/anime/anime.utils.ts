@@ -201,6 +201,16 @@ export function normalizeTMDBToAniList(
   const parsedYear = releaseDate ? new Date(releaseDate).getFullYear() : null;
   const year = parsedYear && !isNaN(parsedYear) ? parsedYear : null;
 
+  let dataLancamento: Date | null = null;
+  if (releaseDate) {
+    const parsedDate = new Date(
+      releaseDate.includes('T') ? releaseDate : releaseDate + 'T12:00:00Z',
+    );
+    if (!isNaN(parsedDate.getTime())) {
+      dataLancamento = parsedDate;
+    }
+  }
+
   const posterPath = media.poster_path
     ? `https://image.tmdb.org/t/p/w500${media.poster_path}`
     : null;
@@ -211,6 +221,7 @@ export function normalizeTMDBToAniList(
 
   return {
     id: media.id,
+    dataLancamento,
     title: {
       english: title,
       romaji: title,

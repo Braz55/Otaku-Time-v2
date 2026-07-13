@@ -443,13 +443,15 @@ const DetailsPage = () => {
               ...((data.tags || []).reduce((acc: any, t: any) => ({ ...acc, [t.name]: t.rank ?? 100 }), {}))
             },
             statusLancamento: data.status,
+            dataLancamento: data.dataLancamento,
             numEpisodiosTotal: data.episodes,
             numCapitulosTotal: data.chapters,
             temporada: data.season,
             ano: data.seasonYear,
             linksExternos: data.externalLinks ? JSON.stringify(data.externalLinks) : null,
             isExternal: true,
-            formato: data.format
+            formato: data.format,
+            relations: data.relations
           };
           setSelectedItem(normalized);
         } else if (data) {

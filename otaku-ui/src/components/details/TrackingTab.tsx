@@ -105,6 +105,19 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
   const [seasonDropdownOpen, setSeasonDropdownOpen] = React.useState(false);
   const [localNotes, setLocalNotes] = React.useState(selectedItem.notas || '');
 
+  const releaseDateFormatted = React.useMemo(() => {
+    if (!selectedItem.dataLancamento) return '';
+    try {
+      const d = new Date(selectedItem.dataLancamento);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString('pt-PT');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return '';
+  }, [selectedItem.dataLancamento]);
+
   React.useEffect(() => {
     setLocalNotes(selectedItem.notas || '');
   }, [selectedItem.id, selectedItem.notas]);
@@ -139,23 +152,234 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
           <h3 className="text-base font-extrabold text-white mb-2">Acompanhamento & Progresso</h3>
 
           {selectedItem.isExternal ? (
-            <button 
-              type="button"
-              onClick={() => { adicionarAoBanco(selectedItem.titulo, selectedItem.id, selectedItem.formato); }} 
-              disabled={isAddingToLibrary}
-              className="w-full bg-primary hover:bg-primary/80 text-on-primary py-3.5 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 shadow-lg disabled:opacity-50 cursor-pointer"
-            >
-              {isAddingToLibrary ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <span>A ADICIONAR...</span>
-                </>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined">add</span> <span>ADICIONAR À BIBLIOTECA</span>
-                </>
+            <div className="space-y-4">
+              <button 
+                type="button"
+                onClick={() => { adicionarAoBanco(selectedItem.titulo, selectedItem.id, selectedItem.formato); }} 
+                disabled={isAddingToLibrary}
+                className="w-full bg-primary hover:bg-primary/80 text-on-primary py-3.5 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 shadow-lg disabled:opacity-50 cursor-pointer"
+              >
+                {isAddingToLibrary ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>A ADICIONAR...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined">add</span> <span>ADICIONAR À BIBLIOTECA</span>
+                  </>
+                )}
+              </button>
+
+              {mediaType === 'anime' && (
+                <div className="border-t border-white/5 pt-4 space-y-4">
+                  {/* Season Selector */}
+                  {(() => {
+                    let uniqueSeasonNums: any[] = [];
+                    if (selectedItem.episodes && selectedItem.episodes.length > 0) {
+                      uniqueSeasonNums = Array.from(new Set(selectedItem.episodes.map((ep: any) => ep.season)))
+                        .sort((a: any, b: any) => a - b);
+                    } else {
+                      const seasons = selectedItem.relations?.edges
+                        ?.filter((edge: any) => edge.node.format === 'TV_SEASON')
+                        ?.sort((a: any, b: any) => a.node.seasonNumber - b.node.seasonNumber) || [];
+                      uniqueSeasonNums = seasons.map((edge: any) => edge.node.seasonNumber);
+                    }
+                    if (uniqueSeasonNums.length === 0) {
+                      uniqueSeasonNums = [viewedSeason || 1];
+                    }
+
+                    if (isMobile) {
+                      if (uniqueSeasonNums.length <= 1 && !uniqueSeasonNums.includes(0)) {
+                        return null;
+                      }
+                      return (
+                        <div className="space-y-1.5 w-full text-center">
+                          <label className="text-[9px] text-on-surface-variant uppercase font-bold tracking-widest flex items-center gap-1 justify-center">
+                            <span className="material-symbols-outlined text-[11px]">folder_open</span>
+                            Temporada
+                          </label>
+                          <div className="flex overflow-x-auto gap-2 pb-2 pt-1 w-full justify-start scrollbar-none snap-x no-scrollbar">
+                            {uniqueSeasonNums.map((seasonNum) => {
+                              const isSelected = viewedSeason === seasonNum;
+                              const epsCount = getEpisodesCountForSeason(seasonNum);
+                              return (
+                                <button
+                                  key={seasonNum}
+                                  type="button"
+                                  onClick={() => setViewedSeason(seasonNum)}
+                                  className={`flex-shrink-0 px-3.5 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 snap-center cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-primary/20 border-primary text-primary shadow-[0_0_12px_rgba(139,92,246,0.2)]'
+                                      : 'bg-surface-variant/30 border-white/5 text-on-surface-variant hover:text-white'
+                                  }`}
+                                >
+                                  {seasonNum === 0 ? 'Especiais' : `Temp. ${seasonNum}`}
+                                  {epsCount > 0 && <span className="text-[9px] opacity-60 ml-1">({epsCount})</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    } else {
+                      // Desktop Season Selector
+                      return (
+                        <div className="flex flex-col gap-1.5 text-left max-w-xs">
+                          <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest font-extrabold">
+                            Temporada
+                          </label>
+                          <div className="relative w-full">
+                            <button
+                              type="button"
+                              onClick={() => setSeasonDropdownOpen(!seasonDropdownOpen)}
+                              className="w-full flex items-center justify-between bg-[#18181c] text-white border border-white/10 hover:border-white/20 px-4 py-2.5 rounded-2xl outline-none focus:border-primary/50 text-xs font-bold cursor-pointer transition-all h-[46px] relative text-left"
+                            >
+                              {(() => {
+                                const epsCount = getEpisodesCountForSeason(viewedSeason || 1);
+                                return (
+                                  <div className="flex items-center gap-1.5 justify-between w-full pr-1.5 min-w-0">
+                                    <span className="truncate">{viewedSeason === 0 ? 'Especiais' : `Temporada ${viewedSeason}`}</span>
+                                    <span className="text-[10px] opacity-60 font-medium shrink-0">({epsCount} eps)</span>
+                                  </div>
+                                );
+                              })()}
+                              <span className={`material-symbols-outlined text-on-surface-variant text-base transition-transform duration-200 ${seasonDropdownOpen ? 'rotate-180' : ''}`}>
+                                keyboard_arrow_down
+                              </span>
+                            </button>
+                            {seasonDropdownOpen && (
+                              <>
+                                <div className="fixed inset-0 z-30" onClick={() => setSeasonDropdownOpen(false)} />
+                                <div className="absolute left-0 right-0 mt-2 bg-[#1c1c22] border border-white/10 rounded-2xl p-2.5 z-40 shadow-2xl max-h-[300px] overflow-y-auto custom-scrollbar space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                                  {uniqueSeasonNums.map((seasonNum: number) => {
+                                    const epsCount = getEpisodesCountForSeason(seasonNum);
+                                    const isSelected = viewedSeason === seasonNum;
+                                    let optColor = 'text-on-surface-variant hover:text-white hover:bg-white/5 border border-transparent';
+                                    if (isSelected) optColor = 'bg-primary/20 text-primary border border-primary/30';
+                                    return (
+                                      <button
+                                        key={`ext-s-drop-${seasonNum}`}
+                                        type="button"
+                                        onClick={() => {
+                                          setViewedSeason(seasonNum);
+                                          setSeasonDropdownOpen(false);
+                                        }}
+                                        className={`w-full flex-shrink-0 flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-left cursor-pointer transition-all ${optColor}`}
+                                      >
+                                        <span>{seasonNum === 0 ? 'Especiais' : `Temporada ${seasonNum}`}</span>
+                                        <span className="text-[10px] opacity-60 font-medium">({epsCount} eps)</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+                  })()}
+
+                  {/* Toggle Episodes view button */}
+                  <div className={`flex ${isMobile ? 'justify-center' : 'justify-start'} mt-2`}>
+                    <button 
+                      type="button"
+                      onClick={() => setShowEpList(!showEpList)}
+                      className={`px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold border active:scale-95 cursor-pointer ${showEpList ? 'bg-primary/20 border-primary text-primary shadow-[0_0_12px_rgba(139,92,246,0.2)]' : 'bg-surface-variant/30 border-white/5 text-on-surface-variant'}`}
+                    >
+                      <span className="material-symbols-outlined text-sm">grid_view</span>
+                      <span>{showEpList ? 'Fechar Grelha' : 'Ver Episódios'}</span>
+                    </button>
+                  </div>
+
+                  {/* Episode List grid / scroll panel */}
+                  {showEpList && (
+                    <div className="w-full mt-4 border-t border-white/10 pt-4 animate-in slide-in-from-top-4 duration-300 text-left">
+                      {loadingEpisodes ? (
+                        <div className="flex justify-center py-8">
+                          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                        </div>
+                      ) : (
+                        viewedEpisodes && viewedEpisodes.length > 0 ? (
+                          <div className={isMobile 
+                            ? "space-y-3.5 max-h-[340px] overflow-y-auto pr-2 custom-scrollbar"
+                            : "grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar"
+                          }>
+                            {viewedEpisodes.map((ep: any) => {
+                              const isSpecial = ep.season === 0;
+                              const airTime = new Date(ep.air_date).getTime();
+                              const nowTime = new Date().getTime();
+                              const hasAired = ep.air_date ? airTime <= nowTime : true;
+                              
+                              return (
+                                <div key={ep.id || ep.episode_number} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 border border-white/[0.02] transition-colors group">
+                                  {ep.still_path ? (
+                                    <img 
+                                      src={`https://image.tmdb.org/t/p/w300${ep.still_path}`}
+                                      alt={`Episódio ${ep.episode_number}`}
+                                      className="w-20 aspect-video object-cover rounded-xl border border-white/10 flex-shrink-0"
+                                    />
+                                  ) : (
+                                    <div className="w-20 aspect-video rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 text-on-surface-variant/30">
+                                      <span className="material-symbols-outlined text-base">movie</span>
+                                    </div>
+                                  )}
+                                  <div className="flex-grow min-w-0">
+                                    <h5 className="text-xs font-bold text-white truncate flex items-center gap-2">
+                                      <span className={isSpecial ? 'text-secondary' : 'text-primary'}>
+                                        {isSpecial ? `Especial ${ep.episode_number}` : `Ep. ${ep.episode_number}`}
+                                      </span>
+                                      {ep.name && <span className="text-gray-400 font-medium truncate">— {ep.name}</span>}
+                                    </h5>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">
+                                        {ep.air_date ? new Date(ep.air_date).toLocaleDateString('pt-PT') : 'Data Indisponível'}
+                                        {!hasAired && (
+                                          <>
+                                            <span className="text-white/10 mx-1.5">•</span>
+                                            <span className="text-amber-500 text-[9px] font-extrabold uppercase tracking-wider">Por estrear</span>
+                                          </>
+                                        )}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-3 flex-shrink-0">
+                                    {hasAired ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          showToast('Adiciona o anime à tua biblioteca para começares a marcar episódios como vistos!', 'info');
+                                        }}
+                                        className="w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer bg-surface-variant/40 hover:bg-surface-variant hover:text-white text-on-surface-variant border border-white/10"
+                                        title="Adiciona à biblioteca para marcar como visto"
+                                      >
+                                        <span className="material-symbols-outlined text-sm font-bold">
+                                          check_box_outline_blank
+                                        </span>
+                                      </button>
+                                    ) : (
+                                      <div className="w-9 h-9 flex items-center justify-center text-on-surface-variant/30 font-bold" title="Não estreado">
+                                        <span className="material-symbols-outlined text-sm">schedule</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-on-surface-variant/60 text-center py-4">
+                            Nenhum episódio disponível para esta temporada.
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
-            </button>
+            </div>
           ) : (
             isMobile ? (
               isAnimePorEstrear ? (
@@ -170,7 +394,7 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                     </div>
                   </div>
                   <p className="text-xs text-on-surface-variant italic leading-relaxed">
-                    Este anime ainda não estreou. Quando estrear, poderás marcar o teu progresso e alterar o estado.
+                    Este anime ainda não estreou.{releaseDateFormatted ? ` Estreia a ${releaseDateFormatted}.` : ''} Quando estrear, poderás marcar o teu progresso e alterar o estado.
                   </p>
                 </div>
               ) : (
@@ -529,7 +753,7 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                     </div>
                   </div>
                   <p className="text-xs text-on-surface-variant italic leading-relaxed">
-                    Este anime ainda não estreou. Quando estrear, poderás marcar o teu progresso e alterar o estado.
+                    Este anime ainda não estreou.{releaseDateFormatted ? ` Estreia a ${releaseDateFormatted}.` : ''} Quando estrear, poderás marcar o teu progresso e alterar o estado.
                   </p>
                 </div>
               ) : (

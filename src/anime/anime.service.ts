@@ -170,6 +170,7 @@ export class AnimeService {
               ? new Date(tmdbData.nextAiringEpisode.airingAt * 1000)
               : null,
             generos: generosDict,
+            dataLancamento: tmdbData.dataLancamento,
           },
         });
 
@@ -347,6 +348,7 @@ export class AnimeService {
         totalVotosUsers: rating?.total_votos_users ?? 0,
         ultimoEpisodioEstreadoData,
         mediaUpdatedAt: item.anime.updatedAt,
+        dataLancamento: item.anime.dataLancamento,
       };
     });
   }
@@ -425,6 +427,7 @@ export class AnimeService {
       avaliacaoGeral: rating?.avaliacao_geral ?? null,
       totalVotosUsers: rating?.total_votos_users ?? 0,
       ultimoEpisodioEstreadoData,
+      dataLancamento: item.anime.dataLancamento,
     };
   }
 
@@ -608,6 +611,7 @@ export class AnimeService {
       linksExternos: updated.anime.linksExternos,
       linksPersonalizados: updated.linksPersonalizados,
       notas: updated.notas,
+      dataLancamento: updated.anime.dataLancamento,
       proximoEpisodio: updated.anime.proximoEpisodio,
       proximoEpisodioData: updated.anime.proximoEpisodioData,
       episodes: updated.anime.episodesList || [],
@@ -722,6 +726,7 @@ export class AnimeService {
         proximoEpisodioData: media.nextAiringEpisode
           ? new Date(media.nextAiringEpisode.airingAt * 1000)
           : null,
+        dataLancamento: media.dataLancamento,
       },
     });
 

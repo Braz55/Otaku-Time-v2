@@ -123,6 +123,7 @@ export class TVTimeImportService {
           paisOrigem: tmdbData.countryOfOrigin,
           formato: tmdbData.format,
           tipo: detectMediaType(generosDict, tmdbData.format),
+          dataLancamento: tmdbData.dataLancamento,
         },
         create: {
           id: tmdbData.id,
@@ -149,6 +150,7 @@ export class TVTimeImportService {
             !isNaN(tmdbData.nextAiringEpisode.airingAt)
               ? new Date(tmdbData.nextAiringEpisode.airingAt * 1000)
               : null,
+          dataLancamento: tmdbData.dataLancamento,
         },
       });
 

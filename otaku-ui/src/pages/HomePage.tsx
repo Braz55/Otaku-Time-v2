@@ -72,31 +72,39 @@ const HomePage = () => {
       const isReleasing = item.statusLancamento === 'RELEASING';
       if (!isReleasing) return false;
 
-      // Check if update/sync is recent (within 7 days)
-      let isRecentUpdate = false;
-      if (item.mediaUpdatedAt) {
-        const updateTime = new Date(item.mediaUpdatedAt).getTime();
-        if (nowTime - updateTime <= SEVEN_DAYS_MS) {
-          isRecentUpdate = true;
+      let isRecentRelease = false;
+
+      if (type === 'anime') {
+        if (item.ultimoEpisodioEstreadoData) {
+          const airedTime = new Date(item.ultimoEpisodioEstreadoData).getTime();
+          // Episode aired in the last 7 days
+          if (nowTime - airedTime <= SEVEN_DAYS_MS && nowTime - airedTime >= 0) {
+            isRecentRelease = true;
+          }
+        }
+      } else {
+        // For manga, check if the next chapter scheduled date has passed recently (within the last 7 days)
+        if (item.proximoCapituloData) {
+          const expectedTime = new Date(item.proximoCapituloData).getTime();
+          const diff = nowTime - expectedTime;
+          if (diff >= 0 && diff <= SEVEN_DAYS_MS) {
+            isRecentRelease = true;
+          }
         }
       }
 
-      // For anime, also check if the last aired episode date is recent
-      if (type === 'anime' && item.ultimoEpisodioEstreadoData) {
-        const airedTime = new Date(item.ultimoEpisodioEstreadoData).getTime();
-        if (nowTime - airedTime <= SEVEN_DAYS_MS) {
-          isRecentUpdate = true;
-        }
-      }
-
-      return isRecentUpdate;
+      return isRecentRelease;
     });
 
     if (newReleaseCandidates.length > 0) {
-      // Pick the most recently updated one
+      // Pick the one with the most recent release/update
       const sortedNewReleases = [...newReleaseCandidates].sort((a, b) => {
-        const timeA = a.mediaUpdatedAt ? new Date(a.mediaUpdatedAt).getTime() : 0;
-        const timeB = b.mediaUpdatedAt ? new Date(b.mediaUpdatedAt).getTime() : 0;
+        const timeA = type === 'anime' 
+          ? (a.ultimoEpisodioEstreadoData ? new Date(a.ultimoEpisodioEstreadoData).getTime() : 0)
+          : (a.proximoCapituloData ? new Date(a.proximoCapituloData).getTime() : 0);
+        const timeB = type === 'anime' 
+          ? (b.ultimoEpisodioEstreadoData ? new Date(b.ultimoEpisodioEstreadoData).getTime() : 0)
+          : (b.proximoCapituloData ? new Date(b.proximoCapituloData).getTime() : 0);
         return timeB - timeA;
       });
       return { ...sortedNewReleases[0], highlightReason: 'new_release' };
@@ -846,8 +854,8 @@ const HomePage = () => {
                                 <span>{(() => {
                                   const left = total > currentGlobal ? total - currentGlobal : 0;
                                   return left === 1 
-                                    ? (categoria === 'anime' ? '1 ep' : '1 cap')
-                                    : (categoria === 'anime' ? `${left} eps` : `${left} caps`);
+                                    ? (categoria === 'anime' ? '1 ep. por ver' : '1 cap. por ler')
+                                    : (categoria === 'anime' ? `${left} eps. por ver` : `${left} caps. por ler`);
                                 })()}</span>
                               </div>
                               <button 
@@ -928,8 +936,8 @@ const HomePage = () => {
                                 <span>{(() => {
                                   const left = total > currentGlobal ? total - currentGlobal : 0;
                                   return left === 1 
-                                    ? (categoria === 'anime' ? 'Falta 1 ep' : 'Falta 1 cap')
-                                    : (categoria === 'anime' ? `Faltam ${left} eps` : `Faltam ${left} caps`);
+                                    ? (categoria === 'anime' ? '1 ep. por ver' : '1 cap. por ler')
+                                    : (categoria === 'anime' ? `${left} eps. por ver` : `${left} caps. por ler`);
                                 })()}</span>
                               </div>
                               <button 

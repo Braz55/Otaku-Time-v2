@@ -387,16 +387,42 @@ const LibraryPage = () => {
     }
   };
 
+  const isPorEstrear = (item: any) => {
+    if (categoria !== 'anime') return false;
+    const statusLancamento = item.anime?.statusLancamento || item.statusLancamento;
+    if (statusLancamento === 'NOT_YET_RELEASED') return true;
+    
+    const dataLanc = item.anime?.dataLancamento || item.dataLancamento;
+    if (dataLanc && new Date(dataLanc) > new Date()) return true;
+
+    let totalAired = 0;
+    if (typeof item.numEpisodiosAired === 'number') {
+      totalAired = item.numEpisodiosAired;
+    } else if (item.episodes && Array.isArray(item.episodes) && item.episodes.length > 0) {
+      const now = new Date();
+      totalAired = item.episodes.filter((ep: any) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now).length;
+    }
+    
+    if (statusLancamento !== 'FINISHED' && totalAired === 0) {
+      return true;
+    }
+    
+    return false;
+  };
+
   // Split items when in WATCHING status
-  const comPendentes = filtroStatus === 'WATCHING' ? ordenados.filter(hasPendingEpisodes) : [];
-  const emDia = filtroStatus === 'WATCHING' ? ordenados.filter(item => !hasPendingEpisodes(item)) : [];
+  const porEstrear = filtroStatus === 'WATCHING' ? ordenados.filter(isPorEstrear) : [];
+  const restOfWatching = filtroStatus === 'WATCHING' ? ordenados.filter(item => !isPorEstrear(item)) : [];
+  const comPendentes = filtroStatus === 'WATCHING' ? restOfWatching.filter(hasPendingEpisodes) : [];
+  const emDia = filtroStatus === 'WATCHING' ? restOfWatching.filter(item => !hasPendingEpisodes(item)) : [];
 
   const paginatedItems = ordenados.slice(0, visibleCount);
+  const paginatedPorEstrear = porEstrear.slice(0, visibleCount);
   const paginatedComPendentes = comPendentes.slice(0, visibleCount);
   const paginatedEmDia = emDia.slice(0, visibleCount);
 
   const hasMore = filtroStatus === 'WATCHING' 
-    ? (comPendentes.length > visibleCount || emDia.length > visibleCount)
+    ? (comPendentes.length > visibleCount || emDia.length > visibleCount || porEstrear.length > visibleCount)
     : (filtrados.length > visibleCount);
 
   const renderLibraryItem = (item: any) => {
@@ -759,6 +785,27 @@ const LibraryPage = () => {
                 </div>
               )}
             </div>
+
+            {/* Section 3: Por Estrear */}
+            {categoria === 'anime' && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+                  <span className="material-symbols-outlined text-amber-500 text-xl flex-shrink-0">schedule</span>
+                  <h3 className="text-base sm:text-lg font-black text-white tracking-wide">
+                    Por Estrear ({porEstrear.length})
+                  </h3>
+                </div>
+                {paginatedPorEstrear.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6">
+                    {paginatedPorEstrear.map(item => renderLibraryItem(item))}
+                  </div>
+                ) : (
+                  <div className="py-8 text-center glass-panel rounded-3xl border border-white/5">
+                    <p className="text-on-surface-variant text-xs sm:text-sm font-medium italic">Nenhum título por estrear.</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           /* Normal grid for other statuses */

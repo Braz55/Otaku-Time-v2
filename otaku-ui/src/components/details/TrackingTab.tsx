@@ -96,6 +96,11 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
   t,
 }) => {
   const currentPriorityOpt = PRIORITY_OPTIONS.find(opt => opt.num === selectedItem.prioridade) || PRIORITY_OPTIONS[4];
+  const isAnimePorEstrear = 
+    mediaType === 'anime' && 
+    (selectedItem.statusLancamento === 'NOT_YET_RELEASED' || 
+     (selectedItem.dataLancamento && new Date(selectedItem.dataLancamento) > new Date()) ||
+     (totalAiredEpisodes === 0 && selectedItem.statusLancamento !== 'FINISHED'));
   const [statusDropdownOpen, setStatusDropdownOpen] = React.useState(false);
   const [seasonDropdownOpen, setSeasonDropdownOpen] = React.useState(false);
   const [localNotes, setLocalNotes] = React.useState(selectedItem.notas || '');
@@ -153,8 +158,24 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
             </button>
           ) : (
             isMobile ? (
-              <>
-              {/* Tracking Status Choices */}
+              isAnimePorEstrear ? (
+                <div className="space-y-3 text-left">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest">Estado</label>
+                    <div className="flex items-center gap-2 py-1">
+                      <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-amber-500/30 bg-amber-500/5 text-amber-400 font-bold text-xs">
+                        <span className="material-symbols-outlined text-base">schedule</span>
+                        <span>Por estrear</span>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-on-surface-variant italic leading-relaxed">
+                    Este anime ainda não estreou. Quando estrear, poderás marcar o teu progresso e alterar o estado.
+                  </p>
+                </div>
+              ) : (
+                <>
+                {/* Tracking Status Choices */}
               <div className="space-y-1.5 text-left">
                 <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest">Estado</label>
                 <div className="flex overflow-x-auto gap-2 pb-2 pt-1 w-full justify-start scrollbar-none snap-x no-scrollbar">
@@ -494,9 +515,26 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                 )}
               </div>
               </>
+              )
             ) : (
-              <>
-                {/* Desktop layout */}
+              isAnimePorEstrear ? (
+                <div className="space-y-3 text-left w-full">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest">
+                      Estado de Acompanhamento
+                    </label>
+                    <div className="flex items-center gap-2 px-4 py-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 text-amber-400 font-bold text-xs w-fit">
+                      <span className="material-symbols-outlined text-base">schedule</span>
+                      <span>Por estrear</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-on-surface-variant italic leading-relaxed">
+                    Este anime ainda não estreou. Quando estrear, poderás marcar o teu progresso e alterar o estado.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Desktop layout */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
                   {/* 1. Tracking Status Column */}
                   <div className="relative flex flex-col gap-1.5 text-left">
@@ -870,6 +908,7 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                   </div>
                 )}
               </>
+              )
             )
           )}
         </div>

@@ -761,7 +761,13 @@ const DetailsPage = () => {
         } else {
           setMangaLibraryData((prev: any[]) => prev.filter((item: any) => item.id !== targetId));
         }
-        navigate('/library');
+        const externalId = getMediaId();
+        if (externalId) {
+          navigate(`/details/${mediaType}/${externalId}?external=true`, { replace: true });
+          setReloadTrigger((prev: number) => prev + 1);
+        } else {
+          navigate('/library');
+        }
       } else {
         showToast('Não foi possível remover da biblioteca.', 'error');
       }

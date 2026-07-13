@@ -98,12 +98,32 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
   const currentPriorityOpt = PRIORITY_OPTIONS.find(opt => opt.num === selectedItem.prioridade) || PRIORITY_OPTIONS[4];
   const [statusDropdownOpen, setStatusDropdownOpen] = React.useState(false);
   const [seasonDropdownOpen, setSeasonDropdownOpen] = React.useState(false);
+  const [localNotes, setLocalNotes] = React.useState(selectedItem.notas || '');
+
+  React.useEffect(() => {
+    setLocalNotes(selectedItem.notas || '');
+  }, [selectedItem.id, selectedItem.notas]);
+
+  React.useEffect(() => {
+    if (localNotes === (selectedItem.notas || '')) return;
+    const timer = setTimeout(() => {
+      atualizarCampo('notas', localNotes);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [localNotes, selectedItem.notas]);
+
+  const handleNotesBlur = () => {
+    if (localNotes !== (selectedItem.notas || '')) {
+      atualizarCampo('notas', localNotes);
+    }
+  };
+
   const linksPessoais = selectedItem.linksPersonalizados ? JSON.parse(selectedItem.linksPersonalizados).map((l: any) => ({ ...l, tipo: 'Custom' })) : [];
 
   return (
     <div className="w-full space-y-6 animate-in fade-in duration-300">
       {/* 1. Main Action Card */}
-      <div className="bg-[#18181c]/80 border border-white/5 rounded-3xl p-6 relative z-20 shadow-xl backdrop-blur-md space-y-6">
+      <div className="bg-[#18181c]/80 border border-white/5 rounded-3xl p-6 relative z-30 shadow-xl backdrop-blur-md space-y-6">
         <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none z-0">
           <div className="absolute -right-8 -bottom-8 text-white/3 transform rotate-12 select-none">
             <span className="material-symbols-outlined text-[140px] font-thin">explore</span>
@@ -338,6 +358,17 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                             
                             return (
                               <div key={ep.id || ep.episode_number} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 border border-white/[0.02] transition-colors group">
+                                {ep.still_path ? (
+                                  <img 
+                                    src={`https://image.tmdb.org/t/p/w300${ep.still_path}`}
+                                    alt={`Episódio ${ep.episode_number}`}
+                                    className="w-20 aspect-video object-cover rounded-xl border border-white/10 flex-shrink-0"
+                                  />
+                                ) : (
+                                  <div className="w-20 aspect-video rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 text-on-surface-variant/30">
+                                    <span className="material-symbols-outlined text-base">movie</span>
+                                  </div>
+                                )}
                                 <div className="flex-grow min-w-0">
                                   <h5 className="text-xs font-bold text-white truncate flex items-center gap-2">
                                     <span className={isSpecial ? 'text-secondary' : 'text-primary'}>
@@ -704,6 +735,17 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                             
                             return (
                               <div key={ep.id || ep.episode_number} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 border border-white/[0.02] transition-colors group">
+                                {ep.still_path ? (
+                                  <img 
+                                    src={`https://image.tmdb.org/t/p/w300${ep.still_path}`}
+                                    alt={`Episódio ${ep.episode_number}`}
+                                    className="w-24 aspect-video object-cover rounded-xl border border-white/10 flex-shrink-0"
+                                  />
+                                ) : (
+                                  <div className="w-24 aspect-video rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 text-on-surface-variant/30">
+                                    <span className="material-symbols-outlined text-lg">movie</span>
+                                  </div>
+                                )}
                                 <div className="flex-grow min-w-0">
                                   <h5 className="text-xs font-bold text-white truncate flex items-center gap-2">
                                     <span className={isSpecial ? 'text-secondary' : 'text-primary'}>
@@ -844,8 +886,9 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
               Notas Pessoais
             </h3>
             <textarea
-              value={selectedItem.notas || ''}
-              onChange={(e) => atualizarCampo('notas', e.target.value)}
+              value={localNotes}
+              onChange={(e) => setLocalNotes(e.target.value)}
+              onBlur={handleNotesBlur}
               placeholder="Escreve aqui pensamentos, tags ou notas sobre esta obra..."
               rows={4}
               className={`w-full bg-black/30 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white outline-none resize-none transition-all ${mediaType === 'anime' ? 'focus:border-primary/60' : 'focus:border-secondary/60'}`}

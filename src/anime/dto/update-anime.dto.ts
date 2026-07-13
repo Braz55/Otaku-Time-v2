@@ -22,6 +22,10 @@ export class UpdateAnimeDto {
   @IsOptional()
   linksPersonalizados?: string;
 
+  @IsString()
+  @IsOptional()
+  notas?: string;
+
   @IsBoolean()
   @IsOptional()
   wasDropped?: boolean;

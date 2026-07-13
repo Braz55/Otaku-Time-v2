@@ -487,5 +487,43 @@ describe('AnimeService', () => {
       expect(lastCallArgs.data.status).toBeUndefined();
       expect(result.status).toBe('WATCHING');
     });
+
+    it('should correctly calculate proximaSeason and proximoEpLocal for multi-season anime', async () => {
+      const mockAnimeMultiSeason = {
+        id: 103,
+        titulo: 'Multi Season Show',
+        statusLancamento: 'FINISHED',
+        episodesList: [
+          { season: 1, episodeNumber: 1, airDate: new Date('2020-01-01').toISOString() },
+          { season: 1, episodeNumber: 2, airDate: new Date('2020-01-02').toISOString() },
+          { season: 2, episodeNumber: 1, airDate: new Date('2020-02-01').toISOString() },
+          { season: 2, episodeNumber: 2, airDate: new Date('2020-02-02').toISOString() },
+        ],
+      };
+
+      const mockUserAnime = {
+        id: 52,
+        userId,
+        animeId: 103,
+        status: 'WATCHING',
+        epAtual: 1,
+        seasonAtual: 1,
+        anime: mockAnimeMultiSeason,
+      };
+
+      mockPrismaService.userAnime.findUnique.mockResolvedValue(mockUserAnime);
+      mockPrismaService.media.findUnique.mockResolvedValue({ id: 103 });
+      mockPrismaService.userAnime.update.mockResolvedValue({
+        ...mockUserAnime,
+        epAtual: 2,
+        seasonAtual: 1,
+      });
+
+      const result = await service.update(52, { epAtual: 2, seasonAtual: 1 }, user);
+
+      // Since the user watched Season 1 Ep 2 (global 2), the next episode to watch is Season 2 Ep 1 (global 3).
+      expect(result.proximaSeason).toBe(2);
+      expect(result.proximoEpLocal).toBe(1);
+    });
   });
 });

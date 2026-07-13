@@ -210,12 +210,14 @@ const DetailsPage = () => {
 
   const [viewedSeason, setViewedSeason] = useState<number>(1);
 
-  // Sync viewedSeason with selectedItem.seasonAtual when it changes (initial load or automatic update)
+  // Sync viewedSeason with selectedItem.proximaSeason when it changes (initial load or automatic update)
   useEffect(() => {
-    if (selectedItem?.seasonAtual) {
+    if (selectedItem?.proximaSeason) {
+      setViewedSeason(selectedItem.proximaSeason);
+    } else if (selectedItem?.seasonAtual) {
       setViewedSeason(selectedItem.seasonAtual);
     }
-  }, [selectedItem?.seasonAtual]);
+  }, [selectedItem?.proximaSeason, selectedItem?.seasonAtual]);
 
   useEffect(() => {
     if (!selectedItem || mediaType !== 'anime') return;

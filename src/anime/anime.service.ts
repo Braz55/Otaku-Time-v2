@@ -308,6 +308,12 @@ export class AnimeService {
         ultimoEpisodioEstreadoData = item.anime.dataLancamento;
       }
 
+      const nextGlobal = item.epAtual + 1;
+      const nextSeasonAndEp = this.getSeasonAndEpisodeFromGlobal(
+        item.anime,
+        nextGlobal,
+      );
+
       return {
         id: item.id,
         animeId: item.animeId,
@@ -320,12 +326,15 @@ export class AnimeService {
         seasonAtual: item.seasonAtual,
         epAtual: epLocal,
         epAtualGlobal: item.epAtual,
+        proximaSeason: nextSeasonAndEp.season,
+        proximoEpLocal: nextSeasonAndEp.episode,
         numEpisodiosTotal: totalEpisodes,
         temporada: item.anime.temporada,
         ano: item.anime.ano,
         prioridade: item.prioridade,
         linksExternos: item.anime.linksExternos,
         linksPersonalizados: item.linksPersonalizados,
+        notas: item.notas,
         proximoEpisodio: item.anime.proximoEpisodio,
         proximoEpisodioData: item.anime.proximoEpisodioData,
         numEpisodiosAired,
@@ -379,6 +388,12 @@ export class AnimeService {
       ultimoEpisodioEstreadoData = item.anime.dataLancamento;
     }
 
+    const nextGlobal = item.epAtual + 1;
+    const nextSeasonAndEp = this.getSeasonAndEpisodeFromGlobal(
+      item.anime,
+      nextGlobal,
+    );
+
     return {
       id: item.id,
       animeId: item.animeId,
@@ -391,12 +406,15 @@ export class AnimeService {
       seasonAtual: item.seasonAtual,
       epAtual: epLocal,
       epAtualGlobal: item.epAtual,
+      proximaSeason: nextSeasonAndEp.season,
+      proximoEpLocal: nextSeasonAndEp.episode,
       numEpisodiosTotal: totalEpisodes,
       temporada: item.anime.temporada,
       ano: item.anime.ano,
       prioridade: item.prioridade,
       linksExternos: item.anime.linksExternos,
       linksPersonalizados: item.linksPersonalizados,
+      notas: item.notas,
       proximoEpisodio: item.anime.proximoEpisodio,
       proximoEpisodioData: item.anime.proximoEpisodioData,
       episodes: item.anime.episodesList || [],
@@ -562,6 +580,13 @@ export class AnimeService {
       updated.epAtual,
     );
     const totalEpisodesUpdated = this.getTotalEpisodes(updated.anime);
+
+    const nextGlobal = updated.epAtual + 1;
+    const nextSeasonAndEp = this.getSeasonAndEpisodeFromGlobal(
+      updated.anime,
+      nextGlobal,
+    );
+
     return {
       id: updated.id,
       animeId: updated.animeId,
@@ -574,12 +599,15 @@ export class AnimeService {
       seasonAtual: updated.seasonAtual,
       epAtual: epLocal,
       epAtualGlobal: updated.epAtual,
+      proximaSeason: nextSeasonAndEp.season,
+      proximoEpLocal: nextSeasonAndEp.episode,
       numEpisodiosTotal: totalEpisodesUpdated,
       temporada: updated.anime.temporada,
       ano: updated.anime.ano,
       prioridade: updated.prioridade,
       linksExternos: updated.anime.linksExternos,
       linksPersonalizados: updated.linksPersonalizados,
+      notas: updated.notas,
       proximoEpisodio: updated.anime.proximoEpisodio,
       proximoEpisodioData: updated.anime.proximoEpisodioData,
       episodes: updated.anime.episodesList || [],

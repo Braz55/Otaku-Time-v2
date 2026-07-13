@@ -163,7 +163,12 @@ const CalendarPage = () => {
       }
     }
 
-    const formattedTime = format(airDateObj, 'HH:mm');
+    const isDefaultTime =
+      airDateObj.getUTCHours() === 12 &&
+      airDateObj.getUTCMinutes() === 0 &&
+      airDateObj.getUTCSeconds() === 0;
+
+    const formattedTime = isDefaultTime ? null : format(airDateObj, 'HH:mm');
 
     return (
       <article 
@@ -239,14 +244,16 @@ const CalendarPage = () => {
             </div>
           ) : (
             /* Broadcast Time */
-            <div className="text-right text-xs text-on-surface-variant space-y-1">
-              <span className="text-secondary font-black block text-base md:text-lg">
-                {formattedTime}
-              </span>
-              <span className="text-[9px] uppercase tracking-widest font-bold opacity-60">
-                {t('JST')}
-              </span>
-            </div>
+            formattedTime && (
+              <div className="text-right text-xs text-on-surface-variant space-y-1">
+                <span className="text-secondary font-black block text-base md:text-lg">
+                  {formattedTime}
+                </span>
+                <span className="text-[9px] uppercase tracking-widest font-bold opacity-60">
+                  {t('HORA')}
+                </span>
+              </div>
+            )
           )}
         </div>
       </article>

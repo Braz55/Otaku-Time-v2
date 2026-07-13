@@ -706,7 +706,14 @@ const HomePage = () => {
                       
                       const currentLocal = categoria === 'anime' ? (item.epAtual || 0) : (item.capAtual || 0);
                       const currentGlobal = categoria === 'anime' ? (item.epAtualGlobal !== undefined ? item.epAtualGlobal : (item.epAtual || 0)) : (item.capAtual || 0);
-                      const epQueVouVer = currentLocal + 1;
+                      
+                      const epQueVouVer = (categoria === 'anime' && item.proximoEpLocal !== undefined)
+                        ? item.proximoEpLocal
+                        : currentLocal + 1;
+                        
+                      const seasonQueVouVer = (categoria === 'anime' && item.proximaSeason !== undefined)
+                        ? item.proximaSeason
+                        : item.seasonAtual;
                       
                       const status = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
                       const proxNum = categoria === 'anime' ? (item.anime?.proximoEpisodio || item.proximoEpisodio) : (item.manga?.proximoCapituloNumero || item.proximoCapituloNumero);
@@ -731,8 +738,8 @@ const HomePage = () => {
                               <h4 className="font-bold text-[11px] text-white truncate mb-0.5">{title}</h4>
                               <p className="text-[10px] text-on-surface-variant font-medium">
                                 {categoria === 'anime'
-                                  ? (item.seasonAtual && item.seasonAtual > 1
-                                      ? `T${item.seasonAtual} Ep. ${epQueVouVer}`
+                                  ? (seasonQueVouVer && seasonQueVouVer > 1
+                                      ? `T${seasonQueVouVer} Ep. ${epQueVouVer}`
                                       : `Episódio ${epQueVouVer}`)
                                   : `Capítulo ${epQueVouVer}`}
                               </p>
@@ -784,7 +791,14 @@ const HomePage = () => {
                       
                       const currentLocal = categoria === 'anime' ? (item.epAtual || 0) : (item.capAtual || 0);
                       const currentGlobal = categoria === 'anime' ? (item.epAtualGlobal !== undefined ? item.epAtualGlobal : (item.epAtual || 0)) : (item.capAtual || 0);
-                      const epQueVouVer = currentLocal + 1;
+                      
+                      const epQueVouVer = (categoria === 'anime' && item.proximoEpLocal !== undefined)
+                        ? item.proximoEpLocal
+                        : currentLocal + 1;
+                        
+                      const seasonQueVouVer = (categoria === 'anime' && item.proximaSeason !== undefined)
+                        ? item.proximaSeason
+                        : item.seasonAtual;
                       
                       const status = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
                       const proxNum = categoria === 'anime' ? (item.anime?.proximoEpisodio || item.proximoEpisodio) : (item.manga?.proximoCapituloNumero || item.proximoCapituloNumero);
@@ -808,8 +822,8 @@ const HomePage = () => {
                               <h4 className="font-label-md text-sm text-white mb-0.5 group-hover:text-primary transition-colors truncate">{title}</h4>
                               <p className="text-xs text-on-surface-variant font-medium">
                                 {categoria === 'anime'
-                                  ? (item.seasonAtual && item.seasonAtual > 1
-                                      ? `T${item.seasonAtual} Ep. ${epQueVouVer}`
+                                  ? (seasonQueVouVer && seasonQueVouVer > 1
+                                      ? `T${seasonQueVouVer} Ep. ${epQueVouVer}`
                                       : `Episódio ${epQueVouVer}`)
                                   : `Capítulo ${epQueVouVer}`}
                               </p>

@@ -76,6 +76,7 @@ model UserAnime {
   status     TrackingStatus @default(PLANNED)
   prioridade Int            @default(5)
   linksPersonalizados String?
+  notas      String?
   userId     Int
   animeId    Int
   user       User           @relation(fields: [userId], references: [id])
@@ -113,6 +114,7 @@ model UserManga {
   status     TrackingStatus @default(PLANNED)
   prioridade Int            @default(5)
   linksPersonalizados String?
+  notas      String?
   userId     Int
   mangaId    Int
   user       User           @relation(fields: [userId], references: [id])

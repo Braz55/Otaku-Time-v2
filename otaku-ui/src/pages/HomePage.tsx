@@ -270,6 +270,8 @@ const HomePage = () => {
     if (savingItems[item.id]) return;
 
     let payload: Record<string, any> = {};
+    let optimisticUpdates: Record<string, any> = {};
+
     if (type === 'anime') {
       const currentGlobal = item.epAtualGlobal !== undefined ? item.epAtualGlobal : (item.epAtual || 0);
       let maxDisp = item.anime?.numEpisodiosTotal || item.numEpisodiosTotal || 9999;
@@ -300,9 +302,59 @@ const HomePage = () => {
         epAtual: epQueVouVer,
         seasonAtual: seasonQueVouVer
       };
+
+      const nextGlobal = currentGlobal + 1;
+      optimisticUpdates = {
+        epAtual: epQueVouVer,
+        seasonAtual: seasonQueVouVer,
+        epAtualGlobal: nextGlobal,
+      };
+
+      if (nextGlobal >= maxDisp) {
+        optimisticUpdates.shouldRemove = true;
+      }
     } else {
       const currentCap = item.capAtual || 0;
       payload = { capAtual: currentCap + 1 };
+
+      let maxDisp = item.manga?.numCapitulosTotal || item.numCapitulosTotal || 9999;
+      const status = item.manga?.statusLancamento || item.statusLancamento;
+      const proxCap = item.manga?.proximoCapituloNumero || item.proximoCapituloNumero;
+      if (status === 'RELEASING' && proxCap) {
+        maxDisp = proxCap - 1;
+      }
+
+      const nextCap = currentCap + 1;
+      optimisticUpdates = {
+        capAtual: nextCap,
+      };
+
+      if (nextCap >= maxDisp) {
+        optimisticUpdates.shouldRemove = true;
+      }
+    }
+
+    // Apply Optimistic Update
+    if (type === 'anime') {
+      setAnimeDashboardData(prev => {
+        if (optimisticUpdates.shouldRemove) {
+          return { ...prev, items: prev.items.filter(i => i.id !== item.id) };
+        }
+        return {
+          ...prev,
+          items: prev.items.map(i => i.id === item.id ? { ...i, ...optimisticUpdates } : i)
+        };
+      });
+    } else {
+      setMangaDashboardData(prev => {
+        if (optimisticUpdates.shouldRemove) {
+          return { ...prev, items: prev.items.filter(i => i.id !== item.id) };
+        }
+        return {
+          ...prev,
+          items: prev.items.map(i => i.id === item.id ? { ...i, ...optimisticUpdates } : i)
+        };
+      });
     }
 
     setSavingItems(prev => ({ ...prev, [item.id]: true }));
@@ -315,14 +367,42 @@ const HomePage = () => {
         body: JSON.stringify(payload)
       });
       if (response.ok) {
-        await carregarDashboard();
+        const updatedData = await response.json();
+        
+        // Update list with actual response
+        if (type === 'anime') {
+          setAnimeDashboardData(prev => {
+            if (updatedData.status === 'COMPLETED') {
+              return { ...prev, items: prev.items.filter(i => i.id !== item.id) };
+            }
+            return {
+              ...prev,
+              items: prev.items.map(i => i.id === item.id ? { ...i, ...updatedData } : i)
+            };
+          });
+        } else {
+          setMangaDashboardData(prev => {
+            if (updatedData.status === 'COMPLETED') {
+              return { ...prev, items: prev.items.filter(i => i.id !== item.id) };
+            }
+            return {
+              ...prev,
+              items: prev.items.map(i => i.id === item.id ? { ...i, ...updatedData } : i)
+            };
+          });
+        }
+        
         showToast('Progresso atualizado.', 'success');
+        // Refresh dashboard silently in background to update highlights / order
+        carregarDashboard();
       } else {
         showToast('Não foi possível marcar como visto.', 'error');
+        carregarDashboard();
       }
     } catch (error) {
       console.error("Erro ao marcar como visto:", error);
       showToast('Erro ao marcar como visto.', 'error');
+      carregarDashboard();
     } finally {
       setSavingItems(prev => ({ ...prev, [item.id]: false }));
     }

@@ -293,7 +293,13 @@ const HomePage = () => {
         showToast('Não é possível marcar episódios que ainda não estrearam.', 'error');
         return;
       }
-      payload = { epAtual: currentGlobal + 1 };
+      
+      const epQueVouVer = item.proximoEpLocal !== undefined ? item.proximoEpLocal : (item.epAtual || 0) + 1;
+      const seasonQueVouVer = item.proximaSeason !== undefined ? item.proximaSeason : (item.seasonAtual || 1);
+      payload = { 
+        epAtual: epQueVouVer,
+        seasonAtual: seasonQueVouVer
+      };
     } else {
       const currentCap = item.capAtual || 0;
       payload = { capAtual: currentCap + 1 };

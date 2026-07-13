@@ -44,6 +44,9 @@ describe('AnimeService', () => {
     userTopFavorite: {
       count: jest.fn(),
     },
+    media: {
+      findUnique: jest.fn(),
+    },
   };
 
   const mockListService = {};
@@ -389,6 +392,100 @@ describe('AnimeService', () => {
       });
       expect(recommendations.length).toBe(1);
       expect(recommendations[0].id).toBe(601);
+    });
+  });
+
+  describe('update', () => {
+    const userId = 10;
+    const user = { userId, tipoConta: 'USER' };
+
+    it('should auto-complete a finished anime when the user marks the last episode as seen', async () => {
+      const mockAnimeFinished = {
+        id: 101,
+        titulo: 'Finished Show',
+        statusLancamento: 'FINISHED',
+        episodesList: [
+          { season: 1, episodeNumber: 1, airDate: new Date('2020-01-01').toISOString() },
+          { season: 1, episodeNumber: 2, airDate: new Date('2020-01-02').toISOString() },
+        ],
+      };
+
+      const mockUserAnime = {
+        id: 50,
+        userId,
+        animeId: 101,
+        status: 'WATCHING',
+        epAtual: 1,
+        seasonAtual: 1,
+        anime: mockAnimeFinished,
+      };
+
+      mockPrismaService.userAnime.findUnique.mockResolvedValue(mockUserAnime);
+      mockPrismaService.media.findUnique.mockResolvedValue({ id: 101 });
+      mockPrismaService.userAnime.update.mockResolvedValue({
+        ...mockUserAnime,
+        status: 'COMPLETED',
+        epAtual: 2,
+      });
+
+      const result = await service.update(50, { epAtual: 2, seasonAtual: 1 }, user);
+
+      expect(mockPrismaService.userAnime.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 50 },
+          data: expect.objectContaining({
+            status: 'COMPLETED',
+            epAtual: 2,
+          }),
+        }),
+      );
+      expect(result.status).toBe('COMPLETED');
+    });
+
+    it('should NOT auto-complete a releasing anime when the user marks the last available episode as seen', async () => {
+      const mockAnimeReleasing = {
+        id: 102,
+        titulo: 'Releasing Show',
+        statusLancamento: 'RELEASING',
+        episodesList: [
+          { season: 1, episodeNumber: 1, airDate: new Date('2020-01-01').toISOString() },
+          { season: 1, episodeNumber: 2, airDate: new Date('2020-01-02').toISOString() },
+        ],
+      };
+
+      const mockUserAnime = {
+        id: 51,
+        userId,
+        animeId: 102,
+        status: 'WATCHING',
+        epAtual: 1,
+        seasonAtual: 1,
+        anime: mockAnimeReleasing,
+      };
+
+      mockPrismaService.userAnime.findUnique.mockResolvedValue(mockUserAnime);
+      mockPrismaService.media.findUnique.mockResolvedValue({ id: 102 });
+      mockPrismaService.userAnime.update.mockResolvedValue({
+        ...mockUserAnime,
+        status: 'WATCHING',
+        epAtual: 2,
+      });
+
+      const result = await service.update(51, { epAtual: 2, seasonAtual: 1 }, user);
+
+      expect(mockPrismaService.userAnime.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 51 },
+          data: expect.objectContaining({
+            epAtual: 2,
+          }),
+        }),
+      );
+      
+      const updateCalls = mockPrismaService.userAnime.update.mock.calls;
+      const lastCallArgs = updateCalls[updateCalls.length - 1][0];
+      expect(lastCallArgs.data.status).toBeUndefined();
+      expect(result.status).toBe('WATCHING');
     });
   });
 });

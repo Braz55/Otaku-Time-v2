@@ -882,7 +882,8 @@ const DetailsPage = () => {
         optimisticUpdates.status = 'WATCHING';
       }
       if (mediaType === 'anime') {
-        if (totalAll && val >= totalAll) {
+        const isFinished = selectedItem.statusLancamento === 'FINISHED';
+        if (isFinished && totalAll && val >= totalAll) {
           optimisticUpdates.status = 'COMPLETED';
         }
       } else {

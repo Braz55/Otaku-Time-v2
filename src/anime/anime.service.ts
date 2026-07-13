@@ -524,7 +524,7 @@ export class AnimeService {
         novosDados.status = 'WATCHING';
 
       if (
-        atual.anime.statusLancamento !== 'FINISHED' &&
+        atual.anime.statusLancamento === 'FINISHED' &&
         totalEpisodes &&
         globalEp >= totalEpisodes
       ) {

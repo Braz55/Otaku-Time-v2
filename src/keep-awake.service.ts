@@ -10,7 +10,7 @@ export class KeepAwakeService implements OnModuleDestroy {
 
   private isWithinActiveHours(): boolean {
     const timezone = process.env.AWAKE_TIMEZONE || 'Europe/Lisbon';
-    const startHour = parseInt(process.env.AWAKE_START_HOUR || '8', 10);
+    const startHour = parseInt(process.env.AWAKE_START_HOUR || '7', 10);
     const endHour = parseInt(process.env.AWAKE_END_HOUR || '2', 10); // 2 significa 2 AM
 
     const now = new Date();

@@ -1,5 +1,7 @@
-import { Controller, Get, Post, Query } from '@nestjs/common';
+import { Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { SyncService } from './sync.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AdminGuard } from '../auth/guards/admin.guard';
 
 @Controller('sync')
 export class SyncController {
@@ -11,10 +13,10 @@ export class SyncController {
   }
 
   @Post('start')
-  async startSync(@Query('bypass') bypass?: string) {
-    const bypassCooldown = bypass === 'true';
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async startSync() {
     // Inicia em background para não bloquear a resposta HTTP
-    this.syncService.runAutoSync(bypassCooldown, 30 * 60 * 1000);
-    return { message: 'Background sync started successfully' };
+    this.syncService.runManualSync();
+    return { message: 'Background manual sync started successfully' };
   }
 }

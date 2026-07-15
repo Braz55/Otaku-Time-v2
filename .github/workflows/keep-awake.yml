@@ -2,8 +2,8 @@ name: Keep Service Awake
 
 on:
   schedule:
-    # Runs every 30 minutes from 07:00 to 23:59 UTC
-    - cron: '*/30 7-23 * * *'
+    # Runs every 30 minutes from 06:00 to 23:59 UTC (starts at 07:00 local time in summer)
+    - cron: '*/30 6-23 * * *'
     # Runs every 30 minutes from 00:00 to 01:59 UTC (approx. 01:00 to 03:00 local time)
     - cron: '*/30 0-1 * * *'
   workflow_dispatch: # Allows manual triggering from GitHub UI
@@ -23,5 +23,43 @@ jobs:
             echo "=========================================================================================="
             exit 1
           fi
-          echo "Pinging service at $RENDER_URL..."
-          curl -s -f -I "$RENDER_URL/health" || curl -s -f -I "$RENDER_URL"
+          
+          # Remove trailing slash if present
+          URL="${RENDER_URL%/}"
+          echo "Pinging service at $URL..."
+          
+          # Retry loop to allow Render service to wake up (cold start can take 30-90 seconds)
+          MAX_RETRIES=6
+          RETRY_DELAY=20
+          
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Ping attempt $i of $MAX_RETRIES..."
+            
+            # Fetch HTTP status code for /health
+            STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL/health")
+            echo "Service /health returned HTTP status code: $STATUS_CODE"
+            
+            # If status code is 2xx or 3xx
+            if [[ "$STATUS_CODE" =~ ^[23][0-9][0-9]$ ]]; then
+              echo "Success! Service is awake."
+              exit 0
+            fi
+            
+            # Fallback to root path if health is not found/not working
+            STATUS_CODE_ROOT=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+            echo "Service root path returned HTTP status code: $STATUS_CODE_ROOT"
+            
+            if [[ "$STATUS_CODE_ROOT" =~ ^[23][0-9][0-9]$ ]]; then
+              echo "Success! Service is awake (via root path)."
+              exit 0
+            fi
+            
+            if [ $i -lt $MAX_RETRIES ]; then
+              echo "Service not fully awake/ready yet. Retrying in ${RETRY_DELAY}s..."
+              sleep $RETRY_DELAY
+            fi
+          done
+          
+          echo "Error: Service failed to wake up after $MAX_RETRIES attempts."
+          exit 1
+

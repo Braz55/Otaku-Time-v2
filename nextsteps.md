@@ -5,10 +5,10 @@
 ### 1. Sorteios Aleatórios Inteligentes -> foram apagados com a nova interfasse
 
 
-### 4. melhorar o sistema de sincronizacao 
+### 2. melhorar o sistema de sincronizacao 
 ever tmb as notificacoes, algumas aparecem dupicadas, tipo a dizer que o anime estreou e que o ep 1 saiu
 
-### 5. rever tratamento dos ep espessiais e como sao tratados no lancamento e de maneira geral
+### 4. rever tratamento dos ep espessiais e como sao tratados no lancamento e de maneira geral
 
 
 ### 7. Reativação e Expansão de Listas Personalizadas (Coleções Manuais)
@@ -18,9 +18,15 @@ ever tmb as notificacoes, algumas aparecem dupicadas, tipo a dizer que o anime e
 * **Salvamento Diferido & Bloqueador de Navegação:** Botão "Guardar Alterações" ativado dinamicamente para salvar reordenações/edições de uma só vez. Alerta de navegação implementado usando `window.hasUnsavedChanges` no Layout, botões internos e retrocesso físico Android (Capacitor) para evitar perda de dados sem depender do problemático hook `useBlocker` do React Router.
 
 
-### 8. posso separar notificacoes de amnda das de anime
+### posso separar notificacoes de amnda das de anime
 
 
 ### horario de lancamento dos ep no calendario
+
+### nabiblioteca  
+o botao de ver mais da secao em  dia aparece depois da secao de por estrear
+ao estar a aexplorar a biblioteca ponho ver mais e escolho um anime que apareceu depois, ao voltar apara a biblioteca essa secção voltou a encolher 
+
+### sugestoes de animes
 ---
 

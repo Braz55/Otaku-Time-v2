@@ -100,12 +100,17 @@ const LibraryPage = () => {
   const [selectedGenres, setSelectedGenres] = useState<string[]>(() => getInitialState('selectedGenres', []));
   const [selectedTags, setSelectedTags] = useState<string[]>(() => getInitialState('selectedTags', []));
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(24);
+  const [visibleCount, setVisibleCount] = useState(() => getInitialState('visibleCount', 24));
+  const [visibleCountPending, setVisibleCountPending] = useState(() => getInitialState('visibleCountPending', 24));
+  const [visibleCountEmDia, setVisibleCountEmDia] = useState(() => getInitialState('visibleCountEmDia', 24));
+  const [visibleCountPorEstrear, setVisibleCountPorEstrear] = useState(() => getInitialState('visibleCountPorEstrear', 24));
 
-  // Reset visible items count when category or any filter/sorting changes
-  useEffect(() => {
+  const resetVisibleCounts = () => {
     setVisibleCount(24);
-  }, [categoria, filtroStatus, filtroLancamento, ordenacao, selectedGenres, selectedTags]);
+    setVisibleCountPending(24);
+    setVisibleCountEmDia(24);
+    setVisibleCountPorEstrear(24);
+  };
 
   const stateRef = useRef({
     filtroStatus,
@@ -113,7 +118,11 @@ const LibraryPage = () => {
     ordenacao,
     selectedGenres,
     selectedTags,
-    scrollPosition: 0
+    scrollPosition: 0,
+    visibleCount,
+    visibleCountPending,
+    visibleCountEmDia,
+    visibleCountPorEstrear
   });
 
   const prevCategoryRef = useRef<string | null>(null);
@@ -126,9 +135,13 @@ const LibraryPage = () => {
       ordenacao,
       selectedGenres,
       selectedTags,
-      scrollPosition: window.scrollY
+      scrollPosition: window.scrollY,
+      visibleCount,
+      visibleCountPending,
+      visibleCountEmDia,
+      visibleCountPorEstrear
     };
-  }, [filtroStatus, filtroLancamento, ordenacao, selectedGenres, selectedTags]);
+  }, [filtroStatus, filtroLancamento, ordenacao, selectedGenres, selectedTags, visibleCount, visibleCountPending, visibleCountEmDia, visibleCountPorEstrear]);
 
   // Clear saved library state if not returning from details page
   useEffect(() => {
@@ -175,6 +188,10 @@ const LibraryPage = () => {
         setOrdenacao(restoredOrder || defaultOrder);
         setSelectedGenres(state.selectedGenres || []);
         setSelectedTags(state.selectedTags || []);
+        setVisibleCount(state.visibleCount || 24);
+        setVisibleCountPending(state.visibleCountPending || 24);
+        setVisibleCountEmDia(state.visibleCountEmDia || 24);
+        setVisibleCountPorEstrear(state.visibleCountPorEstrear || 24);
         (window as any)._pendingLibraryScroll = state.scrollPosition || 0;
       } catch (e) {
         console.error("Error restoring library state:", e);
@@ -185,6 +202,10 @@ const LibraryPage = () => {
       setOrdenacao(defaultOrder);
       setSelectedGenres([]);
       setSelectedTags([]);
+      setVisibleCount(24);
+      setVisibleCountPending(24);
+      setVisibleCountEmDia(24);
+      setVisibleCountPorEstrear(24);
       (window as any)._pendingLibraryScroll = 0;
     }
   }, [categoria]);
@@ -208,7 +229,11 @@ const LibraryPage = () => {
       ordenacao,
       selectedGenres,
       selectedTags,
-      scrollPosition: window.scrollY
+      scrollPosition: window.scrollY,
+      visibleCount,
+      visibleCountPending,
+      visibleCountEmDia,
+      visibleCountPorEstrear
     };
     sessionStorage.setItem(`otaku_library_state_${categoria}`, JSON.stringify(currentState));
     navigate(`/details/${categoria}/${itemId}`);
@@ -417,13 +442,11 @@ const LibraryPage = () => {
   const emDia = filtroStatus === 'WATCHING' ? restOfWatching.filter(item => !hasPendingEpisodes(item)) : [];
 
   const paginatedItems = ordenados.slice(0, visibleCount);
-  const paginatedPorEstrear = porEstrear.slice(0, visibleCount);
-  const paginatedComPendentes = comPendentes.slice(0, visibleCount);
-  const paginatedEmDia = emDia.slice(0, visibleCount);
+  const paginatedPorEstrear = porEstrear.slice(0, visibleCountPorEstrear);
+  const paginatedComPendentes = comPendentes.slice(0, visibleCountPending);
+  const paginatedEmDia = emDia.slice(0, visibleCountEmDia);
 
-  const hasMore = filtroStatus === 'WATCHING' 
-    ? (comPendentes.length > visibleCount || emDia.length > visibleCount || porEstrear.length > visibleCount)
-    : (filtrados.length > visibleCount);
+  const hasMore = filtrados.length > visibleCount;
 
   const renderLibraryItem = (item: any) => {
     const coverUrl = item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl;
@@ -589,7 +612,7 @@ const LibraryPage = () => {
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setFiltroStatus(tab.id)}
+                onClick={() => { setFiltroStatus(tab.id); resetVisibleCounts(); }}
                 className={`px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex-1 sm:flex-initial text-center cursor-pointer ${
                   filtroStatus === tab.id 
                     ? (categoria === 'anime' 
@@ -627,7 +650,7 @@ const LibraryPage = () => {
                   ].map(opt => (
                     <button
                       key={opt.id}
-                      onClick={() => { setFiltroLancamento(opt.id); setShowLancamentoMenu(false); }}
+                      onClick={() => { setFiltroLancamento(opt.id); setShowLancamentoMenu(false); resetVisibleCounts(); }}
                       className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-colors hover:bg-white/5 ${filtroLancamento === opt.id ? (categoria === 'anime' ? 'text-secondary' : 'text-primary') : 'text-on-surface-variant'}`}
                     >
                       {opt.label}
@@ -662,7 +685,7 @@ const LibraryPage = () => {
                   ].map(opt => (
                     <button
                       key={opt.id}
-                      onClick={() => { setOrdenacao(opt.id); setShowOrdemMenu(false); }}
+                      onClick={() => { setOrdenacao(opt.id); setShowOrdemMenu(false); resetVisibleCounts(); }}
                       className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-colors hover:bg-white/5 ${ordenacao === opt.id ? (categoria === 'anime' ? 'text-secondary' : 'text-primary') : 'text-on-surface-variant'}`}
                     >
                       {opt.label}
@@ -695,7 +718,7 @@ const LibraryPage = () => {
             {selectedGenres.map(genre => (
               <span key={genre} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/20 border border-primary/30 text-primary-light text-[11px] font-bold">
                 {genre}
-                <button onClick={() => setSelectedGenres(prev => prev.filter(g => g !== genre))} className="p-0.5 rounded-full hover:bg-white/10 flex items-center justify-center">
+                <button onClick={() => { setSelectedGenres(prev => prev.filter(g => g !== genre)); resetVisibleCounts(); }} className="p-0.5 rounded-full hover:bg-white/10 flex items-center justify-center">
                   <span className="material-symbols-outlined text-[12px] block leading-none">close</span>
                 </button>
               </span>
@@ -703,12 +726,12 @@ const LibraryPage = () => {
             {selectedTags.map(tag => (
               <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#00b0ff]/20 border border-[#00b0ff]/30 text-sky-300 text-[11px] font-bold">
                 {tag}
-                <button onClick={() => setSelectedTags(prev => prev.filter(t => t !== tag))} className="p-0.5 rounded-full hover:bg-white/10 flex items-center justify-center">
+                <button onClick={() => { setSelectedTags(prev => prev.filter(t => t !== tag)); resetVisibleCounts(); }} className="p-0.5 rounded-full hover:bg-white/10 flex items-center justify-center">
                   <span className="material-symbols-outlined text-[12px] block leading-none">close</span>
                 </button>
               </span>
             ))}
-            <button onClick={() => { setSelectedGenres([]); setSelectedTags([]); }} className="text-xs text-on-surface-variant hover:text-white font-bold px-2 py-1 transition-colors">
+            <button onClick={() => { setSelectedGenres([]); setSelectedTags([]); resetVisibleCounts(); }} className="text-xs text-on-surface-variant hover:text-white font-bold px-2 py-1 transition-colors">
               Limpar Todos
             </button>
           </div>
@@ -726,15 +749,18 @@ const LibraryPage = () => {
               setSelectedGenres(prev => 
                 prev.includes(name) ? prev.filter(g => g !== name) : [...prev, name]
               );
+              resetVisibleCounts();
             }}
             onToggleTag={(name) => {
               setSelectedTags(prev => 
                 prev.includes(name) ? prev.filter(t => t !== name) : [...prev, name]
               );
+              resetVisibleCounts();
             }}
             onClear={() => {
               setSelectedGenres([]);
               setSelectedTags([]);
+              resetVisibleCounts();
             }}
             hideInlineTrigger={true}
             categoria={categoria}
@@ -757,9 +783,25 @@ const LibraryPage = () => {
                 </h3>
               </div>
               {paginatedComPendentes.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6">
-                  {paginatedComPendentes.map(item => renderLibraryItem(item))}
-                </div>
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6">
+                    {paginatedComPendentes.map(item => renderLibraryItem(item))}
+                  </div>
+                  {comPendentes.length > visibleCountPending && (
+                    <div className="flex justify-center pt-4">
+                      <button
+                        onClick={() => setVisibleCountPending(prev => prev + 24)}
+                        className={`px-8 py-3 rounded-2xl text-sm font-bold text-white transition-all shadow-lg active:scale-95 cursor-pointer ${
+                          categoria === 'anime' 
+                            ? 'bg-secondary hover:bg-secondary/90 hover:shadow-[0_0_20px_rgba(194,24,91,0.4)]' 
+                            : 'bg-primary hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(106,27,154,0.4)]'
+                        }`}
+                      >
+                        {t("Ver Mais")}
+                      </button>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="py-8 text-center glass-panel rounded-3xl border border-white/5">
                   <p className="text-on-surface-variant text-xs sm:text-sm font-medium italic">Nenhum título com novos episódios/capítulos por ver/ler.</p>
@@ -776,9 +818,25 @@ const LibraryPage = () => {
                 </h3>
               </div>
               {paginatedEmDia.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6">
-                  {paginatedEmDia.map(item => renderLibraryItem(item))}
-                </div>
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6">
+                    {paginatedEmDia.map(item => renderLibraryItem(item))}
+                  </div>
+                  {emDia.length > visibleCountEmDia && (
+                    <div className="flex justify-center pt-4">
+                      <button
+                        onClick={() => setVisibleCountEmDia(prev => prev + 24)}
+                        className={`px-8 py-3 rounded-2xl text-sm font-bold text-white transition-all shadow-lg active:scale-95 cursor-pointer ${
+                          categoria === 'anime' 
+                            ? 'bg-secondary hover:bg-secondary/90 hover:shadow-[0_0_20px_rgba(194,24,91,0.4)]' 
+                            : 'bg-primary hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(106,27,154,0.4)]'
+                        }`}
+                      >
+                        {t("Ver Mais")}
+                      </button>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="py-8 text-center glass-panel rounded-3xl border border-white/5">
                   <p className="text-on-surface-variant text-xs sm:text-sm font-medium italic">Nenhum título em dia.</p>
@@ -796,9 +854,25 @@ const LibraryPage = () => {
                   </h3>
                 </div>
                 {paginatedPorEstrear.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6">
-                    {paginatedPorEstrear.map(item => renderLibraryItem(item))}
-                  </div>
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6">
+                      {paginatedPorEstrear.map(item => renderLibraryItem(item))}
+                    </div>
+                    {porEstrear.length > visibleCountPorEstrear && (
+                      <div className="flex justify-center pt-4">
+                        <button
+                          onClick={() => setVisibleCountPorEstrear(prev => prev + 24)}
+                          className={`px-8 py-3 rounded-2xl text-sm font-bold text-white transition-all shadow-lg active:scale-95 cursor-pointer ${
+                            categoria === 'anime' 
+                              ? 'bg-secondary hover:bg-secondary/90 hover:shadow-[0_0_20px_rgba(194,24,91,0.4)]' 
+                              : 'bg-primary hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(106,27,154,0.4)]'
+                          }`}
+                        >
+                          {t("Ver Mais")}
+                        </button>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className="py-8 text-center glass-panel rounded-3xl border border-white/5">
                     <p className="text-on-surface-variant text-xs sm:text-sm font-medium italic">Nenhum título por estrear.</p>
@@ -823,7 +897,7 @@ const LibraryPage = () => {
         )}
 
         {/* Load More Button */}
-        {!loading && hasMore && (
+        {!loading && hasMore && filtroStatus !== 'WATCHING' && (
           <div className="flex justify-center pt-8 pb-4 relative z-20">
             <button
               onClick={() => setVisibleCount(prev => prev + 24)}

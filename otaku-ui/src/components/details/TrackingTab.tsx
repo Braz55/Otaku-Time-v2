@@ -103,7 +103,6 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
      (totalAiredEpisodes === 0 && selectedItem.statusLancamento !== 'FINISHED'));
   const [statusDropdownOpen, setStatusDropdownOpen] = React.useState(false);
   const [seasonDropdownOpen, setSeasonDropdownOpen] = React.useState(false);
-  const [localNotes, setLocalNotes] = React.useState(selectedItem.notas || '');
 
   const releaseDateFormatted = React.useMemo(() => {
     if (!selectedItem.dataLancamento) return '';
@@ -118,23 +117,6 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
     return '';
   }, [selectedItem.dataLancamento]);
 
-  React.useEffect(() => {
-    setLocalNotes(selectedItem.notas || '');
-  }, [selectedItem.id, selectedItem.notas]);
-
-  React.useEffect(() => {
-    if (localNotes === (selectedItem.notas || '')) return;
-    const timer = setTimeout(() => {
-      atualizarCampo('notas', localNotes);
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [localNotes, selectedItem.notas]);
-
-  const handleNotesBlur = () => {
-    if (localNotes !== (selectedItem.notas || '')) {
-      atualizarCampo('notas', localNotes);
-    }
-  };
 
   const linksPessoais = selectedItem.linksPersonalizados ? JSON.parse(selectedItem.linksPersonalizados).map((l: any) => ({ ...l, tipo: 'Custom' })) : [];
 
@@ -1138,25 +1120,9 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
         </div>
       </div>
 
-      {/* 2. Custom Notes / Personal Links & Library Deletion */}
+      {/* 2. Personal Links & Library Deletion */}
       {!selectedItem.isExternal && (
         <div className="space-y-6">
-          
-          {/* Custom Notes Section */}
-          <div className="bg-[#18181c]/80 border border-white/5 rounded-3xl p-6 relative z-20 shadow-xl backdrop-blur-md space-y-4">
-            <h3 className="text-sm font-bold flex items-center gap-2 text-white">
-              <span className={`w-1 h-4 rounded-full ${mediaType === 'anime' ? 'bg-primary' : 'bg-secondary'}`}></span>
-              Notas Pessoais
-            </h3>
-            <textarea
-              value={localNotes}
-              onChange={(e) => setLocalNotes(e.target.value)}
-              onBlur={handleNotesBlur}
-              placeholder="Escreve aqui pensamentos, tags ou notas sobre esta obra..."
-              rows={4}
-              className={`w-full bg-black/30 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white outline-none resize-none transition-all ${mediaType === 'anime' ? 'focus:border-primary/60' : 'focus:border-secondary/60'}`}
-            />
-          </div>
 
           {/* List Management and Library Removal triggers */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">

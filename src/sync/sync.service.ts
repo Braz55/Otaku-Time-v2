@@ -19,20 +19,16 @@ export class SyncService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
-    this.logger.log(
-      'Application Bootstrapped: Checking time since last sync...',
-    );
-    this.runAutoSync(false, 30 * 60 * 1000).catch((err) =>
-      this.logger.error('Error in startup auto-sync:', err),
+    this.logger.log('Application Bootstrapped: Checking scheduled syncs...');
+    this.checkAndRunScheduledSyncs().catch((err) =>
+      this.logger.error('Error in startup scheduled sync check:', err),
     );
   }
 
-  @Cron(CronExpression.EVERY_4_HOURS)
+  @Cron('0 */30 * * * *')
   async handleCron() {
-    this.logger.log(
-      'CRON Triggered: Starting background auto-sync for RELEASING media...',
-    );
-    await this.runAutoSync(true);
+    this.logger.log('CRON Triggered: Checking scheduled syncs...');
+    await this.checkAndRunScheduledSyncs();
   }
 
   @Cron(CronExpression.EVERY_HOUR)
@@ -99,38 +95,146 @@ export class SyncService implements OnApplicationBootstrap {
     }
   }
 
-  async runAutoSync(bypassCooldown = false, cooldownMs = 4 * 60 * 60 * 1000) {
-    if (this.isSyncingActive) {
-      this.logger.warn('Sync is already running. Skipping new trigger.');
-      return { status: 'already_running' };
+  private getLocalHour(date: Date, timezone: string): number {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: 'numeric',
+      hour12: false,
+    });
+    return parseInt(formatter.format(date), 10);
+  }
+
+  private getWindowStartDate(hour: number, isYesterday: boolean, timezone: string): Date {
+    const now = new Date();
+    if (isYesterday) {
+      now.setDate(now.getDate() - 1);
     }
 
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: false,
+    });
+    const parts = fmt.formatToParts(now);
+    const getVal = (type: string) => parseInt(parts.find((p) => p.type === type)!.value, 10);
+
+    const localHour = getVal('hour');
+    const localMinute = getVal('minute');
+    const localSecond = getVal('second');
+
+    const localUtc = Date.UTC(
+      getVal('year'),
+      getVal('month') - 1,
+      getVal('day'),
+      localHour,
+      localMinute,
+      localSecond,
+    );
+    const offsetMs = now.getTime() - localUtc;
+
+    const targetLocalUtc = Date.UTC(
+      getVal('year'),
+      getVal('month') - 1,
+      getVal('day'),
+      hour,
+      0,
+      0,
+    );
+    return new Date(targetLocalUtc + offsetMs);
+  }
+
+  async checkAndRunScheduledSyncs() {
+    const timezone = process.env.AWAKE_TIMEZONE || 'Europe/Lisbon';
+    const now = new Date();
+    const currentHour = this.getLocalHour(now, timezone);
+
+    // active window is 7h to 2h (which means we skip if it is between 2am and 7am)
+    if (currentHour >= 2 && currentHour < 7) {
+      this.logger.log(`Current hour ${currentHour} is outside active awake hours (2 AM to 7 AM). Skipping sync check.`);
+      return;
+    }
+
+    let runAnime = false;
+    let runManga = false;
+    let activeMangaLabel = '';
+
+    // 1. ANIME FULL SYNC check
+    const isAnimeYesterday = currentHour < 2;
+    const animeWindowStartDate = this.getWindowStartDate(7, isAnimeYesterday, timezone);
+
     try {
-      const lastSync = await this.prisma.syncLog.findFirst({
-        where: { status: 'SUCCESS' },
-        orderBy: { timestamp: 'desc' },
+      const lastAnimeSync = await this.prisma.syncLog.findFirst({
+        where: {
+          status: 'SUCCESS',
+          details: { startsWith: '[ANIME_FULL]' },
+          timestamp: { gte: animeWindowStartDate },
+        },
       });
 
-      const now = new Date();
-
-      if (!bypassCooldown && lastSync) {
-        const lastSyncTime = new Date(lastSync.timestamp).getTime();
-        const timeElapsed = now.getTime() - lastSyncTime;
-
-        if (timeElapsed < cooldownMs) {
-          const minutesLeft = (
-            (cooldownMs - timeElapsed) /
-            (60 * 1000)
-          ).toFixed(0);
-          const hoursElapsed = (timeElapsed / (60 * 60 * 1000)).toFixed(2);
-          this.logger.log(
-            `Sync requested, but skipped due to cooldown. Last sync was ${hoursElapsed} hours ago. (${minutesLeft} mins remaining).`,
-          );
-          return { status: 'cooldown_active' };
-        }
+      if (!lastAnimeSync) {
+        runAnime = true;
       }
-    } catch (error) {
-      this.logger.error('Error checking sync cooldown:', error);
+    } catch (e) {
+      this.logger.error('Error checking last anime full sync:', e);
+    }
+
+    // 2. MANGA SYNC check
+    let activeMangaWindow: { label: string; startHour: number; isYesterday: boolean };
+
+    if (currentHour >= 22) {
+      activeMangaWindow = { label: '[MANGA_NIGHT]', startHour: 22, isYesterday: false };
+    } else if (currentHour < 2) {
+      activeMangaWindow = { label: '[MANGA_NIGHT]', startHour: 22, isYesterday: true };
+    } else if (currentHour >= 17) {
+      activeMangaWindow = { label: '[MANGA_AFTERNOON]', startHour: 17, isYesterday: false };
+    } else if (currentHour >= 12) {
+      activeMangaWindow = { label: '[MANGA_MIDDAY]', startHour: 12, isYesterday: false };
+    } else { // 7 <= currentHour < 12
+      activeMangaWindow = { label: '[MANGA_START]', startHour: 7, isYesterday: false };
+    }
+
+    activeMangaLabel = activeMangaWindow.label;
+    const mangaWindowStartDate = this.getWindowStartDate(
+      activeMangaWindow.startHour,
+      activeMangaWindow.isYesterday,
+      timezone,
+    );
+
+    try {
+      const lastMangaSync = await this.prisma.syncLog.findFirst({
+        where: {
+          status: 'SUCCESS',
+          details: { startsWith: activeMangaWindow.label },
+          timestamp: { gte: mangaWindowStartDate },
+        },
+      });
+
+      if (!lastMangaSync) {
+        runManga = true;
+      }
+    } catch (e) {
+      this.logger.error(`Error checking last manga sync for window ${activeMangaWindow.label}:`, e);
+    }
+
+    if (runAnime || runManga) {
+      this.logger.log(
+        `Scheduled sync check: Anime full sync needed: ${runAnime}, Manga sync needed: ${runManga} (${activeMangaLabel})`,
+      );
+      this.runScheduledSyncs(runAnime, runManga, activeMangaLabel).catch((err) =>
+        this.logger.error('Error running scheduled syncs:', err),
+      );
+    }
+  }
+
+  private async runScheduledSyncs(runAnime: boolean, runManga: boolean, mangaLabel: string) {
+    if (this.isSyncingActive) {
+      this.logger.warn('A synchronization is already running. Skipping scheduled trigger.');
+      return;
     }
 
     this.isSyncingActive = true;
@@ -138,95 +242,91 @@ export class SyncService implements OnApplicationBootstrap {
     this.currentItemTitle = 'Initializing...';
 
     try {
-      const animes = await this.prisma.anime.findMany({
-        where: {
-          OR: [
-            { statusLancamento: 'RELEASING' },
-            {
-              statusLancamento: {
-                notIn: ['FINISHED', 'CANCELLED', 'ENDED', 'CANCELED'],
-              },
-              utilizadores: {
-                some: {
-                  status: 'PLANNED',
-                },
-              },
-            },
-            {
-              statusLancamento: null,
-              utilizadores: {
-                some: {
-                  status: 'PLANNED',
-                },
-              },
-            },
-          ],
-        },
-      });
-      const mangas = await this.prisma.manga.findMany({
-        where: { statusLancamento: 'RELEASING' },
-      });
+      let syncedAnimesCount = 0;
+      let syncedMangasCount = 0;
 
-      this.totalItemsToSync = animes.length + mangas.length;
-      this.logger.log(
-        `Found ${animes.length} Animes and ${mangas.length} Mangas to sync.`,
-      );
+      // 1. Anime Full Sync
+      if (runAnime) {
+        this.logger.log('Starting scheduled ANIME FULL sync...');
+        const animes = await this.prisma.anime.findMany();
+        this.totalItemsToSync = animes.length;
 
-      // Processar Animes em lotes de 3
-      for (let i = 0; i < animes.length; i += 3) {
-        const batch = animes.slice(i, i + 3);
-        for (const anime of batch) {
-          this.currentItemTitle = anime.titulo;
-          this.logger.log(
-            `[AutoSync] Syncing Anime: "${anime.titulo}" (ID: ${anime.id})...`,
-          );
-          await this.animeService.syncLatestEpisode(anime.id);
-          this.currentSyncedCount++;
+        for (let i = 0; i < animes.length; i += 3) {
+          if (!this.isSyncingActive) break;
+
+          const batch = animes.slice(i, i + 3);
+          for (const anime of batch) {
+            this.currentItemTitle = anime.titulo;
+            this.logger.log(
+              `[ScheduledSync] [ANIME_FULL] Syncing: "${anime.titulo}" (${this.currentSyncedCount + 1}/${this.totalItemsToSync})`,
+            );
+            await this.animeService.syncLatestEpisode(anime.id);
+            this.currentSyncedCount++;
+            syncedAnimesCount++;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1500));
         }
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        await this.prisma.syncLog.create({
+          data: {
+            status: 'SUCCESS',
+            details: `[ANIME_FULL] Successfully synced all ${syncedAnimesCount} animes.`,
+          },
+        });
+        this.logger.log('Scheduled ANIME FULL sync completed successfully.');
       }
 
-      // Processar Mangas em lotes de 3
-      for (let i = 0; i < mangas.length; i += 3) {
-        const batch = mangas.slice(i, i + 3);
-        for (const manga of batch) {
-          this.currentItemTitle = manga.titulo;
-          this.logger.log(
-            `[AutoSync] Syncing Manga: "${manga.titulo}" (ID: ${manga.id})...`,
-          );
-          await this.mangaService.syncLatestChapter(manga.id);
-          this.currentSyncedCount++;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Reset counters for Manga if both ran
+      if (runAnime && runManga) {
+        this.currentSyncedCount = 0;
+        this.totalItemsToSync = 0;
+        this.currentItemTitle = 'Initializing Manga...';
       }
 
-      this.logger.log('Background AutoSync completed successfully!');
+      // 2. Manga Sync
+      if (runManga) {
+        this.logger.log(`Starting scheduled MANGA sync for window ${mangaLabel}...`);
+        const mangas = await this.prisma.manga.findMany({
+          where: { statusLancamento: 'RELEASING' },
+        });
+        this.totalItemsToSync = mangas.length;
 
-      // Salvar log de sucesso na base de dados
-      await this.prisma.syncLog.create({
-        data: {
-          status: 'SUCCESS',
-          details: `Successfully synced ${animes.length} Animes and ${mangas.length} Mangas (Total: ${this.currentSyncedCount}).`,
-        },
-      });
+        for (let i = 0; i < mangas.length; i += 3) {
+          if (!this.isSyncingActive) break;
+
+          const batch = mangas.slice(i, i + 3);
+          for (const manga of batch) {
+            this.currentItemTitle = manga.titulo;
+            this.logger.log(
+              `[ScheduledSync] ${mangaLabel} Syncing: "${manga.titulo}" (${this.currentSyncedCount + 1}/${this.totalItemsToSync})`,
+            );
+            await this.mangaService.syncLatestChapter(manga.id);
+            this.currentSyncedCount++;
+            syncedMangasCount++;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+        }
+
+        await this.prisma.syncLog.create({
+          data: {
+            status: 'SUCCESS',
+            details: `${mangaLabel} Successfully synced ${syncedMangasCount} releasing mangas.`,
+          },
+        });
+        this.logger.log(`Scheduled MANGA sync for ${mangaLabel} completed successfully.`);
+      }
     } catch (error) {
-      this.logger.error('Error during Background AutoSync:', error);
-      // Salvar log de erro na base de dados
+      this.logger.error('Error during scheduled synchronization:', error);
       try {
+        const typeStr = [runAnime && 'ANIME', runManga && mangaLabel].filter(Boolean).join(' + ');
         await this.prisma.syncLog.create({
           data: {
             status: 'FAILED',
-            details:
-              error instanceof Error
-                ? error.stack || error.message
-                : String(error),
+            details: `[SCHEDULED_SYNC] Failed during ${typeStr}: ${error instanceof Error ? error.stack || error.message : String(error)}`,
           },
         });
       } catch (dbError) {
-        this.logger.error(
-          'Failed to write FAILED sync log to database:',
-          dbError,
-        );
+        this.logger.error('Failed to write FAILED scheduled sync log:', dbError);
       }
     } finally {
       this.isSyncingActive = false;
@@ -234,8 +334,13 @@ export class SyncService implements OnApplicationBootstrap {
       this.currentSyncedCount = 0;
       this.totalItemsToSync = 0;
     }
+  }
 
-    return { status: 'completed' };
+  async runManualSync() {
+    this.logger.log('Manual sync triggered by administrator. Bypassing schedule.');
+    this.runScheduledSyncs(true, true, '[MANGA_MANUAL]').catch((err) =>
+      this.logger.error('Error running manual sync:', err),
+    );
   }
 
   getStatus() {

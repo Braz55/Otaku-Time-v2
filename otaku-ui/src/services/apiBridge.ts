@@ -1,5 +1,6 @@
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { API_BASE_URL } from '../config';
+import { getStorageItem, setStorageItem, removeStorageItem } from './storage';
 
 // Helper para fazer chamadas HTTP nativas retornando um objeto Response padrão
 async function nativeFetchResponse(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -66,8 +67,8 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
     headers.delete('Authorization');
   }
 
-  if (Capacitor.isNativePlatform() && !headers.has('Authorization')) {
-    const savedToken = localStorage.getItem('otaku_token');
+  if (!headers.has('Authorization')) {
+    const savedToken = await getStorageItem('otaku_token');
     if (savedToken && savedToken !== 'session-cookie') {
       headers.set('Authorization', `Bearer ${savedToken}`);
     }
@@ -95,29 +96,25 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
           method: 'POST',
         };
 
-        if (Capacitor.isNativePlatform()) {
-          const savedRefreshToken = localStorage.getItem('otaku_refresh_token');
-          if (savedRefreshToken) {
-            refreshInit.body = JSON.stringify({ refresh_token: savedRefreshToken });
-            refreshInit.headers = { 'Content-Type': 'application/json' };
-          }
+        const savedRefreshToken = await getStorageItem('otaku_refresh_token');
+        if (savedRefreshToken) {
+          refreshInit.body = JSON.stringify({ refresh_token: savedRefreshToken });
+          refreshInit.headers = { 'Content-Type': 'application/json' };
         }
 
         const refreshRes = await nativeFetchResponse(refreshUrl, refreshInit);
         if (refreshRes.ok) {
           const data = await refreshRes.json();
-          if (Capacitor.isNativePlatform()) {
-            localStorage.setItem('otaku_token', data.access_token);
-            localStorage.setItem('otaku_refresh_token', data.refresh_token);
-          }
+          await setStorageItem('otaku_token', data.access_token);
+          await setStorageItem('otaku_refresh_token', data.refresh_token);
           isRefreshing = false;
           onRefreshed(data.access_token);
         } else {
           isRefreshing = false;
           // Invalida sessão se falhar o refresh
-          localStorage.removeItem('otaku_token');
-          localStorage.removeItem('otaku_refresh_token');
-          localStorage.removeItem('otaku_user');
+          await removeStorageItem('otaku_token');
+          await removeStorageItem('otaku_refresh_token');
+          await removeStorageItem('otaku_user');
           window.location.href = '/login';
           return response;
         }
@@ -131,9 +128,7 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
     return new Promise((resolve) => {
       subscribeTokenRefresh((newToken) => {
         const retryHeaders = new Headers(newInit.headers as any);
-        if (Capacitor.isNativePlatform()) {
-          retryHeaders.set('Authorization', `Bearer ${newToken}`);
-        }
+        retryHeaders.set('Authorization', `Bearer ${newToken}`);
         newInit.headers = retryHeaders as any;
         resolve(nativeFetchResponse(input, newInit));
       });

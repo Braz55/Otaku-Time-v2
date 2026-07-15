@@ -71,16 +71,51 @@ const PathTracker = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Splash Loader de Carregamento Premium
+const SplashLoader = () => {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#0f1014] relative overflow-hidden">
+      {/* Luzes de ambiente em degradê */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-[20%] -left-[10%] w-[60%] h-[60%] bg-secondary/10 blur-[120px] rounded-full"></div>
+        <div className="absolute -bottom-[20%] -right-[10%] w-[60%] h-[60%] bg-primary/10 blur-[120px] rounded-full"></div>
+      </div>
+
+      <div className="flex flex-col items-center z-10">
+        {/* Logótipo com brilho pulsante */}
+        <div className="relative mb-6">
+          <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full scale-110 animate-pulse"></div>
+          <img 
+            src="/logo.png" 
+            className="w-28 h-28 rounded-3xl shadow-2xl border border-white/10 object-cover relative z-10" 
+            alt="Otaku Time Logo" 
+          />
+        </div>
+
+        {/* Nome da App */}
+        <h1 className="text-3xl font-extrabold text-white tracking-wider mb-2">
+          Otaku <span className="text-primary font-bold">Time</span>
+        </h1>
+        <p className="text-gray-500 text-xs tracking-widest uppercase mb-8">
+          A carregar a tua biblioteca...
+        </p>
+
+        {/* Indicador de Carregamento */}
+        <div className="flex items-center gap-2 text-primary bg-[#1a1c23] border border-white/5 py-2.5 px-5 rounded-full shadow-lg">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span className="text-gray-300 text-xs font-semibold">A validar sessão...</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0f1014]">
-        <Loader2 className="w-10 h-10 text-primary animate-spin" />
-      </div>
-    );
+    return <SplashLoader />;
   }
 
   return isAuthenticated ? <Layout>{children}</Layout> : <Navigate to="/login" />;
@@ -91,11 +126,7 @@ const GuestRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0f1014]">
-        <Loader2 className="w-10 h-10 text-primary animate-spin" />
-      </div>
-    );
+    return <SplashLoader />;
   }
 
   return isAuthenticated ? <Navigate to="/" /> : <>{children}</>;

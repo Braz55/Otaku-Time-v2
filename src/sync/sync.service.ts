@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { AnimeService } from '../anime/anime.service';
 import { MangaService } from '../manga/manga.service';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class SyncService implements OnApplicationBootstrap {
@@ -16,6 +17,7 @@ export class SyncService implements OnApplicationBootstrap {
     private readonly prisma: PrismaService,
     private readonly animeService: AnimeService,
     private readonly mangaService: MangaService,
+    private readonly emailService: EmailService,
   ) {}
 
   async onApplicationBootstrap() {
@@ -267,13 +269,15 @@ export class SyncService implements OnApplicationBootstrap {
           await new Promise((resolve) => setTimeout(resolve, 1500));
         }
 
+        const detailsMsg = `[ANIME_FULL] Successfully synced all ${syncedAnimesCount} animes.`;
         await this.prisma.syncLog.create({
           data: {
             status: 'SUCCESS',
-            details: `[ANIME_FULL] Successfully synced all ${syncedAnimesCount} animes.`,
+            details: detailsMsg,
           },
         });
         this.logger.log('Scheduled ANIME FULL sync completed successfully.');
+        await this.notifyAdminsAboutSync('SUCCESS', detailsMsg, syncedAnimesCount);
       }
 
       // Reset counters for Manga if both ran
@@ -317,22 +321,84 @@ export class SyncService implements OnApplicationBootstrap {
       }
     } catch (error) {
       this.logger.error('Error during scheduled synchronization:', error);
+      const typeStr = [runAnime && 'ANIME', runManga && mangaLabel].filter(Boolean).join(' + ');
+      const errorMsg = `[SCHEDULED_SYNC] Failed during ${typeStr}: ${error instanceof Error ? error.stack || error.message : String(error)}`;
       try {
-        const typeStr = [runAnime && 'ANIME', runManga && mangaLabel].filter(Boolean).join(' + ');
         await this.prisma.syncLog.create({
           data: {
             status: 'FAILED',
-            details: `[SCHEDULED_SYNC] Failed during ${typeStr}: ${error instanceof Error ? error.stack || error.message : String(error)}`,
+            details: errorMsg,
           },
         });
       } catch (dbError) {
         this.logger.error('Failed to write FAILED scheduled sync log:', dbError);
+      }
+
+      // Notify admins if it failed during runAnime (morning full sync)
+      if (runAnime) {
+        await this.notifyAdminsAboutSync('FAILED', errorMsg);
       }
     } finally {
       this.isSyncingActive = false;
       this.currentItemTitle = '';
       this.currentSyncedCount = 0;
       this.totalItemsToSync = 0;
+    }
+  }
+
+  private async notifyAdminsAboutSync(status: 'SUCCESS' | 'FAILED', details: string, count?: number) {
+    try {
+      const admins = await this.prisma.user.findMany({
+        where: { tipoConta: 'ADMIN' },
+        select: { email: true, nome: true },
+      });
+
+      if (admins.length === 0) {
+        this.logger.warn('No administrators found in the database. Cannot send email notification.');
+        return;
+      }
+
+      const subject = `[Otaku Time] Sincronização da Manhã - ${status === 'SUCCESS' ? 'Sucesso' : 'Falha'}`;
+      const timeStr = new Date().toLocaleString('pt-PT', { timeZone: 'Europe/Lisbon' });
+
+      for (const admin of admins) {
+        const bodyText = `Olá, ${admin.nome}.\n\nA sincronização completa da manhã de animes foi concluída com estado: ${status}.\n\nDetalhes:\n- Data/Hora: ${timeStr}\n- Estado: ${status}\n- Detalhes: ${details}\n\nAbraços,\nEquipa Otaku Time`;
+
+        const bodyHtml = `
+          <div style="font-family: sans-serif; padding: 20px; color: #333;">
+            <h2 style="color: ${status === 'SUCCESS' ? '#2e7d32' : '#c62828'};">
+              Sincronização da Manhã: ${status === 'SUCCESS' ? 'Sucesso' : 'Falha'}
+            </h2>
+            <p>Olá, <strong>${admin.nome}</strong>.</p>
+            <p>A sincronização completa de animes foi executada com o seguinte estado:</p>
+            <table style="border-collapse: collapse; width: 100%; max-width: 500px; margin: 20px 0;">
+              <tr>
+                <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background-color: #f9f9f9;">Data/Hora</td>
+                <td style="padding: 8px; border: 1px solid #ddd;">${timeStr}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background-color: #f9f9f9;">Estado</td>
+                <td style="padding: 8px; border: 1px solid #ddd; color: ${status === 'SUCCESS' ? '#2e7d32' : '#c62828'}; font-weight: bold;">${status}</td>
+              </tr>
+              ${count !== undefined ? `
+              <tr>
+                <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background-color: #f9f9f9;">Animes Sincronizados</td>
+                <td style="padding: 8px; border: 1px solid #ddd;">${count}</td>
+              </tr>
+              ` : ''}
+              <tr>
+                <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background-color: #f9f9f9;">Detalhes</td>
+                <td style="padding: 8px; border: 1px solid #ddd;">${details}</td>
+              </tr>
+            </table>
+            <p style="font-size: 12px; color: #777; margin-top: 30px;">Esta é uma mensagem automática gerada pelo servidor Otaku Time.</p>
+          </div>
+        `;
+
+        await this.emailService.sendEmail(admin.email, subject, bodyText, bodyHtml);
+      }
+    } catch (e: any) {
+      this.logger.error(`Error notifying admins via email: ${e.message}`, e.stack);
     }
   }
 

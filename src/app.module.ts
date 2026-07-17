@@ -13,7 +13,7 @@ import { SyncModule } from './sync/sync.module';
 import { RatingModule } from './rating/rating.module';
 import { CommentModule } from './comment/comment.module';
 import { ListModule } from './list/list.module';
-import { KeepAwakeService } from './keep-awake.service';
+import { KeepAwakeModule } from './keep-awake.module';
 import { KeepAwakeMiddleware } from './keep-awake.middleware';
 import { NotificationModule } from './notification/notification.module';
 
@@ -34,11 +34,11 @@ import { NotificationModule } from './notification/notification.module';
     CommentModule,
     ListModule,
     NotificationModule,
+    KeepAwakeModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
-    KeepAwakeService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,

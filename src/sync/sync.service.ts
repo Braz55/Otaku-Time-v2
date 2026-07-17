@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AnimeService } from '../anime/anime.service';
 import { MangaService } from '../manga/manga.service';
 import { EmailService } from '../email/email.service';
+import { KeepAwakeService } from '../keep-awake.service';
 
 @Injectable()
 export class SyncService implements OnApplicationBootstrap {
@@ -18,6 +19,7 @@ export class SyncService implements OnApplicationBootstrap {
     private readonly animeService: AnimeService,
     private readonly mangaService: MangaService,
     private readonly emailService: EmailService,
+    private readonly keepAwakeService: KeepAwakeService,
   ) {}
 
   async onApplicationBootstrap() {
@@ -29,12 +31,20 @@ export class SyncService implements OnApplicationBootstrap {
 
   @Cron('0 */30 * * * *')
   async handleCron() {
+    if (!this.keepAwakeService.isUserActiveRecently()) {
+      this.logger.log('CRON Skipped: No user activity recently. Skipping scheduled syncs to save database resources.');
+      return;
+    }
     this.logger.log('CRON Triggered: Checking scheduled syncs...');
     await this.checkAndRunScheduledSyncs();
   }
 
   @Cron(CronExpression.EVERY_HOUR)
   async handleLocalNotificationsCron() {
+    if (!this.keepAwakeService.isUserActiveRecently()) {
+      this.logger.log('CRON Skipped: No user activity recently. Skipping local episode check to save database resources.');
+      return;
+    }
     this.logger.log('CRON Triggered: Checking local episode schedules...');
     const now = new Date();
 
@@ -185,19 +195,15 @@ export class SyncService implements OnApplicationBootstrap {
       this.logger.error('Error checking last anime full sync:', e);
     }
 
-    // 2. MANGA SYNC check
+    // 2. MANGA SYNC check (2 times a day: 12:00 and 22:00)
     let activeMangaWindow: { label: string; startHour: number; isYesterday: boolean };
 
     if (currentHour >= 22) {
       activeMangaWindow = { label: '[MANGA_NIGHT]', startHour: 22, isYesterday: false };
-    } else if (currentHour < 2) {
+    } else if (currentHour < 12) {
       activeMangaWindow = { label: '[MANGA_NIGHT]', startHour: 22, isYesterday: true };
-    } else if (currentHour >= 17) {
-      activeMangaWindow = { label: '[MANGA_AFTERNOON]', startHour: 17, isYesterday: false };
-    } else if (currentHour >= 12) {
+    } else { // 12 <= currentHour < 22
       activeMangaWindow = { label: '[MANGA_MIDDAY]', startHour: 12, isYesterday: false };
-    } else { // 7 <= currentHour < 12
-      activeMangaWindow = { label: '[MANGA_START]', startHour: 7, isYesterday: false };
     }
 
     activeMangaLabel = activeMangaWindow.label;

@@ -7,6 +7,21 @@ export class KeepAwakeService implements OnModuleDestroy {
   private pingsCount = 0;
   private readonly MAX_PINGS = 12; // 12 pings * 10 mins = 2 horas de buffer
   private baseUrl: string | null = null;
+  private lastUserActivity = 0;
+  private readonly bootstrappedAt = Date.now();
+
+  recordUserActivity() {
+    this.lastUserActivity = Date.now();
+  }
+
+  isUserActiveRecently(windowMs = 7200000): boolean { // 2 horas por defeito
+    const now = Date.now();
+    // Tolerância de 10 minutos após inicialização para tarefas de bootstrap
+    if (now - this.bootstrappedAt < 600000) {
+      return true;
+    }
+    return now - this.lastUserActivity < windowMs;
+  }
 
   private isWithinActiveHours(): boolean {
     const timezone = process.env.AWAKE_TIMEZONE || 'Europe/Lisbon';

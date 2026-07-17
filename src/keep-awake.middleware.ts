@@ -23,6 +23,7 @@ export class KeepAwakeMiddleware implements NestMiddleware {
       const host = req.headers.host;
       const baseUrl = `${protocol}://${host}`;
 
+      this.keepAwakeService.recordUserActivity();
       this.keepAwakeService.startAwakeWindow(baseUrl);
     }
 

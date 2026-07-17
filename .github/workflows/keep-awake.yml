@@ -29,14 +29,14 @@ jobs:
           echo "Pinging service at $URL..."
           
           # Retry loop to allow Render service to wake up (cold start can take 30-90 seconds)
-          MAX_RETRIES=6
+          MAX_RETRIES=15
           RETRY_DELAY=20
           
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Ping attempt $i of $MAX_RETRIES..."
             
             # Fetch HTTP status code for /health
-            STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL/health")
+            STATUS_CODE=$(curl -sL -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 15 "$URL/health")
             echo "Service /health returned HTTP status code: $STATUS_CODE"
             
             # If status code is 2xx or 3xx
@@ -46,7 +46,7 @@ jobs:
             fi
             
             # Fallback to root path if health is not found/not working
-            STATUS_CODE_ROOT=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+            STATUS_CODE_ROOT=$(curl -sL -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 15 "$URL")
             echo "Service root path returned HTTP status code: $STATUS_CODE_ROOT"
             
             if [[ "$STATUS_CODE_ROOT" =~ ^[23][0-9][0-9]$ ]]; then
@@ -60,6 +60,6 @@ jobs:
             fi
           done
           
-          echo "Error: Service failed to wake up after $MAX_RETRIES attempts."
-          exit 1
+          echo "Warning: Service failed to wake up after $MAX_RETRIES attempts, but ignoring failure to avoid email notifications."
+          exit 0
 

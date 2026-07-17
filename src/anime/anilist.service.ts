@@ -96,7 +96,11 @@ export class AniListService {
           where: { id },
         });
         if (!localAnime) {
-          this.logger.error(`Error fetching TMDB details for ID ${id}:`, error);
+          if ((error2 as any).status === 404) {
+            this.logger.warn(`TMDB details not found (404) for ID ${id}`);
+          } else {
+            this.logger.error(`Error fetching TMDB details for ID ${id}:`, error2);
+          }
           return null;
         }
 
@@ -435,7 +439,7 @@ export class AniListService {
         data: {
           userId,
           animeId: anime.id,
-          status: 'WATCHING',
+          status: anime.formato === 'MOVIE' || anime.tipo === 'FILME' ? 'PLANNED' : 'WATCHING',
           seasonAtual: 1,
           epAtual: 0,
         },
@@ -489,7 +493,7 @@ export class AniListService {
         data: {
           userId,
           animeId: matchedInDb.id,
-          status: 'WATCHING',
+          status: matchedInDb.formato === 'MOVIE' || matchedInDb.tipo === 'FILME' ? 'PLANNED' : 'WATCHING',
           seasonAtual: 1,
           epAtual: 0,
         },
@@ -520,8 +524,12 @@ export class AniListService {
     if (tmdbData.format === 'TV' && tmdbData.id) {
       try {
         details = await this.tmdbService.getTVShowDetails(tmdbData.id);
-      } catch (e) {
-        this.logger.error(`Error fetching season details during import:`, e);
+      } catch (e: any) {
+        if (e.status === 404) {
+          this.logger.warn(`TV Show details not found (404) during import for ID ${tmdbData.id}`);
+        } else {
+          this.logger.error(`Error fetching season details during import:`, e);
+        }
       }
     }
 
@@ -572,7 +580,7 @@ export class AniListService {
       data: {
         userId,
         animeId: createdAnime.id,
-        status: 'WATCHING',
+        status: createdAnime.formato === 'MOVIE' || createdAnime.tipo === 'FILME' ? 'PLANNED' : 'WATCHING',
         seasonAtual: 1,
         epAtual: 0,
       },

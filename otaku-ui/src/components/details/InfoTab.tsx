@@ -182,9 +182,11 @@ export const InfoTab: React.FC<InfoTabProps> = ({
         </div>
         <div className="bg-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">
           <span className="material-symbols-outlined text-lg mb-2 text-on-surface-variant">calendar_month</span>
-          <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-0.5">Época / Ano</p>
+          <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-0.5">
+            {selectedItem.formato === 'MOVIE' ? 'Ano' : 'Época / Ano'}
+          </p>
           <p className="font-bold text-xs text-white capitalize">
-            {selectedItem.temporada ? `${selectedItem.temporada.toLowerCase()} ${selectedItem.ano || ''}` : selectedItem.ano || 'N/A'}
+            {selectedItem.formato === 'MOVIE' ? selectedItem.ano || 'N/A' : (selectedItem.temporada ? `${selectedItem.temporada.toLowerCase()} ${selectedItem.ano || ''}` : selectedItem.ano || 'N/A')}
           </p>
         </div>
         <div className="bg-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">

@@ -84,12 +84,17 @@ export class TMDBService {
             );
             continue;
           }
-          throw new Error(
+          const err = new Error(
             `TMDB API error: ${response.status} ${response.statusText}`,
           );
+          (err as any).status = response.status;
+          throw err;
         }
         return await response.json();
       } catch (error: any) {
+        if (error.status === 404) {
+          throw error;
+        }
         if (i === retries - 1) {
           this.logger.error(
             `Error fetching from TMDB endpoint ${endpoint} after ${retries} attempts:`,

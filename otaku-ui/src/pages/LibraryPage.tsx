@@ -87,12 +87,14 @@ const LibraryPage = () => {
 
   const [filtroStatus, setFiltroStatus] = useState<string>(() => getInitialState('filtroStatus', 'WATCHING'));
   const [filtroLancamento, setFiltroLancamento] = useState<string>(() => getInitialState('filtroLancamento', 'ALL'));
+  const [filtroFormato, setFiltroFormato] = useState<string>(() => getInitialState('filtroFormato', 'ALL'));
   const [ordenacao, setOrdenacao] = useState<string>(() => {
     const defaultOrder = categoria === 'anime' ? 'LATEST_EPISODE' : 'PRIORITY';
     const initial = getInitialState<string>('ordenacao', defaultOrder);
     return initial === 'LAST_UPDATED' ? defaultOrder : initial;
   });
   const [showLancamentoMenu, setShowLancamentoMenu] = useState(false);
+  const [showFormatoMenu, setShowFormatoMenu] = useState(false);
   const [showOrdemMenu, setShowOrdemMenu] = useState(false);
 
   // Genre/Tag selector states
@@ -115,6 +117,7 @@ const LibraryPage = () => {
   const stateRef = useRef({
     filtroStatus,
     filtroLancamento,
+    filtroFormato,
     ordenacao,
     selectedGenres,
     selectedTags,
@@ -132,6 +135,7 @@ const LibraryPage = () => {
     stateRef.current = {
       filtroStatus,
       filtroLancamento,
+      filtroFormato,
       ordenacao,
       selectedGenres,
       selectedTags,
@@ -141,7 +145,7 @@ const LibraryPage = () => {
       visibleCountEmDia,
       visibleCountPorEstrear
     };
-  }, [filtroStatus, filtroLancamento, ordenacao, selectedGenres, selectedTags, visibleCount, visibleCountPending, visibleCountEmDia, visibleCountPorEstrear]);
+  }, [filtroStatus, filtroLancamento, filtroFormato, ordenacao, selectedGenres, selectedTags, visibleCount, visibleCountPending, visibleCountEmDia, visibleCountPorEstrear]);
 
   // Clear saved library state if not returning from details page
   useEffect(() => {
@@ -184,6 +188,7 @@ const LibraryPage = () => {
         const state = JSON.parse(saved);
         setFiltroStatus(state.filtroStatus || 'WATCHING');
         setFiltroLancamento(state.filtroLancamento || 'ALL');
+        setFiltroFormato(state.filtroFormato || 'ALL');
         const restoredOrder = state.ordenacao === 'LAST_UPDATED' ? null : state.ordenacao;
         setOrdenacao(restoredOrder || defaultOrder);
         setSelectedGenres(state.selectedGenres || []);
@@ -199,6 +204,7 @@ const LibraryPage = () => {
     } else {
       setFiltroStatus('WATCHING');
       setFiltroLancamento('ALL');
+      setFiltroFormato('ALL');
       setOrdenacao(defaultOrder);
       setSelectedGenres([]);
       setSelectedTags([]);
@@ -226,6 +232,7 @@ const LibraryPage = () => {
     const currentState = {
       filtroStatus,
       filtroLancamento,
+      filtroFormato,
       ordenacao,
       selectedGenres,
       selectedTags,
@@ -350,6 +357,13 @@ const LibraryPage = () => {
     const statusLancamento = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
     if (filtroLancamento !== 'ALL' && statusLancamento !== filtroLancamento) return false;
     
+    // Type Filter (Série / Filme)
+    if (categoria === 'anime' && filtroFormato !== 'ALL') {
+      const isMovieItem = item.formato === 'MOVIE' || item.tipo === 'FILME' || item.anime?.formato === 'MOVIE';
+      if (filtroFormato === 'MOVIE' && !isMovieItem) return false;
+      if (filtroFormato === 'SERIE' && isMovieItem) return false;
+    }
+
     if (selectedGenres.length > 0 || selectedTags.length > 0) {
       const generos = item.generos || item.anime?.generos || item.manga?.generos;
       if (!generos) return false;
@@ -456,6 +470,7 @@ const LibraryPage = () => {
     const statusLancamento = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
     const proxNum = categoria === 'anime' ? (item.anime?.proximoEpisodio || item.proximoEpisodio) : (item.manga?.proximoCapituloNumero || item.proximoCapituloNumero);
     const numTotal = categoria === 'anime' ? (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal) : (item.manga?.numCapitulosTotal || item.numCapitulosTotal);
+    const isMovie = item.formato === 'MOVIE' || item.tipo === 'FILME' || item.anime?.formato === 'MOVIE';
     
     return (
       <div 
@@ -528,9 +543,11 @@ const LibraryPage = () => {
 
             {/* Progress Info & Bar */}
             {(() => {
-              const totalVal = categoria === 'anime'
-                ? (numTotal || '?')
-                : ((statusLancamento === 'RELEASING' && proxNum) ? proxNum - 1 : (numTotal || '?'));
+              const totalVal = isMovie
+                ? 1
+                : (categoria === 'anime'
+                  ? (numTotal || '?')
+                  : ((statusLancamento === 'RELEASING' && proxNum) ? proxNum - 1 : (numTotal || '?')));
               const percentVal = typeof totalVal === 'number' && totalVal > 0 ? (currentGlobal / totalVal) * 100 : (currentGlobal > 0 ? ((currentGlobal / (currentGlobal + 1)) * 100) : 0);
               return (
                 <div className="space-y-1.5 pt-1 border-t border-white/10">
@@ -540,7 +557,7 @@ const LibraryPage = () => {
                       Progresso
                     </span>
                     <span className="text-white font-bold">
-                      {categoria === 'anime' && item.seasonAtual !== undefined && `T${item.seasonAtual} `}
+                      {categoria === 'anime' && !isMovie && item.seasonAtual !== undefined && `T${item.seasonAtual} `}
                       {currentGlobal} / {totalVal}
                     </span>
                   </div>
@@ -629,7 +646,7 @@ const LibraryPage = () => {
           <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-between sm:justify-start">
             <div className="relative flex-1 sm:flex-initial">
               <button
-                onClick={() => { setShowLancamentoMenu(!showLancamentoMenu); setShowOrdemMenu(false); }}
+                onClick={() => { setShowLancamentoMenu(!showLancamentoMenu); setShowOrdemMenu(false); setShowFormatoMenu(false); }}
                 className="flex items-center justify-between gap-1.5 px-3 py-2 bg-black/40 border border-white/5 rounded-xl text-on-surface-variant hover:text-white transition-all text-xs font-bold w-full cursor-pointer"
               >
                 <span className="material-symbols-outlined text-sm">filter_list</span>
@@ -660,9 +677,44 @@ const LibraryPage = () => {
               )}
             </div>
 
+            {categoria === 'anime' && (
+              <div className="relative flex-1 sm:flex-initial">
+                <button
+                  onClick={() => { setShowFormatoMenu(!showFormatoMenu); setShowLancamentoMenu(false); setShowOrdemMenu(false); }}
+                  className="flex items-center justify-between gap-1.5 px-3 py-2 bg-black/40 border border-white/5 rounded-xl text-on-surface-variant hover:text-white transition-all text-xs font-bold w-full cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">movie</span>
+                  <span className="truncate">
+                    {filtroFormato === 'ALL' ? 'Tipo: Todos' : 
+                     filtroFormato === 'SERIE' ? 'Séries / Outros' : 
+                     filtroFormato === 'MOVIE' ? 'Filmes' : filtroFormato}
+                  </span>
+                  <span className="material-symbols-outlined text-xs">keyboard_arrow_down</span>
+                </button>
+
+                {showFormatoMenu && (
+                  <div className="absolute left-0 right-0 sm:right-auto sm:w-48 mt-1.5 bg-surface-container border border-white/10 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                    {[
+                      { id: 'ALL', label: 'Todos' },
+                      { id: 'SERIE', label: 'Séries / Outros' },
+                      { id: 'MOVIE', label: 'Filmes' },
+                    ].map(opt => (
+                      <button
+                        key={opt.id}
+                        onClick={() => { setFiltroFormato(opt.id); setShowFormatoMenu(false); resetVisibleCounts(); }}
+                        className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-colors hover:bg-white/5 ${filtroFormato === opt.id ? 'text-secondary' : 'text-on-surface-variant'}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="relative flex-1 sm:flex-initial">
               <button
-                onClick={() => { setShowOrdemMenu(!showOrdemMenu); setShowLancamentoMenu(false); }}
+                onClick={() => { setShowOrdemMenu(!showOrdemMenu); setShowLancamentoMenu(false); setShowFormatoMenu(false); }}
                 className="flex items-center justify-between gap-1.5 px-3 py-2 bg-black/40 border border-white/5 rounded-xl text-on-surface-variant hover:text-white transition-all text-xs font-bold w-full cursor-pointer"
               >
                 <span className="material-symbols-outlined text-sm">sort</span>
@@ -697,7 +749,7 @@ const LibraryPage = () => {
 
             <div className="relative flex-1 sm:flex-initial">
               <button
-                onClick={() => setPickerOpen(true)}
+                onClick={() => { setPickerOpen(true); setShowLancamentoMenu(false); setShowOrdemMenu(false); setShowFormatoMenu(false); }}
                 className="flex items-center justify-between gap-1.5 px-3 py-2 bg-black/40 border border-white/5 rounded-xl text-on-surface-variant hover:text-white transition-all text-xs font-bold w-full cursor-pointer min-h-[38px] active:scale-95"
               >
                 <span className="material-symbols-outlined text-sm">style</span>

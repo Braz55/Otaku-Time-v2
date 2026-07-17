@@ -457,6 +457,9 @@ const DetailsPage = () => {
         } else if (data) {
           const itemData = data.manga || data.anime || data;
           const localItem = { ...itemData, ...data, dbId: data.id, isExternal: false };
+          if (!localItem.formato && localItem.tipo === 'FILME') {
+            localItem.formato = 'MOVIE';
+          }
           setSelectedItem(localItem);
 
           // Fetch AniList metadata in the background to populate relations
@@ -703,6 +706,9 @@ const DetailsPage = () => {
         const novoItem = await response.json();
         const itemData = novoItem.manga || novoItem.anime || novoItem;
         const localItem = { ...itemData, ...novoItem, dbId: novoItem.id, isExternal: false };
+        if (!localItem.formato && localItem.tipo === 'FILME') {
+          localItem.formato = 'MOVIE';
+        }
         setSelectedItem(localItem);
 
         if (mediaType === 'anime') {
@@ -1094,6 +1100,274 @@ const DetailsPage = () => {
     }
   };
 
+  const renderMovieVersion = () => {
+    if (!selectedItem) return null;
+
+    const isWatched = selectedItem.status === 'COMPLETED';
+
+    return (
+      <div className="w-full text-left space-y-6">
+        {/* Back cover background gradient */}
+        <div className="relative w-full rounded-[32px] overflow-hidden border border-white/5 bg-[#121214]/65 p-6 md:p-8 flex flex-col md:flex-row gap-8 shadow-2xl backdrop-blur-md animate-in fade-in duration-300">
+          
+          {/* BACKGROUND BLUR */}
+          <img src={selectedItem.capaUrl} className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-15 pointer-events-none" alt="" />
+          
+          {/* COLUNA ESQUERDA: Poster + Rating */}
+          <div className="w-full md:w-[280px] flex-shrink-0 flex flex-col gap-5 relative z-10">
+            {/* Poster Image */}
+            <div className="w-full aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border border-white/10 group relative">
+              <img src={selectedItem.capaUrl} className="w-full h-full object-cover" alt={selectedItem.titulo} />
+            </div>
+
+            {/* Rating Card */}
+            <div className="bg-[#18181c]/90 border border-white/5 rounded-2xl p-5 flex flex-col gap-4 shadow-xl backdrop-blur-md">
+              <div className="flex flex-col items-center justify-center text-center py-2.5 bg-white/5 rounded-xl border border-white/5">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xl font-black text-white">
+                    {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'}
+                  </span>
+                  <span className="text-xs text-on-surface-variant font-bold">/ 10</span>
+                </div>
+                <div className="flex gap-0.5 mt-1.5">
+                  {(() => {
+                    const rating = overallRating?.avaliacao_geral || 8.0;
+                    const starsCount = Math.round(rating / 2);
+                    return [...Array(5)].map((_, i) => (
+                      <span 
+                        key={i} 
+                        className={`material-symbols-outlined text-[15px] ${i < starsCount ? 'text-yellow-400' : 'text-on-surface-variant/30'}`}
+                        style={{ fontVariationSettings: "'FILL' 1" }}
+                      >
+                        star
+                      </span>
+                    ));
+                  })()}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* COLUNA DIREITA: Main Content (Synopsis & Tracking) */}
+          <div className="flex-1 min-w-0 flex flex-col gap-6 relative z-10">
+            {/* Header info */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider bg-amber-500/20 text-amber-400 border-amber-500/30 shadow-[0_0_10px_rgba(245,158,11,0.2)] flex items-center gap-1">
+                  <Film className="w-3 h-3" />
+                  FILME
+                </span>
+                {selectedItem.ano && (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold border border-white/10 bg-[#18181c] text-gray-300">
+                    {selectedItem.ano}
+                  </span>
+                )}
+                {selectedItem.statusLancamento && (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold border border-white/10 bg-[#18181c] text-gray-300 capitalize">
+                    {selectedItem.statusLancamento === 'FINISHED' ? 'Finished' : selectedItem.statusLancamento.toLowerCase()}
+                  </span>
+                )}
+              </div>
+              <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white">
+                {selectedItem.titulo}
+              </h2>
+            </div>
+
+            {/* Genres */}
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {getGenresList(selectedItem.generos).map((g) => (
+                <span key={g.name} className="px-3 py-1 bg-white/5 rounded-lg text-[11px] font-bold text-on-surface border border-white/10 tracking-wider">
+                  {g.name}
+                </span>
+              ))}
+            </div>
+
+            {/* Unified Synopsis & Acompanhamento grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4 border-t border-white/5">
+              {/* Sinopse */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-white">
+                  <span className="material-symbols-outlined text-base text-amber-400">info</span>
+                  <h3 className="text-xs font-extrabold uppercase tracking-wider">Sinopse</h3>
+                </div>
+                <p className="text-xs sm:text-sm text-gray-300 leading-relaxed text-justify whitespace-pre-line">
+                  {selectedItem.descricao || "Sem sinopse disponível."}
+                </p>
+              </div>
+
+              {/* Acompanhamento */}
+              <div className="space-y-4 bg-white/[0.02] border border-white/5 p-5 rounded-2xl h-fit">
+                <div className="flex items-center gap-2 text-white">
+                  <span className="material-symbols-outlined text-base text-amber-400">analytics</span>
+                  <h3 className="text-xs font-extrabold uppercase tracking-wider">Acompanhamento</h3>
+                </div>
+
+                {selectedItem.isExternal ? (
+                  <div className="space-y-4">
+                    <p className="text-xs text-on-surface-variant leading-relaxed">
+                      Este filme ainda não está na tua biblioteca. Adiciona-o para o poderes marcar como assistido.
+                    </p>
+                    <button 
+                      type="button"
+                      onClick={() => adicionarAoBanco(selectedItem.titulo, selectedItem.id, selectedItem.formato)} 
+                      disabled={isAddingToLibrary}
+                      className="w-full bg-primary hover:bg-primary/80 text-on-primary py-3.5 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 shadow-lg disabled:opacity-50 cursor-pointer animate-pulse-glow"
+                    >
+                      {isAddingToLibrary ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          <span>A ADICIONAR...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined">add</span> <span>ADICIONAR À BIBLIOTECA</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-5">
+                    <div className="space-y-2">
+                      <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest block">
+                        Estado de Visualização
+                      </label>
+                      
+                      <div className="grid grid-cols-2 gap-3 pt-1">
+                        {/* Option 1: Não Assistido */}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (isSavingDetailsProgress) return;
+                            setIsSavingDetailsProgress(true);
+                            await atualizarCampo({ status: 'PLANNED', epAtual: 0, epAtualGlobal: 0 });
+                            setIsSavingDetailsProgress(false);
+                          }}
+                          disabled={isSavingDetailsProgress}
+                          className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border font-bold text-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50 ${
+                            selectedItem.status === 'PLANNED'
+                              ? 'bg-amber-500/20 border-amber-500 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.25)]'
+                              : 'bg-white/5 border-white/10 hover:border-white/20 text-on-surface-variant hover:text-white'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-base">schedule</span>
+                          <span>Não Assistido</span>
+                        </button>
+
+                        {/* Option 2: Assistido */}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (isSavingDetailsProgress) return;
+                            setIsSavingDetailsProgress(true);
+                            await atualizarCampo({ status: 'COMPLETED', epAtual: 1, epAtualGlobal: 1 });
+                            setIsSavingDetailsProgress(false);
+                          }}
+                          disabled={isSavingDetailsProgress}
+                          className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border font-bold text-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50 ${
+                            isWatched
+                              ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.25)]'
+                              : 'bg-white/5 border-white/10 hover:border-white/20 text-on-surface-variant hover:text-white'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                          <span>Assistido</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-white/5">
+                      {showDeleteConfirm ? (
+                        <div className="p-4 rounded-2xl bg-error/10 border border-error/30 animate-in fade-in zoom-in-95 duration-300 space-y-3 text-left">
+                          <div className="flex items-center gap-2.5 text-error">
+                            <span className="material-symbols-outlined text-lg">warning</span>
+                            <h5 className="font-bold text-sm">Remover Filme</h5>
+                          </div>
+                          <p className="text-xs text-on-surface-variant font-medium">
+                            Remover <span className="text-white font-bold">{selectedItem.titulo}</span> da biblioteca?
+                          </p>
+                          <div className="flex gap-2">
+                            <button 
+                              type="button"
+                              onClick={() => setShowDeleteConfirm(false)} 
+                              disabled={isCheckingLists}
+                              className="flex-1 py-2 bg-surface-variant hover:bg-surface-variant/80 text-on-surface-variant rounded-xl font-bold text-xs border border-white/10 disabled:opacity-50 cursor-pointer"
+                            >
+                              Cancelar
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={handleRemoveFromLibraryClick} 
+                              disabled={isCheckingLists}
+                              className="flex-1 py-2 bg-error hover:bg-error/80 text-on-error rounded-xl font-bold text-xs shadow-md disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              {isCheckingLists && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                              Sim, Remover
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button 
+                          type="button"
+                          onClick={() => setShowDeleteConfirm(true)} 
+                          className="w-full bg-error/10 hover:bg-error text-error hover:text-on-error py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-xs border border-error/20 active:scale-95 cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-sm">delete</span>
+                          REMOVER DA BIBLIOTECA
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Relations */}
+            {selectedItem.relations && selectedItem.relations.edges && selectedItem.relations.edges.length > 0 && (
+              <div className="pt-6 border-t border-white/5 space-y-4">
+                <h3 className="font-extrabold text-xs uppercase tracking-wider text-white">Conteúdos Relacionados</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                  {selectedItem.relations.edges.map((edge: any) => (
+                    <a 
+                      key={edge.node.id} 
+                      href={`/details/anime/${edge.node.id}?external=true`}
+                      className="glass-panel p-2 rounded-xl border border-white/5 hover:border-white/10 transition-all flex flex-col gap-2 group min-w-0"
+                    >
+                      <div className="aspect-[2/3] rounded-lg overflow-hidden bg-white/5 relative">
+                        <img src={edge.node.coverImage?.large} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 animate-fade-in" alt={edge.node.title?.userPreferred} />
+                      </div>
+                      <span className="text-[10px] font-bold text-white truncate block">{edge.node.title?.userPreferred}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Comments */}
+            <CommentsSection
+              overallRating={overallRating}
+              mediaType={mediaType as 'anime' | 'manga'}
+              isMobile={isMobile}
+              token={token}
+              userRating={userRating}
+              votarConteudo={votarConteudo}
+              isSubmittingRating={isSubmittingRating}
+              user={user}
+              newCommentText={newCommentText}
+              setNewCommentText={setNewCommentText}
+              enviarComentario={enviarComentario}
+              isSubmittingComment={isSubmittingComment}
+              loadingComments={loadingComments}
+              comments={comments}
+              abrirPerfilExterno={abrirPerfilExterno}
+              eliminarComentario={eliminarComentario}
+              gostarComentario={gostarComentario}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderDesktopVersion = () => {
     if (!selectedItem) return null;
 
@@ -1114,20 +1388,22 @@ const DetailsPage = () => {
             </div>
 
             {/* Global Progress Bar (Visual effect under poster) */}
-            <div className="bg-[#18181c]/90 border border-white/5 rounded-2xl p-4 flex flex-col gap-2 shadow-xl backdrop-blur-md">
-              <div className="flex justify-between items-center text-[9px] text-on-surface-variant uppercase font-bold tracking-widest">
-                <span>Progresso Global</span>
-                <span className="text-white text-xs font-mono font-bold">
-                  {mediaType === 'anime' ? (selectedItem.epAtualGlobal || selectedItem.epAtual || 0) : selectedItem.capAtual} / {totalEpisodesAllSeasons || '?'}
-                </span>
+            {selectedItem.formato !== 'MOVIE' && (
+              <div className="bg-[#18181c]/90 border border-white/5 rounded-2xl p-4 flex flex-col gap-2 shadow-xl backdrop-blur-md">
+                <div className="flex justify-between items-center text-[9px] text-on-surface-variant uppercase font-bold tracking-widest">
+                  <span>Progresso Global</span>
+                  <span className="text-white text-xs font-mono font-bold">
+                    {mediaType === 'anime' ? (selectedItem.epAtualGlobal || selectedItem.epAtual || 0) : selectedItem.capAtual} / {totalEpisodesAllSeasons || '?'}
+                  </span>
+                </div>
+                <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden border border-white/5 relative">
+                  <div 
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_8px_rgba(16,185,129,0.4)] transition-all duration-500"
+                    style={{ width: `${globalPercentage}%` }}
+                  />
+                </div>
               </div>
-              <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden border border-white/5 relative">
-                <div 
-                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_8px_rgba(16,185,129,0.4)] transition-all duration-500"
-                  style={{ width: `${globalPercentage}%` }}
-                />
-              </div>
-            </div>
+            )}
 
             {/* Info Card (Below poster) */}
             <div className="bg-[#18181c]/90 border border-white/5 rounded-2xl p-5 flex flex-col gap-4 shadow-xl backdrop-blur-md">
@@ -1399,7 +1675,9 @@ const DetailsPage = () => {
         </button>
 
         {selectedItem && (
-          isMobile ? (
+          selectedItem.formato === 'MOVIE' ? (
+            renderMovieVersion()
+          ) : isMobile ? (
             /* VERSÃO ANDROID NATIVA: Ordem Exata Solicitada pelo Utilizador + Margens Otimizadas */
             <div className={`glass-panel rounded-2xl sm:rounded-3xl overflow-hidden border p-4 sm:p-6 space-y-4 sm:space-y-6 ${mediaType === 'anime' ? 'border-secondary/20 shadow-lg' : 'border-primary/20 shadow-lg'}`}>
               {/* 1. Capa & Título */}
@@ -1484,9 +1762,11 @@ const DetailsPage = () => {
                   </p>
                 </div>
                 <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/5 min-w-0">
-                  <p className="text-on-surface-variant text-[8px] uppercase font-bold tracking-widest mb-1 truncate w-full">Season</p>
+                  <p className="text-on-surface-variant text-[8px] uppercase font-bold tracking-widest mb-1 truncate w-full">
+                    {selectedItem.formato === 'MOVIE' ? 'Format' : 'Season'}
+                  </p>
                   <p className="font-bold text-xs text-white capitalize truncate w-full">
-                    {selectedItem.temporada ? `${selectedItem.temporada.toLowerCase()} ${selectedItem.ano || ''}` : selectedItem.ano || 'N/A'}
+                    {selectedItem.formato === 'MOVIE' ? 'Movie' : (selectedItem.temporada ? `${selectedItem.temporada.toLowerCase()} ${selectedItem.ano || ''}` : selectedItem.ano || 'N/A')}
                   </p>
                 </div>
                 <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/5 min-w-0">

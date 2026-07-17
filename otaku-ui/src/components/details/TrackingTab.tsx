@@ -153,7 +153,7 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                 )}
               </button>
 
-              {mediaType === 'anime' && (
+              {mediaType === 'anime' && selectedItem.formato !== 'MOVIE' && (
                 <div className="border-t border-white/5 pt-4 space-y-4">
                   {/* Season Selector */}
                   {(() => {
@@ -376,7 +376,7 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                     </div>
                   </div>
                   <p className="text-xs text-on-surface-variant italic leading-relaxed">
-                    Este anime ainda não estreou.{releaseDateFormatted ? ` Estreia a ${releaseDateFormatted}.` : ''} Quando estrear, poderás marcar o teu progresso e alterar o estado.
+                    {selectedItem.formato === 'MOVIE' ? 'Este filme' : 'Este anime'} ainda não estreou.{releaseDateFormatted ? ` Estreia a ${releaseDateFormatted}.` : ''} Quando estrear, poderás alterar o estado.
                   </p>
                 </div>
               ) : (
@@ -442,8 +442,9 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
               </div>
 
               {/* My Progress Selector */}
-              <div className="space-y-3 pt-3 border-t border-white/5">
-                <div className="flex items-center gap-1.5 justify-center">
+              {selectedItem.formato !== 'MOVIE' && (
+                <div className="space-y-3 pt-3 border-t border-white/5">
+                  <div className="flex items-center gap-1.5 justify-center">
                   <span className="material-symbols-outlined text-on-surface-variant text-xs">timelapse</span>
                   <p className="text-on-surface-variant text-[10px] uppercase font-bold tracking-widest">O Meu Progresso</p>
                 </div>
@@ -720,6 +721,7 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                   </div>
                 )}
               </div>
+              )}
               </>
               )
             ) : (
@@ -735,13 +737,13 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                     </div>
                   </div>
                   <p className="text-xs text-on-surface-variant italic leading-relaxed">
-                    Este anime ainda não estreou.{releaseDateFormatted ? ` Estreia a ${releaseDateFormatted}.` : ''} Quando estrear, poderás marcar o teu progresso e alterar o estado.
+                    {selectedItem.formato === 'MOVIE' ? 'Este filme' : 'Este anime'} ainda não estreou.{releaseDateFormatted ? ` Estreia a ${releaseDateFormatted}.` : ''} Quando estrear, poderás alterar o estado.
                   </p>
                 </div>
               ) : (
                 <>
                   {/* Desktop layout */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                <div className={`grid grid-cols-1 ${selectedItem.formato === 'MOVIE' ? 'max-w-xs' : 'md:grid-cols-3'} gap-6 items-end`}>
                   {/* 1. Tracking Status Column */}
                   <div className="relative flex flex-col gap-1.5 text-left">
                     <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest">
@@ -810,7 +812,9 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                     })()}
                   </div>
 
-                  {/* 2. Season Selector Column */}
+                  {selectedItem.formato !== 'MOVIE' && (
+                    <>
+                      {/* 2. Season Selector Column */}
                   <div className="flex flex-col gap-1.5 text-left">
                     <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest">
                       {mediaType === 'anime' ? (viewedSeason === 0 ? 'Especiais' : `Temporada ${viewedSeason}`) : 'Progresso'}
@@ -955,10 +959,12 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                       </button>
                     </div>
                   </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Episode List grid / scroll panel */}
-                {showEpList && (
+                {showEpList && selectedItem.formato !== 'MOVIE' && (
                   <div className="w-full mt-6 border-t border-white/10 pt-6 animate-in slide-in-from-top-4 duration-300 text-left">
                     {loadingEpisodes ? (
                       <div className="flex justify-center py-8">

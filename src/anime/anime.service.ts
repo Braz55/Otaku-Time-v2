@@ -50,8 +50,12 @@ export class AnimeService {
   async getTVSeasonDetails(tvShowId: number, seasonNumber: number) {
     try {
       return await this.tmdbService.getTVSeasonDetails(tvShowId, seasonNumber);
-    } catch (e) {
-      this.logger.error(`Error fetching season details:`, e);
+    } catch (e: any) {
+      if (e.status === 404) {
+        this.logger.warn(`Season details not found (404) for TV Show ID ${tvShowId}, Season ${seasonNumber}`);
+      } else {
+        this.logger.error(`Error fetching season details:`, e);
+      }
       return null;
     }
   }
@@ -422,6 +426,7 @@ export class AnimeService {
       episodes: item.anime.episodesList || [],
       watchedSpecials: item.watchedSpecials || [],
       tipo: item.anime.tipo,
+      formato: item.anime.formato,
       updatedAt: item.updatedAt,
       lastProgressUpdate: item.lastProgressUpdate,
       avaliacaoGeral: rating?.avaliacao_geral ?? null,

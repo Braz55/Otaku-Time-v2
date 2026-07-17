@@ -171,28 +171,82 @@ export class SyncService implements OnApplicationBootstrap {
       return;
     }
 
-    let runAnime = false;
+    let runAnimeActive = false;
+    let runAnimeFull = false;
     let runManga = false;
     let activeMangaLabel = '';
 
-    // 1. ANIME FULL SYNC check
+    // 1. Anime Sync check (Active daily vs Full weekly)
     const isAnimeYesterday = currentHour < 2;
     const animeWindowStartDate = this.getWindowStartDate(7, isAnimeYesterday, timezone);
 
     try {
-      const lastAnimeSync = await this.prisma.syncLog.findFirst({
+      // Check if we need Weekly Full Sync (no successful ANIME_FULL sync in the last 7 days)
+      const lastWeeklyFullSync = await this.prisma.syncLog.findFirst({
         where: {
           status: 'SUCCESS',
           details: { startsWith: '[ANIME_FULL]' },
-          timestamp: { gte: animeWindowStartDate },
+          timestamp: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
         },
       });
 
-      if (!lastAnimeSync) {
-        runAnime = true;
+      if (!lastWeeklyFullSync) {
+        // We need a weekly full sync!
+        // But first, apply the 20-hour guard for ANIME_FULL attempts (including RUNNING/FAILED/SUCCESS)
+        const recentAnimeFullAttempt = await this.prisma.syncLog.findFirst({
+          where: {
+            timestamp: { gte: new Date(Date.now() - 20 * 60 * 60 * 1000) },
+            details: { contains: 'ANIME_FULL' },
+          },
+        });
+        if (!recentAnimeFullAttempt) {
+          runAnimeFull = true;
+        } else {
+          this.logger.log(
+            `ANIME_FULL sync needed, but skipped due to a recent attempt in the last 20 hours (at ${recentAnimeFullAttempt.timestamp.toISOString()}).`,
+          );
+        }
+      } else {
+        // We don't need a weekly full sync today. Do we need the daily active sync?
+        // Daily active sync needs to run if there is no successful ANIME_ACTIVE or ANIME_FULL sync since 7 AM today
+        const lastActiveSync = await this.prisma.syncLog.findFirst({
+          where: {
+            status: 'SUCCESS',
+            details: { startsWith: '[ANIME_ACTIVE]' },
+            timestamp: { gte: animeWindowStartDate },
+          },
+        });
+        const lastFullSyncToday = await this.prisma.syncLog.findFirst({
+          where: {
+            status: 'SUCCESS',
+            details: { startsWith: '[ANIME_FULL]' },
+            timestamp: { gte: animeWindowStartDate },
+          },
+        });
+
+        if (!lastActiveSync && !lastFullSyncToday) {
+          // We need a daily active sync!
+          // Apply the 20-hour guard for ANY anime sync attempt (ACTIVE or FULL)
+          const recentAnimeAttempt = await this.prisma.syncLog.findFirst({
+            where: {
+              timestamp: { gte: new Date(Date.now() - 20 * 60 * 60 * 1000) },
+              OR: [
+                { details: { contains: 'ANIME_ACTIVE' } },
+                { details: { contains: 'ANIME_FULL' } },
+              ],
+            },
+          });
+          if (!recentAnimeAttempt) {
+            runAnimeActive = true;
+          } else {
+            this.logger.log(
+              `ANIME_ACTIVE sync needed, but skipped due to a recent anime sync attempt in the last 20 hours (at ${recentAnimeAttempt.timestamp.toISOString()}).`,
+            );
+          }
+        }
       }
     } catch (e) {
-      this.logger.error('Error checking last anime full sync:', e);
+      this.logger.error('Error checking last anime sync status:', e);
     }
 
     // 2. MANGA SYNC check (2 times a day: 12:00 and 22:00)
@@ -223,23 +277,41 @@ export class SyncService implements OnApplicationBootstrap {
       });
 
       if (!lastMangaSync) {
-        runManga = true;
+        // Apply the 20-hour guard for this specific manga window
+        const recentMangaAttempt = await this.prisma.syncLog.findFirst({
+          where: {
+            timestamp: { gte: new Date(Date.now() - 20 * 60 * 60 * 1000) },
+            details: { contains: activeMangaWindow.label },
+          },
+        });
+        if (!recentMangaAttempt) {
+          runManga = true;
+        } else {
+          this.logger.log(
+            `MANGA sync for ${activeMangaWindow.label} needed, but skipped due to an attempt in the last 20 hours (at ${recentMangaAttempt.timestamp.toISOString()}).`,
+          );
+        }
       }
     } catch (e) {
       this.logger.error(`Error checking last manga sync for window ${activeMangaWindow.label}:`, e);
     }
 
-    if (runAnime || runManga) {
+    if (runAnimeActive || runAnimeFull || runManga) {
       this.logger.log(
-        `Scheduled sync check: Anime full sync needed: ${runAnime}, Manga sync needed: ${runManga} (${activeMangaLabel})`,
+        `Scheduled sync check: Anime active sync needed: ${runAnimeActive}, Anime full sync needed: ${runAnimeFull}, Manga sync needed: ${runManga} (${activeMangaLabel})`,
       );
-      this.runScheduledSyncs(runAnime, runManga, activeMangaLabel).catch((err) =>
+      this.runScheduledSyncs(runAnimeActive, runAnimeFull, runManga, activeMangaLabel).catch((err) =>
         this.logger.error('Error running scheduled syncs:', err),
       );
     }
   }
 
-  private async runScheduledSyncs(runAnime: boolean, runManga: boolean, mangaLabel: string) {
+  private async runScheduledSyncs(
+    runAnimeActive: boolean,
+    runAnimeFull: boolean,
+    runManga: boolean,
+    mangaLabel: string,
+  ) {
     if (this.isSyncingActive) {
       this.logger.warn('A synchronization is already running. Skipping scheduled trigger.');
       return;
@@ -249,13 +321,75 @@ export class SyncService implements OnApplicationBootstrap {
     this.currentSyncedCount = 0;
     this.currentItemTitle = 'Initializing...';
 
+    let activeLog: any = null;
+    let fullLog: any = null;
+    let mangaLog: any = null;
+
     try {
       let syncedAnimesCount = 0;
       let syncedMangasCount = 0;
 
-      // 1. Anime Full Sync
-      if (runAnime) {
+      // 1a. Anime Active Sync
+      if (runAnimeActive) {
+        this.logger.log('Starting scheduled ANIME ACTIVE sync...');
+        activeLog = await this.prisma.syncLog.create({
+          data: {
+            status: 'RUNNING',
+            details: '[ANIME_ACTIVE] Sync started',
+          },
+        });
+
+        const animes = await this.prisma.anime.findMany({
+          where: {
+            OR: [
+              {
+                statusLancamento: {
+                  notIn: ['FINISHED', 'CANCELED', 'CANCELLED'],
+                },
+              },
+              { statusLancamento: null },
+            ],
+          },
+        });
+        this.totalItemsToSync = animes.length;
+
+        for (let i = 0; i < animes.length; i += 3) {
+          if (!this.isSyncingActive) break;
+
+          const batch = animes.slice(i, i + 3);
+          for (const anime of batch) {
+            this.currentItemTitle = anime.titulo;
+            this.logger.log(
+              `[ScheduledSync] [ANIME_ACTIVE] Syncing: "${anime.titulo}" (${this.currentSyncedCount + 1}/${this.totalItemsToSync})`,
+            );
+            await this.animeService.syncLatestEpisode(anime.id);
+            this.currentSyncedCount++;
+            syncedAnimesCount++;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+        }
+
+        const detailsMsg = `[ANIME_ACTIVE] Successfully synced all ${syncedAnimesCount} active/releasing animes.`;
+        await this.prisma.syncLog.update({
+          where: { id: activeLog.id },
+          data: {
+            status: 'SUCCESS',
+            details: detailsMsg,
+          },
+        });
+        this.logger.log('Scheduled ANIME ACTIVE sync completed successfully.');
+      }
+
+      // 1b. Anime Full Sync
+      if (runAnimeFull) {
         this.logger.log('Starting scheduled ANIME FULL sync...');
+        fullLog = await this.prisma.syncLog.create({
+          data: {
+            status: 'RUNNING',
+            details: '[ANIME_FULL] Sync started',
+          },
+        });
+
         const animes = await this.prisma.anime.findMany();
         this.totalItemsToSync = animes.length;
 
@@ -276,7 +410,8 @@ export class SyncService implements OnApplicationBootstrap {
         }
 
         const detailsMsg = `[ANIME_FULL] Successfully synced all ${syncedAnimesCount} animes.`;
-        await this.prisma.syncLog.create({
+        await this.prisma.syncLog.update({
+          where: { id: fullLog.id },
           data: {
             status: 'SUCCESS',
             details: detailsMsg,
@@ -287,7 +422,7 @@ export class SyncService implements OnApplicationBootstrap {
       }
 
       // Reset counters for Manga if both ran
-      if (runAnime && runManga) {
+      if ((runAnimeActive || runAnimeFull) && runManga) {
         this.currentSyncedCount = 0;
         this.totalItemsToSync = 0;
         this.currentItemTitle = 'Initializing Manga...';
@@ -296,6 +431,13 @@ export class SyncService implements OnApplicationBootstrap {
       // 2. Manga Sync
       if (runManga) {
         this.logger.log(`Starting scheduled MANGA sync for window ${mangaLabel}...`);
+        mangaLog = await this.prisma.syncLog.create({
+          data: {
+            status: 'RUNNING',
+            details: `${mangaLabel} Sync started`,
+          },
+        });
+
         const mangas = await this.prisma.manga.findMany({
           where: { statusLancamento: 'RELEASING' },
         });
@@ -317,7 +459,8 @@ export class SyncService implements OnApplicationBootstrap {
           await new Promise((resolve) => setTimeout(resolve, 1500));
         }
 
-        await this.prisma.syncLog.create({
+        await this.prisma.syncLog.update({
+          where: { id: mangaLog.id },
           data: {
             status: 'SUCCESS',
             details: `${mangaLabel} Successfully synced ${syncedMangasCount} releasing mangas.`,
@@ -327,21 +470,35 @@ export class SyncService implements OnApplicationBootstrap {
       }
     } catch (error) {
       this.logger.error('Error during scheduled synchronization:', error);
-      const typeStr = [runAnime && 'ANIME', runManga && mangaLabel].filter(Boolean).join(' + ');
+      const typeStr = [
+        runAnimeActive && 'ANIME_ACTIVE',
+        runAnimeFull && 'ANIME_FULL',
+        runManga && mangaLabel,
+      ].filter(Boolean).join(' + ');
       const errorMsg = `[SCHEDULED_SYNC] Failed during ${typeStr}: ${error instanceof Error ? error.stack || error.message : String(error)}`;
-      try {
-        await this.prisma.syncLog.create({
-          data: {
-            status: 'FAILED',
-            details: errorMsg,
-          },
-        });
-      } catch (dbError) {
-        this.logger.error('Failed to write FAILED scheduled sync log:', dbError);
+
+      if (runAnimeActive && activeLog) {
+        await this.prisma.syncLog.update({
+          where: { id: activeLog.id },
+          data: { status: 'FAILED', details: errorMsg },
+        }).catch((e) => this.logger.error('Failed to update active log status:', e));
+      }
+      if (runAnimeFull && fullLog) {
+        await this.prisma.syncLog.update({
+          where: { id: fullLog.id },
+          data: { status: 'FAILED', details: errorMsg },
+        }).catch((e) => this.logger.error('Failed to update full log status:', e));
+        await this.notifyAdminsAboutSync('FAILED', errorMsg);
+      }
+      if (runManga && mangaLog) {
+        await this.prisma.syncLog.update({
+          where: { id: mangaLog.id },
+          data: { status: 'FAILED', details: errorMsg },
+        }).catch((e) => this.logger.error('Failed to update manga log status:', e));
       }
 
-      // Notify admins if it failed during runAnime (morning full sync)
-      if (runAnime) {
+      // Notify admins if it failed during runAnimeFull (morning full sync)
+      if (runAnimeFull) {
         await this.notifyAdminsAboutSync('FAILED', errorMsg);
       }
     } finally {
@@ -410,7 +567,7 @@ export class SyncService implements OnApplicationBootstrap {
 
   async runManualSync() {
     this.logger.log('Manual sync triggered by administrator. Bypassing schedule.');
-    this.runScheduledSyncs(true, true, '[MANGA_MANUAL]').catch((err) =>
+    this.runScheduledSyncs(true, false, true, '[MANGA_MANUAL]').catch((err) =>
       this.logger.error('Error running manual sync:', err),
     );
   }

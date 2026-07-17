@@ -70,31 +70,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const savedUser = await getStorageItem('otaku_user');
 
         if (savedToken && savedUser) {
-          // Sempre faz a validação com o profile/me para garantir que a sessão é válida/atualizada
-          const res = await customFetch(`${API_BASE_URL}/user/profile/me`);
-          if (res.ok) {
-            const userProfile = await res.json();
-            const currentToken = await getStorageItem('otaku_token') || savedToken;
-            setUser(userProfile);
-            setToken(currentToken);
-            await setStorageItem('otaku_user', JSON.stringify(userProfile));
-          } else {
-            // Nota: Se falhar (mesmo com as tentativas de refresh integradas no customFetch), limpa a sessão
-            await logout();
+          // 1. Restaurar sessão localmente primeiro para que a app carregue instantaneamente
+          setToken(savedToken);
+          setUser(JSON.parse(savedUser));
+          setLoading(false); // Liberta a UI imediatamente
+
+          // 2. Fazer a validação em segundo plano (background)
+          try {
+            const res = await customFetch(`${API_BASE_URL}/user/profile/me`);
+            if (res.ok) {
+              const userProfile = await res.json();
+              // O token pode ter sido atualizado (refresh) durante o customFetch
+              const currentToken = await getStorageItem('otaku_token') || savedToken;
+              setUser(userProfile);
+              setToken(currentToken);
+              await setStorageItem('otaku_user', JSON.stringify(userProfile));
+            } else if (res.status === 401 || res.status === 403) {
+              // Apenas limpa a sessão se for um erro explícito de autorização (ex: token/refresh expirado)
+              // Erros de rede (como timeouts do Render a acordar ou falta de internet) não devem fazer logout
+              await logout();
+            }
+          } catch (fetchErr) {
+            console.error('Erro na validação em background do profile:', fetchErr);
+            // Em caso de erro de rede ou timeout (ex. Render a acordar), mantemos a sessão local existente
           }
+        } else {
+          setLoading(false);
         }
       } catch (err) {
         console.error('Erro ao restaurar sessão:', err);
-        // Em caso de erro de rede, mantemos a sessão offline temporária se existirem dados locais
-        try {
-          const savedToken = await getStorageItem('otaku_token');
-          const savedUser = await getStorageItem('otaku_user');
-          if (savedToken && savedUser) {
-            setToken(savedToken);
-            setUser(JSON.parse(savedUser));
-          }
-        } catch (_) {}
-      } finally {
         setLoading(false);
       }
     };

@@ -23,9 +23,6 @@ ever tmb as notificacoes, algumas aparecem dupicadas, tipo a dizer que o anime e
 
 ### horario de lancamento dos ep no calendario
 
-### nabiblioteca  
-o botao de ver mais da secao em  dia aparece depois da secao de por estrear
-ao estar a aexplorar a biblioteca ponho ver mais e escolho um anime que apareceu depois, ao voltar apara a biblioteca essa secção voltou a encolher 
 
 ### sugestoes de animes
 ---

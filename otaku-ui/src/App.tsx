@@ -153,10 +153,6 @@ function App() {
 
   useEffect(() => {
     if (token) {
-      customFetch(`${API_BASE_URL}/sync/start`, { method: 'POST' }).catch(err => {
-        console.error('Error starting auto-sync on load:', err);
-      });
-
       const getHeaders = () => ({
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`

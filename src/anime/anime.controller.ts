@@ -24,8 +24,8 @@ export class AnimeController {
 
   @UseGuards(JwtAuthGuard)
   @Get('genres-and-tags')
-  getGenresAndTags() {
-    return this.animeService.getGenreTags();
+  getGenresAndTags(@Query('type') type?: 'ANIME' | 'MANGA') {
+    return this.animeService.getGenreTags(type);
   }
 
   @UseGuards(JwtAuthGuard)

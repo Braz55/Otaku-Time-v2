@@ -7,7 +7,7 @@ import { useTranslation } from '../hooks/useTranslation';
 import { useNavigate } from 'react-router-dom';
 import MediaCard from '../components/MediaCard';
 import { 
-  RefreshCw, X, Grid, Tag, ChevronDown, ChevronUp, Check, SlidersHorizontal, ArrowUpDown, Plus, AlertTriangle
+  RefreshCw, X, Grid, Tag, ChevronDown, ChevronUp, Check, SlidersHorizontal, ArrowUpDown, Plus
 } from 'lucide-react';
 
 interface GenreTag {
@@ -40,7 +40,7 @@ interface ExploreMedia {
 
 const ExplorePage = () => {
   const { token, user } = useAuth();
-  const { categoria, setCategoria } = useMedia();
+  const { categoria } = useMedia();
   const { t } = useTranslation();
   const navigate = useNavigate();
 
@@ -96,7 +96,7 @@ const ExplorePage = () => {
   const fetchMetadata = async () => {
     setLoadingMetadata(true);
     try {
-      const res = await customFetch(`${API_BASE_URL}/anime/genres-and-tags`, {
+      const res = await customFetch(`${API_BASE_URL}/anime/genres-and-tags?type=${categoria.toUpperCase()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -181,7 +181,7 @@ const ExplorePage = () => {
 
   useEffect(() => {
     fetchMetadata();
-  }, [token]);
+  }, [token, categoria]);
 
   useEffect(() => {
     fetchLocalLibrary();
@@ -484,29 +484,7 @@ const ExplorePage = () => {
     navigate(`/details/${categoria}/${id}?external=true${formatQuery}`);
   };
 
-  if ((categoria as string) === 'anime') {
-    return (
-      <div className="p-4 md:p-8 min-h-screen bg-background text-on-background max-w-full overflow-hidden flex flex-col gap-6 items-center justify-center">
-        <div className="bg-surface-container-low border border-border-glass rounded-3xl p-8 max-w-md w-full flex flex-col items-center text-center gap-6 animate-in fade-in duration-300 shadow-2xl">
-          <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-            <AlertTriangle className="text-amber-500" size={32} />
-          </div>
-          <div className="space-y-2">
-            <h3 className="font-bold text-lg text-white">{t("Explorador de Animes Indisponível")}</h3>
-            <p className="text-xs text-on-surface-variant leading-relaxed">
-              {t("O explorador de animes ainda não está a dar. Esta funcionalidade está bloqueada de momento, mas podes explorar o catálogo de mangas.")}
-            </p>
-          </div>
-          <button
-            onClick={() => setCategoria('manga')}
-            className="w-full bg-amber-500 hover:bg-amber-600 active:scale-95 text-neutral-950 text-xs font-bold py-3 rounded-xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5"
-          >
-            <span>{t("Explorar Mangas")}</span>
-          </button>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="p-4 md:p-8 min-h-screen bg-background text-on-background max-w-full overflow-hidden flex flex-col gap-6">

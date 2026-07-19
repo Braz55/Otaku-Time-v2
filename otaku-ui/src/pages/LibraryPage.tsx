@@ -283,7 +283,7 @@ const LibraryPage = () => {
 
   const fetchMetadata = async () => {
     try {
-      const res = await customFetch(`${API_BASE_URL}/anime/genres-and-tags`, {
+      const res = await customFetch(`${API_BASE_URL}/anime/genres-and-tags?type=${categoria.toUpperCase()}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {

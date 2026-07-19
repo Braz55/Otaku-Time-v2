@@ -192,6 +192,27 @@ export class TMDBService {
   }
 
   /**
+   * Search for keywords on TMDB.
+   */
+  async searchKeywords(query: string): Promise<any> {
+    return this.fetchFromTMDB('/search/keyword', { query });
+  }
+
+  /**
+   * Get list of movie genres.
+   */
+  async getMovieGenres(language = 'pt-PT'): Promise<any> {
+    return this.fetchFromTMDB('/genre/movie/list', { language });
+  }
+
+  /**
+   * Get list of TV genres.
+   */
+  async getTVGenres(language = 'pt-PT'): Promise<any> {
+    return this.fetchFromTMDB('/genre/tv/list', { language });
+  }
+
+  /**
    * Discover TV Shows with filters.
    */
   async discoverTV(params: Record<string, string> = {}): Promise<any> {

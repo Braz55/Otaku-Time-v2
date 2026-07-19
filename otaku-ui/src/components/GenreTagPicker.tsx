@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, ChevronDown, ChevronUp, Grid, Plus, Tag, X, AlertTriangle, Lock } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Grid, Plus, Tag, X, Lock } from 'lucide-react';
 import { useTranslation } from '../hooks/useTranslation';
 
 export interface GenreTag {
@@ -37,7 +37,6 @@ const GenreTagPicker = ({
   onToggleTag,
   onClear,
   hideInlineTrigger = false,
-  categoria,
 }: GenreTagPickerProps) => {
   const { t } = useTranslation();
   const genresList = metadata.filter(m => m.type === 'GENRE');
@@ -137,8 +136,7 @@ const GenreTagPicker = ({
                   const isSelected = currentActive === cat;
                   const count = getSelectedCount(cat);
                   const displayName = cat === 'GENRE' ? t('Géneros') : cat;
-                  const isTagCategory = cat !== 'GENRE';
-                  const isBlocked = categoria === 'anime' && isTagCategory;
+                  const isBlocked = false;
 
                   return (
                     <button
@@ -202,17 +200,6 @@ const GenreTagPicker = ({
                       <Tag size={14} className="text-primary-light" />
                       <span>{currentActive}</span>
                     </h3>
-                    {categoria === 'anime' && (
-                      <div className="bg-amber-950/40 border border-amber-500/20 text-amber-200 shadow-[0_0_15px_rgba(245,158,11,0.15)] rounded-2xl p-4 flex items-start gap-3 animate-in fade-in duration-300">
-                        <AlertTriangle className="text-amber-500 flex-shrink-0 mt-0.5" size={18} />
-                        <div className="text-xs">
-                          <p className="font-bold">{t("Filtro por Tags Indisponível")}</p>
-                          <p className="text-amber-200/70 mt-1">
-                            {t("A filtragem por tags de animes ainda não está a dar (Funcionalidade para futura implementação / Further implementation).")}
-                          </p>
-                        </div>
-                      </div>
-                    )}
                     <div className="flex flex-col gap-3">
                       {Object.entries(groupedTags[currentActive] || {}).map(([subcategory, tagList]) => {
                         const isCollapsed = !!collapsedSubcats[subcategory];
@@ -245,12 +232,11 @@ const GenreTagPicker = ({
                                     <button
                                       key={tag.id}
                                       onClick={() => onToggleTag(tag.name)}
-                                      disabled={categoria === 'anime'}
                                       className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium transition-all duration-200 active:scale-95 ${
                                         isSelected
                                           ? 'bg-[#00b0ff] border-[#00b0ff] text-white shadow-sm shadow-[#00b0ff]/25'
                                           : 'bg-surface-container border-border-glass text-on-surface-variant hover:bg-surface-container-high hover:text-white'
-                                      } ${categoria === 'anime' ? 'opacity-30 cursor-not-allowed border-white/5 bg-surface-container/20 text-on-surface-variant/40' : ''}`}
+                                      }`}
                                     >
                                       {isSelected && <Check size={10} />}
                                       <span>{tag.name}</span>

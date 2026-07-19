@@ -1,4 +1,5 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TMDBService } from './tmdb.service';
 import { RecommendationService } from './recommendation.service';
@@ -9,6 +10,11 @@ import {
   capitalizeKeyword,
   resolveLatinTitleForSearchItem,
   TMDB_GENRE_MAP,
+  STANDARD_GENRES,
+  TMDB_GENRE_ID_TO_NAME,
+  TMDB_GENRE_NAME_TO_TV_ID,
+  TMDB_GENRE_NAME_TO_MOVIE_ID,
+  TMDB_STATIC_KEYWORDS,
 } from './anime.utils';
 
 @Injectable()
@@ -23,8 +29,31 @@ export class AniListService {
     private readonly animeService: AnimeService,
   ) {}
 
-  async getGenreTags() {
+  async getGenreTags(type?: 'ANIME' | 'MANGA') {
+    if (type === 'ANIME') {
+      return this.prisma.genreTag.findMany({
+        where: {
+          name: {
+            endsWith: '\u200b',
+          },
+        },
+        orderBy: [
+          { type: 'asc' },
+          { category: 'asc' },
+          { subcategory: 'asc' },
+          { name: 'asc' },
+        ],
+      });
+    }
+
     return this.prisma.genreTag.findMany({
+      where: {
+        NOT: {
+          name: {
+            endsWith: '\u200b',
+          },
+        },
+      },
       orderBy: [
         { type: 'asc' },
         { category: 'asc' },
@@ -32,6 +61,30 @@ export class AniListService {
         { name: 'asc' },
       ],
     });
+  }
+
+  async registerGenreTags(generosDict: Record<string, number> | null | undefined) {
+    if (!generosDict) return;
+    const keys = Object.keys(generosDict);
+    for (const key of keys) {
+      const isGenre = STANDARD_GENRES.has(key);
+      try {
+        await this.prisma.genreTag.upsert({
+          where: { name: key },
+          update: {},
+          create: {
+            name: key,
+            type: isGenre ? 'GENRE' : 'TAG',
+            category: isGenre ? 'Géneros Principais' : 'Outros Temas',
+            subcategory: isGenre ? 'Género' : 'Tópicos Diversos',
+            isAdult: false,
+            isExposed: true,
+          },
+        });
+      } catch (e) {
+        this.logger.error(`Error registering genre/tag "${key}":`, e);
+      }
+    }
   }
 
   async searchAniList(nomeAnime: string, userId?: number) {
@@ -519,6 +572,7 @@ export class AniListService {
     }
 
     const generosDict = buildGenerosDict(tmdbData.genres, tmdbData.tags);
+    await this.registerGenreTags(generosDict);
 
     let details: any = null;
     if (tmdbData.format === 'TV' && tmdbData.id) {
@@ -663,6 +717,31 @@ export class AniListService {
     }
   }
 
+  private async resolveKeywordIds(tags?: string[]): Promise<number[]> {
+    if (!tags || tags.length === 0) return [];
+    const ids: number[] = [];
+    for (const tag of tags) {
+      const lowerTag = tag.trim().replace(/\u200b/g, '').toLowerCase();
+      if (TMDB_STATIC_KEYWORDS[lowerTag] !== undefined) {
+        ids.push(TMDB_STATIC_KEYWORDS[lowerTag]);
+        continue;
+      }
+      try {
+        const searchRes = await this.tmdbService.searchKeywords(lowerTag);
+        if (searchRes && searchRes.results && searchRes.results.length > 0) {
+          const exact = searchRes.results.find(
+            (r: any) => r.name.toLowerCase() === lowerTag,
+          );
+          const selected = exact || searchRes.results[0];
+          ids.push(selected.id);
+        }
+      } catch (err) {
+        this.logger.error(`Error resolving keyword "${tag}":`, err);
+      }
+    }
+    return ids;
+  }
+
   async explore(
     type: 'ANIME' | 'MANGA' = 'ANIME',
     genres?: string[],
@@ -681,84 +760,226 @@ export class AniListService {
       if (!userId) return [];
       return this.recommendationService.getRecommendations(type, userId, page);
     }
-
     if (type === 'ANIME') {
-      const tvGenreMap: Record<string, number> = {
-        Action: 10759,
-        Adventure: 10759,
-        Comedy: 35,
-        Drama: 18,
-        Fantasy: 10765,
-        'Sci-Fi': 10765,
-        Mystery: 9648,
-      };
+      // 1. Resolve keywords/tags to TMDB IDs
+      const keywordIds = await this.resolveKeywordIds(tags);
 
-      const isMovieFormat = format === 'MOVIE';
-      const params: Record<string, string> = {
-        page: page.toString(),
-        language: 'en-US',
-      };
-
-      if (genres && genres.length > 0) {
-        const genreId = tvGenreMap[genres[0]];
-        if (genreId) {
-          params.with_genres = genreId.toString();
+      // 2. Fetch User Adult Content Preference
+      let includeAdult = false;
+      if (userId) {
+        try {
+          const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+          });
+          if (user && user.showAdultContent) {
+            includeAdult = true;
+          }
+        } catch (err) {
+          this.logger.error('Error fetching user adult preference:', err);
         }
       }
 
-      if (year) {
-        if (isMovieFormat) {
-          params.primary_release_year = year.toString();
+      // 3. Helper functions for genre mapping
+      const getTvGenreIds = (gList?: string[]): number[] => {
+        const ids = [16]; // Always include Animation (16)
+        if (gList) {
+          gList.forEach((g) => {
+            const cleanG = g.replace(/\u200b/g, '').trim().toLowerCase();
+            const id = TMDB_GENRE_NAME_TO_TV_ID[cleanG];
+            if (id) ids.push(id);
+          });
+        }
+        return ids;
+      };
+
+      const getMovieGenreIds = (gList?: string[]): number[] => {
+        const ids = [16]; // Always include Animation (16)
+        if (gList) {
+          gList.forEach((g) => {
+            const cleanG = g.replace(/\u200b/g, '').trim().toLowerCase();
+            const id = TMDB_GENRE_NAME_TO_MOVIE_ID[cleanG];
+            if (id) ids.push(id);
+          });
+        }
+        return ids;
+      };
+
+      // 4. Setup base parameters
+      const tvParams: Record<string, string> = {
+        with_genres: getTvGenreIds(genres).join(','),
+        with_original_language: 'ja',
+        sort_by: sort === 'SCORE_DESC' ? 'vote_average.desc' : 'popularity.desc',
+        page: String(page),
+        include_adult: String(includeAdult),
+      };
+
+      const movieParams: Record<string, string> = {
+        with_genres: getMovieGenreIds(genres).join(','),
+        with_original_language: 'ja',
+        sort_by: sort === 'SCORE_DESC' ? 'vote_average.desc' : 'popularity.desc',
+        page: String(page),
+        include_adult: String(includeAdult),
+      };
+
+      if (sort === 'SCORE_DESC') {
+        tvParams['vote_count.gte'] = '50';
+        movieParams['vote_count.gte'] = '50';
+      }
+
+      if (keywordIds.length > 0) {
+        tvParams['with_keywords'] = keywordIds.join(',');
+        movieParams['with_keywords'] = keywordIds.join(',');
+      }
+
+      // 5. Year and Season parameters
+      if (year && !isNaN(year)) {
+        if (season && season !== 'Any') {
+          let start = '';
+          let end = '';
+          switch (season.toUpperCase()) {
+            case 'WINTER':
+              start = `${year}-01-01`;
+              end = `${year}-03-31`;
+              break;
+            case 'SPRING':
+              start = `${year}-04-01`;
+              end = `${year}-06-30`;
+              break;
+            case 'SUMMER':
+              start = `${year}-07-01`;
+              end = `${year}-09-30`;
+              break;
+            case 'FALL':
+              start = `${year}-10-01`;
+              end = `${year}-12-31`;
+              break;
+          }
+          if (start && end) {
+            tvParams['first_air_date.gte'] = start;
+            tvParams['first_air_date.lte'] = end;
+            movieParams['primary_release_date.gte'] = start;
+            movieParams['primary_release_date.lte'] = end;
+          }
         } else {
-          params.first_air_date_year = year.toString();
+          tvParams['first_air_date_year'] = String(year);
+          movieParams['primary_release_year'] = String(year);
         }
       }
 
-      if (sort === 'POPULARITY_DESC' || sort === 'TRENDING_DESC') {
-        params.sort_by = 'popularity.desc';
-      } else if (sort === 'SCORE_DESC') {
-        params.sort_by = 'vote_average.desc';
+      // 6. Status parameters
+      if (status && status !== 'Any') {
+        const todayStr = new Date().toISOString().split('T')[0];
+        switch (status.toUpperCase()) {
+          case 'FINISHED':
+            tvParams['with_status'] = '3';
+            movieParams['primary_release_date.lte'] = todayStr;
+            break;
+          case 'RELEASING':
+            tvParams['with_status'] = '0,2,5';
+            break;
+          case 'NOT_YET_RELEASED':
+            tvParams['with_status'] = '1';
+            movieParams['primary_release_date.gte'] = todayStr;
+            break;
+          case 'CANCELLED':
+            tvParams['with_status'] = '4';
+            break;
+        }
       }
+
+      // 7. Execute TMDB API calls depending on requested Format
+      let results: any[] = [];
+      const isMovieOnly = format?.toUpperCase() === 'MOVIE';
+      const isTvOnly =
+        format &&
+        format !== 'Any' &&
+        format.toUpperCase() !== 'MOVIE';
 
       try {
-        const results = isMovieFormat
-          ? await this.tmdbService.discoverMovies(params)
-          : await this.tmdbService.discoverTV(params);
+        if (isMovieOnly) {
+          const data = await this.tmdbService.discoverMovies(movieParams);
+          results = (data.results || []).map((item: any) => ({
+            ...item,
+            media_type: 'movie',
+          }));
+        } else if (isTvOnly) {
+          const data = await this.tmdbService.discoverTV(tvParams);
+          results = (data.results || []).map((item: any) => ({
+            ...item,
+            media_type: 'tv',
+          }));
+        } else {
+          // Fetch both and merge
+          const [tvData, movieData] = await Promise.all([
+            this.tmdbService.discoverTV(tvParams),
+            this.tmdbService.discoverMovies(movieParams),
+          ]);
+          const tvItems = (tvData.results || []).map((item: any) => ({
+            ...item,
+            media_type: 'tv',
+          }));
+          const movieItems = (movieData.results || []).map((item: any) => ({
+            ...item,
+            media_type: 'movie',
+          }));
 
-        const mediaItems = results.results || [];
-        return Promise.all(
-          mediaItems.map(async (item: any) => {
-            let title = isMovieFormat
-              ? item.title || item.original_title
-              : item.name || item.original_name;
-            title = await resolveLatinTitleForSearchItem(
-              this.tmdbService,
-              item,
-              title,
-              isMovieFormat,
-            );
-            const posterPath = item.poster_path
-              ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
-              : null;
-            const isAnimation = item.genre_ids?.includes(16);
-            let detectedType: 'ANIME' | 'SERIE' | 'FILME' = 'ANIME';
-            if (!isAnimation) {
-              detectedType = isMovieFormat ? 'FILME' : 'SERIE';
-            }
+          const merged = [...tvItems, ...movieItems];
+          if (sort === 'SCORE_DESC') {
+            merged.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+          } else {
+            merged.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+          }
+          results = merged.slice(0, 24);
+        }
 
-            return {
-              id: item.id,
-              title: { english: title, romaji: title },
-              coverImage: { large: posterPath },
-              genres: genres || [],
-              format: isMovieFormat ? 'MOVIE' : 'TV',
-              status: 'FINISHED',
-              tipo: detectedType,
-            };
-          }),
-        );
+        // 8. Map to standardized return format
+        return results.map((item) => {
+          const isMovieItem =
+            item.media_type === 'movie' || item.title !== undefined;
+          const title = isMovieItem
+            ? item.title || item.original_title
+            : item.name || item.original_name;
+
+          const genresList: string[] = item.genre_ids
+            ? item.genre_ids
+                .map((id: number) => TMDB_GENRE_ID_TO_NAME[id])
+                .filter(Boolean)
+            : [];
+
+          const statusMap: Record<string, string> = {
+            'Returning Series': 'RELEASING',
+            Ended: 'FINISHED',
+            Released: 'FINISHED',
+            'Post Production': 'RELEASING',
+            'In Production': 'RELEASING',
+          };
+
+          const statusStr = item.status
+            ? statusMap[item.status] || item.status.toUpperCase()
+            : isMovieItem
+              ? 'FINISHED'
+              : 'FINISHED';
+
+          const posterPath = item.poster_path
+            ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
+            : null;
+
+          return {
+            id: item.id,
+            title: {
+              english: title,
+              romaji: title,
+              native: isMovieItem ? item.original_title : item.original_name,
+            },
+            coverImage: { large: posterPath },
+            genres: genresList,
+            format: isMovieItem ? 'MOVIE' : 'TV',
+            status: statusStr,
+            tipo: isMovieItem ? 'FILME' : 'SERIE',
+          };
+        });
       } catch (error) {
-        this.logger.error('Error in TMDB explore discover:', error);
+        this.logger.error('Error executing TMDB explore discover:', error);
         return [];
       }
     }

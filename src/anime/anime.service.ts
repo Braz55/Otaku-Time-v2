@@ -35,8 +35,8 @@ export class AnimeService {
   // DELEGATED METHODS
   // -------------------------------------------------------------
 
-  async getGenreTags() {
-    return this.anilistService.getGenreTags();
+  async getGenreTags(type?: 'ANIME' | 'MANGA') {
+    return this.anilistService.getGenreTags(type);
   }
 
   async searchAniList(nomeAnime: string, userId?: number) {
@@ -153,6 +153,7 @@ export class AnimeService {
       const tmdbData = await this.searchAniListById(animeId, userId, format);
       if (tmdbData) {
         const generosDict = buildGenerosDict(tmdbData.genres, undefined);
+        await this.anilistService.registerGenreTags(generosDict);
 
         let details: any = null;
         if (tmdbData.format === 'TV') {

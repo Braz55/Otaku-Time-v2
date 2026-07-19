@@ -763,11 +763,15 @@ export class AnimeService {
         const epDate = new Date(ep.airDate);
         if (now >= epDate && !ep.notified) {
           for (const ua of userAnimes) {
+            const message = Number(ep.season) === 0
+              ? `O ep especial ${ep.episodeNumber} de "${dbAnime.titulo}" estreou!`
+              : `O episódio ${ep.episodeNumber} da Temporada ${ep.season} de "${dbAnime.titulo}" estreou!`;
+
             await this.prisma.notification.create({
               data: {
                 userId: ua.userId,
                 title: 'Novo episódio de Série/Anime!',
-                message: `O episódio ${ep.episodeNumber} da Temporada ${ep.season} de "${dbAnime.titulo}" estreou!`,
+                message,
                 type: 'ANIME',
                 mediaId: tmdbId,
               },

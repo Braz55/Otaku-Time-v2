@@ -21,7 +21,8 @@ jobs:
             echo "Please set RENDER_URL to your deployment URL (e.g. https://your-app.onrender.com)."
             echo "You can do this in GitHub settings: Settings -> Secrets and variables -> Actions -> New repository secret"
             echo "=========================================================================================="
-            exit 1
+            echo "Exiting gracefully with code 0 to avoid sending failure email notifications."
+            exit 0
           fi
           
           # Remove trailing slash if present

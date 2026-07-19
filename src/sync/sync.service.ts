@@ -78,11 +78,15 @@ export class SyncService implements OnApplicationBootstrap {
             }
 
             for (const ua of userAnimes) {
+              const message = Number(ep.season) === 0
+                ? `O ep especial ${ep.episodeNumber} de "${anime.titulo}" estreou!`
+                : `O episódio ${ep.episodeNumber} da Temporada ${ep.season} de "${anime.titulo}" estreou!`;
+
               await this.prisma.notification.create({
                 data: {
                   userId: ua.userId,
                   title: 'Novo episódio de Série/Anime!',
-                  message: `O episódio ${ep.episodeNumber} da Temporada ${ep.season} de "${anime.titulo}" estreou!`,
+                  message,
                   type: 'ANIME',
                   mediaId: anime.id,
                 },

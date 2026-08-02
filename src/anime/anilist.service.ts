@@ -492,7 +492,7 @@ export class AniListService {
         data: {
           userId,
           animeId: anime.id,
-          status: anime.formato === 'MOVIE' || anime.tipo === 'FILME' ? 'PLANNED' : 'WATCHING',
+          status: 'PLANNED',
           seasonAtual: 1,
           epAtual: 0,
         },
@@ -546,7 +546,7 @@ export class AniListService {
         data: {
           userId,
           animeId: matchedInDb.id,
-          status: matchedInDb.formato === 'MOVIE' || matchedInDb.tipo === 'FILME' ? 'PLANNED' : 'WATCHING',
+          status: 'PLANNED',
           seasonAtual: 1,
           epAtual: 0,
         },
@@ -634,7 +634,7 @@ export class AniListService {
       data: {
         userId,
         animeId: createdAnime.id,
-        status: createdAnime.formato === 'MOVIE' || createdAnime.tipo === 'FILME' ? 'PLANNED' : 'WATCHING',
+        status: 'PLANNED',
         seasonAtual: 1,
         epAtual: 0,
       },

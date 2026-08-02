@@ -49,6 +49,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await removeStorageItem('otaku_token');
     await removeStorageItem('otaku_refresh_token');
     await removeStorageItem('otaku_user');
+    await removeStorageItem('otaku_anime_library');
+    await removeStorageItem('otaku_manga_library');
+    await removeStorageItem('otaku_anime_dashboard');
+    await removeStorageItem('otaku_manga_dashboard');
 
     customFetch(`${API_BASE_URL}/auth/logout`, { method: 'POST' })
       .catch(err => console.error('Erro ao terminar sessão no backend:', err));

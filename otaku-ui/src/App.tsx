@@ -158,31 +158,36 @@ function App() {
         'Authorization': `Bearer ${token}`
       });
 
-      customFetch(`${API_BASE_URL}/anime`, { headers: getHeaders() })
-        .then(res => {
-          if (res.ok) return res.json();
-          throw new Error('Failed to fetch anime library');
-        })
-        .then(data => {
-          if (Array.isArray(data)) {
-            const sorted = data.sort((a, b) => (a.prioridade || 999) - (b.prioridade || 999));
-            setAnimeLibraryData(sorted);
-          }
-        })
-        .catch(err => console.error('Error prefetching anime library:', err));
+      // Defer prefetching full library to prioritize dashboard (Up Next) load
+      const timer = setTimeout(() => {
+        customFetch(`${API_BASE_URL}/anime`, { headers: getHeaders() })
+          .then(res => {
+            if (res.ok) return res.json();
+            throw new Error('Failed to fetch anime library');
+          })
+          .then(data => {
+            if (Array.isArray(data)) {
+              const sorted = data.sort((a, b) => (a.prioridade || 999) - (b.prioridade || 999));
+              setAnimeLibraryData(sorted);
+            }
+          })
+          .catch(err => console.error('Error prefetching anime library:', err));
 
-      customFetch(`${API_BASE_URL}/manga`, { headers: getHeaders() })
-        .then(res => {
-          if (res.ok) return res.json();
-          throw new Error('Failed to fetch manga library');
-        })
-        .then(data => {
-          if (Array.isArray(data)) {
-            const sorted = data.sort((a, b) => (a.prioridade || 999) - (b.prioridade || 999));
-            setMangaLibraryData(sorted);
-          }
-        })
-        .catch(err => console.error('Error prefetching manga library:', err));
+        customFetch(`${API_BASE_URL}/manga`, { headers: getHeaders() })
+          .then(res => {
+            if (res.ok) return res.json();
+            throw new Error('Failed to fetch manga library');
+          })
+          .then(data => {
+            if (Array.isArray(data)) {
+              const sorted = data.sort((a, b) => (a.prioridade || 999) - (b.prioridade || 999));
+              setMangaLibraryData(sorted);
+            }
+          })
+          .catch(err => console.error('Error prefetching manga library:', err));
+      }, 4000);
+
+      return () => clearTimeout(timer);
     }
   }, [token, setAnimeLibraryData, setMangaLibraryData]);
 

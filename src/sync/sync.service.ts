@@ -46,6 +46,27 @@ export class SyncService implements OnApplicationBootstrap {
       return;
     }
     this.logger.log('CRON Triggered: Checking local episode schedules...');
+
+    // Cleanup old notifications (older than 30 days)
+    try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const deleteResult = await this.prisma.notification.deleteMany({
+        where: {
+          createdAt: {
+            lt: thirtyDaysAgo,
+          },
+        },
+      });
+      if (deleteResult.count > 0) {
+        this.logger.log(
+          `[Cleanup] Deleted ${deleteResult.count} notifications older than 30 days.`,
+        );
+      }
+    } catch (err) {
+      this.logger.error('Error cleaning up old notifications:', err);
+    }
+
     const now = new Date();
 
     const releasingAnimes = await this.prisma.anime.findMany({
@@ -66,37 +87,37 @@ export class SyncService implements OnApplicationBootstrap {
         if (ep.airDate) {
           const epDate = new Date(ep.airDate);
           if (now >= epDate && !ep.notified) {
-            let userAnimes = animeUserCache.get(anime.id);
-            if (!userAnimes) {
-              userAnimes = await this.prisma.userAnime.findMany({
-                where: {
-                  animeId: anime.id,
-                  status: 'WATCHING',
-                },
-              });
-              animeUserCache.set(anime.id, userAnimes);
-            }
+            if (Number(ep.season) > 0) {
+              let userAnimes = animeUserCache.get(anime.id);
+              if (!userAnimes) {
+                userAnimes = await this.prisma.userAnime.findMany({
+                  where: {
+                    animeId: anime.id,
+                    status: 'WATCHING',
+                  },
+                });
+                animeUserCache.set(anime.id, userAnimes);
+              }
 
-            for (const ua of userAnimes) {
-              const message = Number(ep.season) === 0
-                ? `O ep especial ${ep.episodeNumber} de "${anime.titulo}" estreou!`
-                : `O episódio ${ep.episodeNumber} da Temporada ${ep.season} de "${anime.titulo}" estreou!`;
+              for (const ua of userAnimes) {
+                const message = `O episódio ${ep.episodeNumber} da Temporada ${ep.season} de "${anime.titulo}" estreou!`;
 
-              await this.prisma.notification.create({
-                data: {
-                  userId: ua.userId,
-                  title: 'Novo episódio de Série/Anime!',
-                  message,
-                  type: 'ANIME',
-                  mediaId: anime.id,
-                },
-              });
+                await this.prisma.notification.create({
+                  data: {
+                    userId: ua.userId,
+                    title: 'Novo episódio de Série/Anime!',
+                    message,
+                    type: 'ANIME',
+                    mediaId: anime.id,
+                  },
+                });
+              }
             }
 
             ep.notified = true;
             updated = true;
             this.logger.log(
-              `[LocalSync] Sent local notification for ${anime.titulo} Season ${ep.season} Ep ${ep.episodeNumber}`,
+              `[LocalSync] Sent local notification or marked special for ${anime.titulo} Season ${ep.season} Ep ${ep.episodeNumber}`,
             );
           }
         }
@@ -182,6 +203,30 @@ export class SyncService implements OnApplicationBootstrap {
       return;
     }
 
+    // Cleanup stuck sync logs first (running for more than 2 hours)
+    try {
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      const stuckLogs = await this.prisma.syncLog.findMany({
+        where: {
+          status: 'RUNNING',
+          timestamp: { lt: twoHoursAgo },
+        },
+      });
+
+      for (const log of stuckLogs) {
+        await this.prisma.syncLog.update({
+          where: { id: log.id },
+          data: {
+            status: 'FAILED',
+            details: `${log.details} | Automatically marked as failed after 2 hours of inactivity (process termination/timeout).`,
+          },
+        });
+        this.logger.warn(`Automatically marked stuck sync log ID ${log.id} from ${log.timestamp.toISOString()} as FAILED.`);
+      }
+    } catch (err) {
+      this.logger.error('Error cleaning up stuck sync logs:', err);
+    }
+
     let runAnimeActive = false;
     let runAnimeFull = false;
     let runManga = false;
@@ -217,8 +262,10 @@ export class SyncService implements OnApplicationBootstrap {
             `ANIME_FULL sync needed, but skipped due to a recent attempt in the last 20 hours (at ${recentAnimeFullAttempt.timestamp.toISOString()}).`,
           );
         }
-      } else {
-        // We don't need a weekly full sync today. Do we need the daily active sync?
+      }
+
+      // If we are NOT running the full sync today, check if we need the daily active sync
+      if (!runAnimeFull) {
         // Daily active sync needs to run if there is no successful ANIME_ACTIVE or ANIME_FULL sync since 7 AM today
         const lastActiveSync = await this.prisma.syncLog.findFirst({
           where: {
@@ -237,13 +284,14 @@ export class SyncService implements OnApplicationBootstrap {
 
         if (!lastActiveSync && !lastFullSyncToday) {
           // We need a daily active sync!
-          // Apply the 20-hour guard for ANY anime sync attempt (ACTIVE or FULL)
+          // Apply the 20-hour guard for active sync: skip only if there was a recent ANIME_ACTIVE attempt
+          // OR a successful ANIME_FULL sync in the last 20 hours.
           const recentAnimeAttempt = await this.prisma.syncLog.findFirst({
             where: {
               timestamp: { gte: new Date(Date.now() - 20 * 60 * 60 * 1000) },
               OR: [
                 { details: { contains: 'ANIME_ACTIVE' } },
-                { details: { contains: 'ANIME_FULL' } },
+                { details: { contains: 'ANIME_FULL' }, status: 'SUCCESS' },
               ],
             },
           });
@@ -251,7 +299,7 @@ export class SyncService implements OnApplicationBootstrap {
             runAnimeActive = true;
           } else {
             this.logger.log(
-              `ANIME_ACTIVE sync needed, but skipped due to a recent anime sync attempt in the last 20 hours (at ${recentAnimeAttempt.timestamp.toISOString()}).`,
+              `ANIME_ACTIVE sync needed, but skipped due to a recent anime sync attempt or successful full sync in the last 20 hours (at ${recentAnimeAttempt.timestamp.toISOString()}).`,
             );
           }
         }
@@ -402,10 +450,17 @@ export class SyncService implements OnApplicationBootstrap {
           },
         });
 
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
         const animes = await this.prisma.anime.findMany({
+          where: {
+            updatedAt: { lt: sevenDaysAgo },
+          },
+          orderBy: { updatedAt: 'asc' },
+          take: 100, // Limit full sync to 100 oldest outdated items to avoid Render timeouts/crashes
           select: { id: true, titulo: true },
         });
         this.totalItemsToSync = animes.length;
+        this.logger.log(`Selected ${this.totalItemsToSync} outdated animes (updated > 7 days ago) to sync.`);
 
         for (let i = 0; i < animes.length; i += 3) {
           if (!this.isSyncingActive) break;

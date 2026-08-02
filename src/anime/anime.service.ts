@@ -313,6 +313,7 @@ export class AnimeService {
             updatedAt: true,
             numEpisodiosAired: true,
             ultimoEpisodioEstreadoData: true,
+            episodesList: true,
           }
         }
       }
@@ -325,7 +326,11 @@ export class AnimeService {
 
     return list.map((item) => {
       const rating = ratingMap.get(item.animeId);
-      const epLocal = item.epAtual;
+      const epLocal = this.getLocalEpisodeNumber(
+        item.anime,
+        item.seasonAtual,
+        item.epAtual,
+      );
       let numEpisodiosAired = item.anime.numEpisodiosAired;
       if (numEpisodiosAired === null || numEpisodiosAired === undefined) {
         if (item.anime.statusLancamento === 'RELEASING' && item.anime.proximoEpisodio) {
@@ -788,24 +793,24 @@ export class AnimeService {
       if (ep.airDate) {
         const epDate = new Date(ep.airDate);
         if (now >= epDate && !ep.notified) {
-          for (const ua of userAnimes) {
-            const message = Number(ep.season) === 0
-              ? `O ep especial ${ep.episodeNumber} de "${dbAnime.titulo}" estreou!`
-              : `O episódio ${ep.episodeNumber} da Temporada ${ep.season} de "${dbAnime.titulo}" estreou!`;
+          if (Number(ep.season) > 0) {
+            for (const ua of userAnimes) {
+              const message = `O episódio ${ep.episodeNumber} da Temporada ${ep.season} de "${dbAnime.titulo}" estreou!`;
 
-            await this.prisma.notification.create({
-              data: {
-                userId: ua.userId,
-                title: 'Novo episódio de Série/Anime!',
-                message,
-                type: 'ANIME',
-                mediaId: tmdbId,
-              },
-            });
+              await this.prisma.notification.create({
+                data: {
+                  userId: ua.userId,
+                  title: 'Novo episódio de Série/Anime!',
+                  message,
+                  type: 'ANIME',
+                  mediaId: tmdbId,
+                },
+              });
+            }
+            notificationCount++;
           }
           ep.notified = true;
           episodesUpdated = true;
-          notificationCount++;
         }
       }
     }

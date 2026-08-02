@@ -278,7 +278,44 @@ export class AnimeService {
 
     const list = await this.prisma.userAnime.findMany({
       where: whereClause,
-      include: { anime: true },
+      select: {
+        id: true,
+        seasonAtual: true,
+        epAtual: true,
+        status: true,
+        prioridade: true,
+        linksPersonalizados: true,
+        notas: true,
+        userId: true,
+        animeId: true,
+        watchedSpecials: true,
+        updatedAt: true,
+        lastProgressUpdate: true,
+        anime: {
+          select: {
+            id: true,
+            titulo: true,
+            statusLancamento: true,
+            capaUrl: true,
+            generos: true,
+            descricao: true,
+            numEpisodiosTotal: true,
+            proximoEpisodio: true,
+            proximoEpisodioData: true,
+            dataLancamento: true,
+            temporada: true,
+            ano: true,
+            paisOrigem: true,
+            formato: true,
+            tipo: true,
+            materialOrigem: true,
+            linksExternos: true,
+            updatedAt: true,
+            numEpisodiosAired: true,
+            ultimoEpisodioEstreadoData: true,
+          }
+        }
+      }
     });
     const animeIds = list.map((item) => item.animeId);
     const ratings = await this.prisma.media.findMany({
@@ -288,31 +325,19 @@ export class AnimeService {
 
     return list.map((item) => {
       const rating = ratingMap.get(item.animeId);
-      const epLocal = this.getLocalEpisodeNumber(
-        item.anime,
-        item.seasonAtual,
-        item.epAtual,
-      );
-      const totalEpisodes = this.getTotalEpisodes(item.anime);
-
-      let ultimoEpisodioEstreadoData: Date | null = null;
-      let numEpisodiosAired = 0;
-      if (item.anime.episodesList && Array.isArray(item.anime.episodesList)) {
-        const now = new Date();
-        const airedEpisodes = (item.anime.episodesList as any[]).filter(
-          (ep) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now,
-        );
-        numEpisodiosAired = airedEpisodes.length;
-        if (airedEpisodes.length > 0) {
-          const dates = airedEpisodes.map((ep) =>
-            new Date(ep.airDate).getTime(),
-          );
-          ultimoEpisodioEstreadoData = new Date(Math.max(...dates));
+      const epLocal = item.epAtual;
+      let numEpisodiosAired = item.anime.numEpisodiosAired;
+      if (numEpisodiosAired === null || numEpisodiosAired === undefined) {
+        if (item.anime.statusLancamento === 'RELEASING' && item.anime.proximoEpisodio) {
+          numEpisodiosAired = item.anime.proximoEpisodio - 1;
+        } else if (item.anime.statusLancamento === 'FINISHED' || item.anime.statusLancamento === 'COMPLETED' || item.anime.statusLancamento === 'CANCELED') {
+          numEpisodiosAired = item.anime.numEpisodiosTotal || 0;
+        } else {
+          numEpisodiosAired = 0;
         }
       }
-      if (!ultimoEpisodioEstreadoData && item.anime.dataLancamento) {
-        ultimoEpisodioEstreadoData = item.anime.dataLancamento;
-      }
+      const totalEpisodes = numEpisodiosAired;
+      const ultimoEpisodioEstreadoData = item.anime.ultimoEpisodioEstreadoData ?? item.anime.dataLancamento;
 
       const nextGlobal = item.epAtual + 1;
       const nextSeasonAndEp = this.getSeasonAndEpisodeFromGlobal(
@@ -786,9 +811,16 @@ export class AnimeService {
     }
 
     if (episodesUpdated) {
+      const { numEpisodiosAired, ultimoEpisodioEstreadoData } =
+        this.calculateAiredEpisodesInfo(episodes);
+
       await this.prisma.anime.update({
         where: { id: tmdbId },
-        data: { episodesList: episodes },
+        data: {
+          episodesList: episodes,
+          numEpisodiosAired,
+          ultimoEpisodioEstreadoData,
+        },
       });
     }
 
@@ -891,9 +923,16 @@ export class AnimeService {
         }
       }
 
+      const { numEpisodiosAired, ultimoEpisodioEstreadoData } =
+        this.calculateAiredEpisodesInfo(episodesList);
+
       await this.prisma.anime.update({
         where: { id: animeId },
-        data: { episodesList },
+        data: {
+          episodesList,
+          numEpisodiosAired,
+          ultimoEpisodioEstreadoData,
+        },
       });
 
       await this.autoTransitionPlannedToWatching(
@@ -958,11 +997,36 @@ export class AnimeService {
     try {
       const animes = await this.prisma.userAnime.findMany({
         where: { userId },
-        include: { anime: true },
+        select: {
+          status: true,
+          epAtual: true,
+          updatedAt: true,
+          wasDropped: true,
+          anime: {
+            select: {
+              id: true,
+              generos: true,
+              ano: true,
+            }
+          }
+        }
       });
       const mangas = await this.prisma.userManga.findMany({
         where: { userId },
-        include: { manga: true },
+        select: {
+          status: true,
+          capAtual: true,
+          updatedAt: true,
+          wasDropped: true,
+          manga: {
+            select: {
+              id: true,
+              generos: true,
+              titulo: true,
+              descricao: true,
+            }
+          }
+        }
       });
 
       const totalAnimeCompleted = animes.filter(
@@ -1062,6 +1126,24 @@ export class AnimeService {
     } catch (e) {
       console.error('Error recalculating user statistics/achievements:', e);
     }
+  }
+
+  calculateAiredEpisodesInfo(episodesList: any[]) {
+    let numEpisodiosAired = 0;
+    let ultimoEpisodioEstreadoData: Date | null = null;
+
+    if (episodesList && Array.isArray(episodesList)) {
+      const now = new Date();
+      const airedEpisodes = episodesList.filter(
+        (ep) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now,
+      );
+      numEpisodiosAired = airedEpisodes.length;
+      if (airedEpisodes.length > 0) {
+        const dates = airedEpisodes.map((ep) => new Date(ep.airDate).getTime());
+        ultimoEpisodioEstreadoData = new Date(Math.max(...dates));
+      }
+    }
+    return { numEpisodiosAired, ultimoEpisodioEstreadoData };
   }
 
   getGlobalEpisodeNumber(anime: any, season: number, episode: number): number {

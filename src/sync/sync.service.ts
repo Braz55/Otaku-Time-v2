@@ -103,9 +103,16 @@ export class SyncService implements OnApplicationBootstrap {
       }
 
       if (updated) {
+        const { numEpisodiosAired, ultimoEpisodioEstreadoData } =
+          this.animeService.calculateAiredEpisodesInfo(episodes);
+
         await this.prisma.anime.update({
           where: { id: anime.id },
-          data: { episodesList: episodes },
+          data: {
+            episodesList: episodes,
+            numEpisodiosAired,
+            ultimoEpisodioEstreadoData,
+          },
         });
       }
     }
@@ -354,6 +361,7 @@ export class SyncService implements OnApplicationBootstrap {
               { statusLancamento: null },
             ],
           },
+          select: { id: true, titulo: true },
         });
         this.totalItemsToSync = animes.length;
 
@@ -394,7 +402,9 @@ export class SyncService implements OnApplicationBootstrap {
           },
         });
 
-        const animes = await this.prisma.anime.findMany();
+        const animes = await this.prisma.anime.findMany({
+          select: { id: true, titulo: true },
+        });
         this.totalItemsToSync = animes.length;
 
         for (let i = 0; i < animes.length; i += 3) {
@@ -444,6 +454,7 @@ export class SyncService implements OnApplicationBootstrap {
 
         const mangas = await this.prisma.manga.findMany({
           where: { statusLancamento: 'RELEASING' },
+          select: { id: true, titulo: true },
         });
         this.totalItemsToSync = mangas.length;
 

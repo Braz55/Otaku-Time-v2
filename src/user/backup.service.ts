@@ -9,11 +9,33 @@ export class BackupService {
   async generateBackup(userId: number) {
     const animes = await this.prisma.userAnime.findMany({
       where: { userId },
-      include: { anime: true },
+      select: {
+        animeId: true,
+        status: true,
+        epAtual: true,
+        prioridade: true,
+        anime: {
+          select: {
+            titulo: true,
+            numEpisodiosTotal: true,
+          },
+        },
+      },
     });
     const mangas = await this.prisma.userManga.findMany({
       where: { userId },
-      include: { manga: true },
+      select: {
+        mangaId: true,
+        status: true,
+        capAtual: true,
+        prioridade: true,
+        manga: {
+          select: {
+            titulo: true,
+            numCapitulosTotal: true,
+          },
+        },
+      },
     });
 
     const backupAnimes = animes.map((item) => ({

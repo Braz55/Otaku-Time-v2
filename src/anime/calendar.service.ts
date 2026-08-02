@@ -20,6 +20,12 @@ export class CalendarService {
         userId,
         status: { not: 'DROPPED' },
         wasDropped: false,
+        anime: {
+          OR: [
+            { statusLancamento: 'RELEASING' },
+            { statusLancamento: null },
+          ],
+        },
       },
       include: {
         anime: true,

@@ -66,6 +66,8 @@ model Anime {
   utilizadores        UserAnime[]
   customListItems     CustomListItem[]
   episodesList        Json?       // Lista de todos os episódios em formato JSON
+  numEpisodiosAired   Int?
+  ultimoEpisodioEstreadoData DateTime?
   updatedAt           DateTime    @default(now()) @updatedAt
 }
 

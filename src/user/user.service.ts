@@ -345,8 +345,14 @@ export class UserService {
         .map((f) => f.anilistMediaId);
 
       const [localAnimes, localMangas] = await Promise.all([
-        this.prisma.anime.findMany({ where: { id: { in: animeIds } } }),
-        this.prisma.manga.findMany({ where: { id: { in: mangaIds } } }),
+        this.prisma.anime.findMany({
+          where: { id: { in: animeIds } },
+          select: { id: true, titulo: true, capaUrl: true },
+        }),
+        this.prisma.manga.findMany({
+          where: { id: { in: mangaIds } },
+          select: { id: true, titulo: true, capaUrl: true },
+        }),
       ]);
 
       const animeMap = new Map(localAnimes.map((a) => [a.id, a]));

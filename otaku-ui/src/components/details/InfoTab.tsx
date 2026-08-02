@@ -20,6 +20,7 @@ interface InfoTabProps {
   overallRating: any;
   totalEpisodesAllSeasons: number;
   commentsElement?: React.ReactNode;
+  isMobile?: boolean;
 }
 
 export const InfoTab: React.FC<InfoTabProps> = ({
@@ -41,6 +42,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({
   overallRating,
   totalEpisodesAllSeasons,
   commentsElement,
+  isMobile = false,
 }) => {
   const linksOficiais = selectedItem.linksExternos ? JSON.parse(selectedItem.linksExternos).map((l: any) => ({ ...l, tipo: 'Official' })) : [];
 
@@ -172,38 +174,40 @@ export const InfoTab: React.FC<InfoTabProps> = ({
       )}
 
       {/* Metadata Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 border-t border-white/5">
-        <div className="bg-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">
-          <span className="material-symbols-outlined text-lg mb-2 text-on-surface-variant">sensors</span>
-          <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-0.5">Estado Lançamento</p>
-          <p className="font-bold text-xs text-white">
-            {selectedItem.statusLancamento || 'Desconhecido'}
-          </p>
+      {!isMobile && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 border-t border-white/5">
+          <div className="bg-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">
+            <span className="material-symbols-outlined text-lg mb-2 text-on-surface-variant">sensors</span>
+            <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-0.5">Estado Lançamento</p>
+            <p className="font-bold text-xs text-white">
+              {selectedItem.statusLancamento || 'Desconhecido'}
+            </p>
+          </div>
+          <div className="bg-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">
+            <span className="material-symbols-outlined text-lg mb-2 text-on-surface-variant">calendar_month</span>
+            <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-0.5">
+              {selectedItem.formato === 'MOVIE' ? 'Ano' : 'Época / Ano'}
+            </p>
+            <p className="font-bold text-xs text-white capitalize">
+              {selectedItem.formato === 'MOVIE' ? selectedItem.ano || 'N/A' : (selectedItem.temporada ? `${selectedItem.temporada.toLowerCase()} ${selectedItem.ano || ''}` : selectedItem.ano || 'N/A')}
+            </p>
+          </div>
+          <div className="bg-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">
+            <span className="material-symbols-outlined text-lg mb-2 text-on-surface-variant">update</span>
+            <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-0.5">{mediaType === 'anime' ? 'Total Episódios' : 'Total Capítulos'}</p>
+            <p className="font-bold text-xs text-white">
+              {totalEpisodesAllSeasons || 'N/A'}
+            </p>
+          </div>
+          <div className="bg-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">
+            <span className="material-symbols-outlined text-lg mb-2 text-on-surface-variant">star</span>
+            <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-0.5">Nota Geral</p>
+            <p className="font-bold text-xs text-white">
+              {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'} / 10
+            </p>
+          </div>
         </div>
-        <div className="bg-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">
-          <span className="material-symbols-outlined text-lg mb-2 text-on-surface-variant">calendar_month</span>
-          <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-0.5">
-            {selectedItem.formato === 'MOVIE' ? 'Ano' : 'Época / Ano'}
-          </p>
-          <p className="font-bold text-xs text-white capitalize">
-            {selectedItem.formato === 'MOVIE' ? selectedItem.ano || 'N/A' : (selectedItem.temporada ? `${selectedItem.temporada.toLowerCase()} ${selectedItem.ano || ''}` : selectedItem.ano || 'N/A')}
-          </p>
-        </div>
-        <div className="bg-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">
-          <span className="material-symbols-outlined text-lg mb-2 text-on-surface-variant">update</span>
-          <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-0.5">{mediaType === 'anime' ? 'Total Episódios' : 'Total Capítulos'}</p>
-          <p className="font-bold text-xs text-white">
-            {totalEpisodesAllSeasons || 'N/A'}
-          </p>
-        </div>
-        <div className="bg-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">
-          <span className="material-symbols-outlined text-lg mb-2 text-on-surface-variant">star</span>
-          <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-0.5">Nota Geral</p>
-          <p className="font-bold text-xs text-white">
-            {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'} / 10
-          </p>
-        </div>
-      </div>
+      )}
 
       {/* Render comments here if passed */}
       {commentsElement}

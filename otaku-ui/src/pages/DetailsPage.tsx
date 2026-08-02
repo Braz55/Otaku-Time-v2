@@ -171,7 +171,7 @@ const DetailsPage = () => {
   const [listsWithMedia, setListsWithMedia] = useState<any[]>([]);
   const [isCheckingLists, setIsCheckingLists] = useState(false);
   const [isDeletingFromLists, setIsDeletingFromLists] = useState(false);
-  const [activeTab, setActiveTab] = useState<'tracking' | 'info'>('tracking');
+  const [activeTab, setActiveTab] = useState<'tracking' | 'info' | 'comments'>('tracking');
   const [seasonEpisodes, setSeasonEpisodes] = useState<any[]>([]);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
 
@@ -1678,122 +1678,131 @@ const DetailsPage = () => {
           selectedItem.formato === 'MOVIE' ? (
             renderMovieVersion()
           ) : isMobile ? (
-            /* VERSÃO ANDROID NATIVA: Ordem Exata Solicitada pelo Utilizador + Margens Otimizadas */
-            <div className={`glass-panel rounded-2xl sm:rounded-3xl overflow-hidden border p-4 sm:p-6 space-y-4 sm:space-y-6 ${mediaType === 'anime' ? 'border-secondary/20 shadow-lg' : 'border-primary/20 shadow-lg'}`}>
-              {/* 1. Capa & Título */}
-              <div className="flex gap-4 items-start">
-                <div className={`w-28 sm:w-36 aspect-[2/3] rounded-xl overflow-hidden shadow-lg border-2 border-background ring-1 ${mediaType === 'anime' ? 'ring-secondary/50' : 'ring-primary/50'} flex-shrink-0`}>
-                  <img src={selectedItem.capaUrl} className="w-full h-full object-cover" alt={selectedItem.titulo} />
-                </div>
-                <div className="flex-1 min-w-0 space-y-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${mediaType === 'anime' ? 'bg-primary/20 text-primary border-primary/30' : 'bg-secondary/20 text-secondary border-secondary/30'}`}>
-                      {mediaType}
-                    </span>
-                    <span className={`text-xs flex items-center gap-0.5 font-bold ${
-                      getPriorityStarColor(selectedItem.prioridade)
-                    }`}>
-                      <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> {selectedItem.isExternal ? 'New' : `#${selectedItem.prioridade}`}
-                    </span>
+            /* VERSÃO ANDROID NATIVA: Reorganizada em cartões verticais independentes, sem aninhamento duplo e com aba dedicada para Comentários */
+            <div className="w-full flex flex-col gap-4 text-left animate-in fade-in duration-300">
+              
+              {/* CARTÃO DO CABEÇALHO (Hero Header Card) */}
+              <div className={`relative w-full rounded-[28px] overflow-hidden border bg-[#121214]/65 p-4 flex flex-col gap-4 shadow-xl backdrop-blur-md ${
+                mediaType === 'anime' ? 'border-secondary/20 shadow-lg' : 'border-primary/20 shadow-lg'
+              }`}>
+                {/* BACKGROUND COVER BLUR */}
+                <img src={selectedItem.capaUrl} className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-15 pointer-events-none z-0" alt="" />
+                
+                {/* Capa & Título Info */}
+                <div className="flex gap-4 items-start relative z-10">
+                  <div className={`w-28 sm:w-36 aspect-[2/3] rounded-xl overflow-hidden shadow-lg border-2 border-background ring-1 ${mediaType === 'anime' ? 'ring-secondary/50' : 'ring-primary/50'} flex-shrink-0`}>
+                    <img src={selectedItem.capaUrl} className="w-full h-full object-cover" alt={selectedItem.titulo} />
                   </div>
-                  <h2 className={`text-xl sm:text-2xl font-bold tracking-tight ${mediaType === 'anime' ? 'text-primary-light' : 'text-secondary-light'} line-clamp-3`}>{selectedItem.titulo}</h2>
-                  <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black w-fit ${mediaType === 'anime' ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-secondary/10 border-secondary/30 text-secondary'}`}>
-                    <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                    {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'} / 10
-                  </div>
-                  
-                  {mediaType === 'manga' && (
-                    <div className="pt-1">
-                      {loadingLatest ? (
-                        <div className="flex items-center gap-1.5 px-3 py-1 bg-surface-variant/50 rounded-full border border-white/10 animate-pulse w-fit">
-                          <Loader2 className="w-3.5 h-3.5 text-secondary animate-spin" />
-                          <span className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest">Checking...</span>
-                        </div>
-                      ) : latestChapter ? (
-                        <div className="flex items-center gap-1.5 px-3 py-1 bg-secondary/20 rounded-full border border-secondary/30 w-fit">
-                          <span className="material-symbols-outlined text-[14px] text-secondary">auto_awesome</span>
-                          <span className="text-[9px] font-bold text-secondary uppercase tracking-widest">Latest: {latestChapter}</span>
-                        </div>
-                      ) : latestChapterError ? (
-                        <div className="flex items-center gap-1.5 px-3 py-1 bg-red-500/10 rounded-full border border-red-500/30 flex-wrap">
-                          <span className="material-symbols-outlined text-[14px] text-red-500">info</span>
-                          <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest">{latestChapterError}</span>
-                          {!selectedItem.isExternal && (
-                            <button onClick={() => { const val = prompt("Enter total number of chapters manually:", selectedItem.numCapitulosTotal || ''); if (val !== null) { const num = parseInt(val) || 0; atualizarCampo('numCapitulosTotal', num); } }} className="ml-1 px-2 py-0.5 bg-secondary/20 hover:bg-secondary text-secondary hover:text-on-secondary rounded-full text-[9px] font-bold transition-all border border-secondary/30 flex items-center gap-0.5">
-                              <span className="material-symbols-outlined text-[9px]">edit</span> MANUAL
-                            </button>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5 px-3 py-1 bg-surface-variant/50 rounded-full border border-white/10 flex-wrap">
-                          <span className="material-symbols-outlined text-[14px] text-on-surface-variant">info</span>
-                          <span className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest">No external info</span>
-                          {!selectedItem.isExternal && (
-                            <button onClick={() => { const val = prompt("Enter total number of chapters manually:", selectedItem.numCapitulosTotal || ''); if (val !== null) { const num = parseInt(val) || 0; atualizarCampo('numCapitulosTotal', num); } }} className="ml-1 px-2 py-0.5 bg-secondary/20 hover:bg-secondary text-secondary hover:text-on-secondary rounded-full text-[9px] font-bold transition-all border border-secondary/30 flex items-center gap-0.5">
-                              <span className="material-symbols-outlined text-[9px]">edit</span> MANUAL
-                            </button>
-                          )}
-                        </div>
-                      )}
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${mediaType === 'anime' ? 'bg-primary/20 text-primary border-primary/30' : 'bg-secondary/20 text-secondary border-secondary/30'}`}>
+                        {mediaType}
+                      </span>
+                      <span className={`text-xs flex items-center gap-0.5 font-bold ${
+                        getPriorityStarColor(selectedItem.prioridade)
+                      }`}>
+                        <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> {selectedItem.isExternal ? 'New' : `#${selectedItem.prioridade}`}
+                      </span>
                     </div>
-                  )}
+                    <h2 className={`text-xl sm:text-2xl font-bold tracking-tight ${mediaType === 'anime' ? 'text-primary-light' : 'text-secondary-light'} line-clamp-3`}>{selectedItem.titulo}</h2>
+                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black w-fit ${mediaType === 'anime' ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-secondary/10 border-secondary/30 text-secondary'}`}>
+                      <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                      {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'} / 10
+                    </div>
+                    
+                    {mediaType === 'manga' && (
+                      <div className="pt-1">
+                        {loadingLatest ? (
+                          <div className="flex items-center gap-1.5 px-3 py-1 bg-surface-variant/50 rounded-full border border-white/10 animate-pulse w-fit">
+                            <Loader2 className="w-3.5 h-3.5 text-secondary animate-spin" />
+                            <span className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest">Checking...</span>
+                          </div>
+                        ) : latestChapter ? (
+                          <div className="flex items-center gap-1.5 px-3 py-1 bg-secondary/20 rounded-full border border-secondary/30 w-fit">
+                            <span className="material-symbols-outlined text-[14px] text-secondary">auto_awesome</span>
+                            <span className="text-[9px] font-bold text-secondary uppercase tracking-widest">Latest: {latestChapter}</span>
+                          </div>
+                        ) : latestChapterError ? (
+                          <div className="flex items-center gap-1.5 px-3 py-1 bg-red-500/10 rounded-full border border-red-500/30 flex-wrap">
+                            <span className="material-symbols-outlined text-[14px] text-red-500">info</span>
+                            <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest">{latestChapterError}</span>
+                            {!selectedItem.isExternal && (
+                              <button onClick={() => { const val = prompt("Enter total number of chapters manually:", selectedItem.numCapitulosTotal || ''); if (val !== null) { const num = parseInt(val) || 0; atualizarCampo('numCapitulosTotal', num); } }} className="ml-1 px-2 py-0.5 bg-secondary/20 hover:bg-secondary text-secondary hover:text-on-secondary rounded-full text-[9px] font-bold transition-all border border-secondary/30 flex items-center gap-0.5">
+                                <span className="material-symbols-outlined text-[9px]">edit</span> MANUAL
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 px-3 py-1 bg-surface-variant/50 rounded-full border border-white/10 flex-wrap">
+                            <span className="material-symbols-outlined text-[14px] text-on-surface-variant">info</span>
+                            <span className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest">No external info</span>
+                            {!selectedItem.isExternal && (
+                              <button onClick={() => { const val = prompt("Enter total number of chapters manually:", selectedItem.numCapitulosTotal || ''); if (val !== null) { const num = parseInt(val) || 0; atualizarCampo('numCapitulosTotal', num); } }} className="ml-1 px-2 py-0.5 bg-secondary/20 hover:bg-secondary text-secondary hover:text-on-secondary rounded-full text-[9px] font-bold transition-all border border-secondary/30 flex items-center gap-0.5">
+                                <span className="material-symbols-outlined text-[9px]">edit</span> MANUAL
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Géneros */}
+                <div className="flex flex-wrap gap-1.5 pt-2 border-t border-white/5 relative z-10">
+                  {getGenresList(selectedItem.generos).map((g) => (
+                    <span key={g.name} className={`px-3 py-1 bg-white/5 rounded-lg text-[11px] font-bold text-on-surface border tracking-wider flex items-center gap-1 ${mediaType === 'anime' ? 'border-secondary/30' : 'border-primary/30'}`}>
+                      {g.name}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Info Grid: Status, Season, Total Episodes/Chapters, Nota Geral */}
+                <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/5 relative z-10">
+                  <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/5 min-w-0">
+                    <p className="text-on-surface-variant text-[8px] uppercase font-bold tracking-widest mb-1 truncate w-full">Status</p>
+                    <p className={`font-bold text-xs truncate w-full ${selectedItem.statusLancamento === 'RELEASING' ? (mediaType === 'anime' ? 'text-primary' : 'text-secondary') : 'text-white'}`}>
+                      {selectedItem.statusLancamento === 'RELEASING' ? 'Releasing' : 
+                       selectedItem.statusLancamento === 'FINISHED' ? 'Finished' : 
+                       selectedItem.statusLancamento === 'HIATUS' ? 'Hiatus' : 
+                       selectedItem.statusLancamento === 'CANCELLED' ? 'Cancelled' : 
+                       selectedItem.statusLancamento || 'Unknown'}
+                    </p>
+                  </div>
+                  <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/5 min-w-0">
+                    <p className="text-on-surface-variant text-[8px] uppercase font-bold tracking-widest mb-1 truncate w-full">
+                      {selectedItem.formato === 'MOVIE' ? 'Format' : 'Season'}
+                    </p>
+                    <p className="font-bold text-xs text-white capitalize truncate w-full">
+                      {selectedItem.formato === 'MOVIE' ? 'Movie' : (selectedItem.temporada ? `${selectedItem.temporada.toLowerCase()} ${selectedItem.ano || ''}` : selectedItem.ano || 'N/A')}
+                    </p>
+                  </div>
+                  <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/5 min-w-0">
+                    <p className="text-on-surface-variant text-[8px] uppercase font-bold tracking-widest mb-1 truncate w-full">
+                      {mediaType === 'anime' ? 'Episodes' : 'Chapters'}
+                    </p>
+                    <p className="font-bold text-xs text-white truncate w-full">
+                      {mediaType === 'anime' ? (selectedItem.numEpisodiosTotal || 'N/A') : (selectedItem.numCapitulosTotal || 'N/A')}
+                    </p>
+                  </div>
+                  <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/5 min-w-0">
+                    <p className="text-on-surface-variant text-[8px] uppercase font-bold tracking-widest mb-1 truncate w-full">Nota Geral</p>
+                    <p className={`font-bold text-xs truncate w-full ${mediaType === 'anime' ? 'text-primary' : 'text-secondary'}`}>
+                      {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'} / 10
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              {/* 2. Géneros */}
-              <div className="flex flex-wrap gap-1.5 pt-1 border-t border-white/5">
-                {getGenresList(selectedItem.generos).map((g) => (
-                  <span key={g.name} className={`px-3 py-1 bg-white/5 rounded-lg text-[11px] font-bold text-on-surface border tracking-wider flex items-center gap-1 ${mediaType === 'anime' ? 'border-secondary/30' : 'border-primary/30'}`}>
-                    {g.name}
-                  </span>
-                ))}
-              </div>
-
-              {/* Info Grid: Release Status, Season & Total Episodes/Chapters (Visible always) */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 py-3 border-t border-white/5">
-                <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/5 min-w-0">
-                  <p className="text-on-surface-variant text-[8px] uppercase font-bold tracking-widest mb-1 truncate w-full">Status</p>
-                  <p className={`font-bold text-xs truncate w-full ${selectedItem.statusLancamento === 'RELEASING' ? (mediaType === 'anime' ? 'text-primary' : 'text-secondary') : 'text-white'}`}>
-                    {selectedItem.statusLancamento === 'RELEASING' ? 'Releasing' : 
-                     selectedItem.statusLancamento === 'FINISHED' ? 'Finished' : 
-                     selectedItem.statusLancamento === 'HIATUS' ? 'Hiatus' : 
-                     selectedItem.statusLancamento === 'CANCELLED' ? 'Cancelled' : 
-                     selectedItem.statusLancamento || 'Unknown'}
-                  </p>
-                </div>
-                <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/5 min-w-0">
-                  <p className="text-on-surface-variant text-[8px] uppercase font-bold tracking-widest mb-1 truncate w-full">
-                    {selectedItem.formato === 'MOVIE' ? 'Format' : 'Season'}
-                  </p>
-                  <p className="font-bold text-xs text-white capitalize truncate w-full">
-                    {selectedItem.formato === 'MOVIE' ? 'Movie' : (selectedItem.temporada ? `${selectedItem.temporada.toLowerCase()} ${selectedItem.ano || ''}` : selectedItem.ano || 'N/A')}
-                  </p>
-                </div>
-                <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/5 min-w-0">
-                  <p className="text-on-surface-variant text-[8px] uppercase font-bold tracking-widest mb-1 truncate w-full">
-                    {mediaType === 'anime' ? 'Episodes' : 'Chapters'}
-                  </p>
-                  <p className="font-bold text-xs text-white truncate w-full">
-                    {mediaType === 'anime' ? (selectedItem.numEpisodiosTotal || 'N/A') : (selectedItem.numCapitulosTotal || 'N/A')}
-                  </p>
-                </div>
-                <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/5 min-w-0">
-                  <p className="text-on-surface-variant text-[8px] uppercase font-bold tracking-widest mb-1 truncate w-full">Nota Geral</p>
-                  <p className={`font-bold text-xs truncate w-full ${mediaType === 'anime' ? 'text-primary' : 'text-secondary'}`}>
-                    {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'} / 10
-                  </p>
-                </div>
-              </div>
-
-                            {/* TABS SWITCHER */}
-              <div className="flex border-b border-white/10 mb-4">
+              {/* TABS SWITCHER (Standalone Segmented Control) */}
+              <div className="flex border border-white/5 bg-[#121214]/40 backdrop-blur-md rounded-2xl p-1">
                 <button
                   type="button"
                   onClick={() => setActiveTab('tracking')}
-                  className={`flex-1 py-2.5 text-xs font-black transition-all flex items-center justify-center gap-1.5 border-b-2 ${
+                  className={`flex-1 py-3 text-[10px] font-black transition-all flex items-center justify-center gap-1.5 rounded-xl ${
                     activeTab === 'tracking'
-                      ? (mediaType === 'anime' ? 'border-primary text-primary' : 'border-secondary text-secondary')
-                      : 'border-transparent text-on-surface-variant'
+                      ? (mediaType === 'anime' ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-secondary/20 text-secondary border border-secondary/30')
+                      : 'text-on-surface-variant hover:text-white border border-transparent'
                   }`}
                 >
                   <span className="material-symbols-outlined text-sm">analytics</span>
@@ -1802,18 +1811,31 @@ const DetailsPage = () => {
                 <button
                   type="button"
                   onClick={() => setActiveTab('info')}
-                  className={`flex-1 py-2.5 text-xs font-black transition-all flex items-center justify-center gap-1.5 border-b-2 ${
+                  className={`flex-1 py-3 text-[10px] font-black transition-all flex items-center justify-center gap-1.5 rounded-xl ${
                     activeTab === 'info'
-                      ? (mediaType === 'anime' ? 'border-primary text-primary' : 'border-secondary text-secondary')
-                      : 'border-transparent text-on-surface-variant'
+                      ? (mediaType === 'anime' ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-secondary/20 text-secondary border border-secondary/30')
+                      : 'text-on-surface-variant hover:text-white border border-transparent'
                   }`}
                 >
                   <span className="material-symbols-outlined text-sm">info</span>
                   SINOPSE
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('comments')}
+                  className={`flex-1 py-3 text-[10px] font-black transition-all flex items-center justify-center gap-1.5 rounded-xl ${
+                    activeTab === 'comments'
+                      ? (mediaType === 'anime' ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-secondary/20 text-secondary border border-secondary/30')
+                      : 'text-on-surface-variant hover:text-white border border-transparent'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-sm">forum</span>
+                  COMENTÁRIOS
+                </button>
               </div>
 
-              {activeTab === 'tracking' ? (
+              {/* TAB CONTENT: Tracking */}
+              {activeTab === 'tracking' && (
                 <TrackingTab
                   selectedItem={selectedItem}
                   mediaType={mediaType as 'anime' | 'manga'}
@@ -1854,48 +1876,63 @@ const DetailsPage = () => {
                   abrirLink={abrirLink}
                   t={t}
                 />
-              ) : (
-                <InfoTab
-                  selectedItem={selectedItem}
-                  mediaType={mediaType as 'anime' | 'manga'}
-                  loadingLatest={loadingLatest}
-                  latestChapter={latestChapter}
-                  latestChapterSource={latestChapterSource}
-                  latestChapterError={latestChapterError}
-                  latestBreakdown={latestBreakdown}
-                  showAddLink={showAddLink}
-                  setShowAddLink={setShowAddLink}
-                  newLinkSite={newLinkSite}
-                  setNewLinkSite={setNewLinkSite}
-                  newLinkUrl={newLinkUrl}
-                  setNewLinkUrl={setNewLinkUrl}
-                  adicionarLinkPessoal={adicionarLinkPessoal}
-                  abrirLink={abrirLink}
-                  overallRating={overallRating}
-                  totalEpisodesAllSeasons={totalEpisodesAllSeasons}
-                  commentsElement={
-                    <CommentsSection
-                      overallRating={overallRating}
-                      mediaType={mediaType as 'anime' | 'manga'}
-                      isMobile={isMobile}
-                      token={token}
-                      userRating={userRating}
-                      votarConteudo={votarConteudo}
-                      isSubmittingRating={isSubmittingRating}
-                      user={user}
-                      newCommentText={newCommentText}
-                      setNewCommentText={setNewCommentText}
-                      enviarComentario={enviarComentario}
-                      isSubmittingComment={isSubmittingComment}
-                      loadingComments={loadingComments}
-                      comments={comments}
-                      abrirPerfilExterno={abrirPerfilExterno}
-                      eliminarComentario={eliminarComentario}
-                      gostarComentario={gostarComentario}
-                    />
-                  }
-                />
               )}
+
+              {/* TAB CONTENT: Info / Synopsis */}
+              {activeTab === 'info' && (
+                <div className={`glass-panel rounded-[28px] border p-5 bg-[#121214]/65 shadow-xl backdrop-blur-md ${
+                  mediaType === 'anime' ? 'border-secondary/20 shadow-lg' : 'border-primary/20 shadow-lg'
+                }`}>
+                  <InfoTab
+                    selectedItem={selectedItem}
+                    mediaType={mediaType as 'anime' | 'manga'}
+                    loadingLatest={loadingLatest}
+                    latestChapter={latestChapter}
+                    latestChapterSource={latestChapterSource}
+                    latestChapterError={latestChapterError}
+                    latestBreakdown={latestBreakdown}
+                    showAddLink={showAddLink}
+                    setShowAddLink={setShowAddLink}
+                    newLinkSite={newLinkSite}
+                    setNewLinkSite={setNewLinkSite}
+                    newLinkUrl={newLinkUrl}
+                    setNewLinkUrl={setNewLinkUrl}
+                    adicionarLinkPessoal={adicionarLinkPessoal}
+                    abrirLink={abrirLink}
+                    overallRating={overallRating}
+                    totalEpisodesAllSeasons={totalEpisodesAllSeasons}
+                    isMobile={true}
+                  />
+                </div>
+              )}
+
+              {/* TAB CONTENT: Comments */}
+              {activeTab === 'comments' && (
+                <div className={`glass-panel rounded-[28px] border p-5 bg-[#121214]/65 shadow-xl backdrop-blur-md ${
+                  mediaType === 'anime' ? 'border-secondary/20 shadow-lg' : 'border-primary/20 shadow-lg'
+                }`}>
+                  <CommentsSection
+                    overallRating={overallRating}
+                    mediaType={mediaType as 'anime' | 'manga'}
+                    isMobile={isMobile}
+                    token={token}
+                    userRating={userRating}
+                    votarConteudo={votarConteudo}
+                    isSubmittingRating={isSubmittingRating}
+                    user={user}
+                    newCommentText={newCommentText}
+                    setNewCommentText={setNewCommentText}
+                    enviarComentario={enviarComentario}
+                    isSubmittingComment={isSubmittingComment}
+                    loadingComments={loadingComments}
+                    comments={comments}
+                    abrirPerfilExterno={abrirPerfilExterno}
+                    eliminarComentario={eliminarComentario}
+                    gostarComentario={gostarComentario}
+                  />
+                </div>
+              )}
+
             </div>
           ) : (
             renderDesktopVersion()

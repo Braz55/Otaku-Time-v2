@@ -162,6 +162,30 @@ export class TMDBService {
   }
 
   /**
+   * Get TV Episode details.
+   */
+  async getTVEpisodeDetails(
+    id: number,
+    seasonNumber: number,
+    episodeNumber: number,
+    language?: string,
+  ): Promise<any> {
+    return this.fetchFromTMDB(
+      `/tv/${id}/season/${seasonNumber}/episode/${episodeNumber}`,
+      {
+        ...(language ? { language } : {}),
+      },
+    );
+  }
+
+  /**
+   * Get TV Show credits (cast and crew).
+   */
+  async getTVCredits(id: number): Promise<any> {
+    return this.fetchFromTMDB(`/tv/${id}/credits`);
+  }
+
+  /**
    * Get Movie details.
    */
   async getMovieDetails(id: number): Promise<any> {

@@ -103,6 +103,22 @@ export class AnimeController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('tmdb/:id/season/:seasonNumber/episode/:episodeNumber')
+  getTVEpisodeDetails(
+    @Param('id') id: string,
+    @Param('seasonNumber') seasonNumber: string,
+    @Param('episodeNumber') episodeNumber: string,
+    @Query('language') language?: string,
+  ) {
+    return this.animeService.getTVEpisodeDetails(
+      +id,
+      +seasonNumber,
+      +episodeNumber,
+      language,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('external/:nome')
   getExternalDetails(@Param('nome') nome: string, @Request() req) {
     return this.animeService.searchAniList(nome, req.user.userId);

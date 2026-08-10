@@ -60,6 +60,66 @@ export class AnimeService {
     }
   }
 
+  async getTVEpisodeDetails(
+    tvShowId: number,
+    seasonNumber: number,
+    episodeNumber: number,
+    language?: string,
+  ) {
+    try {
+      const data = await this.tmdbService.getTVEpisodeDetails(
+        tvShowId,
+        seasonNumber,
+        episodeNumber,
+        language || 'pt-PT',
+      );
+
+      // Fallback to English if synopsis is empty
+      if (!data?.overview && (!language || language.startsWith('pt'))) {
+        try {
+          const dataEn = await this.tmdbService.getTVEpisodeDetails(
+            tvShowId,
+            seasonNumber,
+            episodeNumber,
+            'en-US',
+          );
+          if (dataEn?.overview) {
+            data.overview = dataEn.overview;
+          }
+        } catch (errEn) {
+          this.logger.warn(
+            `Could not fetch English fallback overview for TV Show ID ${tvShowId}, Season ${seasonNumber}, Episode ${episodeNumber}:`,
+            errEn,
+          );
+        }
+      }
+
+      // Fetch main cast credits as character fallback/addition
+      try {
+        const credits = await this.tmdbService.getTVCredits(tvShowId);
+        if (credits && credits.cast) {
+          data.main_cast = credits.cast.slice(0, 6);
+        }
+      } catch (errCredits) {
+        this.logger.warn(
+          `Could not fetch credits for TV Show ID ${tvShowId}:`,
+          errCredits,
+        );
+      }
+
+      return data;
+    } catch (e: any) {
+      if (e.status === 404) {
+        this.logger.warn(
+          `Episode details not found (404) for TV Show ID ${tvShowId}, Season ${seasonNumber}, Episode ${episodeNumber}`,
+        );
+      } else {
+        this.logger.error(`Error fetching episode details:`, e);
+      }
+      return null;
+    }
+  }
+
   async importFromAniList(
     nomeAnime: string,
     userId: number,

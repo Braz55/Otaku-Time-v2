@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { EpisodeDetailsModal } from './EpisodeDetailsModal';
 
 interface TrackingTabProps {
   selectedItem: any;
@@ -95,6 +96,7 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
   abrirLink,
   t,
 }) => {
+  const [selectedEpisodeDetails, setSelectedEpisodeDetails] = useState<any | null>(null);
   const currentPriorityOpt = PRIORITY_OPTIONS.find(opt => opt.num === selectedItem.prioridade) || PRIORITY_OPTIONS[4];
   const isAnimePorEstrear = 
     mediaType === 'anime' && 
@@ -103,6 +105,23 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
      (totalAiredEpisodes === 0 && selectedItem.statusLancamento !== 'FINISHED'));
   const [statusDropdownOpen, setStatusDropdownOpen] = React.useState(false);
   const [seasonDropdownOpen, setSeasonDropdownOpen] = React.useState(false);
+
+  const seasonsList = React.useMemo(() => {
+    let list: any[] = [];
+    if (selectedItem.episodes && selectedItem.episodes.length > 0) {
+      list = Array.from(new Set(selectedItem.episodes.map((ep: any) => ep.season as number)))
+        .sort((a: any, b: any) => a - b);
+    } else {
+      const relationSeasons = selectedItem.relations?.edges
+        ?.filter((edge: any) => edge.node.format === 'TV_SEASON')
+        ?.sort((a: any, b: any) => a.node.seasonNumber - b.node.seasonNumber) || [];
+      list = relationSeasons.map((edge: any) => edge.node.seasonNumber);
+    }
+    if (list.length === 0) {
+      list = [viewedSeason || 1];
+    }
+    return list;
+  }, [selectedItem.episodes, selectedItem.relations, viewedSeason]);
 
   const releaseDateFormatted = React.useMemo(() => {
     if (!selectedItem.dataLancamento) return '';
@@ -295,7 +314,11 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                               const hasAired = ep.air_date ? airTime <= nowTime : true;
                               
                               return (
-                                <div key={ep.id || ep.episode_number} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 border border-white/[0.02] transition-colors group">
+                                <div 
+                                  key={ep.id || ep.episode_number} 
+                                  className="flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 border border-white/[0.02] transition-colors group cursor-pointer"
+                                  onClick={() => setSelectedEpisodeDetails({ ...ep, season: ep.season !== undefined ? ep.season : (viewedSeason || 1) })}
+                                >
                                   {ep.still_path ? (
                                     <img 
                                       src={`https://image.tmdb.org/t/p/w300${ep.still_path}`}
@@ -327,7 +350,7 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                                     </div>
                                   </div>
 
-                                  <div className="flex items-center gap-3 flex-shrink-0">
+                                  <div className="flex items-center gap-3 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                                     {hasAired ? (
                                       <button
                                         type="button"
@@ -365,7 +388,7 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
           ) : (
             isMobile ? (
               isAnimePorEstrear ? (
-                <div className="space-y-3 text-left">
+                <div className="space-y-3 text-left w-full">
                   <div className="space-y-1.5">
                     <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest">Estado</label>
                     <div className="flex items-center gap-2 py-1">
@@ -378,6 +401,124 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                   <p className="text-xs text-on-surface-variant italic leading-relaxed">
                     {selectedItem.formato === 'MOVIE' ? 'Este filme' : 'Este anime'} ainda não estreou.{releaseDateFormatted ? ` Estreia a ${releaseDateFormatted}.` : ''} Quando estrear, poderás alterar o estado.
                   </p>
+
+                  {selectedItem.formato !== 'MOVIE' && (
+                    <div className="border-t border-white/5 pt-4 space-y-4">
+                      {/* Season Selector */}
+                      {seasonsList.length > 1 || seasonsList.includes(0) ? (
+                        <div className="space-y-1.5 w-full text-center">
+                          <label className="text-[9px] text-on-surface-variant uppercase font-bold tracking-widest flex items-center gap-1 justify-center">
+                            <span className="material-symbols-outlined text-[11px]">folder_open</span>
+                            Temporada
+                          </label>
+                          <div className="flex overflow-x-auto gap-2 pb-2 pt-1 w-full justify-start scrollbar-none snap-x no-scrollbar">
+                            {seasonsList.map((seasonNum) => {
+                              const isSelected = viewedSeason === seasonNum;
+                              const epsCount = getEpisodesCountForSeason(seasonNum);
+                              return (
+                                <button
+                                  key={seasonNum}
+                                  type="button"
+                                  onClick={() => setViewedSeason(seasonNum)}
+                                  className={`flex-shrink-0 px-3.5 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 snap-center cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-primary/20 border-primary text-primary shadow-[0_0_12px_rgba(139,92,246,0.2)]'
+                                      : 'bg-surface-variant/30 border-white/5 text-on-surface-variant hover:text-white'
+                                  }`}
+                                >
+                                  {seasonNum === 0 ? 'Especiais' : `Temp. ${seasonNum}`}
+                                  {epsCount > 0 && <span className="text-[9px] opacity-60 ml-1">({epsCount})</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {/* Toggle Episodes view button */}
+                      <div className="flex justify-center mt-2">
+                        <button 
+                          type="button"
+                          onClick={() => setShowEpList(!showEpList)}
+                          className={`px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold border active:scale-95 cursor-pointer ${showEpList ? 'bg-primary/20 border-primary text-primary shadow-[0_0_12px_rgba(139,92,246,0.2)]' : 'bg-surface-variant/30 border-white/5 text-on-surface-variant'}`}
+                        >
+                          <span className="material-symbols-outlined text-sm">grid_view</span>
+                          <span>{showEpList ? 'Fechar Grelha' : 'Ver Episódios'}</span>
+                        </button>
+                      </div>
+
+                      {/* Episode List grid / scroll panel */}
+                      {showEpList && (
+                        <div className="w-full mt-4 border-t border-white/10 pt-4 animate-in slide-in-from-top-4 duration-300 text-left">
+                          {loadingEpisodes ? (
+                            <div className="flex justify-center py-8">
+                              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                            </div>
+                          ) : (
+                            viewedEpisodes && viewedEpisodes.length > 0 ? (
+                              <div className="space-y-3.5 max-h-[340px] overflow-y-auto pr-2 custom-scrollbar">
+                                {viewedEpisodes.map((ep: any) => {
+                                  const isSpecial = ep.season === 0;
+                                  const airTime = new Date(ep.air_date).getTime();
+                                  const nowTime = new Date().getTime();
+                                  const hasAired = ep.air_date ? airTime <= nowTime : true;
+                                  
+                                  return (
+                                    <div 
+                                      key={ep.id || ep.episode_number} 
+                                      className="flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 border border-white/[0.02] transition-colors group cursor-pointer"
+                                      onClick={() => setSelectedEpisodeDetails({ ...ep, season: ep.season !== undefined ? ep.season : (viewedSeason || 1) })}
+                                    >
+                                      {ep.still_path ? (
+                                        <img 
+                                          src={`https://image.tmdb.org/t/p/w300${ep.still_path}`}
+                                          alt={`Episódio ${ep.episode_number}`}
+                                          className="w-20 aspect-video object-cover rounded-xl border border-white/10 flex-shrink-0"
+                                        />
+                                      ) : (
+                                        <div className="w-20 aspect-video rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 text-on-surface-variant/30">
+                                          <span className="material-symbols-outlined text-base">movie</span>
+                                        </div>
+                                      )}
+                                      <div className="flex-grow min-w-0">
+                                        <h5 className="text-xs font-bold text-white truncate flex items-center gap-2">
+                                          <span className="text-primary">
+                                            {isSpecial ? `Especial ${ep.episode_number}` : `Ep. ${ep.episode_number}`}
+                                          </span>
+                                          {ep.name && <span className="text-gray-400 font-medium truncate">— {ep.name}</span>}
+                                        </h5>
+                                        <div className="flex items-center gap-2 mt-1">
+                                          <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">
+                                            {ep.air_date ? new Date(ep.air_date).toLocaleDateString('pt-PT') : 'Data Indisponível'}
+                                            {!hasAired && (
+                                              <>
+                                                <span className="text-white/10 mx-1.5">•</span>
+                                                <span className="text-amber-500 text-[9px] font-extrabold uppercase tracking-wider">Por estrear</span>
+                                              </>
+                                            )}
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-3 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                                        <div className="w-9 h-9 flex items-center justify-center text-on-surface-variant/30 font-bold" title="Não estreado">
+                                          <span className="material-symbols-outlined text-sm">schedule</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="text-xs text-on-surface-variant/60 text-center py-4">
+                                Nenhum episódio disponível para esta temporada.
+                              </div>
+                            )
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <>
@@ -585,7 +726,11 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                             const hasAired = ep.air_date ? airTime <= nowTime : true;
                             
                             return (
-                              <div key={ep.id || ep.episode_number} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 border border-white/[0.02] transition-colors group">
+                              <div 
+                                key={ep.id || ep.episode_number} 
+                                className="flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 border border-white/[0.02] transition-colors group cursor-pointer"
+                                onClick={() => setSelectedEpisodeDetails({ ...ep, season: ep.season !== undefined ? ep.season : (viewedSeason || 1) })}
+                              >
                                 {ep.still_path ? (
                                   <img 
                                     src={`https://image.tmdb.org/t/p/w300${ep.still_path}`}
@@ -617,7 +762,7 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-3 flex-shrink-0">
+                                <div className="flex items-center gap-3 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                                   {hasAired ? (
                                     <button
                                       type="button"
@@ -726,19 +871,168 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
               )
             ) : (
               isAnimePorEstrear ? (
-                <div className="space-y-3 text-left w-full">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest">
-                      Estado de Acompanhamento
-                    </label>
-                    <div className="flex items-center gap-2 px-4 py-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 text-amber-400 font-bold text-xs w-fit">
-                      <span className="material-symbols-outlined text-base">schedule</span>
-                      <span>Por estrear</span>
+                <div className="space-y-6 text-left w-full">
+                  <div className={`grid grid-cols-1 ${selectedItem.formato === 'MOVIE' ? 'max-w-xs' : 'md:grid-cols-3'} gap-6 items-end`}>
+                    {/* 1. Status Column */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest">
+                        Estado de Acompanhamento
+                      </label>
+                      <div className="flex items-center gap-2 px-4 py-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 text-amber-400 font-bold text-xs w-fit h-[46px]">
+                        <span className="material-symbols-outlined text-base">schedule</span>
+                        <span>Por estrear</span>
+                      </div>
                     </div>
+
+                    {/* 2. Season Selector Column (only if anime and not movie, and multiple seasons exist) */}
+                    {selectedItem.formato !== 'MOVIE' && (seasonsList.length > 1 || seasonsList.includes(0)) ? (
+                      <div className="flex flex-col gap-1.5 text-left font-bold">
+                        <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest font-extrabold">
+                          Temporada
+                        </label>
+                        <div className="relative w-full">
+                          <button
+                            type="button"
+                            onClick={() => setSeasonDropdownOpen(!seasonDropdownOpen)}
+                            className="w-full flex items-center justify-between bg-[#18181c] text-white border border-white/10 hover:border-white/20 px-4 py-2.5 rounded-2xl outline-none focus:border-primary/50 text-xs font-bold cursor-pointer transition-all h-[46px] relative text-left"
+                          >
+                            {(() => {
+                              const epsCount = getEpisodesCountForSeason(viewedSeason || 1);
+                              return (
+                                <div className="flex items-center gap-1.5 justify-between w-full pr-1.5 min-w-0">
+                                  <span className="truncate">{viewedSeason === 0 ? 'Especiais' : `Temporada ${viewedSeason}`}</span>
+                                  <span className="text-[10px] opacity-60 font-medium shrink-0">({epsCount} eps)</span>
+                                </div>
+                              );
+                            })()}
+                            <span className={`material-symbols-outlined text-on-surface-variant text-base transition-transform duration-200 ${seasonDropdownOpen ? 'rotate-180' : ''}`}>
+                              keyboard_arrow_down
+                            </span>
+                          </button>
+                          {seasonDropdownOpen && (
+                            <>
+                              <div className="fixed inset-0 z-30" onClick={() => setSeasonDropdownOpen(false)} />
+                              <div className="absolute left-0 right-0 bottom-full mb-2 bg-[#1c1c22] border border-white/10 rounded-2xl p-2.5 z-40 shadow-2xl max-h-[220px] overflow-y-auto custom-scrollbar space-y-1">
+                                {seasonsList.map((seasonNum: number) => {
+                                  const epsCount = getEpisodesCountForSeason(seasonNum);
+                                  const isSelected = viewedSeason === seasonNum;
+                                  let optColor = 'text-on-surface-variant hover:text-white hover:bg-white/5 border border-transparent';
+                                  if (isSelected) optColor = 'bg-primary/20 text-primary border border-primary/30';
+                                  return (
+                                    <button
+                                      key={`s-drop-${seasonNum}`}
+                                      type="button"
+                                      onClick={() => {
+                                        setViewedSeason(seasonNum);
+                                        setSeasonDropdownOpen(false);
+                                      }}
+                                      className={`w-full flex-shrink-0 flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-left cursor-pointer transition-all ${optColor}`}
+                                    >
+                                      <span>{seasonNum === 0 ? 'Especiais' : `Temporada ${seasonNum}`}</span>
+                                      <span className="text-[10px] opacity-60 font-medium">({epsCount} eps)</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      selectedItem.formato !== 'MOVIE' && <div /> // empty column for grid alignment
+                    )}
+
+                    {/* 3. Toggle Episodes List Button Column */}
+                    {selectedItem.formato !== 'MOVIE' ? (
+                      <div className="flex justify-end h-[46px] items-center">
+                        <button 
+                          type="button"
+                          onClick={() => setShowEpList(!showEpList)}
+                          className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-white/20 transition-all flex items-center gap-2 text-xs font-bold text-white cursor-pointer active:scale-95"
+                        >
+                          <span className="material-symbols-outlined text-sm">grid_view</span>
+                          {showEpList ? 'Esconder Lista de Episódios' : 'Mostrar Lista de Episódios'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div />
+                    )}
                   </div>
+
                   <p className="text-xs text-on-surface-variant italic leading-relaxed">
                     {selectedItem.formato === 'MOVIE' ? 'Este filme' : 'Este anime'} ainda não estreou.{releaseDateFormatted ? ` Estreia a ${releaseDateFormatted}.` : ''} Quando estrear, poderás alterar o estado.
                   </p>
+
+                  {/* Desktop Episodes List Grid */}
+                  {showEpList && selectedItem.formato !== 'MOVIE' && (
+                    <div className="w-full mt-6 border-t border-white/10 pt-6 animate-in slide-in-from-top-4 duration-300 text-left">
+                      {loadingEpisodes ? (
+                        <div className="flex justify-center py-8">
+                          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                        </div>
+                      ) : (
+                        viewedEpisodes && viewedEpisodes.length > 0 ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                            {viewedEpisodes.map((ep: any) => {
+                              const isSpecial = ep.season === 0;
+                              const airTime = new Date(ep.air_date).getTime();
+                              const nowTime = new Date().getTime();
+                              const hasAired = ep.air_date ? airTime <= nowTime : true;
+                              
+                              return (
+                                <div 
+                                  key={ep.id || ep.episode_number} 
+                                  className="flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 border border-white/[0.02] transition-colors group cursor-pointer"
+                                  onClick={() => setSelectedEpisodeDetails({ ...ep, season: ep.season !== undefined ? ep.season : (viewedSeason || 1) })}
+                                >
+                                  {ep.still_path ? (
+                                    <img 
+                                      src={`https://image.tmdb.org/t/p/w300${ep.still_path}`}
+                                      alt={`Episódio ${ep.episode_number}`}
+                                      className="w-24 aspect-video object-cover rounded-xl border border-white/10 flex-shrink-0"
+                                    />
+                                  ) : (
+                                    <div className="w-24 aspect-video rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 text-on-surface-variant/30">
+                                      <span className="material-symbols-outlined text-lg">movie</span>
+                                    </div>
+                                  )}
+                                  <div className="flex-grow min-w-0">
+                                    <h5 className="text-xs font-bold text-white truncate flex items-center gap-2">
+                                      <span className="text-primary">
+                                        {isSpecial ? `Especial ${ep.episode_number}` : `Ep. ${ep.episode_number}`}
+                                      </span>
+                                      {ep.name && <span className="text-gray-400 font-medium truncate">— {ep.name}</span>}
+                                    </h5>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">
+                                        {ep.air_date ? new Date(ep.air_date).toLocaleDateString('pt-PT') : 'Data Indisponível'}
+                                        {!hasAired && (
+                                          <>
+                                            <span className="text-white/10 mx-1.5">•</span>
+                                            <span className="text-amber-500 text-[9px] font-extrabold uppercase tracking-wider">Por estrear</span>
+                                          </>
+                                        )}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-3 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                                    <div className="w-9 h-9 flex items-center justify-center text-on-surface-variant/30 font-bold" title="Não estreado">
+                                      <span className="material-symbols-outlined text-sm">schedule</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-on-surface-variant/60 text-center py-4">
+                            Nenhum episódio disponível para esta temporada.
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <>
@@ -984,7 +1278,11 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                             const hasAired = ep.air_date ? airTime <= nowTime : true;
                             
                             return (
-                              <div key={ep.id || ep.episode_number} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 border border-white/[0.02] transition-colors group">
+                              <div 
+                                key={ep.id || ep.episode_number} 
+                                className="flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 border border-white/[0.02] transition-colors group cursor-pointer"
+                                onClick={() => setSelectedEpisodeDetails({ ...ep, season: ep.season !== undefined ? ep.season : (viewedSeason || 1) })}
+                              >
                                 {ep.still_path ? (
                                   <img 
                                     src={`https://image.tmdb.org/t/p/w300${ep.still_path}`}
@@ -1016,7 +1314,7 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-3 flex-shrink-0">
+                                <div className="flex items-center gap-3 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                                   {hasAired ? (
                                     <button
                                       type="button"
@@ -1269,6 +1567,41 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
             )}
           </div>
         </div>
+      )}
+
+      {selectedEpisodeDetails && (
+        <EpisodeDetailsModal
+          isOpen={!!selectedEpisodeDetails}
+          onClose={() => setSelectedEpisodeDetails(null)}
+          episode={selectedEpisodeDetails}
+          animeId={selectedItem.isExternal ? selectedItem.id : (selectedItem.animeId || selectedItem.id)}
+          isWatched={
+            selectedEpisodeDetails.season === 0
+              ? (Array.isArray(selectedItem.watchedSpecials) && selectedItem.watchedSpecials.includes(selectedEpisodeDetails.episode_number))
+              : (selectedEpisodeDetails.globalEpisodeNumber || getGlobalEpisodeNumber(selectedEpisodeDetails.season, selectedEpisodeDetails.episode_number)) <= (selectedItem.epAtualGlobal || selectedItem.epAtual || 0)
+          }
+          onToggleWatch={() => {
+            if (selectedEpisodeDetails.season === 0) {
+              const currentSpecials = Array.isArray(selectedItem.watchedSpecials)
+                ? selectedItem.watchedSpecials
+                : [];
+              const isAlreadyWatched = currentSpecials.includes(selectedEpisodeDetails.episode_number);
+              const updatedSpecials = isAlreadyWatched
+                ? currentSpecials.filter((n: number) => n !== selectedEpisodeDetails.episode_number)
+                : [...currentSpecials, selectedEpisodeDetails.episode_number];
+              atualizarCampo('watchedSpecials', updatedSpecials);
+            } else {
+              const globalEpNum = selectedEpisodeDetails.globalEpisodeNumber || getGlobalEpisodeNumber(selectedEpisodeDetails.season, selectedEpisodeDetails.episode_number);
+              const isEpWatched = globalEpNum <= (selectedItem.epAtualGlobal || selectedItem.epAtual || 0);
+              if (isEpWatched) {
+                atualizarCampo('epAtual', globalEpNum - 1);
+              } else {
+                atualizarCampo('epAtual', globalEpNum);
+              }
+            }
+          }}
+          mediaType={mediaType}
+        />
       )}
     </div>
   );

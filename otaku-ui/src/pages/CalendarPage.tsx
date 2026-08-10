@@ -77,16 +77,36 @@ const CalendarPage = () => {
   }, []);
 
   // Initialize chronological groups
-  const groupedItems: Record<string, { label: string; dateStr: string; items: AiringAnime[] }> = {};
-  groupedItems['yesterday'] = { label: t('ONTEM'), dateStr: format(subDays(today, 1), 'yyyy-MM-dd'), items: [] };
-  groupedItems['today'] = { label: t('HOJE'), dateStr: format(today, 'yyyy-MM-dd'), items: [] };
-  groupedItems['tomorrow'] = { label: t('AMANHÃ'), dateStr: format(addDays(today, 1), 'yyyy-MM-dd'), items: [] };
+  const groupedItems: Record<string, { label: string; dateStr: string; dateObj?: Date; items: AiringAnime[] }> = {};
+  
+  const yesterdayObj = subDays(today, 1);
+  const tomorrowObj = addDays(today, 1);
+  
+  groupedItems['yesterday'] = { 
+    label: t('ONTEM'), 
+    dateStr: format(yesterdayObj, 'yyyy-MM-dd'), 
+    dateObj: yesterdayObj,
+    items: [] 
+  };
+  groupedItems['today'] = { 
+    label: t('HOJE'), 
+    dateStr: format(today, 'yyyy-MM-dd'), 
+    dateObj: today,
+    items: [] 
+  };
+  groupedItems['tomorrow'] = { 
+    label: t('AMANHÃ'), 
+    dateStr: format(tomorrowObj, 'yyyy-MM-dd'), 
+    dateObj: tomorrowObj,
+    items: [] 
+  };
   
   for (let offset = 2; offset <= 6; offset++) {
     const dDate = addDays(today, offset);
     groupedItems[`day-${offset}`] = {
       label: getFormattedWeekDay(dDate).toUpperCase(),
       dateStr: format(dDate, 'yyyy-MM-dd'),
+      dateObj: dDate,
       items: []
     };
   }
@@ -241,6 +261,9 @@ const CalendarPage = () => {
               <span className="text-[9px] text-on-surface-variant font-bold tracking-widest uppercase mt-1">
                 {t('DIAS')}
               </span>
+              <span className="text-[10px] text-secondary font-black mt-1">
+                {format(airDateObj, 'dd/MM')}
+              </span>
             </div>
           ) : (
             /* Broadcast Time */
@@ -286,7 +309,9 @@ const CalendarPage = () => {
               {/* Centered Group Pill Header */}
               <div className="flex justify-center mb-6">
                 <span className="bg-surface-container border border-white/5 text-white px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase shadow-md">
-                  {group.label}
+                  {group.dateObj 
+                    ? `${group.label} • ${format(group.dateObj, 'dd/MM')}`
+                    : group.label}
                 </span>
               </div>
 

@@ -144,12 +144,25 @@ public class MangaWebViewPlugin extends Plugin {
             dialog.setOnDismissListener(dialogInterface -> {
                 for (WebTab tab : tabs) {
                     try {
+                        tab.webView.stopLoading();
+                        tab.webView.clearHistory();
+                        tab.webView.clearCache(true);
+                        tab.webView.loadUrl("about:blank");
                         tab.webView.destroy();
                     } catch (Exception ignored) {}
                 }
                 tabs.clear();
                 activeTabIndex = -1;
                 dialog = null;
+
+                // Evitar fugas de memória libertando as referências das views da UI
+                webViewContainer = null;
+                backBtn = null;
+                forwardBtn = null;
+                tabCountBtn = null;
+                favBtn = null;
+                addressBar = null;
+                progressBar = null;
             });
 
             // Layout Principal (Vertical)
@@ -495,7 +508,7 @@ public class MangaWebViewPlugin extends Plugin {
                     tab.title = "Otaku Time Home";
                 } else {
                     tab.title = view.getTitle();
-                    // Injetar script para desativar popups JS e remover elementos visuais de anúncios / pornografia
+                    // Injetar script para desativar popups JS e remover elementos visuais de anúncios / pornografia (Otimizado com MutationObserver)
                     view.evaluateJavascript(
                         "(function() { " +
                         "  try { " +
@@ -510,16 +523,16 @@ public class MangaWebViewPlugin extends Plugin {
                         "        } " +
                         "      } " +
                         "    }, true); " +
+                        "    var selectors = [ " +
+                        "      'iframe[src*=\"doubleclick\"]', 'iframe[src*=\"exoclick\"]', 'iframe[src*=\"adserver\"]', " +
+                        "      'iframe[src*=\"googleads\"]', 'iframe[src*=\"juicyads\"]', 'iframe[src*=\"plugrush\"]', " +
+                        "      '.ads', '.ad', '.adsense', '.advertisement', '.ad-box', '.ad-container', '.banner-ad', " +
+                        "      '[class*=\"exo_\"]', '[id*=\"exo_\"]', '[class*=\"adsterra\"]', '[id*=\"adsterra\"]', " +
+                        "      '[class*=\"popunder\"]', '[id*=\"popunder\"]', '[class*=\"native-ad\"]', " +
+                        "      'a[href*=\"betano\"]', 'a[href*=\"1xbet\"]', 'a[href*=\"casino\"]', 'a[href*=\"apostas\"]', " +
+                        "      'div[id^=\"ad-\"]', 'div[class^=\"ad-\"]' " +
+                        "    ]; " +
                         "    function removeVisualAds() { " +
-                        "      var selectors = [ " +
-                        "        'iframe[src*=\"doubleclick\"]', 'iframe[src*=\"exoclick\"]', 'iframe[src*=\"adserver\"]', " +
-                        "        'iframe[src*=\"googleads\"]', 'iframe[src*=\"juicyads\"]', 'iframe[src*=\"plugrush\"]', " +
-                        "        '.ads', '.ad', '.adsense', '.advertisement', '.ad-box', '.ad-container', '.banner-ad', " +
-                        "        '[class*=\"exo_\"]', '[id*=\"exo_\"]', '[class*=\"adsterra\"]', '[id*=\"adsterra\"]', " +
-                        "        '[class*=\"popunder\"]', '[id*=\"popunder\"]', '[class*=\"native-ad\"]', " +
-                        "        'a[href*=\"betano\"]', 'a[href*=\"1xbet\"]', 'a[href*=\"casino\"]', 'a[href*=\"apostas\"]', " +
-                        "        'div[id^=\"ad-\"]', 'div[class^=\"ad-\"]' " +
-                        "      ]; " +
                         "      selectors.forEach(function(sel) { " +
                         "        var els = document.querySelectorAll(sel); " +
                         "        els.forEach(function(el) { " +
@@ -529,12 +542,20 @@ public class MangaWebViewPlugin extends Plugin {
                         "        }); " +
                         "      }); " +
                         "    } " +
-                        "    removeVisualAds(); " +
                         "    var style = document.createElement('style'); " +
                         "    style.innerHTML = 'iframe[src*=\"doubleclick\"], iframe[src*=\"exoclick\"], iframe[src*=\"adserver\"], iframe[src*=\"googleads\"], iframe[src*=\"juicyads\"], iframe[src*=\"plugrush\"], .ads, .ad, .adsense, .advertisement, .ad-box, .ad-container, .banner-ad, [class*=\"exo_\"], [id*=\"exo_\"], [class*=\"adsterra\"], [id*=\"adsterra\"], [class*=\"popunder\"], [id*=\"popunder\"], [class*=\"native-ad\"], a[href*=\"betano\"], a[href*=\"1xbet\"], a[href*=\"casino\"], a[href*=\"apostas\"], div[id^=\"ad-\"], div[class^=\"ad-\"] { display: none !important; height: 0 !important; opacity: 0 !important; visibility: hidden !important; }'; " +
                         "    document.head.appendChild(style); " +
-                        "    var interval = setInterval(removeVisualAds, 1000); " +
-                        "    setTimeout(function() { clearInterval(interval); }, 10000); " +
+                        "    removeVisualAds(); " +
+                        "    var observer = new MutationObserver(function(mutations) { " +
+                        "      removeVisualAds(); " +
+                        "    }); " +
+                        "    observer.observe(document.body || document.documentElement, { " +
+                        "      childList: true, " +
+                        "      subtree: true " +
+                        "    }); " +
+                        "    setTimeout(function() { " +
+                        "      observer.disconnect(); " +
+                        "    }, 15000); " +
                         "  } catch(e) {} " +
                         "})();", null
                     );
@@ -639,6 +660,19 @@ public class MangaWebViewPlugin extends Plugin {
 
     private void switchToTab(int index) {
         if (index < 0 || index >= tabs.size()) return;
+
+        // Pausar os WebViews inativos em segundo plano e resumir apenas o ativo
+        for (int i = 0; i < tabs.size(); i++) {
+            WebTab tab = tabs.get(i);
+            if (tab.webView != null) {
+                if (i == index) {
+                    tab.webView.onResume();
+                } else {
+                    tab.webView.onPause();
+                }
+            }
+        }
+
         activeTabIndex = index;
         WebTab activeTab = tabs.get(activeTabIndex);
 
@@ -663,10 +697,16 @@ public class MangaWebViewPlugin extends Plugin {
         if (index < 0 || index >= tabs.size()) return;
 
         WebView wv = tabs.get(index).webView;
-        wv.loadUrl("about:blank");
-        wv.clearHistory();
-        wv.removeAllViews();
-        wv.destroy();
+        if (wv != null) {
+            try {
+                wv.stopLoading();
+                wv.onPause();
+                wv.loadUrl("about:blank");
+                wv.clearHistory();
+                wv.clearCache(true); // Limpar cache de imagens ao fechar a aba
+                wv.destroy();
+            } catch (Exception ignored) {}
+        }
 
         tabs.remove(index);
 
@@ -1363,5 +1403,42 @@ public class MangaWebViewPlugin extends Plugin {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    @Override
+    protected void handleOnPause() {
+        super.handleOnPause();
+        // Pausar todos os WebViews e os timers globais de JavaScript ao minimizar a app
+        getActivity().runOnUiThread(() -> {
+            for (WebTab tab : tabs) {
+                if (tab.webView != null) {
+                    try {
+                        tab.webView.onPause();
+                        tab.webView.pauseTimers();
+                    } catch (Exception ignored) {}
+                }
+            }
+        });
+    }
+
+    @Override
+    protected void handleOnResume() {
+        super.handleOnResume();
+        // Retomar timers e apenas o WebView ativo ao reabrir a app
+        getActivity().runOnUiThread(() -> {
+            for (int i = 0; i < tabs.size(); i++) {
+                WebTab tab = tabs.get(i);
+                if (tab.webView != null) {
+                    try {
+                        tab.webView.resumeTimers();
+                        if (i == activeTabIndex) {
+                            tab.webView.onResume();
+                        } else {
+                            tab.webView.onPause();
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+        });
     }
 }

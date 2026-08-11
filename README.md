@@ -160,7 +160,13 @@ flowchart TD
     BE_Render -->|Metadata & Episodes| TMDB
 ```
 
+### Synchronization Engine
+
+For a detailed technical breakdown of our background synchronization engine (including cron schedules, anime/manga multi-source update flows, and auto-transition rules), please check the dedicated documentation:
+* 📄 **[Mecanismos de Sincronização (PT-PT)](docs/sincronizacao.md)**
+
 ### Recommendation Engine (DIBI Algorithm)
+
 
 ```mermaid
 graph TD

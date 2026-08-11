@@ -221,6 +221,29 @@ export class MangaSyncService {
       if (existe) {
         const oldLatest = existe.numCapitulosTotal || 0;
         if (latest > oldLatest) {
+          // Auto-transition completed trackers to WATCHING if new chapters are detected
+          const completedUserMangas = await this.prisma.userManga.findMany({
+            where: {
+              mangaId: anilistId,
+              status: 'COMPLETED',
+            },
+          });
+
+          for (const um of completedUserMangas) {
+            if (um.capAtual < latest) {
+              await this.prisma.userManga.update({
+                where: { id: um.id },
+                data: {
+                  status: 'WATCHING',
+                  lastProgressUpdate: new Date(),
+                },
+              });
+              console.log(
+                `[AutoTransition] Moved user ${um.userId} tracking of manga "${existe.titulo}" (${anilistId}) from COMPLETED to WATCHING because new chapters were detected (${um.capAtual} < ${latest}).`,
+              );
+            }
+          }
+
           const userMangas = await this.prisma.userManga.findMany({
             where: {
               mangaId: anilistId,
@@ -241,9 +264,14 @@ export class MangaSyncService {
           }
         }
 
-        const updateData: any = { numCapitulosTotal: latest };
-        if (existe.statusLancamento === 'RELEASING') {
+        const updateData: any = {
+          numCapitulosTotal: latest,
+          statusLancamento: manga.status,
+        };
+        if (manga.status === 'RELEASING') {
           updateData.proximoCapituloNumero = latest + 1;
+        } else {
+          updateData.proximoCapituloNumero = null;
         }
         await this.prisma.manga.update({
           where: { id: anilistId },

@@ -230,6 +230,7 @@ export class SyncService implements OnApplicationBootstrap {
     let runAnimeActive = false;
     let runAnimeFull = false;
     let runManga = false;
+    let runMangaFull = false;
     let activeMangaLabel = '';
 
     // 1. Anime Sync check (Active daily vs Full weekly)
@@ -237,16 +238,15 @@ export class SyncService implements OnApplicationBootstrap {
     const animeWindowStartDate = this.getWindowStartDate(7, isAnimeYesterday, timezone);
 
     try {
-      // Check if we need Weekly Full Sync (no successful ANIME_FULL sync in the last 7 days)
-      const lastWeeklyFullSync = await this.prisma.syncLog.findFirst({
+      // Check if we need Weekly Full Sync (if we have any anime updated > 7 days ago)
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const outdatedAnimesCount = await this.prisma.anime.count({
         where: {
-          status: 'SUCCESS',
-          details: { startsWith: '[ANIME_FULL]' },
-          timestamp: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+          updatedAt: { lt: sevenDaysAgo },
         },
       });
 
-      if (!lastWeeklyFullSync) {
+      if (outdatedAnimesCount > 0) {
         // We need a weekly full sync!
         // But first, apply the 20-hour guard for ANIME_FULL attempts (including RUNNING/FAILED/SUCCESS)
         const recentAnimeFullAttempt = await this.prisma.syncLog.findFirst({
@@ -259,7 +259,7 @@ export class SyncService implements OnApplicationBootstrap {
           runAnimeFull = true;
         } else {
           this.logger.log(
-            `ANIME_FULL sync needed, but skipped due to a recent attempt in the last 20 hours (at ${recentAnimeFullAttempt.timestamp.toISOString()}).`,
+            `ANIME_FULL sync needed (${outdatedAnimesCount} outdated), but skipped due to a recent attempt in the last 20 hours (at ${recentAnimeFullAttempt.timestamp.toISOString()}).`,
           );
         }
       }
@@ -308,58 +308,85 @@ export class SyncService implements OnApplicationBootstrap {
       this.logger.error('Error checking last anime sync status:', e);
     }
 
-    // 2. MANGA SYNC check (2 times a day: 12:00 and 22:00)
-    let activeMangaWindow: { label: string; startHour: number; isYesterday: boolean };
-
-    if (currentHour >= 22) {
-      activeMangaWindow = { label: '[MANGA_NIGHT]', startHour: 22, isYesterday: false };
-    } else if (currentHour < 12) {
-      activeMangaWindow = { label: '[MANGA_NIGHT]', startHour: 22, isYesterday: true };
-    } else { // 12 <= currentHour < 22
-      activeMangaWindow = { label: '[MANGA_MIDDAY]', startHour: 12, isYesterday: false };
-    }
-
-    activeMangaLabel = activeMangaWindow.label;
-    const mangaWindowStartDate = this.getWindowStartDate(
-      activeMangaWindow.startHour,
-      activeMangaWindow.isYesterday,
-      timezone,
-    );
-
+    // 2. MANGA SYNC check (Weekly Full Sync vs Daily Active Sync)
     try {
-      const lastMangaSync = await this.prisma.syncLog.findFirst({
+      // Check if we need Weekly Full Sync for Manga (if we have any manga updated > 7 days ago)
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const outdatedMangasCount = await this.prisma.manga.count({
         where: {
-          status: 'SUCCESS',
-          details: { startsWith: activeMangaWindow.label },
-          timestamp: { gte: mangaWindowStartDate },
+          updatedAt: { lt: sevenDaysAgo },
         },
       });
 
-      if (!lastMangaSync) {
-        // Apply the 20-hour guard for this specific manga window
-        const recentMangaAttempt = await this.prisma.syncLog.findFirst({
+      if (outdatedMangasCount > 0) {
+        const recentMangaFullAttempt = await this.prisma.syncLog.findFirst({
           where: {
             timestamp: { gte: new Date(Date.now() - 20 * 60 * 60 * 1000) },
-            details: { contains: activeMangaWindow.label },
+            details: { contains: 'MANGA_FULL' },
           },
         });
-        if (!recentMangaAttempt) {
-          runManga = true;
+        if (!recentMangaFullAttempt) {
+          runMangaFull = true;
+          activeMangaLabel = '[MANGA_FULL]';
         } else {
           this.logger.log(
-            `MANGA sync for ${activeMangaWindow.label} needed, but skipped due to an attempt in the last 20 hours (at ${recentMangaAttempt.timestamp.toISOString()}).`,
+            `MANGA_FULL sync needed (${outdatedMangasCount} outdated), but skipped due to a recent attempt in the last 20 hours (at ${recentMangaFullAttempt.timestamp.toISOString()}).`,
           );
         }
       }
+
+      if (!runMangaFull) {
+        let activeMangaWindow: { label: string; startHour: number; isYesterday: boolean };
+
+        if (currentHour >= 22) {
+          activeMangaWindow = { label: '[MANGA_NIGHT]', startHour: 22, isYesterday: false };
+        } else if (currentHour < 12) {
+          activeMangaWindow = { label: '[MANGA_NIGHT]', startHour: 22, isYesterday: true };
+        } else { // 12 <= currentHour < 22
+          activeMangaWindow = { label: '[MANGA_MIDDAY]', startHour: 12, isYesterday: false };
+        }
+
+        activeMangaLabel = activeMangaWindow.label;
+        const mangaWindowStartDate = this.getWindowStartDate(
+          activeMangaWindow.startHour,
+          activeMangaWindow.isYesterday,
+          timezone,
+        );
+
+        const lastMangaSync = await this.prisma.syncLog.findFirst({
+          where: {
+            status: 'SUCCESS',
+            details: { startsWith: activeMangaWindow.label },
+            timestamp: { gte: mangaWindowStartDate },
+          },
+        });
+
+        if (!lastMangaSync) {
+          // Apply the 20-hour guard for this specific manga window
+          const recentMangaAttempt = await this.prisma.syncLog.findFirst({
+            where: {
+              timestamp: { gte: new Date(Date.now() - 20 * 60 * 60 * 1000) },
+              details: { contains: activeMangaWindow.label },
+            },
+          });
+          if (!recentMangaAttempt) {
+            runManga = true;
+          } else {
+            this.logger.log(
+              `MANGA sync for ${activeMangaWindow.label} needed, but skipped due to an attempt in the last 20 hours (at ${recentMangaAttempt.timestamp.toISOString()}).`,
+            );
+          }
+        }
+      }
     } catch (e) {
-      this.logger.error(`Error checking last manga sync for window ${activeMangaWindow.label}:`, e);
+      this.logger.error('Error checking manga sync status:', e);
     }
 
-    if (runAnimeActive || runAnimeFull || runManga) {
+    if (runAnimeActive || runAnimeFull || runManga || runMangaFull) {
       this.logger.log(
-        `Scheduled sync check: Anime active sync needed: ${runAnimeActive}, Anime full sync needed: ${runAnimeFull}, Manga sync needed: ${runManga} (${activeMangaLabel})`,
+        `Scheduled sync check: Anime active sync needed: ${runAnimeActive}, Anime full sync needed: ${runAnimeFull}, Manga active sync needed: ${runManga}, Manga full sync needed: ${runMangaFull} (${activeMangaLabel})`,
       );
-      this.runScheduledSyncs(runAnimeActive, runAnimeFull, runManga, activeMangaLabel).catch((err) =>
+      this.runScheduledSyncs(runAnimeActive, runAnimeFull, runManga, runMangaFull, activeMangaLabel).catch((err) =>
         this.logger.error('Error running scheduled syncs:', err),
       );
     }
@@ -368,7 +395,8 @@ export class SyncService implements OnApplicationBootstrap {
   private async runScheduledSyncs(
     runAnimeActive: boolean,
     runAnimeFull: boolean,
-    runManga: boolean,
+    runMangaActive: boolean,
+    runMangaFull: boolean,
     mangaLabel: string,
   ) {
     if (this.isSyncingActive) {
@@ -491,15 +519,15 @@ export class SyncService implements OnApplicationBootstrap {
       }
 
       // Reset counters for Manga if both ran
-      if ((runAnimeActive || runAnimeFull) && runManga) {
+      if ((runAnimeActive || runAnimeFull) && (runMangaActive || runMangaFull)) {
         this.currentSyncedCount = 0;
         this.totalItemsToSync = 0;
         this.currentItemTitle = 'Initializing Manga...';
       }
 
-      // 2. Manga Sync
-      if (runManga) {
-        this.logger.log(`Starting scheduled MANGA sync for window ${mangaLabel}...`);
+      // 2a. Manga Active Sync
+      if (runMangaActive) {
+        this.logger.log(`Starting scheduled MANGA ACTIVE sync for window ${mangaLabel}...`);
         mangaLog = await this.prisma.syncLog.create({
           data: {
             status: 'RUNNING',
@@ -536,14 +564,65 @@ export class SyncService implements OnApplicationBootstrap {
             details: `${mangaLabel} Successfully synced ${syncedMangasCount} releasing mangas.`,
           },
         });
-        this.logger.log(`Scheduled MANGA sync for ${mangaLabel} completed successfully.`);
+        this.logger.log(`Scheduled MANGA ACTIVE sync for ${mangaLabel} completed successfully.`);
+      }
+
+      // 2b. Manga Full Sync (Weekly)
+      if (runMangaFull) {
+        this.logger.log('Starting scheduled MANGA FULL sync...');
+        mangaLog = await this.prisma.syncLog.create({
+          data: {
+            status: 'RUNNING',
+            details: '[MANGA_FULL] Sync started',
+          },
+        });
+
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const mangas = await this.prisma.manga.findMany({
+          where: {
+            updatedAt: { lt: sevenDaysAgo },
+          },
+          orderBy: { updatedAt: 'asc' },
+          take: 100, // Limit full sync to 100 oldest outdated items to avoid Render timeouts/crashes
+          select: { id: true, titulo: true },
+        });
+        this.totalItemsToSync = mangas.length;
+        this.logger.log(`Selected ${this.totalItemsToSync} outdated mangas (updated > 7 days ago) to sync.`);
+
+        for (let i = 0; i < mangas.length; i += 3) {
+          if (!this.isSyncingActive) break;
+
+          const batch = mangas.slice(i, i + 3);
+          for (const manga of batch) {
+            this.currentItemTitle = manga.titulo;
+            this.logger.log(
+              `[ScheduledSync] [MANGA_FULL] Syncing: "${manga.titulo}" (${this.currentSyncedCount + 1}/${this.totalItemsToSync})`,
+            );
+            await this.mangaService.syncLatestChapter(manga.id);
+            this.currentSyncedCount++;
+            syncedMangasCount++;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+        }
+
+        const detailsMsg = `[MANGA_FULL] Successfully synced all ${syncedMangasCount} mangas.`;
+        await this.prisma.syncLog.update({
+          where: { id: mangaLog.id },
+          data: {
+            status: 'SUCCESS',
+            details: detailsMsg,
+          },
+        });
+        this.logger.log('Scheduled MANGA FULL sync completed successfully.');
+        await this.notifyAdminsAboutSync('SUCCESS', detailsMsg, syncedMangasCount);
       }
     } catch (error) {
       this.logger.error('Error during scheduled synchronization:', error);
       const typeStr = [
         runAnimeActive && 'ANIME_ACTIVE',
         runAnimeFull && 'ANIME_FULL',
-        runManga && mangaLabel,
+        runMangaActive && mangaLabel,
+        runMangaFull && 'MANGA_FULL',
       ].filter(Boolean).join(' + ');
       const errorMsg = `[SCHEDULED_SYNC] Failed during ${typeStr}: ${error instanceof Error ? error.stack || error.message : String(error)}`;
 
@@ -560,15 +639,15 @@ export class SyncService implements OnApplicationBootstrap {
         }).catch((e) => this.logger.error('Failed to update full log status:', e));
         await this.notifyAdminsAboutSync('FAILED', errorMsg);
       }
-      if (runManga && mangaLog) {
+      if ((runMangaActive || runMangaFull) && mangaLog) {
         await this.prisma.syncLog.update({
           where: { id: mangaLog.id },
           data: { status: 'FAILED', details: errorMsg },
         }).catch((e) => this.logger.error('Failed to update manga log status:', e));
       }
 
-      // Notify admins if it failed during runAnimeFull (morning full sync)
-      if (runAnimeFull) {
+      // Notify admins if it failed during runAnimeFull or runMangaFull (full syncs)
+      if (runAnimeFull || runMangaFull) {
         await this.notifyAdminsAboutSync('FAILED', errorMsg);
       }
     } finally {
@@ -637,7 +716,7 @@ export class SyncService implements OnApplicationBootstrap {
 
   async runManualSync() {
     this.logger.log('Manual sync triggered by administrator. Bypassing schedule.');
-    this.runScheduledSyncs(true, false, true, '[MANGA_MANUAL]').catch((err) =>
+    this.runScheduledSyncs(true, false, true, false, '[MANGA_MANUAL]').catch((err) =>
       this.logger.error('Error running manual sync:', err),
     );
   }

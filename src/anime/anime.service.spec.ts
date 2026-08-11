@@ -526,4 +526,61 @@ describe('AnimeService', () => {
       expect(result.proximoEpLocal).toBe(1);
     });
   });
+
+  describe('syncLatestEpisode', () => {
+    it('should transition COMPLETED user status to WATCHING if new episodes are detected', async () => {
+      const tmdbId = 123;
+      const dbAnime = {
+        id: tmdbId,
+        titulo: 'Test Anime',
+        formato: 'TV',
+        episodesList: [],
+      };
+
+      mockPrismaService.anime.findUnique.mockResolvedValueOnce(dbAnime); // First call at the start
+      
+      const mockMedia = {
+        id: tmdbId,
+        episodes: 12,
+        coverImage: { large: 'image-url' },
+        status: 'RELEASING',
+        nextAiringEpisode: null,
+        dataLancamento: '2023-01-01',
+      };
+      jest.spyOn(service, 'searchAniListById').mockResolvedValue(mockMedia);
+
+      // Second findUnique mock returns the updated anime with new episodes list
+      const updatedAnime = {
+        ...dbAnime,
+        episodesList: [
+          { season: 1, episodeNumber: 1, airDate: '2023-01-01' },
+          { season: 2, episodeNumber: 1, airDate: '2023-06-01' }, // Season 2 ep 1 (new episode)
+        ],
+      };
+      mockPrismaService.anime.findUnique.mockResolvedValueOnce(updatedAnime); // Second call
+
+      // userAnime.findMany mocks:
+      // First findMany call in our logic looks for COMPLETED userAnimes:
+      const mockCompletedUserAnime = {
+        id: 99,
+        userId: 1,
+        animeId: tmdbId,
+        status: 'COMPLETED',
+        epAtual: 1, // User watched Season 1 Ep 1 (only 1 episode total previously)
+      };
+      mockPrismaService.userAnime.findMany.mockResolvedValueOnce([mockCompletedUserAnime]); // For COMPLETED users
+      mockPrismaService.userAnime.findMany.mockResolvedValueOnce([]); // For WATCHING users to notify
+
+      // Run sync
+      await service.syncLatestEpisode(tmdbId);
+
+      // Verify that the status of the user who completed the anime was updated to WATCHING
+      expect(mockPrismaService.userAnime.update).toHaveBeenCalledWith({
+        where: { id: 99 },
+        data: expect.objectContaining({
+          status: 'WATCHING',
+        }),
+      });
+    });
+  });
 });

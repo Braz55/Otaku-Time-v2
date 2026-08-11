@@ -838,6 +838,30 @@ export class AnimeService {
     }
 
     const episodes = updatedAnime.episodesList as any[];
+
+    // Auto-transition completed trackers to WATCHING if new episodes are detected
+    const totalListEpisodes = episodes.filter((ep: any) => ep.season > 0).length;
+    const completedUserAnimes = await this.prisma.userAnime.findMany({
+      where: {
+        animeId: tmdbId,
+        status: 'COMPLETED',
+      },
+    });
+
+    for (const ua of completedUserAnimes) {
+      if (ua.epAtual < totalListEpisodes) {
+        await this.prisma.userAnime.update({
+          where: { id: ua.id },
+          data: {
+            status: 'WATCHING',
+            lastProgressUpdate: new Date(),
+          },
+        });
+        this.logger.log(
+          `[AutoTransition] Moved user ${ua.userId} tracking of anime "${dbAnime.titulo}" (${tmdbId}) from COMPLETED to WATCHING because new episodes/seasons were detected (${ua.epAtual} < ${totalListEpisodes}).`,
+        );
+      }
+    }
     let episodesUpdated = false;
     const now = new Date();
     let notificationCount = 0;

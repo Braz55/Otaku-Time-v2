@@ -34,7 +34,33 @@ const HomePage = () => {
   const [searchPage, setSearchPage] = useState(1);
   const [hasMoreResults, setHasMoreResults] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [savingItems, setSavingItems] = useState<Record<number, boolean>>({});
+   const [savingItems, setSavingItems] = useState<Record<number, boolean>>({});
+ 
+   const [customLists, setCustomLists] = useState<any[]>([]);
+   const [statusFilter, setStatusFilter] = useState<'ALL' | 'RELEASING' | 'FINISHED'>(() => {
+     const saved = localStorage.getItem('otaku_manga_filter_status');
+     return (saved as 'ALL' | 'RELEASING' | 'FINISHED') || 'ALL';
+   });
+   const [listFilter, setListFilter] = useState<number | null>(() => {
+     const saved = localStorage.getItem('otaku_manga_filter_list');
+     return saved ? Number(saved) : null;
+   });
+    const [showFilters, setShowFilters] = useState(false);
+    const [isListDropdownOpen, setIsListDropdownOpen] = useState(false);
+
+   const handleStatusFilterChange = (status: 'ALL' | 'RELEASING' | 'FINISHED') => {
+     setStatusFilter(status);
+     localStorage.setItem('otaku_manga_filter_status', status);
+   };
+
+   const handleListFilterChange = (listId: number | null) => {
+     setListFilter(listId);
+     if (listId === null) {
+       localStorage.removeItem('otaku_manga_filter_list');
+     } else {
+       localStorage.setItem('otaku_manga_filter_list', String(listId));
+     }
+   };
 
   const escolherDestaque = (
     profileRecent: any[],
@@ -172,13 +198,17 @@ const HomePage = () => {
       setLoading(true);
     }
     try {
-      const [animeRes, mangaRes] = await Promise.all([
+      const [animeRes, mangaRes, listsRes] = await Promise.all([
         customFetch(`${API_BASE_URL}/anime?status=WATCHING`, { headers: getHeaders() }),
-        customFetch(`${API_BASE_URL}/manga?status=WATCHING`, { headers: getHeaders() })
+        customFetch(`${API_BASE_URL}/manga?status=WATCHING`, { headers: getHeaders() }),
+        customFetch(`${API_BASE_URL}/lists`, { headers: getHeaders() })
       ]);
       
       const activeAnimes = await animeRes.json();
       const activeMangas = await mangaRes.json();
+      if (listsRes.ok) {
+        setCustomLists(await listsRes.json());
+      }
 
       let allAnimes: any[] = [];
       let allMangas: any[] = [];
@@ -770,9 +800,9 @@ const HomePage = () => {
 
           {/* Up Next Section */}
           {(() => {
-            const dashboardItems = categoria === 'anime' ? animeDashboardData.items : mangaDashboardData.items;
+            const rawDashboardItems = categoria === 'anime' ? animeDashboardData.items : mangaDashboardData.items;
             
-            if (dashboardItems.length === 0) {
+            if (rawDashboardItems.length === 0) {
               return (
                 <div className="py-12 text-center glass-panel rounded-3xl border border-white/5 space-y-4">
                   <span className="material-symbols-outlined text-4xl text-on-surface-variant">live_tv</span>
@@ -781,6 +811,26 @@ const HomePage = () => {
                 </div>
               );
             }
+
+            const dashboardItems = rawDashboardItems.filter(item => {
+              if (categoria !== 'manga') return true;
+
+              // 1. Release status filter
+              const status = item.manga?.statusLancamento || item.statusLancamento;
+              if (statusFilter === 'RELEASING' && status !== 'RELEASING') return false;
+              if (statusFilter === 'FINISHED' && status !== 'FINISHED') return false;
+
+              // 2. Custom list filter
+              if (listFilter !== null) {
+                const selectedList = customLists.find(l => l.id === listFilter);
+                if (selectedList) {
+                  const mediaId = item.mangaId || item.id;
+                  const isInList = selectedList.items?.some((i: any) => i.anilistMediaId === mediaId);
+                  return isInList;
+                }
+              }
+              return true;
+            });
             
             return (
               <section className="space-y-4 md:space-y-6">
@@ -789,9 +839,158 @@ const HomePage = () => {
                     <span className={`font-label-md text-[10px] uppercase tracking-widest block mb-1 ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`}>{t("Continuar")}</span>
                     <h3 className="font-headline-lg text-lg md:text-xl text-white font-black">{t(categoria === 'anime' ? 'Próximo Episódio' : 'Próximo Capítulo')}</h3>
                   </div>
+
+                  {categoria === 'manga' && (
+                    <button 
+                      onClick={() => setShowFilters(!showFilters)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all duration-300 ${
+                        showFilters || statusFilter !== 'ALL' || listFilter !== null
+                          ? 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/20'
+                          : 'border-white/10 bg-white/5 text-on-surface-variant hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[16px] leading-none">
+                        {statusFilter !== 'ALL' || listFilter !== null ? 'filter_alt' : 'filter_list'}
+                      </span>
+                      <span>{t("Filtros")}</span>
+                      {(statusFilter !== 'ALL' || listFilter !== null) && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                      )}
+                    </button>
+                  )}
                 </div>
 
-                {isMobile ? (
+                {categoria === 'manga' && showFilters && (
+                  <div className="p-4 rounded-2xl glass-panel rim-light border border-white/5 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fadeIn relative z-20">
+                    {/* Status de lançamento filter */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant block">
+                        {t("Estado de Lançamento")}
+                      </label>
+                      <div className="flex gap-2">
+                        {(['ALL', 'RELEASING', 'FINISHED'] as const).map((status) => {
+                          const label = status === 'ALL' 
+                            ? t('Todos') 
+                            : status === 'RELEASING' 
+                              ? t('Em Lançamento') 
+                              : t('Finalizados');
+                              
+                          const active = statusFilter === status;
+                          return (
+                            <button
+                              key={status}
+                              onClick={() => handleStatusFilterChange(status)}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-300 ${
+                                active
+                                  ? 'bg-primary text-white shadow-lg shadow-primary/30'
+                                  : 'bg-white/5 hover:bg-white/10 text-on-surface-variant hover:text-white'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Lista Personalizada Filter */}
+                    <div className="space-y-2 relative">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant block">
+                        {t("Lista da Biblioteca")}
+                      </label>
+                      <div className="relative">
+                        {/* Custom Dropdown Trigger */}
+                        <button
+                          type="button"
+                          onClick={() => setIsListDropdownOpen(!isListDropdownOpen)}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-primary/50 transition-all cursor-pointer flex items-center justify-between text-left h-[34px] active:scale-[0.98] select-none"
+                        >
+                          <span className="truncate pr-2">
+                            {listFilter !== null 
+                              ? customLists.find(l => l.id === listFilter)?.name || t("Lista Desconhecida")
+                              : t("Qualquer lista")}
+                          </span>
+                          <span className={`material-symbols-outlined text-on-surface-variant text-base transition-transform duration-300 ${isListDropdownOpen ? 'rotate-180' : ''}`}>
+                            keyboard_arrow_down
+                          </span>
+                        </button>
+
+                        {/* Dropdown Options Menu */}
+                        {isListDropdownOpen && (
+                          <>
+                            {/* Backdrop to close dropdown on click outside */}
+                            <div 
+                              className="fixed inset-0 z-40" 
+                              onClick={() => setIsListDropdownOpen(false)}
+                            />
+                            
+                            <ul className="absolute left-0 right-0 mt-1.5 max-h-56 overflow-y-auto bg-[#1a1a1e]/95 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl z-50 py-1.5 scrollbar-hide animate-in fade-in slide-in-from-top-2 duration-200">
+                              <li>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleListFilterChange(null);
+                                    setIsListDropdownOpen(false);
+                                  }}
+                                  className={`w-full text-left px-3 py-2 text-xs transition-colors hover:bg-white/5 ${
+                                    listFilter === null ? 'text-primary font-bold font-label-md' : 'text-white'
+                                  }`}
+                                >
+                                  {t("Qualquer lista")}
+                                </button>
+                              </li>
+                              {customLists.map((list) => {
+                                const isSelected = listFilter === list.id;
+                                const activeCount = rawDashboardItems.filter(item => {
+                                  const mediaId = item.mangaId || item.id;
+                                  return list.items?.some((i: any) => i.anilistMediaId === mediaId);
+                                }).length;
+
+                                return (
+                                  <li key={list.id}>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleListFilterChange(list.id);
+                                        setIsListDropdownOpen(false);
+                                      }}
+                                      className={`w-full text-left px-3 py-2 text-xs transition-colors hover:bg-white/5 flex justify-between items-center ${
+                                        isSelected ? 'text-primary font-bold font-label-md' : 'text-white'
+                                      }`}
+                                    >
+                                      <span className="truncate mr-2">{list.name}</span>
+                                      <span className="text-[9px] text-on-surface-variant bg-white/5 px-1.5 py-0.5 rounded-md font-bold flex-shrink-0">
+                                        {activeCount}
+                                      </span>
+                                    </button>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {dashboardItems.length === 0 ? (
+                  <div className="py-12 text-center glass-panel rounded-3xl border border-white/5 space-y-4">
+                    <span className="material-symbols-outlined text-4xl text-on-surface-variant">filter_alt_off</span>
+                    <p className="text-on-surface font-bold text-base">{t("Nenhum manga corresponde aos filtros selecionados.")}</p>
+                    <button
+                      onClick={() => {
+                        setStatusFilter('ALL');
+                        setListFilter(null);
+                        localStorage.removeItem('otaku_manga_filter_status');
+                        localStorage.removeItem('otaku_manga_filter_list');
+                      }}
+                      className="px-4 py-2 bg-primary rounded-xl text-white font-bold text-xs hover:shadow-lg active:scale-95 transition-all cursor-pointer"
+                    >
+                      {t("Limpar Filtros")}
+                    </button>
+                  </div>
+                ) : isMobile ? (
                   /* Mobile Scroll Horizontal */
                   <div className="flex overflow-x-auto gap-3 pb-3 scrollbar-hide">
                     {dashboardItems.map((item) => {

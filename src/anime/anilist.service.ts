@@ -467,6 +467,22 @@ export class AniListService {
     return media;
   }
 
+  private isAnimeNotYetAired(anime: {
+    statusLancamento?: string | null;
+    dataLancamento?: Date | string | null;
+    numEpisodiosAired?: number | null;
+  }): boolean {
+    if (anime.statusLancamento === 'NOT_YET_RELEASED') return true;
+    if (anime.dataLancamento && new Date(anime.dataLancamento) > new Date()) return true;
+    if (
+      anime.statusLancamento !== 'FINISHED' &&
+      (anime.numEpisodiosAired === 0 || anime.numEpisodiosAired === null)
+    ) {
+      return true;
+    }
+    return false;
+  }
+
   async importFromAniList(
     nomeAnime: string,
     userId: number,
@@ -488,11 +504,13 @@ export class AniListService {
         throw new Error('Este anime já se encontra na sua biblioteca.');
       }
 
+      const hasNotAiredYet = this.isAnimeNotYetAired(anime);
+
       const createdUserAnime = await this.prisma.userAnime.create({
         data: {
           userId,
           animeId: anime.id,
-          status: 'PLANNED',
+          status: hasNotAiredYet ? 'WATCHING' : 'PLANNED',
           seasonAtual: 1,
           epAtual: 0,
         },
@@ -542,11 +560,13 @@ export class AniListService {
         throw new Error('Este anime já se encontra na sua biblioteca.');
       }
 
+      const hasNotAiredYet = this.isAnimeNotYetAired(matchedInDb);
+
       const createdUserAnime = await this.prisma.userAnime.create({
         data: {
           userId,
           animeId: matchedInDb.id,
-          status: 'PLANNED',
+          status: hasNotAiredYet ? 'WATCHING' : 'PLANNED',
           seasonAtual: 1,
           epAtual: 0,
         },
@@ -630,11 +650,17 @@ export class AniListService {
       });
     }
 
+    const currentAnime = await this.prisma.anime.findUnique({
+      where: { id: createdAnime.id },
+    }) || createdAnime;
+
+    const hasNotAiredYet = this.isAnimeNotYetAired(currentAnime);
+
     const createdUserAnime = await this.prisma.userAnime.create({
       data: {
         userId,
         animeId: createdAnime.id,
-        status: 'PLANNED',
+        status: hasNotAiredYet ? 'WATCHING' : 'PLANNED',
         seasonAtual: 1,
         epAtual: 0,
       },

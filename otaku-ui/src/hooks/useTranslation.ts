@@ -11,6 +11,7 @@ const dictionary: Record<string, string> = {
   "Membro Pro": "Pro Member",
   "Membro Grátis": "Free Member",
   "A carregar...": "Loading...",
+  "Desconhecido": "Unknown",
   "A carregar os conteúdos mais recentes...": "Loading the latest content...",
   "My List": "My List",
   "Listas": "Lists",

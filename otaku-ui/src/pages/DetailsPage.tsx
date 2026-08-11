@@ -1163,8 +1163,12 @@ const DetailsPage = () => {
                   </span>
                 )}
                 {selectedItem.statusLancamento && (
-                  <span className="px-3 py-1 rounded-full text-xs font-bold border border-white/10 bg-[#18181c] text-gray-300 capitalize">
-                    {selectedItem.statusLancamento === 'FINISHED' ? 'Finished' : selectedItem.statusLancamento.toLowerCase()}
+                  <span className="px-3 py-1 rounded-full text-xs font-bold border border-white/10 bg-[#18181c] text-gray-300">
+                    {selectedItem.statusLancamento === 'RELEASING' ? t("Em Lançamento") : 
+                     selectedItem.statusLancamento === 'FINISHED' ? t("Terminado") : 
+                     selectedItem.statusLancamento === 'HIATUS' ? t("Hiato") : 
+                     selectedItem.statusLancamento === 'CANCELLED' ? t("Cancelado") : 
+                     selectedItem.statusLancamento}
                   </span>
                 )}
               </div>
@@ -1517,6 +1521,21 @@ const DetailsPage = () => {
                 }`}>
                   {mediaType === 'anime' ? (selectedItem.tipo === 'SERIE' ? 'SÉRIE' : (selectedItem.tipo || 'ANIME')) : 'MANGA'}
                 </span>
+                {selectedItem.statusLancamento && (
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider ${
+                    selectedItem.statusLancamento === 'RELEASING'
+                      ? (mediaType === 'anime' 
+                        ? 'bg-primary/20 text-primary border-primary/30 shadow-[0_0_10px_rgba(106,27,154,0.2)]' 
+                        : 'bg-secondary/20 text-secondary border-secondary/30 shadow-[0_0_10px_rgba(194,24,91,0.2)]')
+                      : 'bg-white/10 text-white border-white/10'
+                  }`}>
+                    {selectedItem.statusLancamento === 'RELEASING' ? t("Em Lançamento") : 
+                     selectedItem.statusLancamento === 'FINISHED' ? t("Terminado") : 
+                     selectedItem.statusLancamento === 'HIATUS' ? t("Hiato") : 
+                     selectedItem.statusLancamento === 'CANCELLED' ? t("Cancelado") : 
+                     selectedItem.statusLancamento}
+                  </span>
+                )}
                 <span className="text-xs font-bold text-yellow-400 flex items-center gap-1">
                   <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
                   {selectedItem.isExternal ? 'Novo' : `#${selectedItem.prioridade}`}
@@ -1762,11 +1781,11 @@ const DetailsPage = () => {
                   <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/5 min-w-0">
                     <p className="text-on-surface-variant text-[8px] uppercase font-bold tracking-widest mb-1 truncate w-full">Status</p>
                     <p className={`font-bold text-xs truncate w-full ${selectedItem.statusLancamento === 'RELEASING' ? (mediaType === 'anime' ? 'text-primary' : 'text-secondary') : 'text-white'}`}>
-                      {selectedItem.statusLancamento === 'RELEASING' ? 'Releasing' : 
-                       selectedItem.statusLancamento === 'FINISHED' ? 'Finished' : 
-                       selectedItem.statusLancamento === 'HIATUS' ? 'Hiatus' : 
-                       selectedItem.statusLancamento === 'CANCELLED' ? 'Cancelled' : 
-                       selectedItem.statusLancamento || 'Unknown'}
+                      {selectedItem.statusLancamento === 'RELEASING' ? t("Em Lançamento") : 
+                       selectedItem.statusLancamento === 'FINISHED' ? t("Terminado") : 
+                       selectedItem.statusLancamento === 'HIATUS' ? t("Hiato") : 
+                       selectedItem.statusLancamento === 'CANCELLED' ? t("Cancelado") : 
+                       selectedItem.statusLancamento || t("Desconhecido")}
                     </p>
                   </div>
                   <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/5 min-w-0">

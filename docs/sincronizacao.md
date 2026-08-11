@@ -92,11 +92,13 @@ graph TD
 
 ## 📧 5. Notificação de Administradores
 
-No final de cada sincronização semanal completa (`ANIME_FULL` ou `MANGA_FULL`), o `SyncService` gera um relatório do estado da operação.
-O sistema pesquisa na tabela `User` por utilizadores com permissão de administrador (`tipoConta: 'ADMIN'`) e envia-lhes um e-mail formatado detalhando:
+No final de cada sincronização completa (`ANIME_FULL` ou `MANGA_FULL`), o `SyncService` gera um relatório detalhado.
+O sistema pesquisa na tabela `User` por utilizadores com permissão de administrador (`tipoConta: 'ADMIN'`) e envia-lhes um e-mail formatado com o assunto `[Otaku Time] Sincronização Completa de Animes/Mangas - Sucesso/Falha` detalhando:
 * A data/hora local da sincronização.
 * O estado final da operação (Sucesso / Falha).
-* A quantidade de registos alterados ou o stack trace de erros ocorridos em background.
+* A quantidade de registos atualizados nesta etapa.
+* Os detalhes ou stack trace de erros ocorridos em background (se falhar).
+* **Uma lista contendo todos os títulos (Animes/Mangas) que foram atualizados com sucesso** neste lote.
 
 ---
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface InfoTabProps {
   selectedItem: any;
@@ -45,6 +46,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({
   isMobile = false,
 }) => {
   const linksOficiais = selectedItem.linksExternos ? JSON.parse(selectedItem.linksExternos).map((l: any) => ({ ...l, tipo: 'Official' })) : [];
+  const { t } = useTranslation();
 
   return (
     <div className="w-full space-y-8 animate-in fade-in duration-300 text-left">
@@ -180,7 +182,11 @@ export const InfoTab: React.FC<InfoTabProps> = ({
             <span className="material-symbols-outlined text-lg mb-2 text-on-surface-variant">sensors</span>
             <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-0.5">Estado Lançamento</p>
             <p className="font-bold text-xs text-white">
-              {selectedItem.statusLancamento || 'Desconhecido'}
+              {selectedItem.statusLancamento === 'RELEASING' ? t("Em Lançamento") : 
+               selectedItem.statusLancamento === 'FINISHED' ? t("Terminado") : 
+               selectedItem.statusLancamento === 'HIATUS' ? t("Hiato") : 
+               selectedItem.statusLancamento === 'CANCELLED' ? t("Cancelado") : 
+               selectedItem.statusLancamento || t("Desconhecido")}
             </p>
           </div>
           <div className="bg-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">

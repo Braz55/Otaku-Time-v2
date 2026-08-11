@@ -490,6 +490,7 @@ export class SyncService implements OnApplicationBootstrap {
         this.totalItemsToSync = animes.length;
         this.logger.log(`Selected ${this.totalItemsToSync} outdated animes (updated > 7 days ago) to sync.`);
 
+        const syncedTitles: string[] = [];
         for (let i = 0; i < animes.length; i += 3) {
           if (!this.isSyncingActive) break;
 
@@ -502,6 +503,7 @@ export class SyncService implements OnApplicationBootstrap {
             await this.animeService.syncLatestEpisode(anime.id);
             this.currentSyncedCount++;
             syncedAnimesCount++;
+            syncedTitles.push(anime.titulo);
           }
           await new Promise((resolve) => setTimeout(resolve, 1500));
         }
@@ -515,7 +517,7 @@ export class SyncService implements OnApplicationBootstrap {
           },
         });
         this.logger.log('Scheduled ANIME FULL sync completed successfully.');
-        await this.notifyAdminsAboutSync('SUCCESS', detailsMsg, syncedAnimesCount);
+        await this.notifyAdminsAboutSync('SUCCESS', detailsMsg, syncedAnimesCount, syncedTitles, 'ANIME');
       }
 
       // Reset counters for Manga if both ran
@@ -589,6 +591,7 @@ export class SyncService implements OnApplicationBootstrap {
         this.totalItemsToSync = mangas.length;
         this.logger.log(`Selected ${this.totalItemsToSync} outdated mangas (updated > 7 days ago) to sync.`);
 
+        const syncedTitles: string[] = [];
         for (let i = 0; i < mangas.length; i += 3) {
           if (!this.isSyncingActive) break;
 
@@ -601,6 +604,7 @@ export class SyncService implements OnApplicationBootstrap {
             await this.mangaService.syncLatestChapter(manga.id);
             this.currentSyncedCount++;
             syncedMangasCount++;
+            syncedTitles.push(manga.titulo);
           }
           await new Promise((resolve) => setTimeout(resolve, 1500));
         }
@@ -614,7 +618,7 @@ export class SyncService implements OnApplicationBootstrap {
           },
         });
         this.logger.log('Scheduled MANGA FULL sync completed successfully.');
-        await this.notifyAdminsAboutSync('SUCCESS', detailsMsg, syncedMangasCount);
+        await this.notifyAdminsAboutSync('SUCCESS', detailsMsg, syncedMangasCount, syncedTitles, 'MANGA');
       }
     } catch (error) {
       this.logger.error('Error during scheduled synchronization:', error);
@@ -637,7 +641,6 @@ export class SyncService implements OnApplicationBootstrap {
           where: { id: fullLog.id },
           data: { status: 'FAILED', details: errorMsg },
         }).catch((e) => this.logger.error('Failed to update full log status:', e));
-        await this.notifyAdminsAboutSync('FAILED', errorMsg);
       }
       if ((runMangaActive || runMangaFull) && mangaLog) {
         await this.prisma.syncLog.update({
@@ -647,8 +650,10 @@ export class SyncService implements OnApplicationBootstrap {
       }
 
       // Notify admins if it failed during runAnimeFull or runMangaFull (full syncs)
-      if (runAnimeFull || runMangaFull) {
-        await this.notifyAdminsAboutSync('FAILED', errorMsg);
+      if (runAnimeFull) {
+        await this.notifyAdminsAboutSync('FAILED', errorMsg, undefined, undefined, 'ANIME');
+      } else if (runMangaFull) {
+        await this.notifyAdminsAboutSync('FAILED', errorMsg, undefined, undefined, 'MANGA');
       }
     } finally {
       this.isSyncingActive = false;
@@ -658,7 +663,13 @@ export class SyncService implements OnApplicationBootstrap {
     }
   }
 
-  private async notifyAdminsAboutSync(status: 'SUCCESS' | 'FAILED', details: string, count?: number) {
+  private async notifyAdminsAboutSync(
+    status: 'SUCCESS' | 'FAILED',
+    details: string,
+    count?: number,
+    titles?: string[],
+    syncType?: 'ANIME' | 'MANGA',
+  ) {
     try {
       const admins = await this.prisma.user.findMany({
         where: { tipoConta: 'ADMIN' },
@@ -670,19 +681,24 @@ export class SyncService implements OnApplicationBootstrap {
         return;
       }
 
-      const subject = `[Otaku Time] Sincronização da Manhã - ${status === 'SUCCESS' ? 'Sucesso' : 'Falha'}`;
+      const mediaName = syncType === 'MANGA' ? 'Mangas' : 'Animes';
+      const subject = `[Otaku Time] Sincronização Completa de ${mediaName} - ${status === 'SUCCESS' ? 'Sucesso' : 'Falha'}`;
       const timeStr = new Date().toLocaleString('pt-PT', { timeZone: 'Europe/Lisbon' });
 
+      const titlesStr = titles && titles.length > 0
+        ? `\n\nTítulos sincronizados nesta etapa:\n${titles.map((t) => `- ${t}`).join('\n')}`
+        : '';
+
       for (const admin of admins) {
-        const bodyText = `Olá, ${admin.nome}.\n\nA sincronização completa da manhã de animes foi concluída com estado: ${status}.\n\nDetalhes:\n- Data/Hora: ${timeStr}\n- Estado: ${status}\n- Detalhes: ${details}\n\nAbraços,\nEquipa Otaku Time`;
+        const bodyText = `Olá, ${admin.nome}.\n\nA sincronização completa de ${mediaName.toLowerCase()} foi concluída com estado: ${status}.\n\nDetalhes:\n- Data/Hora: ${timeStr}\n- Estado: ${status}\n- Detalhes: ${details}${titlesStr}\n\nAbraços,\nEquipa Otaku Time`;
 
         const bodyHtml = `
           <div style="font-family: sans-serif; padding: 20px; color: #333;">
             <h2 style="color: ${status === 'SUCCESS' ? '#2e7d32' : '#c62828'};">
-              Sincronização da Manhã: ${status === 'SUCCESS' ? 'Sucesso' : 'Falha'}
+              Sincronização Completa de ${mediaName}: ${status === 'SUCCESS' ? 'Sucesso' : 'Falha'}
             </h2>
             <p>Olá, <strong>${admin.nome}</strong>.</p>
-            <p>A sincronização completa de animes foi executada com o seguinte estado:</p>
+            <p>A sincronização completa de ${mediaName.toLowerCase()} foi executada com o seguinte estado:</p>
             <table style="border-collapse: collapse; width: 100%; max-width: 500px; margin: 20px 0;">
               <tr>
                 <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background-color: #f9f9f9;">Data/Hora</td>
@@ -694,7 +710,7 @@ export class SyncService implements OnApplicationBootstrap {
               </tr>
               ${count !== undefined ? `
               <tr>
-                <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background-color: #f9f9f9;">Animes Sincronizados</td>
+                <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background-color: #f9f9f9;">Quantidade Sincronizada</td>
                 <td style="padding: 8px; border: 1px solid #ddd;">${count}</td>
               </tr>
               ` : ''}
@@ -703,6 +719,14 @@ export class SyncService implements OnApplicationBootstrap {
                 <td style="padding: 8px; border: 1px solid #ddd;">${details}</td>
               </tr>
             </table>
+            ${titles && titles.length > 0 ? `
+            <div style="margin-top: 20px; max-width: 500px;">
+              <h3 style="color: #333; border-bottom: 2px solid #eee; padding-bottom: 5px;">Títulos Sincronizados nesta etapa:</h3>
+              <ul style="padding-left: 20px; line-height: 1.5; color: #555;">
+                ${titles.map((t) => `<li>${t}</li>`).join('')}
+              </ul>
+            </div>
+            ` : ''}
             <p style="font-size: 12px; color: #777; margin-top: 30px;">Esta é uma mensagem automática gerada pelo servidor Otaku Time.</p>
           </div>
         `;

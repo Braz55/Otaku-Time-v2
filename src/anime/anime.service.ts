@@ -934,9 +934,13 @@ export class AnimeService {
 
       // Map to keep track of already notified episodes
       const existingNotifiedMap = new Map<string, boolean>();
+      let isFirstTimeSync = true;
       if (anime.episodesList) {
         try {
           const list = anime.episodesList as any[];
+          if (list.length > 0) {
+            isFirstTimeSync = false;
+          }
           list.forEach((ep: any) => {
             const key = `${ep.season}-${ep.episodeNumber}`;
             existingNotifiedMap.set(key, !!ep.notified);
@@ -996,7 +1000,22 @@ export class AnimeService {
             }
           }
           const key = `${ep.season_number}-${ep.episode_number}`;
-          const isNotified = existingNotifiedMap.get(key) || false;
+          let isNotified = existingNotifiedMap.get(key);
+
+          if (isNotified === undefined) {
+            if (isFirstTimeSync && airDateVal) {
+              const epDate = new Date(airDateVal);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              if (epDate < today) {
+                isNotified = true;
+              } else {
+                isNotified = false;
+              }
+            } else {
+              isNotified = false;
+            }
+          }
 
           episodesList.push({
             season: ep.season_number,

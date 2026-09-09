@@ -87,7 +87,7 @@ export class AniListService {
     }
   }
 
-  async searchAniList(nomeAnime: string, userId?: number) {
+  async searchTmdbAnime(nomeAnime: string, userId?: number) {
     const results = await this.tmdbService.search(nomeAnime);
     if (results.length === 0) return null;
     const bestMatch = results[0];
@@ -99,14 +99,19 @@ export class AniListService {
       return normalizeTMDBToAniList(details, isMovie ? 'movie' : 'tv');
     } catch (error: any) {
       this.logger.error(
-        `TMDB detail fetch error in searchAniList: ${error.message || error}`,
+        `TMDB detail fetch error in searchTmdbAnime: ${error.message || error}`,
         error.stack,
       );
       return null;
     }
   }
 
-  async searchAniListById(id: number, userId?: number, format?: string) {
+  // Alias para compatibilidade legada
+  async searchAniList(nomeAnime: string, userId?: number) {
+    return this.searchTmdbAnime(nomeAnime, userId);
+  }
+
+  async getTmdbDetailsById(id: number, userId?: number, format?: string) {
     let details: any = null;
     let isMovie = false;
 
@@ -483,7 +488,12 @@ export class AniListService {
     return false;
   }
 
-  async importFromAniList(
+  // Alias para compatibilidade legada
+  async searchAniListById(id: number, userId?: number, format?: string) {
+    return this.getTmdbDetailsById(id, userId, format);
+  }
+
+  async importFromTmdb(
     nomeAnime: string,
     userId: number,
     anilistId?: number,
@@ -536,8 +546,8 @@ export class AniListService {
     }
 
     const tmdbData = anilistId
-      ? await this.searchAniListById(anilistId, undefined, format || 'TV')
-      : await this.searchAniList(nomeAnime);
+      ? await this.getTmdbDetailsById(anilistId, undefined, format || 'TV')
+      : await this.searchTmdbAnime(nomeAnime);
 
     if (!tmdbData) {
       throw new Error(
@@ -687,6 +697,16 @@ export class AniListService {
       statusLancamento: createdAnime.statusLancamento,
       dataLancamento: createdAnime.dataLancamento,
     };
+  }
+
+  // Alias para compatibilidade legada
+  async importFromAniList(
+    nomeAnime: string,
+    userId: number,
+    anilistId?: number,
+    format?: string,
+  ) {
+    return this.importFromTmdb(nomeAnime, userId, anilistId, format);
   }
 
   private async fetchCandidatesFromAniList(

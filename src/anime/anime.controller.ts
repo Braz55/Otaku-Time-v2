@@ -75,12 +75,22 @@ export class AnimeController {
   @UseGuards(JwtAuthGuard)
   @Post('import')
   importAnime(@Body() importAnimeDto: ImportAnimeDto, @Request() req) {
-    return this.animeService.importFromAniList(
+    return this.animeService.importFromTmdb(
       importAnimeDto.nome,
       req.user.userId,
       importAnimeDto.anilistId,
       importAnimeDto.format,
     );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('external-details/:id')
+  getExternalDetailsById(
+    @Param('id') id: string,
+    @Query('format') format: string,
+    @Request() req,
+  ) {
+    return this.animeService.getTmdbDetailsById(+id, req.user.userId, format);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -90,7 +100,7 @@ export class AnimeController {
     @Query('format') format: string,
     @Request() req,
   ) {
-    return this.animeService.searchAniListById(+id, req.user.userId, format);
+    return this.animeService.getTmdbDetailsById(+id, req.user.userId, format);
   }
 
   @UseGuards(JwtAuthGuard)

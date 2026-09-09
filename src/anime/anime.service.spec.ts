@@ -547,7 +547,7 @@ describe('AnimeService', () => {
         nextAiringEpisode: null,
         dataLancamento: '2023-01-01',
       };
-      jest.spyOn(service, 'searchAniListById').mockResolvedValue(mockMedia);
+      jest.spyOn(service, 'getTmdbDetailsById').mockResolvedValue(mockMedia);
 
       // Second findUnique mock returns the updated anime with new episodes list
       const updatedAnime = {

@@ -39,12 +39,38 @@ export class AnimeService {
     return this.anilistService.getGenreTags(type);
   }
 
+  async searchTmdbAnime(nomeAnime: string, userId?: number) {
+    return this.anilistService.searchTmdbAnime(nomeAnime, userId);
+  }
+
   async searchAniList(nomeAnime: string, userId?: number) {
-    return this.anilistService.searchAniList(nomeAnime, userId);
+    return this.searchTmdbAnime(nomeAnime, userId);
+  }
+
+  async getTmdbDetailsById(id: number, userId?: number, format?: string) {
+    return this.anilistService.getTmdbDetailsById(id, userId, format);
   }
 
   async searchAniListById(id: number, userId?: number, format?: string) {
-    return this.anilistService.searchAniListById(id, userId, format);
+    return this.getTmdbDetailsById(id, userId, format);
+  }
+
+  async importFromTmdb(
+    nomeAnime: string,
+    userId: number,
+    anilistId?: number,
+    format?: string,
+  ) {
+    return this.anilistService.importFromTmdb(nomeAnime, userId, anilistId, format);
+  }
+
+  async importFromAniList(
+    nomeAnime: string,
+    userId: number,
+    anilistId?: number,
+    format?: string,
+  ) {
+    return this.importFromTmdb(nomeAnime, userId, anilistId, format);
   }
 
   async getTVSeasonDetails(tvShowId: number, seasonNumber: number) {
@@ -118,15 +144,6 @@ export class AnimeService {
       }
       return null;
     }
-  }
-
-  async importFromAniList(
-    nomeAnime: string,
-    userId: number,
-    anilistId?: number,
-    format?: string,
-  ) {
-    return this.anilistService.importFromAniList(nomeAnime, userId, anilistId, format);
   }
 
   async explore(
@@ -210,7 +227,7 @@ export class AnimeService {
         select: { formato: true },
       });
       const format = existingAnime?.formato || undefined;
-      const tmdbData = await this.searchAniListById(animeId, userId, format);
+      const tmdbData = await this.getTmdbDetailsById(animeId, userId, format);
       if (tmdbData) {
         const generosDict = buildGenerosDict(tmdbData.genres, undefined);
         await this.anilistService.registerGenreTags(generosDict);
@@ -459,6 +476,27 @@ export class AnimeService {
       throw new ForbiddenException(
         'Não tem permissão para aceder a este registo.',
       );
+    }
+
+    if (
+      item.anime.statusLancamento === 'RELEASING' ||
+      (item.anime.proximoEpisodioData &&
+        new Date() >= new Date(item.anime.proximoEpisodioData))
+    ) {
+      try {
+        await this.syncLatestEpisode(item.animeId);
+        const updatedAnime = await this.prisma.anime.findUnique({
+          where: { id: item.animeId },
+        });
+        if (updatedAnime) {
+          item.anime = updatedAnime;
+        }
+      } catch (err) {
+        this.logger.error(
+          `Error auto-syncing releasing anime ${item.animeId} during findOne:`,
+          err,
+        );
+      }
     }
     const rating = await this.prisma.media.findUnique({
       where: { id: item.animeId },
@@ -796,7 +834,7 @@ export class AnimeService {
     });
     if (!dbAnime) return { latest: null };
 
-    const media = await this.searchAniListById(
+    const media = await this.getTmdbDetailsById(
       tmdbId,
       undefined,
       dbAnime.formato || undefined,

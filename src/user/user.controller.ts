@@ -18,9 +18,6 @@ import { SetFavoriteDto } from './dto/set-favorite.dto';
 import { UpdateUserStatisticsDto } from './dto/update-statistics.dto';
 import { UnlockAchievementDto } from './dto/unlock-achievement.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
-import { RedeemGiftCodeDto } from './dto/redeem-gift-code.dto';
-import { GenerateGiftCodeDto } from './dto/generate-gift-code.dto';
-import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
 import { CreateAchievementDto } from './dto/create-achievement.dto';
 import { UpdateAchievementDto } from './dto/update-achievement.dto';
 
@@ -169,43 +166,7 @@ export class UserController {
     return this.userService.getSyncLogs();
   }
 
-  // --- Rotas de Subscrições & Gift Codes ---
-  @UseGuards(JwtAuthGuard)
-  @Post('subscription/redeem')
-  redeemGiftCode(@Request() req, @Body() body: RedeemGiftCodeDto) {
-    return this.userService.redeemGiftCode(req.user.userId, body.code);
-  }
 
-  @UseGuards(JwtAuthGuard, AdminGuard)
-  @Get('admin/gift-codes')
-  getGiftCodes() {
-    return this.userService.listGiftCodes();
-  }
-
-  @UseGuards(JwtAuthGuard, AdminGuard)
-  @Post('admin/gift-codes/generate')
-  generateGiftCode(@Body() body: GenerateGiftCodeDto) {
-    return this.userService.generateGiftCode(
-      body.durationDays,
-      body.customCode,
-      body.expiresAt,
-    );
-  }
-
-  @UseGuards(JwtAuthGuard, AdminGuard)
-  @Get('admin/subscriptions')
-  getSubscriptions() {
-    return this.userService.listAllSubscriptions();
-  }
-
-  @UseGuards(JwtAuthGuard, AdminGuard)
-  @Patch('admin/subscriptions/:id')
-  updateSubscription(
-    @Param('id') id: string,
-    @Body() body: UpdateSubscriptionDto,
-  ) {
-    return this.userService.updateSubscription(+id, body);
-  }
 
   @UseGuards(JwtAuthGuard, AdminGuard)
   @Post('admin/achievements')

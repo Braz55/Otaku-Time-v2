@@ -6,13 +6,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { RestoreBackupDto } from './dto/restore-backup.dto';
 import { UpdateUserStatisticsDto } from './dto/update-statistics.dto';
-import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
 import { CreateAchievementDto } from './dto/create-achievement.dto';
 import { UpdateAchievementDto } from './dto/update-achievement.dto';
 import { BackupService } from './backup.service';
 import { AchievementService } from './achievement.service';
-import { GiftCodeService } from './gift-code.service';
-import { SubscriptionService } from './subscription.service';
 
 @Injectable()
 export class UserService {
@@ -20,9 +17,7 @@ export class UserService {
     private readonly prisma: PrismaService,
     private readonly backupService: BackupService,
     private readonly achievementService: AchievementService,
-    private readonly giftCodeService: GiftCodeService,
-    private readonly subscriptionService: SubscriptionService,
-  ) {}
+) {}
 
   // -------------------------------------------------------------
   // DELEGATED METHODS
@@ -70,30 +65,6 @@ export class UserService {
 
   async updateAchievement(id: number, data: UpdateAchievementDto) {
     return this.achievementService.updateAchievement(id, data);
-  }
-
-  async redeemGiftCode(userId: number, inputCode: string) {
-    return this.giftCodeService.redeemGiftCode(userId, inputCode);
-  }
-
-  async listGiftCodes() {
-    return this.giftCodeService.listGiftCodes();
-  }
-
-  async generateGiftCode(
-    durationDays: number,
-    customCode?: string,
-    expiresAt?: string,
-  ) {
-    return this.giftCodeService.generateGiftCode(durationDays, customCode, expiresAt);
-  }
-
-  async listAllSubscriptions() {
-    return this.subscriptionService.listAllSubscriptions();
-  }
-
-  async updateSubscription(id: number, updateData: UpdateSubscriptionDto) {
-    return this.subscriptionService.updateSubscription(id, updateData);
   }
 
   // -------------------------------------------------------------
@@ -299,7 +270,6 @@ export class UserService {
       },
       include: {
         statistics: true,
-        subscription: true,
         topFavorites: {
           orderBy: { rankPosition: 'asc' },
         },
@@ -314,25 +284,6 @@ export class UserService {
 
     if (!user) {
       throw new BadRequestException('Utilizador não encontrado.');
-    }
-
-    if (
-      user.subscription &&
-      user.subscription.status === 'ACTIVE' &&
-      user.subscription.currentPeriodEnd < new Date()
-    ) {
-      await this.prisma.$transaction([
-        this.prisma.userSubscription.update({
-          where: { userId },
-          data: { status: 'EXPIRED' },
-        }),
-        this.prisma.user.update({
-          where: { id: userId },
-          data: { tipoConta: 'padrao' },
-        }),
-      ]);
-      user.subscription.status = 'EXPIRED';
-      user.tipoConta = 'padrao';
     }
 
     let topFavoritesWithDetails: any[] = [];
@@ -452,7 +403,7 @@ export class UserService {
   }
 
   async updateUserRole(id: number, tipoConta: string) {
-    const validTypes = ['padrao', 'pro', 'ADMIN'];
+    const validTypes = ['normal', 'ADMIN'];
     if (!validTypes.includes(tipoConta)) {
       throw new BadRequestException('Tipo de conta inválido.');
     }

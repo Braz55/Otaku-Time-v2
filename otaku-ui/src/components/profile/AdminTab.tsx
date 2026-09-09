@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
-  Database, RefreshCw, Award, Clock, Search, 
-  Plus, Film, BookOpen, AlertCircle, User
+  Database, RefreshCw, Award, Search, 
+  Film, BookOpen, AlertCircle, User
 } from 'lucide-react';
 
 interface AdminTabProps {
@@ -36,66 +36,6 @@ interface AdminTabProps {
   setAdminSubSearch: (val: string) => void;
 }
 
-const formatDate = (dateStr: string) => {
-  try {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  } catch {
-    return dateStr;
-  }
-};
-
-const SubscriptionRow = ({ subscription }: { subscription: any }) => {
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'ACTIVE':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-500/10 border border-green-500/20 text-green-400 uppercase tracking-wider">
-            Ativo
-          </span>
-        );
-      case 'CANCELED':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 uppercase tracking-wider">
-            Cancelado
-          </span>
-        );
-      case 'EXPIRED':
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/10 border border-red-500/20 text-red-400 uppercase tracking-wider">
-            Expirado
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-500/10 border border-gray-500/20 text-gray-400 uppercase tracking-wider">
-            {status}
-          </span>
-        );
-    }
-  };
-
-  return (
-    <tr className="hover:bg-white/[0.01]">
-      <td className="p-3">
-        <div className="font-bold text-white">
-          {subscription.user.nome}
-          <span className="block text-[8px] text-gray-500 font-mono">{subscription.user.email}</span>
-        </div>
-      </td>
-      <td className="p-3 text-center font-bold text-white uppercase tracking-wider text-[10px]">
-        {subscription.planType}
-      </td>
-      <td className="p-3 text-center font-mono text-gray-400">
-        {formatDate(subscription.currentPeriodEnd)}
-      </td>
-      <td className="p-3 text-center">
-        {getStatusBadge(subscription.status)}
-      </td>
-    </tr>
-  );
-};
-
 export const AdminTab: React.FC<AdminTabProps> = ({
   loadingAdminData,
   adminStats,
@@ -112,20 +52,6 @@ export const AdminTab: React.FC<AdminTabProps> = ({
   syncStatus,
   triggerManualReleaseSync,
   releaseSyncError,
-  giftDays,
-  setGiftDays,
-  giftCustomCode,
-  setGiftCustomCode,
-  giftExpiresAt,
-  setGiftExpiresAt,
-  isGeneratingGift,
-  handleGenerateGiftCode,
-  adminGiftSearch,
-  setAdminGiftSearch,
-  adminGiftCodes,
-  adminSubscriptions,
-  adminSubSearch,
-  setAdminSubSearch,
 }) => {
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
@@ -345,8 +271,7 @@ export const AdminTab: React.FC<AdminTabProps> = ({
                             onChange={(e) => handleUpdateUserRole(u.id, e.target.value)}
                             className="bg-black/40 border border-white/10 hover:border-white/20 text-white rounded-lg p-1 px-2 text-xs font-bold outline-none focus:border-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                           >
-                            <option value="padrao" disabled={u.tipoConta === 'pro'}>Padrão</option>
-                            <option value="pro">Pro Tier</option>
+                            <option value="normal">Normal</option>
                             <option value="ADMIN">ADMIN</option>
                           </select>
                         </td>
@@ -389,167 +314,7 @@ export const AdminTab: React.FC<AdminTabProps> = ({
             </div>
           </div>
 
-          {/* Gift Cards Section */}
-          <div className="glass-panel p-6 rounded-[32px] border border-white/10 space-y-6 shadow-xl">
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <Award className="w-5 h-5 text-amber-500 font-bold" />
-              <span>Gestão de Gift Cards</span>
-            </h3>
-            
-            {/* Generation Form */}
-            <form onSubmit={handleGenerateGiftCode} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
-              <div className="space-y-1">
-                <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Dias de Premium</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={giftDays}
-                  onChange={(e) => setGiftDays(+e.target.value)}
-                  className="w-full bg-black/40 text-white font-bold p-2 rounded-xl border border-white/10 outline-none text-xs"
-                  required
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Código Customizado (Opcional)</label>
-                <input
-                  type="text"
-                  placeholder="EX: VIP-30D"
-                  value={giftCustomCode}
-                  onChange={(e) => setGiftCustomCode(e.target.value)}
-                  className="w-full bg-black/40 text-white font-bold p-2.5 rounded-xl border border-white/10 outline-none text-xs uppercase"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Expiração (Opcional)</label>
-                <input
-                  type="date"
-                  value={giftExpiresAt}
-                  onChange={(e) => setGiftExpiresAt(e.target.value)}
-                  className="w-full bg-black/40 text-white font-bold p-2.5 rounded-xl border border-white/10 outline-none text-xs text-gray-400"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={isGeneratingGift}
-                className="w-full px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer h-9.5"
-              >
-                {isGeneratingGift ? <RefreshCw className="w-4 h-4 animate-spin text-white" /> : <Plus className="w-4 h-4 text-white" />}
-                <span>GERAR GIFT CARD</span>
-              </button>
-            </form>
-
-            {/* Gift Codes Table */}
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h4 className="text-xs text-gray-400 font-bold uppercase tracking-wider">Códigos Gerados</h4>
-                <input
-                  type="text"
-                  placeholder="Pesquisar código..."
-                  value={adminGiftSearch}
-                  onChange={(e) => setAdminGiftSearch(e.target.value)}
-                  className="bg-black/30 border border-white/5 hover:border-white/10 focus:border-primary text-white text-xs p-2 px-3 rounded-lg outline-none w-48 transition-all"
-                />
-              </div>
-
-              <div className="overflow-x-auto rounded-xl border border-white/5 bg-black/20">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-white/5 bg-white/5 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                      <th className="p-3">Código</th>
-                      <th className="p-3 text-center">Dias Premium</th>
-                      <th className="p-3 text-center">Data Expiração</th>
-                      <th className="p-3 text-center">Resgatado Por</th>
-                      <th className="p-3 text-center">Data Resgate</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5 text-xs">
-                    {adminGiftCodes
-                      .filter(g => g.code.toLowerCase().includes(adminGiftSearch.toLowerCase()))
-                      .map((g) => (
-                        <tr key={g.code} className="hover:bg-white/[0.01]">
-                          <td className="p-3 font-mono font-bold text-amber-400 uppercase tracking-wider">{g.code}</td>
-                          <td className="p-3 text-center font-black text-white">{g.durationDays} dias</td>
-                          <td className="p-3 text-center font-mono text-gray-400">
-                            {g.expiresAt ? formatDate(g.expiresAt) : <span className="text-gray-600">Nunca</span>}
-                          </td>
-                          <td className="p-3 text-center">
-                            {g.redeemedBy ? (
-                              <div className="font-bold text-white">
-                                {g.redeemedBy.nome}
-                                <span className="block text-[8px] text-gray-500 font-mono">{g.redeemedBy.email}</span>
-                              </div>
-                            ) : (
-                              <span className="text-gray-500 font-bold">-</span>
-                            )}
-                          </td>
-                          <td className="p-3 text-center text-gray-400 font-medium">
-                            {g.redeemedAt ? new Date(g.redeemedAt).toLocaleString('pt-PT') : '-'}
-                          </td>
-                        </tr>
-                      ))}
-                    {adminGiftCodes.length === 0 && (
-                      <tr>
-                        <td colSpan={5} className="p-6 text-center text-gray-500 font-medium">Nenhum Gift Card gerado.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          {/* Subscriptions Section */}
-          <div className="glass-panel p-6 rounded-[32px] border border-white/10 space-y-6 shadow-xl font-sans">
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <Clock className="w-5 h-5 text-primary" />
-              <span>Gestão de Subscrições</span>
-            </h3>
-
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h4 className="text-xs text-gray-400 font-bold uppercase tracking-wider">Subscrições de Utilizadores</h4>
-                <input
-                  type="text"
-                  placeholder="Pesquisar por email/nome..."
-                  value={adminSubSearch}
-                  onChange={(e) => setAdminSubSearch(e.target.value)}
-                  className="bg-black/30 border border-white/5 hover:border-white/10 focus:border-primary text-white text-xs p-2 px-3 rounded-lg outline-none w-48 transition-all"
-                />
-              </div>
-
-              <div className="overflow-x-auto rounded-xl border border-white/5 bg-black/20">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-white/5 bg-white/5 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                      <th className="p-3">Utilizador</th>
-                      <th className="p-3 text-center">Plano</th>
-                      <th className="p-3 text-center">Data Fim</th>
-                      <th className="p-3 text-center">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5 text-xs">
-                    {adminSubscriptions
-                      .filter(s => 
-                        s.user.nome.toLowerCase().includes(adminSubSearch.toLowerCase()) ||
-                        s.user.email.toLowerCase().includes(adminSubSearch.toLowerCase())
-                      )
-                      .map((s) => (
-                        <SubscriptionRow 
-                          key={s.id} 
-                          subscription={s} 
-                        />
-                      ))}
-                    {adminSubscriptions.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="p-6 text-center text-gray-500 font-medium">Nenhuma subscrição ativa ou expirada encontrada.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </>
+                  </>
       )}
     </div>
   );

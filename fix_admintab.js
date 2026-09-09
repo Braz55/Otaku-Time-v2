@@ -1,0 +1,1 @@
+const fs = require('fs'); let content = fs.readFileSync('otaku-ui/src/components/profile/AdminTab.tsx', 'utf-8'); let idx = content.indexOf('{/* Gift Cards Section */}'); if (idx !== -1) { content = content.substring(0, idx) + '        </>\n      )}\n    </div>\n  );\n};\n'; } fs.writeFileSync('otaku-ui/src/components/profile/AdminTab.tsx', content);

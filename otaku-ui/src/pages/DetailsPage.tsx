@@ -2058,11 +2058,7 @@ const DetailsPage = () => {
                           <span className="px-2 py-0.5 rounded-full bg-red-500/20 border border-red-500/40 text-red-400 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
                             <Shield className="w-3 h-3" /> ADMIN
                           </span>
-                        ) : externalProfile.tipoConta === 'pro' ? (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
-                            <Award className="w-3 h-3" /> PRO TIER
-                          </span>
-                        ) : (
+                        )  : (
                           <span className="px-2 py-0.5 rounded-full bg-gray-500/20 border border-gray-500/40 text-gray-400 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
                             <User className="w-3 h-3" /> MEMBRO
                           </span>

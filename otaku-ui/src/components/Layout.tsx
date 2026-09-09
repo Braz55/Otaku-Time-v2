@@ -210,7 +210,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </h1>
           <p className="font-label-sm text-xs text-on-surface-variant mt-1">
             {t(user?.tipoConta === 'ADMIN' ? 'Administrator' : 
-              user?.tipoConta === 'pro' ? 'Pro Member' : 'Standard Member')}
+              user?.tipoConta === 'ADMIN' ? 'Administrador' : 'Membro')}
           </p>
         </div>
 
@@ -320,7 +320,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </p>
               <p className="text-[10px] text-white/70 truncate">
                 {t(user?.tipoConta === 'ADMIN' ? 'Administrator' : 
-                  user?.tipoConta === 'pro' ? 'Pro Member' : 'Standard Member')}
+                  user?.tipoConta === 'ADMIN' ? 'Administrador' : 'Membro')}
               </p>
             </div>
           </div>

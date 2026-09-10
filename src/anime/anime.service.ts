@@ -480,25 +480,25 @@ export class AnimeService {
       );
     }
 
+    const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    const lastSync = item.anime.updatedAt
+      ? new Date(item.anime.updatedAt)
+      : new Date(0);
+    const needsSync = lastSync < twoDaysAgo;
+
     if (
-      item.anime.statusLancamento === 'RELEASING' ||
-      (item.anime.proximoEpisodioData &&
-        new Date() >= new Date(item.anime.proximoEpisodioData))
+      needsSync &&
+      (item.anime.statusLancamento === 'RELEASING' ||
+        (item.anime.proximoEpisodioData &&
+          new Date() >= new Date(item.anime.proximoEpisodioData)))
     ) {
-      try {
-        await this.syncLatestEpisode(item.animeId);
-        const updatedAnime = await this.prisma.anime.findUnique({
-          where: { id: item.animeId },
-        });
-        if (updatedAnime) {
-          item.anime = updatedAnime;
-        }
-      } catch (err) {
+      // Sincronização em segundo plano (não bloqueante)
+      this.syncLatestEpisode(item.animeId).catch((err) => {
         this.logger.error(
           `Error auto-syncing releasing anime ${item.animeId} during findOne:`,
           err,
         );
-      }
+      });
     }
     const rating = await this.prisma.media.findUnique({
       where: { id: item.animeId },

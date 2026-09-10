@@ -1,11 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class CalendarService {
   private readonly logger = new Logger(CalendarService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationService: NotificationService,
+  ) {}
 
   async getCalendar(userId: number, startDateStr?: string) {
     const startLimit = startDateStr ? new Date(startDateStr) : new Date();
@@ -138,15 +142,13 @@ export class CalendarService {
           },
         });
 
-        await this.prisma.notification.create({
-          data: {
-            userId: ua.userId,
-            title: 'Anime planeado estreou!',
-            message: `O primeiro episódio de "${animeTitle}" estreou! Mudámos o status para "A ver".`,
-            type: 'ANIME',
-            mediaId: animeId,
-          },
-        });
+        await this.notificationService.createOrReplaceNotification(
+          ua.userId,
+          'Anime planeado estreou!',
+          `O primeiro episódio de "${animeTitle}" estreou! Mudámos o status para "A ver".`,
+          'ANIME',
+          animeId,
+        );
 
         this.logger.log(
           `[AutoTransition] Moved user ${ua.userId} tracking of anime "${animeTitle}" (${animeId}) from PLANNED to WATCHING.`,

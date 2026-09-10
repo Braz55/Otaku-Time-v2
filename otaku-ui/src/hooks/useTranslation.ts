@@ -92,6 +92,8 @@ const dictionary: Record<string, string> = {
   "Escolhe o idioma preferido da tua interface.": "Choose your preferred interface language.",
   "Notificações Push": "Push Notifications",
   "Alertas sobre novos episódios em exibição.": "Alerts for new airing episodes.",
+  "Notificações de Episódios Semanais": "Weekly Episode Notifications",
+  "Alertas sobre cada episódio semanal em lançamento (Ep 2+). Estreias continuam ativas.": "Alerts for weekly episode releases (Ep 2+). Premieres remain active.",
   "Filtro de Conteúdo (NSFW)": "Content Filter (NSFW)",
   "Ocultar resultados adultos na pesquisa global.": "Hide adult content in global search.",
   "Minha Conta": "My Account",

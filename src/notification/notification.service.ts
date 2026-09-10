@@ -82,6 +82,49 @@ export class NotificationService {
     });
   }
 
+  async createOrReplaceNotification(
+    userId: number,
+    title: string,
+    message: string,
+    type: string,
+    mediaId?: number,
+  ) {
+    if (mediaId) {
+      await this.prisma.notification.deleteMany({
+        where: {
+          userId,
+          type,
+          mediaId,
+        },
+      });
+    }
+
+    return this.prisma.notification.create({
+      data: {
+        userId,
+        title,
+        message,
+        type,
+        mediaId,
+      },
+    });
+  }
+
+  async autoMarkOldAsRead(hours = 48) {
+    const cutoffDate = new Date();
+    cutoffDate.setHours(cutoffDate.getHours() - hours);
+
+    return this.prisma.notification.updateMany({
+      where: {
+        read: false,
+        createdAt: {
+          lt: cutoffDate,
+        },
+      },
+      data: { read: true },
+    });
+  }
+
   async deleteAllNotifications(userId: number) {
     return this.prisma.notification.deleteMany({
       where: { userId },

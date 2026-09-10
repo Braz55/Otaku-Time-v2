@@ -2,6 +2,7 @@ import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MangaService } from './manga.service';
 import { AnilistMangaService } from './anilist-manga.service';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class MangaSyncService {
@@ -11,6 +12,7 @@ export class MangaSyncService {
     private readonly mangaService: MangaService,
     @Inject(forwardRef(() => AnilistMangaService))
     private readonly anilistMangaService: AnilistMangaService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   // PLAN A: Baka-Updates (MangaUpdates)
@@ -252,15 +254,13 @@ export class MangaSyncService {
           });
 
           for (const um of userMangas) {
-            await this.prisma.notification.create({
-              data: {
-                userId: um.userId,
-                title: 'Novo capítulo de Mangá!',
-                message: `O capítulo ${latest} de "${existe.titulo}" foi lançado!`,
-                type: 'MANGA',
-                mediaId: anilistId,
-              },
-            });
+            await this.notificationService.createOrReplaceNotification(
+              um.userId,
+              'Novo capítulo de Mangá!',
+              `O capítulo ${latest} de "${existe.titulo}" foi lançado!`,
+              'MANGA',
+              anilistId,
+            );
           }
         }
 

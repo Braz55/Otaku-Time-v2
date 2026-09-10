@@ -88,6 +88,7 @@ const LibraryPage = () => {
   const [filtroStatus, setFiltroStatus] = useState<string>(() => getInitialState('filtroStatus', 'WATCHING'));
   const [filtroLancamento, setFiltroLancamento] = useState<string>(() => getInitialState('filtroLancamento', 'ALL'));
   const [filtroFormato, setFiltroFormato] = useState<string>(() => getInitialState('filtroFormato', 'ALL'));
+  const [searchQuery, setSearchQuery] = useState<string>(() => getInitialState('searchQuery', ''));
   const [ordenacao, setOrdenacao] = useState<string>(() => {
     const defaultOrder = categoria === 'anime' ? 'LATEST_EPISODE' : 'PRIORITY';
     const initial = getInitialState<string>('ordenacao', defaultOrder);
@@ -121,6 +122,7 @@ const LibraryPage = () => {
     ordenacao,
     selectedGenres,
     selectedTags,
+    searchQuery,
     scrollPosition: 0,
     visibleCount,
     visibleCountPending,
@@ -139,13 +141,14 @@ const LibraryPage = () => {
       ordenacao,
       selectedGenres,
       selectedTags,
+      searchQuery,
       scrollPosition: window.scrollY,
       visibleCount,
       visibleCountPending,
       visibleCountEmDia,
       visibleCountPorEstrear
     };
-  }, [filtroStatus, filtroLancamento, filtroFormato, ordenacao, selectedGenres, selectedTags, visibleCount, visibleCountPending, visibleCountEmDia, visibleCountPorEstrear]);
+  }, [filtroStatus, filtroLancamento, filtroFormato, ordenacao, selectedGenres, selectedTags, searchQuery, visibleCount, visibleCountPending, visibleCountEmDia, visibleCountPorEstrear]);
 
   // Clear saved library state if not returning from details page
   useEffect(() => {
@@ -193,6 +196,7 @@ const LibraryPage = () => {
         setOrdenacao(restoredOrder || defaultOrder);
         setSelectedGenres(state.selectedGenres || []);
         setSelectedTags(state.selectedTags || []);
+        setSearchQuery(state.searchQuery || '');
         setVisibleCount(state.visibleCount || 24);
         setVisibleCountPending(state.visibleCountPending || 24);
         setVisibleCountEmDia(state.visibleCountEmDia || 24);
@@ -208,6 +212,7 @@ const LibraryPage = () => {
       setOrdenacao(defaultOrder);
       setSelectedGenres([]);
       setSelectedTags([]);
+      setSearchQuery('');
       setVisibleCount(24);
       setVisibleCountPending(24);
       setVisibleCountEmDia(24);
@@ -236,6 +241,7 @@ const LibraryPage = () => {
       ordenacao,
       selectedGenres,
       selectedTags,
+      searchQuery,
       scrollPosition: window.scrollY,
       visibleCount,
       visibleCountPending,
@@ -353,6 +359,10 @@ const LibraryPage = () => {
 
   // Filter and sort the library items
   const filtrados = resultadosDB.filter(item => {
+    if (searchQuery) {
+      const title = (item.anime?.titulo || item.manga?.titulo || item.titulo || '').toLowerCase();
+      if (!title.includes(searchQuery.toLowerCase())) return false;
+    }
     if (filtroStatus !== 'ALL' && item.status !== filtroStatus) return false;
     const statusLancamento = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
     if (filtroLancamento !== 'ALL' && statusLancamento !== filtroLancamento) return false;
@@ -760,6 +770,24 @@ const LibraryPage = () => {
                 </span>
                 <span className="material-symbols-outlined text-xs">keyboard_arrow_down</span>
               </button>
+            </div>
+
+            <div className="relative flex-1 sm:flex-initial min-w-[150px]">
+              <div className="flex items-center gap-1.5 px-3 py-2 bg-black/40 border border-white/5 rounded-xl text-white transition-all text-xs font-bold w-full focus-within:border-white/20 focus-within:bg-black/60 h-[38px]">
+                <span className="material-symbols-outlined text-sm text-on-surface-variant">search</span>
+                <input
+                  type="text"
+                  placeholder="Pesquisar..."
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); resetVisibleCounts(); }}
+                  className="bg-transparent border-none outline-none w-full placeholder:text-on-surface-variant/50"
+                />
+                {searchQuery && (
+                  <button onClick={() => { setSearchQuery(''); resetVisibleCounts(); }} className="flex items-center justify-center text-on-surface-variant hover:text-white outline-none">
+                    <span className="material-symbols-outlined text-[14px]">close</span>
+                  </button>
+                )}
+              </div>
             </div>
 
           </div>

@@ -13,6 +13,7 @@ import { AniListService } from './anilist.service';
 import { RecommendationService } from './recommendation.service';
 import { TVTimeImportService } from './tvtime-import.service';
 import { CalendarService } from './calendar.service';
+import { NotificationService } from '../notification/notification.service';
 import { detectMediaType, buildGenerosDict, resolveLatinTitleForSearchItem } from './anime.utils';
 
 @Injectable()
@@ -29,6 +30,7 @@ export class AnimeService {
     @Inject(forwardRef(() => TVTimeImportService))
     private readonly tvtimeImportService: TVTimeImportService,
     private readonly calendarService: CalendarService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   // -------------------------------------------------------------
@@ -909,6 +911,14 @@ export class AnimeService {
         animeId: tmdbId,
         status: 'WATCHING',
       },
+      include: {
+        user: {
+          select: {
+            id: true,
+            preferences: true,
+          },
+        },
+      },
     });
 
     for (const ep of episodes) {
@@ -917,17 +927,28 @@ export class AnimeService {
         if (now >= epDate && !ep.notified) {
           if (Number(ep.season) > 0) {
             for (const ua of userAnimes) {
-              const message = `O episódio ${ep.episodeNumber} da Temporada ${ep.season} de "${dbAnime.titulo}" estreou!`;
+              const userPrefs = ua.user?.preferences as any;
+              const notifyWeeklyEpisodes = userPrefs?.notifyWeeklyEpisodes !== false;
+              const isPremiere = Number(ep.episodeNumber) === 1;
 
-              await this.prisma.notification.create({
-                data: {
-                  userId: ua.userId,
-                  title: 'Novo episódio de Série/Anime!',
-                  message,
-                  type: 'ANIME',
-                  mediaId: tmdbId,
-                },
-              });
+              if (!isPremiere && !notifyWeeklyEpisodes) {
+                continue;
+              }
+
+              const title = isPremiere
+                ? 'Estreia de Nova Temporada / Série!'
+                : 'Novo episódio de Série/Anime!';
+              const message = isPremiere
+                ? `O 1º episódio da Temporada ${ep.season} de "${dbAnime.titulo}" estreou!`
+                : `O episódio ${ep.episodeNumber} da Temporada ${ep.season} de "${dbAnime.titulo}" estreou!`;
+
+              await this.notificationService.createOrReplaceNotification(
+                ua.userId,
+                title,
+                message,
+                'ANIME',
+                tmdbId,
+              );
             }
             notificationCount++;
           }
@@ -1212,65 +1233,9 @@ export class AnimeService {
         },
       });
 
-      const unlockedAchievements = await this.prisma.userAchievement.findMany({
-        where: { userId },
-      });
-      const unlockedSet = new Set(
-        unlockedAchievements.map((ua) => ua.achievementId),
-      );
-
-      const awardAchievement = async (achievementId: number) => {
-        if (!unlockedSet.has(achievementId)) {
-          try {
-            await this.prisma.userAchievement.create({
-              data: { userId, achievementId },
-            });
-            unlockedSet.add(achievementId);
-          } catch (e) {
-            console.error(`Error creating achievement ${achievementId}:`, e);
-          }
-        }
-      };
-
-      await awardAchievement(1);
-
-      if (totalEpisodesWatched >= 100) {
-        await awardAchievement(3);
-      }
-
-      if (totalMangaRead >= 1) {
-        await awardAchievement(4);
-      }
-
-      const completedAnimes = animes.filter((ua) => ua.status === 'COMPLETED');
-      const isekaiCount = completedAnimes.filter((ua) => {
-        if (!ua.anime?.generos) return false;
-        if (typeof ua.anime.generos === 'string') {
-          return ua.anime.generos.toLowerCase().includes('isekai');
-        }
-        if (typeof ua.anime.generos === 'object') {
-          return Object.keys(ua.anime.generos).some(
-            (key) => key.toLowerCase() === 'isekai',
-          );
-        }
-        return false;
-      }).length;
-      if (isekaiCount >= 5) {
-        await awardAchievement(2);
-      }
-
-      const favoritesCount = await this.prisma.userTopFavorite.count({
-        where: { userId },
-      });
-      if (favoritesCount >= 3) {
-        await awardAchievement(5);
-      }
-
-      if (totalMangaRead >= totalEpisodesWatched * 2 && totalMangaRead > 0) {
-        await awardAchievement(46);
-      }
+      // Achievement processing disabled for performance optimization
     } catch (e) {
-      console.error('Error recalculating user statistics/achievements:', e);
+      console.error('Error recalculating user statistics:', e);
     }
   }
 

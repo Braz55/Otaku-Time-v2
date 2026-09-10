@@ -4,9 +4,10 @@ import { MangaController } from './manga.controller';
 import { AnilistMangaService } from './anilist-manga.service';
 import { MangaSyncService } from './manga-sync.service';
 import { ListModule } from '../list/list.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
-  imports: [ListModule],
+  imports: [ListModule, NotificationModule],
   controllers: [MangaController],
   providers: [MangaService, AnilistMangaService, MangaSyncService],
   exports: [MangaService, AnilistMangaService, MangaSyncService],

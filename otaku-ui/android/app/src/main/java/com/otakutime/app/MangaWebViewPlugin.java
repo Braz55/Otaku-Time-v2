@@ -55,6 +55,7 @@ public class MangaWebViewPlugin extends Plugin {
     private TextView forwardBtn;
     private TextView tabCountBtn;
     private TextView favBtn;
+    private TextView adBlockBtn;
     private EditText addressBar;
     private android.widget.ProgressBar progressBar;
 
@@ -72,12 +73,14 @@ public class MangaWebViewPlugin extends Plugin {
         String currentUrl;
         String title;
         int progress;
+        boolean adBlockEnabled;
 
         WebTab(WebView webView, String url) {
             this.webView = webView;
             this.currentUrl = url;
             this.title = "A carregar...";
             this.progress = 100;
+            this.adBlockEnabled = true;
         }
     }
 
@@ -241,6 +244,28 @@ public class MangaWebViewPlugin extends Plugin {
                 return false;
             });
 
+            // Botão AdBlock (🛡️)
+            adBlockBtn = new TextView(context);
+            adBlockBtn.setText("🛡️");
+            adBlockBtn.setTextSize(18);
+            adBlockBtn.setPadding(15, 8, 15, 8);
+            LinearLayout.LayoutParams adBlockParams = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            adBlockParams.setMargins(15, 0, 15, 0);
+            adBlockBtn.setLayoutParams(adBlockParams);
+            adBlockBtn.setOnClickListener(v -> {
+                if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
+                    WebTab activeTab = tabs.get(activeTabIndex);
+                    activeTab.adBlockEnabled = !activeTab.adBlockEnabled;
+                    updateAdBlockButtonState();
+                    if (activeTab.webView != null) {
+                        activeTab.webView.reload();
+                    }
+                    Toast.makeText(context, "AdBlock " + (activeTab.adBlockEnabled ? "Ativado" : "Desativado"), Toast.LENGTH_SHORT).show();
+                }
+            });
+
             // Botão Favoritar Estrela (☆/★)
             favBtn = new TextView(context);
             favBtn.setText("☆");
@@ -291,6 +316,7 @@ public class MangaWebViewPlugin extends Plugin {
 
             toolbar.addView(homeBtn);
             toolbar.addView(addressBar);
+            toolbar.addView(adBlockBtn);
             toolbar.addView(favBtn);
             toolbar.addView(closeTabBtn);
             toolbar.addView(tabCountBtn);
@@ -508,8 +534,9 @@ public class MangaWebViewPlugin extends Plugin {
                     tab.title = "Otaku Time Home";
                 } else {
                     tab.title = view.getTitle();
-                    // Injetar script para desativar popups JS e remover elementos visuais de anúncios / pornografia (Otimizado com MutationObserver)
-                    view.evaluateJavascript(
+                    if (tab.adBlockEnabled) {
+                        // Injetar script para desativar popups JS e remover elementos visuais de anúncios / pornografia
+                        view.evaluateJavascript(
                         "(function() { " +
                         "  try { " +
                         "    window.open = function() { return null; }; " +
@@ -559,6 +586,7 @@ public class MangaWebViewPlugin extends Plugin {
                         "  } catch(e) {} " +
                         "})();", null
                     );
+                    }
                 }
                 if (isCurrentTab(tab)) {
                     if (url != null && url.startsWith("https://local.otakutime.home")) {
@@ -581,10 +609,12 @@ public class MangaWebViewPlugin extends Plugin {
                     return true;
                 }
 
-                String lowerUrl = url.toLowerCase();
-                for (String adHost : AD_HOSTS) {
-                    if (lowerUrl.contains(adHost)) {
-                        return true;
+                if (tab.adBlockEnabled) {
+                    String lowerUrl = url.toLowerCase();
+                    for (String adHost : AD_HOSTS) {
+                        if (lowerUrl.contains(adHost)) {
+                            return true;
+                        }
                     }
                 }
 
@@ -603,10 +633,12 @@ public class MangaWebViewPlugin extends Plugin {
 
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                String reqUrl = request.getUrl().toString().toLowerCase();
-                for (String adHost : AD_HOSTS) {
-                    if (reqUrl.contains(adHost)) {
-                        return new WebResourceResponse("text/plain", "UTF-8", new ByteArrayInputStream(new byte[0]));
+                if (tab.adBlockEnabled) {
+                    String reqUrl = request.getUrl().toString().toLowerCase();
+                    for (String adHost : AD_HOSTS) {
+                        if (reqUrl.contains(adHost)) {
+                            return new WebResourceResponse("text/plain", "UTF-8", new ByteArrayInputStream(new byte[0]));
+                        }
                     }
                 }
                 return super.shouldInterceptRequest(view, request);
@@ -689,6 +721,7 @@ public class MangaWebViewPlugin extends Plugin {
         updateNavigationButtons();
         updateTabCountButton();
         updateFavButtonState(activeTab.currentUrl);
+        updateAdBlockButtonState();
         updateProgressBar(activeTab.progress);
         saveTabsToPreferences();
     }
@@ -760,6 +793,17 @@ public class MangaWebViewPlugin extends Plugin {
     private void updateTabCountButton() {
         if (tabCountBtn != null) {
             tabCountBtn.setText("[" + tabs.size() + "]");
+        }
+    }
+
+    private void updateAdBlockButtonState() {
+        if (adBlockBtn != null && activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
+            boolean enabled = tabs.get(activeTabIndex).adBlockEnabled;
+            if (enabled) {
+                adBlockBtn.setAlpha(1.0f);
+            } else {
+                adBlockBtn.setAlpha(0.3f);
+            }
         }
     }
 

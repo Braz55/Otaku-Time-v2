@@ -5,6 +5,7 @@ import { AnimeService } from '../anime/anime.service';
 import { MangaService } from '../manga/manga.service';
 import { EmailService } from '../email/email.service';
 import { KeepAwakeService } from '../keep-awake.service';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class SyncService implements OnApplicationBootstrap {
@@ -20,6 +21,7 @@ export class SyncService implements OnApplicationBootstrap {
     private readonly mangaService: MangaService,
     private readonly emailService: EmailService,
     private readonly keepAwakeService: KeepAwakeService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async onApplicationBootstrap() {
@@ -46,6 +48,18 @@ export class SyncService implements OnApplicationBootstrap {
       return;
     }
     this.logger.log('CRON Triggered: Checking local episode schedules...');
+
+    // Auto-mark notifications older than 48 hours as read
+    try {
+      const readResult = await this.notificationService.autoMarkOldAsRead(48);
+      if (readResult.count > 0) {
+        this.logger.log(
+          `[Cleanup] Auto-marked ${readResult.count} notifications older than 48 hours as read.`,
+        );
+      }
+    } catch (err) {
+      this.logger.error('Error auto-marking old notifications as read:', err);
+    }
 
     // Cleanup old notifications (older than 30 days)
     try {
@@ -95,22 +109,41 @@ export class SyncService implements OnApplicationBootstrap {
                     animeId: anime.id,
                     status: 'WATCHING',
                   },
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        preferences: true,
+                      },
+                    },
+                  },
                 });
                 animeUserCache.set(anime.id, userAnimes);
               }
 
               for (const ua of userAnimes) {
-                const message = `O episódio ${ep.episodeNumber} da Temporada ${ep.season} de "${anime.titulo}" estreou!`;
+                const userPrefs = ua.user?.preferences as any;
+                const notifyWeeklyEpisodes = userPrefs?.notifyWeeklyEpisodes !== false;
+                const isPremiere = Number(ep.episodeNumber) === 1;
 
-                await this.prisma.notification.create({
-                  data: {
-                    userId: ua.userId,
-                    title: 'Novo episódio de Série/Anime!',
-                    message,
-                    type: 'ANIME',
-                    mediaId: anime.id,
-                  },
-                });
+                if (!isPremiere && !notifyWeeklyEpisodes) {
+                  continue;
+                }
+
+                const title = isPremiere
+                  ? 'Estreia de Nova Temporada / Série!'
+                  : 'Novo episódio de Série/Anime!';
+                const message = isPremiere
+                  ? `O 1º episódio da Temporada ${ep.season} de "${anime.titulo}" estreou!`
+                  : `O episódio ${ep.episodeNumber} da Temporada ${ep.season} de "${anime.titulo}" estreou!`;
+
+                await this.notificationService.createOrReplaceNotification(
+                  ua.userId,
+                  title,
+                  message,
+                  'ANIME',
+                  anime.id,
+                );
               }
             }
 

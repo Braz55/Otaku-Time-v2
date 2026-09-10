@@ -104,15 +104,18 @@ export const AccountTab: React.FC<AccountTabProps> = ({
           {/* Notifications Switch */}
           <div className="flex items-center justify-between gap-4 pt-4 border-t border-border-glass">
             <div>
-              <p className="font-bold text-sm text-white">{t("Notificações Push")}</p>
-              <p className="text-xs text-on-surface-variant">{t("Alertas sobre novos episódios em exibição.")}</p>
+              <p className="font-bold text-sm text-white">{t("Notificações de Episódios Semanais")}</p>
+              <p className="text-xs text-on-surface-variant">{t("Alertas sobre cada episódio semanal em lançamento (Ep 2+). Estreias continuam ativas.")}</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input 
                 type="checkbox" 
-                checked={user?.showAdultContent === false} 
+                checked={user?.preferences?.notifyWeeklyEpisodes !== false} 
                 disabled={isUpdatingPreferences}
-                onChange={(e) => handleUpdatePreference('showAdultContent', !e.target.checked)}
+                onChange={(e) => handleUpdatePreference('preferences', {
+                  ...(user?.preferences || {}),
+                  notifyWeeklyEpisodes: e.target.checked
+                })}
                 className="sr-only peer" 
               />
               <div className="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>

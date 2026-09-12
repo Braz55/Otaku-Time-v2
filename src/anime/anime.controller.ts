@@ -104,6 +104,16 @@ export class AnimeController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('tmdb/:id/images')
+  getTmdbImages(
+    @Param('id') id: string,
+    @Query('format') format?: string,
+    @Query('title') title?: string,
+  ) {
+    return this.animeService.getTmdbImages(+id, format, title);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('tmdb/:id/season/:seasonNumber')
   getTVSeasonDetails(
     @Param('id') id: string,

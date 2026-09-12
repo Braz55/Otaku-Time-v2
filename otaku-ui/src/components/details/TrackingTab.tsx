@@ -140,7 +140,7 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
   const linksPessoais = selectedItem.linksPersonalizados ? JSON.parse(selectedItem.linksPersonalizados).map((l: any) => ({ ...l, tipo: 'Custom' })) : [];
 
   return (
-    <div className="w-full space-y-6 animate-in fade-in duration-300">
+    <div className="w-full space-y-6 animate-in fade-in duration-300 pb-28 md:pb-6">
       {/* 1. Main Action Card */}
       <div className="bg-[#18181c]/80 border border-white/5 rounded-3xl p-6 relative z-30 shadow-xl backdrop-blur-md space-y-6">
         <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none z-0">
@@ -640,50 +640,51 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                   })()
                 )}
 
-                <div className="flex items-baseline gap-2 mb-2 mt-1 justify-center">
-                  {isSavingDetailsProgress ? (
-                    <div className="h-10 flex items-center justify-center">
-                      <Loader2 className={`w-6 h-6 animate-spin ${mediaType === 'anime' ? 'text-primary' : 'text-secondary'}`} />
-                    </div>
-                  ) : (
-                    <>
-                      <input 
-                        type="number" 
-                        min="0" 
-                        max={totalEpisodesAllSeasons || 9999} 
-                        value={mediaType === 'anime' ? (selectedItem.epAtualGlobal || selectedItem.epAtual || 0) : (selectedItem.capAtual || 0)} 
-                        onChange={(e) => { 
-                          const val = parseInt(e.target.value) || 0; 
-                          if (mediaType === 'anime') { 
-                            if (val > totalAiredEpisodes) {
-                              showToast('Não é possível marcar episódios que ainda não estrearam.', 'error');
-                              return;
-                            }
-                            atualizarCampo('epAtual', val); 
-                          } else { 
-                            atualizarCampo('capAtual', val); 
-                          } 
-                        }} 
-                        className={`bg-transparent ${mediaType === 'anime' ? 'text-primary focus:bg-secondary/10' : 'text-secondary focus:bg-primary/10'} font-black text-3xl w-16 text-center outline-none border-b border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} 
-                      />
-                      <span className="text-on-surface-variant font-light text-2xl">/</span> 
-                      <span className="text-on-surface-variant font-bold text-2xl">
-                        {totalEpisodesAllSeasons || '?'}
-                      </span>
-                    </>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-center gap-2 w-full flex-wrap mb-1">
+                <div className="flex items-center justify-center gap-2.5 w-full my-2 flex-wrap sm:flex-nowrap">
                   <button 
                     type="button"
                     onClick={() => atualizarProgresso(-1)} 
                     disabled={isSavingDetailsProgress} 
                     title="Diminuir" 
-                    className="w-9 h-9 rounded-xl bg-surface-variant/40 hover:bg-surface-variant border border-white/5 text-on-surface-variant hover:text-white transition-all flex items-center justify-center shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    className="w-10 h-10 rounded-xl bg-surface-variant/40 hover:bg-surface-variant border border-white/5 text-on-surface-variant hover:text-white transition-all flex items-center justify-center shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-base">remove</span>
                   </button>
+
+                  <div className="flex items-center justify-center gap-1.5 px-3.5 py-1 bg-black/40 border border-white/10 rounded-2xl h-10">
+                    {isSavingDetailsProgress ? (
+                      <div className="h-8 w-20 flex items-center justify-center">
+                        <Loader2 className={`w-5 h-5 animate-spin ${mediaType === 'anime' ? 'text-primary' : 'text-secondary'}`} />
+                      </div>
+                    ) : (
+                      <>
+                        <input 
+                          type="number" 
+                          min="0" 
+                          max={totalEpisodesAllSeasons || 9999} 
+                          value={mediaType === 'anime' ? (selectedItem.epAtualGlobal || selectedItem.epAtual || 0) : (selectedItem.capAtual || 0)} 
+                          onChange={(e) => { 
+                            const val = parseInt(e.target.value) || 0; 
+                            if (mediaType === 'anime') { 
+                              if (val > totalAiredEpisodes) {
+                                showToast('Não é possível marcar episódios que ainda não estrearam.', 'error');
+                                return;
+                              }
+                              atualizarCampo('epAtual', val); 
+                            } else { 
+                              atualizarCampo('capAtual', val); 
+                            } 
+                          }} 
+                          className={`bg-transparent ${mediaType === 'anime' ? 'text-primary focus:bg-secondary/10' : 'text-secondary focus:bg-primary/10'} font-black text-2xl w-14 text-center outline-none border-b border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} 
+                        />
+                        <span className="text-on-surface-variant font-light text-xl">/</span> 
+                        <span className="text-on-surface-variant font-bold text-xl min-w-[24px] text-center">
+                          {totalEpisodesAllSeasons || '?'}
+                        </span>
+                      </>
+                    )}
+                  </div>
+
                   <button 
                     type="button"
                     onClick={() => atualizarProgresso(1)} 
@@ -692,17 +693,18 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                       (mediaType === 'anime' && (selectedItem.epAtualGlobal || selectedItem.epAtual || 0) >= totalAiredEpisodes)
                     } 
                     title="Aumentar" 
-                    className={`w-9 h-9 rounded-xl transition-all flex items-center justify-center shadow-md active:scale-95 font-bold cursor-pointer ${mediaType === 'anime' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary'} disabled:opacity-50 disabled:cursor-not-allowed`}
+                    className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center shadow-md active:scale-95 font-bold cursor-pointer ${mediaType === 'anime' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary'} disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     <span className="material-symbols-outlined text-base">add</span>
                   </button>
+
                   <button 
                     type="button"
                     onClick={() => setShowEpList(!showEpList)} 
-                    className={`px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold border active:scale-95 cursor-pointer ${showEpList ? (mediaType === 'anime' ? 'bg-primary/20 border-primary text-primary' : 'bg-secondary/20 border-secondary text-secondary') : 'bg-surface-variant/30 border-white/5 text-on-surface-variant'}`}
+                    className={`h-10 px-3 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold border active:scale-95 cursor-pointer ml-0.5 ${showEpList ? (mediaType === 'anime' ? 'bg-primary/20 border-primary text-primary' : 'bg-secondary/20 border-secondary text-secondary') : 'bg-surface-variant/30 border-white/5 text-on-surface-variant'}`}
                   >
                     <span className="material-symbols-outlined text-sm">grid_view</span>
-                    <span>{showEpList ? 'Fechar Grelha' : 'Ver Episódios'}</span>
+                    <span>{showEpList ? 'Fechar' : 'Ver Episódios'}</span>
                   </button>
                 </div>
 
@@ -1429,18 +1431,18 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
         <div className="space-y-6">
 
           {/* List Management and Library Removal triggers */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+          <div className="grid grid-cols-2 gap-3 pt-2">
             <button 
               type="button"
               onClick={handleOpenListsModal}
-              className="w-full bg-[#18181c]/40 hover:bg-[#18181c]/80 border border-white/10 hover:border-white/20 text-white py-3.5 rounded-2xl font-bold transition-all flex items-center justify-center gap-2.5 text-sm active:scale-95 shadow-lg cursor-pointer"
+              className="w-full bg-[#18181c]/40 hover:bg-[#18181c]/80 border border-white/10 hover:border-white/20 text-white py-3.5 px-2 rounded-2xl font-bold transition-all flex items-center justify-center gap-1.5 text-xs sm:text-sm active:scale-95 shadow-lg cursor-pointer"
             >
-              <span className="material-symbols-outlined text-base">format_list_bulleted</span>
-              GERIR NAS LISTAS
+              <span className="material-symbols-outlined text-sm sm:text-base">format_list_bulleted</span>
+              <span className="truncate">GERIR NAS LISTAS</span>
             </button>
 
             {showDeleteConfirm ? (
-              <div className="p-4 rounded-2xl bg-error/10 border border-error/30 animate-in fade-in zoom-in-95 duration-300 space-y-3 shadow-lg text-left">
+              <div className="col-span-2 sm:col-span-1 p-4 rounded-2xl bg-error/10 border border-error/30 animate-in fade-in zoom-in-95 duration-300 space-y-3 shadow-lg text-left">
                 <div className="flex items-center gap-2.5 text-error">
                   <span className="material-symbols-outlined text-lg">warning</span>
                   <h5 className="font-bold text-sm">Remover Conteúdo</h5>
@@ -1472,10 +1474,10 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
               <button 
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)} 
-                className="w-full bg-error/10 hover:bg-error text-error hover:text-on-error py-3.5 rounded-2xl font-bold transition-all flex items-center justify-center gap-2.5 text-sm border border-error/25 active:scale-95 cursor-pointer"
+                className="w-full bg-error/10 hover:bg-error text-error hover:text-on-error py-3.5 px-2 rounded-2xl font-bold transition-all flex items-center justify-center gap-1.5 text-xs sm:text-sm border border-error/25 active:scale-95 cursor-pointer"
               >
-                <span className="material-symbols-outlined text-base">delete</span>
-                REMOVER DA BIBLIOTECA
+                <span className="material-symbols-outlined text-sm sm:text-base">delete</span>
+                <span className="truncate">REMOVER</span>
               </button>
             )}
           </div>

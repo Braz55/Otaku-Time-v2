@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
+import AnimatedPage from './components/AnimatedPage';
 import { useAuth } from './context/AuthContext';
 import { Loader2 } from 'lucide-react';
 import HomePage from './pages/HomePage';
@@ -113,23 +115,43 @@ const SplashLoader = () => {
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return <SplashLoader />;
   }
 
-  return isAuthenticated ? <Layout>{children}</Layout> : <Navigate to="/login" />;
+  return isAuthenticated ? (
+    <Layout>
+      <AnimatePresence mode="wait">
+        <AnimatedPage key={location.pathname}>
+          {children}
+        </AnimatedPage>
+      </AnimatePresence>
+    </Layout>
+  ) : (
+    <Navigate to="/login" />
+  );
 };
 
 // Guest Route Component (previnir visitas autenticadas a páginas públicas)
 const GuestRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return <SplashLoader />;
   }
 
-  return isAuthenticated ? <Navigate to="/" /> : <>{children}</>;
+  return isAuthenticated ? (
+    <Navigate to="/" />
+  ) : (
+    <AnimatePresence mode="wait">
+      <AnimatedPage key={location.pathname}>
+        {children}
+      </AnimatedPage>
+    </AnimatePresence>
+  );
 };
 
 function App() {

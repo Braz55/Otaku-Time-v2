@@ -88,6 +88,65 @@ export class AnimeService {
     }
   }
 
+  async getTmdbImages(id: number, format?: string, title?: string) {
+    try {
+      // 1. Try direct TMDB ID lookup
+      const res = await this.tmdbService.getImages(id, format);
+      if (res.posters?.length || res.backdrops?.length) {
+        return res;
+      }
+
+      // 2. Direct lookup failed (likely AniList ID or UserAnime DB ID).
+      let animeTitle = title;
+      let targetFormat = format;
+
+      // Check DB for Anime record
+      const anime = await this.prisma.anime.findUnique({
+        where: { id },
+        select: { titulo: true, formato: true },
+      });
+      if (anime) {
+        animeTitle = animeTitle || anime.titulo;
+        targetFormat = targetFormat || anime.formato || undefined;
+      }
+
+      // Check DB for UserAnime record if ID was UserAnime table ID
+      const userAnime = await this.prisma.userAnime.findUnique({
+        where: { id },
+        include: { anime: true },
+      });
+      if (userAnime?.anime) {
+        animeTitle = animeTitle || userAnime.anime.titulo;
+        targetFormat = targetFormat || userAnime.anime.formato || undefined;
+        // Try direct lookup with actual animeId from UserAnime
+        const userAnimeRes = await this.tmdbService.getImages(userAnime.animeId, targetFormat);
+        if (userAnimeRes.posters?.length || userAnimeRes.backdrops?.length) {
+          return userAnimeRes;
+        }
+      }
+
+      // 3. Fallback: Search TMDB by anime title to find real TMDB ID
+      if (animeTitle) {
+        this.logger.log(`Direct TMDB ID lookup failed for ID ${id}. Fallback TMDB search by title: "${animeTitle}"`);
+        const searchResults = await this.tmdbService.search(animeTitle);
+        if (searchResults && searchResults.length > 0) {
+          const matchedItem = searchResults[0];
+          const realTmdbId = matchedItem.id;
+          const searchFormat = matchedItem.media_type === 'movie' ? 'MOVIE' : 'TV';
+          const searchRes = await this.tmdbService.getImages(realTmdbId, targetFormat || searchFormat);
+          if (searchRes.posters?.length || searchRes.backdrops?.length) {
+            return searchRes;
+          }
+        }
+      }
+
+      return { posters: [], backdrops: [] };
+    } catch (error) {
+      this.logger.error(`Error in getTmdbImages fallback for ID ${id}:`, error);
+      return { posters: [], backdrops: [] };
+    }
+  }
+
   async getTVEpisodeDetails(
     tvShowId: number,
     seasonNumber: number,

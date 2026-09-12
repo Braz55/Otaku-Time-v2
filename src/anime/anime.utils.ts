@@ -257,6 +257,19 @@ export function normalizeTMDBToAniList(
         : null,
     format,
     tipo,
+    estudio:
+      media.networks && media.networks.length > 0
+        ? media.networks[0].name
+        : media.production_companies && media.production_companies.length > 0
+          ? media.production_companies[0].name
+          : null,
+    duracaoEpisodio:
+      media.episode_run_time && media.episode_run_time.length > 0
+        ? media.episode_run_time[0]
+        : media.runtime || null,
+    bannerUrl: media.backdrop_path
+      ? `https://image.tmdb.org/t/p/w1280${media.backdrop_path}`
+      : null,
     source: 'TMDB',
     externalLinks: [],
     nextAiringEpisode:

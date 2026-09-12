@@ -272,4 +272,61 @@ export class TMDBService {
       return null;
     }
   }
+
+  /**
+   * Get posters and backdrops for a TV Show or Movie.
+   */
+  async getImages(
+    id: number,
+    format?: string,
+  ): Promise<{ posters: string[]; backdrops: string[] }> {
+    try {
+      const fmt = (format || '').toUpperCase();
+      const isMovie = fmt === 'MOVIE' || fmt === 'FILME';
+      const primaryEndpoint = isMovie ? `/movie/${id}/images` : `/tv/${id}/images`;
+      const fallbackEndpoint = isMovie ? `/tv/${id}/images` : `/movie/${id}/images`;
+
+      let res: any = null;
+      try {
+        res = await this.fetchFromTMDB(primaryEndpoint);
+      } catch (err: any) {
+        this.logger.warn(
+          `Primary TMDB image endpoint ${primaryEndpoint} failed for ID ${id}, trying fallback ${fallbackEndpoint}`,
+        );
+        try {
+          res = await this.fetchFromTMDB(fallbackEndpoint);
+        } catch (fallbackErr) {
+          // ignore fallback error
+        }
+      }
+
+      if (!res || (!res.posters?.length && !res.backdrops?.length)) {
+        // If primary returned empty results, try fallback endpoint
+        if (primaryEndpoint !== fallbackEndpoint) {
+          try {
+            const fallbackRes = await this.fetchFromTMDB(fallbackEndpoint);
+            if (fallbackRes && (fallbackRes.posters?.length || fallbackRes.backdrops?.length)) {
+              res = fallbackRes;
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+      }
+
+      if (!res) return { posters: [], backdrops: [] };
+
+      const posters = (res.posters || [])
+        .map((p: any) => `https://image.tmdb.org/t/p/w500${p.file_path}`)
+        .slice(0, 30);
+      const backdrops = (res.backdrops || [])
+        .map((b: any) => `https://image.tmdb.org/t/p/w1280${b.file_path}`)
+        .slice(0, 30);
+
+      return { posters, backdrops };
+    } catch (error) {
+      this.logger.error(`Error fetching images for TMDB ID ${id}:`, error);
+      return { posters: [], backdrops: [] };
+    }
+  }
 }

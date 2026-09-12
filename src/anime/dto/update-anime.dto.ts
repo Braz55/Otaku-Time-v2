@@ -40,4 +40,12 @@ export class UpdateAnimeDto {
   @IsString()
   @IsOptional()
   tipo?: string;
+
+  @IsString()
+  @IsOptional()
+  capaUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  bannerUrl?: string;
 }

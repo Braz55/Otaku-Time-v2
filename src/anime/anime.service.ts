@@ -435,6 +435,7 @@ export class AnimeService {
             titulo: true,
             statusLancamento: true,
             capaUrl: true,
+            bannerUrl: true,
             generos: true,
             descricao: true,
             numEpisodiosTotal: true,
@@ -494,6 +495,7 @@ export class AnimeService {
         titulo: item.anime.titulo,
         statusLancamento: item.anime.statusLancamento,
         capaUrl: item.anime.capaUrl,
+        bannerUrl: item.anime.bannerUrl,
         generos: item.anime.generos,
         descricao: item.anime.descricao,
         status: item.status,
@@ -596,6 +598,7 @@ export class AnimeService {
       titulo: item.anime.titulo,
       statusLancamento: item.anime.statusLancamento,
       capaUrl: item.anime.capaUrl,
+      bannerUrl: item.anime.bannerUrl,
       generos: item.anime.generos,
       descricao: item.anime.descricao,
       status: item.status,
@@ -671,9 +674,23 @@ export class AnimeService {
       atual.anime.tipo = updateDto.tipo;
     }
 
+    if (updateDto.capaUrl !== undefined || updateDto.bannerUrl !== undefined) {
+      const animeData: any = {};
+      if (updateDto.capaUrl !== undefined) animeData.capaUrl = updateDto.capaUrl;
+      if (updateDto.bannerUrl !== undefined) animeData.bannerUrl = updateDto.bannerUrl;
+      await this.prisma.anime.update({
+        where: { id: atual.animeId },
+        data: animeData,
+      });
+      if (updateDto.capaUrl !== undefined) atual.anime.capaUrl = updateDto.capaUrl;
+      if (updateDto.bannerUrl !== undefined) atual.anime.bannerUrl = updateDto.bannerUrl;
+    }
+
     const novosDados = { ...updateDto };
     delete novosDados.numEpisodiosTotal;
     delete novosDados.tipo;
+    delete novosDados.capaUrl;
+    delete novosDados.bannerUrl;
 
     if (updateDto.status !== undefined && atual.status === 'DROPPED') {
       novosDados.wasDropped = true;
@@ -791,6 +808,7 @@ export class AnimeService {
       titulo: updated.anime.titulo,
       statusLancamento: updated.anime.statusLancamento,
       capaUrl: updated.anime.capaUrl,
+      bannerUrl: updated.anime.bannerUrl,
       generos: updated.anime.generos,
       descricao: updated.anime.descricao,
       status: updated.status,

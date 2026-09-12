@@ -29,4 +29,12 @@ export class UpdateMangaDto {
   @IsInt()
   @IsOptional()
   numCapitulosTotal?: number;
+
+  @IsString()
+  @IsOptional()
+  capaUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  bannerUrl?: string;
 }

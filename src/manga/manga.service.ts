@@ -159,6 +159,7 @@ export class MangaService {
         titulo: item.manga.titulo,
         statusLancamento: item.manga.statusLancamento,
         capaUrl: item.manga.capaUrl,
+        bannerUrl: item.manga.bannerUrl,
         generos: item.manga.generos,
         descricao: item.manga.descricao,
         status: item.status,
@@ -200,6 +201,7 @@ export class MangaService {
       titulo: item.manga.titulo,
       statusLancamento: item.manga.statusLancamento,
       capaUrl: item.manga.capaUrl,
+      bannerUrl: item.manga.bannerUrl,
       generos: item.manga.generos,
       descricao: item.manga.descricao,
       status: item.status,
@@ -254,8 +256,22 @@ export class MangaService {
       atual.manga.numCapitulosTotal = total;
     }
 
+    if (updateDto.capaUrl !== undefined || updateDto.bannerUrl !== undefined) {
+      const mangaData: any = {};
+      if (updateDto.capaUrl !== undefined) mangaData.capaUrl = updateDto.capaUrl;
+      if (updateDto.bannerUrl !== undefined) mangaData.bannerUrl = updateDto.bannerUrl;
+      await this.prisma.manga.update({
+        where: { id: atual.mangaId },
+        data: mangaData,
+      });
+      if (updateDto.capaUrl !== undefined) atual.manga.capaUrl = updateDto.capaUrl;
+      if (updateDto.bannerUrl !== undefined) atual.manga.bannerUrl = updateDto.bannerUrl;
+    }
+
     const novosDados = { ...updateDto };
     delete novosDados.numCapitulosTotal;
+    delete novosDados.capaUrl;
+    delete novosDados.bannerUrl;
 
     if (updateDto.status !== undefined && atual.status === 'DROPPED') {
       novosDados.wasDropped = true;
@@ -321,6 +337,7 @@ export class MangaService {
       ...updated,
       titulo: updated.manga.titulo,
       capaUrl: updated.manga.capaUrl,
+      bannerUrl: updated.manga.bannerUrl,
       linksExternos: updated.manga.linksExternos,
       numCapitulosTotal: updated.manga.numCapitulosTotal,
       proximoCapituloNumero: updated.manga.proximoCapituloNumero,

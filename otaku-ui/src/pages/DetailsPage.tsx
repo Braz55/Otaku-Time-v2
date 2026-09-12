@@ -849,8 +849,7 @@ const DetailsPage = () => {
   };
 
   const atualizarCampo = async (campoOrObj: string | Record<string, any>, valor?: any) => {
-    if (!mediaType || !selectedItem || selectedItem.isExternal) return;
-    const targetId = selectedItem.dbId || selectedItem.id;
+    if (!mediaType || !selectedItem) return;
     
     let updates: Record<string, any> = {};
     if (typeof campoOrObj === 'string') {
@@ -858,6 +857,13 @@ const DetailsPage = () => {
     } else {
       updates = { ...campoOrObj };
     }
+
+    if (selectedItem.isExternal) {
+      setSelectedItem((prev: any) => ({ ...prev, ...updates }));
+      return;
+    }
+
+    const targetId = selectedItem.dbId || selectedItem.id;
 
     const isProgressUpdate = 'epAtual' in updates || 'capAtual' in updates;
     if (isProgressUpdate) {
@@ -920,6 +926,12 @@ const DetailsPage = () => {
     }
 
     setSelectedItem((prev: any) => ({ ...prev, ...optimisticUpdates }));
+    if (mediaType === 'anime') {
+      setAnimeLibraryData((prev: any[]) => prev.map((item: any) => (item.id === targetId || item.dbId === targetId) ? { ...item, ...optimisticUpdates } : item));
+    } else {
+      setMangaLibraryData((prev: any[]) => prev.map((item: any) => (item.id === targetId || item.dbId === targetId) ? { ...item, ...optimisticUpdates } : item));
+    }
+
     const url = `${API_BASE_URL}/${mediaType}/${targetId}`;
     try {
       const { epAtualGlobal, ...payload } = optimisticUpdates;
@@ -931,6 +943,11 @@ const DetailsPage = () => {
       if (response.ok) {
         const data = await response.json();
         setSelectedItem((prev: any) => ({ ...prev, ...data, dbId: data.id }));
+        if (mediaType === 'anime') {
+          setAnimeLibraryData((prev: any[]) => prev.map((item: any) => (item.id === targetId || item.dbId === targetId) ? { ...item, ...data, dbId: data.id } : item));
+        } else {
+          setMangaLibraryData((prev: any[]) => prev.map((item: any) => (item.id === targetId || item.dbId === targetId) ? { ...item, ...data, dbId: data.id } : item));
+        }
       }
     } catch (error) {
       console.error("Erro ao atualizar campo:", error);
@@ -1380,6 +1397,22 @@ const DetailsPage = () => {
     return (
       /* VERSÃO WEB PERSONALIZADA (Design alinhado com o mockup do utilizador) */
       <div className="w-full text-left space-y-6">
+        
+        {/* PANORAMIC HERO BANNER */}
+        {selectedItem.bannerUrl && (
+          <div className="relative w-full aspect-[21/9] sm:aspect-[3.5/1] max-h-[260px] rounded-[32px] overflow-hidden border border-white/10 shadow-2xl group animate-in fade-in duration-300">
+            <img src={selectedItem.bannerUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="Panoramic Banner" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#121214] via-black/20 to-transparent pointer-events-none" />
+            <button 
+              onClick={() => setShowArtworkModal(true)}
+              className="absolute top-4 right-4 px-3.5 py-1.5 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xl cursor-pointer hover:border-white/40 active:scale-95"
+            >
+              <span className="material-symbols-outlined text-sm">photo_library</span>
+              <span>Trocar Banner</span>
+            </button>
+          </div>
+        )}
+
         {/* Back cover background gradient */}
         <div className="relative w-full rounded-[32px] overflow-hidden border border-white/5 bg-[#121214]/65 p-6 md:p-8 flex flex-col md:flex-row gap-8 shadow-2xl backdrop-blur-md">
           
@@ -1718,6 +1751,21 @@ const DetailsPage = () => {
                 {/* BACKGROUND COVER/BANNER BLUR */}
                 <img src={selectedItem.bannerUrl || selectedItem.capaUrl} className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-35 pointer-events-none z-0 scale-110" alt="" />
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#121214]/65 to-[#121214] z-0 pointer-events-none" />
+
+                {/* PROMINENT PANORAMIC BANNER HEADER */}
+                {selectedItem.bannerUrl && (
+                  <div className="relative w-full aspect-[21/9] rounded-2xl overflow-hidden border border-white/10 shadow-xl z-10 group mb-1">
+                    <img src={selectedItem.bannerUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Panoramic Banner" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#121214] via-black/20 to-transparent pointer-events-none" />
+                    <button 
+                      onClick={() => setShowArtworkModal(true)}
+                      className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-white text-[10px] font-extrabold flex items-center gap-1 transition-all cursor-pointer active:scale-95 shadow-md"
+                    >
+                      <span className="material-symbols-outlined text-xs">photo_library</span>
+                      <span>Trocar Banner</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* Capa & Título Info */}
                 <div className="flex gap-4 items-start relative z-10">

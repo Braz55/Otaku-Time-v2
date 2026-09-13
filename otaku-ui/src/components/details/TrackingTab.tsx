@@ -141,16 +141,9 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
 
   return (
     <div className="w-full space-y-6 animate-in fade-in duration-300 pb-28 md:pb-6">
-      {/* 1. Main Action Card */}
-      <div className="bg-[#18181c]/80 border border-white/5 rounded-3xl p-6 relative z-30 shadow-xl backdrop-blur-md space-y-6">
-        <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none z-0">
-          <div className="absolute -right-8 -bottom-8 text-white/3 transform rotate-12 select-none">
-            <span className="material-symbols-outlined text-[140px] font-thin">explore</span>
-          </div>
-        </div>
-
-        <div className="relative z-10 space-y-5">
-          <h3 className="text-base font-extrabold text-white mb-2">Acompanhamento & Progresso</h3>
+      {/* 1. Main Action Section (Integrado diretamente na página) */}
+      <div className="space-y-5 relative z-10 text-left">
+        <h3 className="text-base font-extrabold text-white mb-2">Acompanhamento & Progresso</h3>
 
           {selectedItem.isExternal ? (
             <div className="space-y-4">
@@ -1424,7 +1417,6 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
             )
           )}
         </div>
-      </div>
 
       {/* 2. Personal Links & Library Deletion */}
       {!selectedItem.isExternal && (

@@ -1699,55 +1699,76 @@ const DetailsPage = () => {
           selectedItem.formato === 'MOVIE' ? (
             renderMovieVersion()
           ) : isMobile ? (
-            /* VERSÃO ANDROID NATIVA: Distinção entre Anime (Hero Banner) e Manga (Capa Poster Oficial) */
+            /* VERSÃO ANDROID NATIVA: Hero Banner Panorâmico + Pincel Discreto para Animes e Mangás */
             <div className="w-full flex flex-col gap-4 text-left animate-in fade-in duration-300">
               
-              {mediaType === 'manga' ? (
-                /* CARTÃO DO CABEÇALHO PARA MANGÁ (Capa Poster em Destaque + Pincel para Capas de Volumes) */
-                <div className="relative w-full rounded-[28px] overflow-hidden border border-white/10 bg-[#141418] p-4 sm:p-5 flex flex-col sm:flex-row gap-5 shadow-2xl">
-                  {/* CAPA POSTER DO MANGA */}
-                  <div 
-                    onClick={() => setShowArtworkModal(true)}
-                    className="relative w-36 sm:w-44 aspect-[2/3] rounded-2xl overflow-hidden border border-white/10 shadow-lg cursor-pointer group flex-shrink-0 mx-auto sm:mx-0"
-                    title="Escolher capa do mangá"
-                  >
-                    <img 
-                      src={selectedItem.capaUrl} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                      alt={selectedItem.titulo} 
-                    />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                      <span className="material-symbols-outlined text-white text-xl">photo_library</span>
-                    </div>
+              {/* CABEÇALHO HERO BANNER (Para Anime e Mangá) */}
+              <div className="flex flex-col gap-4">
+                {/* HERO BANNER COVER ARTWORK CONTAINER - APENAS A IMAGEM EM HERO CARD */}
+                <div 
+                  onClick={() => setShowArtworkModal(true)}
+                  className="relative w-full rounded-3xl overflow-hidden cursor-pointer group flex items-center justify-center bg-black/40 min-h-[180px] sm:min-h-[230px] max-h-[380px] shadow-xl border border-white/10"
+                  title="Personalizar capa ou banner"
+                >
+                  {/* Ambient Blurred Background Fill */}
+                  <img 
+                    src={selectedItem.bannerUrl || selectedItem.capaUrl} 
+                    className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-45 scale-125 pointer-events-none" 
+                    alt="" 
+                  />
 
-                    {/* Subtle Edit Paintbrush Icon Button */}
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); setShowArtworkModal(true); }}
-                      className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-white/80 hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-md active:scale-95 z-10"
-                      title="Escolher capa do mangá"
-                    >
-                      <span className="material-symbols-outlined text-xs">edit</span>
-                    </button>
-                  </div>
+                  {/* Full Uncropped Image */}
+                  <img 
+                    src={selectedItem.bannerUrl || selectedItem.capaUrl} 
+                    className="relative z-10 w-full h-auto max-h-[380px] object-contain group-hover:scale-[1.02] transition-transform duration-500" 
+                    alt={selectedItem.titulo} 
+                  />
 
-                  {/* INFO DO MANGA */}
-                  <div className="flex flex-col gap-3 flex-1 min-w-0 justify-center">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black border border-white/15 bg-white/10 text-white uppercase tracking-wider">
-                          MANGA
-                        </span>
-                        <span className={`text-xs flex items-center gap-1 font-extrabold ${getPriorityStarColor(selectedItem.prioridade)}`}>
-                          <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> {selectedItem.isExternal ? 'New' : `#${selectedItem.prioridade}`}
-                        </span>
-                      </div>
-                    </div>
+                  {/* Gradient Overlay for Title readability */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none z-20" />
 
-                    <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white line-clamp-2">
+                  {/* Title Overlaid on lower area of Banner Image */}
+                  <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5 pb-3 z-30 pointer-events-none">
+                    <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white line-clamp-2 drop-shadow-xl">
                       {selectedItem.titulo}
                     </h2>
+                  </div>
 
-                    {/* Check mais recente capitulo */}
+                  {/* Subtle Edit Paintbrush Icon Button */}
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setShowArtworkModal(true); }}
+                    className="absolute top-3 right-3 z-30 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-white/80 hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-lg active:scale-95"
+                    title="Editar capa ou banner"
+                  >
+                    <span className="material-symbols-outlined text-sm">edit</span>
+                  </button>
+                </div>
+
+                {/* DETALHES INTEGRADOS (Badges, Géneros e Métricas a fluir diretamente na página) */}
+                <div className="flex flex-col gap-3.5 px-0.5">
+                  {/* Badges Row (Formato Badge, Priority Star, Rating) */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black border border-white/15 bg-white/10 text-white uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                        <span className="material-symbols-outlined text-[12px] text-gray-300">
+                          {mediaType === 'manga' ? 'menu_book' : (selectedItem.formato === 'MOVIE' ? 'movie' : 'tv')}
+                        </span>
+                        {mediaType === 'manga' ? 'MANGA' : (selectedItem.formato || selectedItem.tipo || 'TV')}
+                      </span>
+
+                      <span className={`text-xs flex items-center gap-1 font-extrabold ${getPriorityStarColor(selectedItem.prioridade)}`}>
+                        <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> {selectedItem.isExternal ? 'New' : `#${selectedItem.prioridade}`}
+                      </span>
+                    </div>
+
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-yellow-500/30 bg-yellow-500/10 text-yellow-400 text-[11px] font-black shadow-md">
+                      <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                      {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'} <span className="opacity-60 text-[9px] text-gray-300">/ 10</span>
+                    </div>
+                  </div>
+
+                  {/* Latest chapter indicator if manga */}
+                  {mediaType === 'manga' && (
                     <div className="pt-0.5">
                       {loadingLatest ? (
                         <div className="flex items-center gap-1.5 px-3 py-1 bg-surface-variant/50 rounded-full border border-white/10 animate-pulse w-fit">
@@ -1781,151 +1802,51 @@ const DetailsPage = () => {
                         </div>
                       )}
                     </div>
+                  )}
 
-                    {/* Géneros */}
-                    <div className="flex flex-wrap gap-1.5 pt-1.5 border-t border-white/5">
-                      {getGenresList(selectedItem.generos).map((g) => (
-                        <span key={g.name} className="px-2.5 py-1 bg-white/5 rounded-xl text-[10px] font-extrabold text-on-surface border border-secondary/20 hover:border-secondary/40 tracking-wider flex items-center gap-1 transition-all">
-                          {g.name}
-                        </span>
-                      ))}
-                    </div>
-
-                    {/* Info Grid */}
-                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
-                      <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/10 rounded-2xl bg-white/[0.03]">
-                        <p className="text-on-surface-variant text-[8px] uppercase font-extrabold tracking-widest mb-0.5">STATUS</p>
-                        <p className="font-bold text-xs text-secondary">{selectedItem.statusLancamento === 'RELEASING' ? t("Em Lançamento") : selectedItem.statusLancamento || t("Desconhecido")}</p>
-                      </div>
-
-                      <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/10 rounded-2xl bg-white/[0.03]">
-                        <p className="text-on-surface-variant text-[8px] uppercase font-extrabold tracking-widest mb-0.5">ANO</p>
-                        <p className="font-bold text-xs text-white">{selectedItem.ano || 'N/A'}</p>
-                      </div>
-
-                      <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/10 rounded-2xl bg-white/[0.03]">
-                        <p className="text-on-surface-variant text-[8px] uppercase font-extrabold tracking-widest mb-0.5">CAPÍTULOS</p>
-                        <p className="font-bold text-xs text-white">{selectedItem.numCapitulosTotal ? `${selectedItem.numCapitulosTotal} caps` : 'N/A'}</p>
-                      </div>
-
-                      <div className="glass-panel p-2 flex flex-col items-center justify-center text-center border border-white/10 rounded-2xl bg-white/[0.03]">
-                        <p className="text-on-surface-variant text-[8px] uppercase font-extrabold tracking-widest mb-0.5">FORMATO</p>
-                        <p className="font-bold text-xs text-white">{selectedItem.formato || 'MANGA'}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                /* CARTÃO DO CABEÇALHO PARA ANIME (Hero Banner Panorâmico + Pincel Discreto) */
-                <div className="glass-panel rim-light relative w-full rounded-3xl overflow-hidden border border-white/10 bg-[#121216]/80 backdrop-blur-xl flex flex-col shadow-2xl">
-                  
-                  {/* HERO BANNER COVER ARTWORK CONTAINER - FULL EDGE-TO-EDGE */}
-                  <div 
-                    onClick={() => setShowArtworkModal(true)}
-                    className="relative w-full min-h-[180px] sm:min-h-[230px] max-h-[380px] overflow-hidden cursor-pointer group flex items-center justify-center bg-black/40"
-                    title="Personalizar capa ou banner"
-                  >
-                    {/* Ambient Blurred Background Fill to display full image without empty sides */}
-                    <img 
-                      src={selectedItem.bannerUrl || selectedItem.capaUrl} 
-                      className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-45 scale-125 pointer-events-none" 
-                      alt="" 
-                    />
-
-                    {/* Full Uncropped Image */}
-                    <img 
-                      src={selectedItem.bannerUrl || selectedItem.capaUrl} 
-                      className="relative z-10 w-full h-auto max-h-[380px] object-contain group-hover:scale-[1.02] transition-transform duration-500" 
-                      alt={selectedItem.titulo} 
-                    />
-
-                    {/* Gradient Overlay for Smooth Fade into Card Body */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#121216] via-[#121216]/60 to-black/30 pointer-events-none z-20" />
-
-                    {/* Title Overlaid on lower area of Banner Image */}
-                    <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5 pb-3 z-30 pointer-events-none">
-                      <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white line-clamp-2 drop-shadow-xl">
-                        {selectedItem.titulo}
-                      </h2>
-                    </div>
-
-                    {/* Subtle Edit Paintbrush Icon Button in Top Right Corner */}
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); setShowArtworkModal(true); }}
-                      className="absolute top-3 right-3 z-30 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-white/80 hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-lg active:scale-95"
-                      title="Editar capa ou banner"
-                    >
-                      <span className="material-symbols-outlined text-sm">edit</span>
-                    </button>
+                  {/* Géneros */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {getGenresList(selectedItem.generos).map((g) => (
+                      <span key={g.name} className={`px-2.5 py-1 bg-white/5 rounded-xl text-[10px] font-extrabold text-on-surface border tracking-wider flex items-center gap-1 ${mediaType === 'anime' ? 'border-secondary/20 hover:border-secondary/40' : 'border-primary/20 hover:border-primary/40'} transition-all`}>
+                        {g.name}
+                      </span>
+                    ))}
                   </div>
 
-                  {/* CARD CONTENT BODY WITH PADDING */}
-                  <div className="p-4 sm:p-5 pt-3 flex flex-col gap-4 relative z-10">
-                    {/* Title & Info Section */}
-                    <div className="flex flex-col gap-2 relative z-10">
-                      {/* Badges Row (Formato Badge, Priority Star, Rating) */}
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {/* Formato Badge (Substitui o badge de duração anterior) */}
-                          <span 
-                            className="px-2.5 py-1 rounded-full text-[10px] font-black border border-white/15 bg-white/10 text-white uppercase tracking-wider flex items-center gap-1 shadow-sm"
-                          >
-                            <span className="material-symbols-outlined text-[12px] text-gray-300">
-                              {selectedItem.formato === 'MOVIE' ? 'movie' : 'tv'}
-                            </span>
-                            {selectedItem.formato || selectedItem.tipo || 'TV'}
-                          </span>
-
-                          <span className={`text-xs flex items-center gap-1 font-extrabold ${getPriorityStarColor(selectedItem.prioridade)}`}>
-                            <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> {selectedItem.isExternal ? 'New' : `#${selectedItem.prioridade}`}
-                          </span>
-                        </div>
-                      </div>
+                  {/* Info Grid: Status, Season/Year, Total Episodes/Chapters, Studio / Episode Duration */}
+                  <div className="grid grid-cols-2 gap-2.5 pt-1">
+                    <div className="glass-panel p-3 flex flex-col items-center justify-center text-center border border-white/10 rounded-2xl bg-white/[0.03] backdrop-blur-md min-w-0 shadow-sm">
+                      <p className="text-on-surface-variant text-[8px] uppercase font-extrabold tracking-widest mb-1 truncate w-full">
+                        STATUS
+                      </p>
+                      <p className={`font-bold text-xs truncate w-full ${mediaType === 'anime' ? 'text-primary' : 'text-secondary'}`}>
+                        {selectedItem.statusLancamento === 'RELEASING' ? t("Em Lançamento") : 
+                         selectedItem.statusLancamento === 'FINISHED' ? t("Terminado") : 
+                         selectedItem.statusLancamento === 'HIATUS' ? t("Hiato") : 
+                         selectedItem.statusLancamento === 'CANCELLED' ? t("Cancelado") : 
+                         selectedItem.statusLancamento || t("Desconhecido")}
+                      </p>
                     </div>
 
-                    {/* Géneros */}
-                    <div className="flex flex-wrap gap-1.5 pt-2 border-t border-white/5 relative z-10">
-                      {getGenresList(selectedItem.generos).map((g) => (
-                        <span key={g.name} className={`px-2.5 py-1 bg-white/5 rounded-xl text-[10px] font-extrabold text-on-surface border tracking-wider flex items-center gap-1 border-secondary/20 hover:border-secondary/40 transition-all`}>
-                          {g.name}
-                        </span>
-                      ))}
+                    <div className="glass-panel p-3 flex flex-col items-center justify-center text-center border border-white/10 rounded-2xl bg-white/[0.03] backdrop-blur-md min-w-0 shadow-sm">
+                      <p className="text-on-surface-variant text-[8px] uppercase font-extrabold tracking-widest mb-1 truncate w-full">
+                        {selectedItem.formato === 'MOVIE' ? 'ANO' : (mediaType === 'manga' ? 'ANO' : 'ÉPOCA / ANO')}
+                      </p>
+                      <p className="font-bold text-xs text-white capitalize truncate w-full">
+                        {selectedItem.formato === 'MOVIE' ? (selectedItem.ano || 'N/A') : (selectedItem.temporada ? `${selectedItem.temporada.toLowerCase()} ${selectedItem.ano || ''}` : selectedItem.ano || 'N/A')}
+                      </p>
                     </div>
 
-                    {/* Info Grid: Status, Season, Total Episodes, Duração do Episódio */}
-                    <div className="grid grid-cols-2 gap-2.5 pt-3 border-t border-white/5 relative z-10">
-                      <div className="glass-panel p-2.5 flex flex-col items-center justify-center text-center border border-white/10 rounded-2xl bg-white/[0.03] backdrop-blur-md min-w-0 shadow-sm">
-                        <p className="text-on-surface-variant text-[8px] uppercase font-extrabold tracking-widest mb-1 truncate w-full">
-                          STATUS
-                        </p>
-                        <p className="font-bold text-xs text-primary truncate w-full">
-                          {selectedItem.statusLancamento === 'RELEASING' ? t("Em Lançamento") : 
-                           selectedItem.statusLancamento === 'FINISHED' ? t("Terminado") : 
-                           selectedItem.statusLancamento === 'HIATUS' ? t("Hiato") : 
-                           selectedItem.statusLancamento === 'CANCELLED' ? t("Cancelado") : 
-                           selectedItem.statusLancamento || t("Desconhecido")}
-                        </p>
-                      </div>
+                    <div className="glass-panel p-3 flex flex-col items-center justify-center text-center border border-white/10 rounded-2xl bg-white/[0.03] backdrop-blur-md min-w-0 shadow-sm">
+                      <p className="text-on-surface-variant text-[8px] uppercase font-extrabold tracking-widest mb-1 truncate w-full">
+                        {mediaType === 'anime' ? 'EPISÓDIOS' : 'CAPÍTULOS'}
+                      </p>
+                      <p className="font-bold text-xs text-white truncate w-full">
+                        {mediaType === 'anime' ? (selectedItem.numEpisodiosTotal ? `${selectedItem.numEpisodiosTotal} eps` : 'N/A') : (selectedItem.numCapitulosTotal ? `${selectedItem.numCapitulosTotal} caps` : 'N/A')}
+                      </p>
+                    </div>
 
-                      <div className="glass-panel p-2.5 flex flex-col items-center justify-center text-center border border-white/10 rounded-2xl bg-white/[0.03] backdrop-blur-md min-w-0 shadow-sm">
-                        <p className="text-on-surface-variant text-[8px] uppercase font-extrabold tracking-widest mb-1 truncate w-full">
-                          {selectedItem.formato === 'MOVIE' ? 'ANO' : 'ÉPOCA / ANO'}
-                        </p>
-                        <p className="font-bold text-xs text-white capitalize truncate w-full">
-                          {selectedItem.formato === 'MOVIE' ? (selectedItem.ano || 'N/A') : (selectedItem.temporada ? `${selectedItem.temporada.toLowerCase()} ${selectedItem.ano || ''}` : selectedItem.ano || 'N/A')}
-                        </p>
-                      </div>
-
-                      <div className="glass-panel p-2.5 flex flex-col items-center justify-center text-center border border-white/10 rounded-2xl bg-white/[0.03] backdrop-blur-md min-w-0 shadow-sm">
-                        <p className="text-on-surface-variant text-[8px] uppercase font-extrabold tracking-widest mb-1 truncate w-full">
-                          EPISÓDIOS
-                        </p>
-                        <p className="font-bold text-xs text-white truncate w-full">
-                          {selectedItem.numEpisodiosTotal ? `${selectedItem.numEpisodiosTotal} eps` : 'N/A'}
-                        </p>
-                      </div>
-
-                      {/* Interactive Episode Duration Box (Swapped with Formato) */}
+                    {mediaType === 'anime' ? (
                       <button
                         type="button"
                         onClick={() => {
@@ -1938,7 +1859,7 @@ const DetailsPage = () => {
                             }
                           }
                         }}
-                        className="glass-panel p-2.5 flex flex-col items-center justify-center text-center border border-white/10 hover:border-white/20 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] backdrop-blur-md min-w-0 shadow-sm transition-all cursor-pointer text-left active:scale-[0.98]"
+                        className="glass-panel p-3 flex flex-col items-center justify-center text-center border border-white/10 hover:border-white/20 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] backdrop-blur-md min-w-0 shadow-sm transition-all cursor-pointer text-left active:scale-[0.98]"
                         title="Clique para alterar a duração por episódio"
                       >
                         <p className="text-on-surface-variant text-[8px] uppercase font-extrabold tracking-widest mb-1 truncate w-full">
@@ -1949,10 +1870,19 @@ const DetailsPage = () => {
                           {selectedItem.duracaoEpisodio ? `${selectedItem.duracaoEpisodio} min` : '24 min'}
                         </p>
                       </button>
-                    </div>
+                    ) : (
+                      <div className="glass-panel p-3 flex flex-col items-center justify-center text-center border border-white/10 rounded-2xl bg-white/[0.03] backdrop-blur-md min-w-0 shadow-sm">
+                        <p className="text-on-surface-variant text-[8px] uppercase font-extrabold tracking-widest mb-1 truncate w-full">
+                          FORMATO
+                        </p>
+                        <p className="font-bold text-xs text-white truncate w-full">
+                          {selectedItem.formato || 'MANGA'}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
-              )}
+              </div>
 
               {/* TABS SWITCHER (Standalone Segmented Control) */}
               <div className="flex border border-white/5 bg-[#121214]/40 backdrop-blur-md rounded-2xl p-1">
@@ -2028,9 +1958,7 @@ const DetailsPage = () => {
 
               {/* TAB CONTENT: Info / Synopsis */}
               {activeTab === 'info' && (
-                <div className={`glass-panel rounded-[28px] border p-5 bg-[#121214]/65 shadow-xl backdrop-blur-md ${
-                  mediaType === 'anime' ? 'border-secondary/20 shadow-lg' : 'border-primary/20 shadow-lg'
-                }`}>
+                <div className="w-full text-left animate-in fade-in duration-300">
                   <InfoTab
                     selectedItem={selectedItem}
                     mediaType={mediaType as 'anime' | 'manga'}

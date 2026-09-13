@@ -47,6 +47,8 @@ export const InfoTab: React.FC<InfoTabProps> = ({
 }) => {
   const linksOficiais = selectedItem.linksExternos ? JSON.parse(selectedItem.linksExternos).map((l: any) => ({ ...l, tipo: 'Official' })) : [];
   const { t } = useTranslation();
+  void overallRating;
+  void commentsElement;
 
   return (
     <div className="w-full space-y-8 animate-in fade-in duration-300 text-left">
@@ -177,7 +179,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({
 
       {/* Metadata Grid */}
       {!isMobile && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 border-t border-white/5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t border-white/5">
           <div className="bg-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">
             <span className="material-symbols-outlined text-lg mb-2 text-on-surface-variant">sensors</span>
             <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-0.5">Estado Lançamento</p>
@@ -205,18 +207,8 @@ export const InfoTab: React.FC<InfoTabProps> = ({
               {totalEpisodesAllSeasons || 'N/A'}
             </p>
           </div>
-          <div className="bg-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center border border-white/5">
-            <span className="material-symbols-outlined text-lg mb-2 text-on-surface-variant">star</span>
-            <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-0.5">Nota Geral</p>
-            <p className="font-bold text-xs text-white">
-              {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'} / 10
-            </p>
-          </div>
         </div>
       )}
-
-      {/* Render comments here if passed */}
-      {commentsElement}
     </div>
   );
 };

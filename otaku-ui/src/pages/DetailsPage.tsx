@@ -498,7 +498,7 @@ const DetailsPage = () => {
         if (mediaType === 'manga') {
           carregarCapituloMaisRecente(realId);
         }
-        carregarDadosInterativos(data.mangaId || data.animeId || data.id);
+        // carregarDadosInterativos(data.mangaId || data.animeId || data.id);
       } catch (error) {
         console.error("Error parsing details:", error);
         showToast('Error loading details.', 'error');
@@ -740,6 +740,17 @@ const DetailsPage = () => {
       setLoadingExternalProfile(false);
     }
   };
+
+  void CommentsSection;
+  void comments;
+  void userRating;
+  void loadingComments;
+  void carregarDadosInterativos;
+  void votarConteudo;
+  void enviarComentario;
+  void gostarComentario;
+  void eliminarComentario;
+  void abrirPerfilExterno;
 
   const adicionarAoBanco = async (titulo: string, anilistId?: number, format?: string) => {
     if (!mediaType) return;
@@ -1190,33 +1201,6 @@ const DetailsPage = () => {
             <div className="w-full aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border border-white/10 group relative">
               <img src={selectedItem.capaUrl} className="w-full h-full object-cover" alt={selectedItem.titulo} />
             </div>
-
-            {/* Rating Card */}
-            <div className="bg-[#18181c]/90 border border-white/5 rounded-2xl p-5 flex flex-col gap-4 shadow-xl backdrop-blur-md">
-              <div className="flex flex-col items-center justify-center text-center py-2.5 bg-white/5 rounded-xl border border-white/5">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xl font-black text-white">
-                    {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'}
-                  </span>
-                  <span className="text-xs text-on-surface-variant font-bold">/ 10</span>
-                </div>
-                <div className="flex gap-0.5 mt-1.5">
-                  {(() => {
-                    const rating = overallRating?.avaliacao_geral || 8.0;
-                    const starsCount = Math.round(rating / 2);
-                    return [...Array(5)].map((_, i) => (
-                      <span 
-                        key={i} 
-                        className={`material-symbols-outlined text-[15px] ${i < starsCount ? 'text-yellow-400' : 'text-on-surface-variant/30'}`}
-                        style={{ fontVariationSettings: "'FILL' 1" }}
-                      >
-                        star
-                      </span>
-                    ));
-                  })()}
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* COLUNA DIREITA: Main Content (Synopsis & Tracking) */}
@@ -1416,27 +1400,6 @@ const DetailsPage = () => {
                 </div>
               </div>
             )}
-
-            {/* Comments */}
-            <CommentsSection
-              overallRating={overallRating}
-              mediaType={mediaType as 'anime' | 'manga'}
-              isMobile={isMobile}
-              token={token}
-              userRating={userRating}
-              votarConteudo={votarConteudo}
-              isSubmittingRating={isSubmittingRating}
-              user={user}
-              newCommentText={newCommentText}
-              setNewCommentText={setNewCommentText}
-              enviarComentario={enviarComentario}
-              isSubmittingComment={isSubmittingComment}
-              loadingComments={loadingComments}
-              comments={comments}
-              abrirPerfilExterno={abrirPerfilExterno}
-              eliminarComentario={eliminarComentario}
-              gostarComentario={gostarComentario}
-            />
           </div>
         </div>
       </div>
@@ -1501,33 +1464,6 @@ const DetailsPage = () => {
 
             {/* Info Card (Below poster) */}
             <div className="bg-[#18181c]/90 border border-white/5 rounded-2xl p-5 flex flex-col gap-4 shadow-xl backdrop-blur-md">
-
-              {/* Stars and Rating */}
-              <div className="flex flex-col items-center justify-center text-center py-2.5 bg-white/5 rounded-xl border border-white/5">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xl font-black text-white">
-                    {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'}
-                  </span>
-                  <span className="text-xs text-on-surface-variant font-bold">/ 10</span>
-                  <span className="text-xs text-yellow-400 font-bold ml-2">⭐ #{selectedItem.prioridade || 5}</span>
-                </div>
-                {/* Rating Stars Representation */}
-                <div className="flex gap-0.5 mt-1.5">
-                  {(() => {
-                    const rating = overallRating?.avaliacao_geral || 8.0;
-                    const starsCount = Math.round(rating / 2);
-                    return [...Array(5)].map((_, i) => (
-                      <span 
-                        key={i} 
-                        className={`material-symbols-outlined text-[15px] ${i < starsCount ? 'text-yellow-400' : 'text-on-surface-variant/30'}`}
-                        style={{ fontVariationSettings: "'FILL' 1" }}
-                      >
-                        star
-                      </span>
-                    ));
-                  })()}
-                </div>
-              </div>
 
               {/* Priority Level Dropdown (Sidebar style) */}
               <div className="relative">
@@ -1634,10 +1570,6 @@ const DetailsPage = () => {
               <h2 className={`text-3xl md:text-4xl font-extrabold tracking-tight flex items-center gap-2.5 ${mediaType === 'anime' ? 'text-primary-light' : 'text-secondary-light'}`}>
                 {selectedItem.titulo}
               </h2>
-              <div className="flex items-center gap-1.5 text-sm font-black text-on-surface-variant">
-                <span className="material-symbols-outlined text-base text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                <span>{overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'} / 10</span>
-              </div>
             </div>
 
             {/* Tabs Switcher at top of right panel */}
@@ -1728,26 +1660,6 @@ const DetailsPage = () => {
                 totalEpisodesAllSeasons={totalEpisodesAllSeasons}
               />
             )}
-
-            <CommentsSection
-              overallRating={overallRating}
-              mediaType={mediaType as 'anime' | 'manga'}
-              isMobile={false}
-              token={token}
-              userRating={userRating}
-              votarConteudo={votarConteudo}
-              isSubmittingRating={isSubmittingRating}
-              user={user}
-              newCommentText={newCommentText}
-              setNewCommentText={setNewCommentText}
-              enviarComentario={enviarComentario}
-              isSubmittingComment={isSubmittingComment}
-              loadingComments={loadingComments}
-              comments={comments}
-              abrirPerfilExterno={abrirPerfilExterno}
-              eliminarComentario={eliminarComentario}
-              gostarComentario={gostarComentario}
-            />
           </div>
         </div>
       </div>
@@ -1829,11 +1741,6 @@ const DetailsPage = () => {
                           <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> {selectedItem.isExternal ? 'New' : `#${selectedItem.prioridade}`}
                         </span>
                       </div>
-
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-yellow-500/30 bg-yellow-500/10 text-yellow-400 text-[11px] font-black shadow-md">
-                        <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                        {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'} <span className="opacity-60 text-[9px] text-gray-300">/ 10</span>
-                      </div>
                     </div>
 
                     <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white line-clamp-2">
@@ -1910,7 +1817,7 @@ const DetailsPage = () => {
                 </div>
               ) : (
                 /* CARTÃO DO CABEÇALHO PARA ANIME (Hero Banner Panorâmico + Pincel Discreto) */
-                <div className="relative w-full rounded-[28px] overflow-hidden border border-white/10 bg-[#141418] flex flex-col shadow-2xl">
+                <div className="glass-panel rim-light relative w-full rounded-3xl overflow-hidden border border-white/10 bg-[#121216]/80 backdrop-blur-xl flex flex-col shadow-2xl">
                   
                   {/* HERO BANNER COVER ARTWORK CONTAINER - FULL EDGE-TO-EDGE */}
                   <div 
@@ -1933,7 +1840,7 @@ const DetailsPage = () => {
                     />
 
                     {/* Gradient Overlay for Smooth Fade into Card Body */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#141418] via-[#141418]/60 to-black/30 pointer-events-none z-20" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#121216] via-[#121216]/60 to-black/30 pointer-events-none z-20" />
 
                     {/* Title Overlaid on lower area of Banner Image */}
                     <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5 pb-3 z-30 pointer-events-none">
@@ -1956,37 +1863,22 @@ const DetailsPage = () => {
                   <div className="p-4 sm:p-5 pt-3 flex flex-col gap-4 relative z-10">
                     {/* Title & Info Section */}
                     <div className="flex flex-col gap-2 relative z-10">
-                      {/* Badges Row (Duration Badge, Priority Star, Rating) */}
+                      {/* Badges Row (Formato Badge, Priority Star, Rating) */}
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <div className="flex items-center gap-2 flex-wrap">
-                          {/* Interactive Episode Duration Badge (Replaces TV box) */}
-                          <button 
-                            type="button"
-                            onClick={() => {
-                              const currentVal = selectedItem.duracaoEpisodio || '';
-                              const input = prompt(t("Introduza a duração por episódio (em minutos):"), currentVal ? String(currentVal) : '24');
-                              if (input !== null) {
-                                const parsed = parseInt(input);
-                                if (!isNaN(parsed) && parsed > 0) {
-                                  atualizarCampo('duracaoEpisodio', parsed);
-                                }
-                              }
-                            }}
-                            className="px-2.5 py-1 rounded-full text-[10px] font-black border border-white/15 bg-white/10 text-white uppercase tracking-wider flex items-center gap-1 cursor-pointer hover:bg-white/20 hover:border-white/30 transition-all shadow-sm active:scale-95"
-                            title="Clique para alterar a duração por episódio"
+                          {/* Formato Badge (Substitui o badge de duração anterior) */}
+                          <span 
+                            className="px-2.5 py-1 rounded-full text-[10px] font-black border border-white/15 bg-white/10 text-white uppercase tracking-wider flex items-center gap-1 shadow-sm"
                           >
-                            <span className="material-symbols-outlined text-[12px] text-gray-300">schedule</span>
-                            {selectedItem.duracaoEpisodio ? `${selectedItem.duracaoEpisodio} min` : '24 min'}
-                          </button>
+                            <span className="material-symbols-outlined text-[12px] text-gray-300">
+                              {selectedItem.formato === 'MOVIE' ? 'movie' : 'tv'}
+                            </span>
+                            {selectedItem.formato || selectedItem.tipo || 'TV'}
+                          </span>
 
                           <span className={`text-xs flex items-center gap-1 font-extrabold ${getPriorityStarColor(selectedItem.prioridade)}`}>
                             <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> {selectedItem.isExternal ? 'New' : `#${selectedItem.prioridade}`}
                           </span>
-                        </div>
-
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-yellow-500/30 bg-yellow-500/10 text-yellow-400 text-[11px] font-black shadow-md">
-                          <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                          {overallRating?.avaliacao_geral ? overallRating.avaliacao_geral.toFixed(1) : 'N/A'} <span className="opacity-60 text-[9px] text-gray-300">/ 10</span>
                         </div>
                       </div>
                     </div>
@@ -2000,7 +1892,7 @@ const DetailsPage = () => {
                       ))}
                     </div>
 
-                    {/* Info Grid: Status, Season, Total Episodes, Estúdio/Duração */}
+                    {/* Info Grid: Status, Season, Total Episodes, Duração do Episódio */}
                     <div className="grid grid-cols-2 gap-2.5 pt-3 border-t border-white/5 relative z-10">
                       <div className="glass-panel p-2.5 flex flex-col items-center justify-center text-center border border-white/10 rounded-2xl bg-white/[0.03] backdrop-blur-md min-w-0 shadow-sm">
                         <p className="text-on-surface-variant text-[8px] uppercase font-extrabold tracking-widest mb-1 truncate w-full">
@@ -2033,14 +1925,30 @@ const DetailsPage = () => {
                         </p>
                       </div>
 
-                      <div className="glass-panel p-2.5 flex flex-col items-center justify-center text-center border border-white/10 rounded-2xl bg-white/[0.03] backdrop-blur-md min-w-0 shadow-sm">
+                      {/* Interactive Episode Duration Box (Swapped with Formato) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentVal = selectedItem.duracaoEpisodio || '';
+                          const input = prompt(t("Introduza a duração por episódio (em minutos):"), currentVal ? String(currentVal) : '24');
+                          if (input !== null) {
+                            const parsed = parseInt(input);
+                            if (!isNaN(parsed) && parsed > 0) {
+                              atualizarCampo('duracaoEpisodio', parsed);
+                            }
+                          }
+                        }}
+                        className="glass-panel p-2.5 flex flex-col items-center justify-center text-center border border-white/10 hover:border-white/20 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] backdrop-blur-md min-w-0 shadow-sm transition-all cursor-pointer text-left active:scale-[0.98]"
+                        title="Clique para alterar a duração por episódio"
+                      >
                         <p className="text-on-surface-variant text-[8px] uppercase font-extrabold tracking-widest mb-1 truncate w-full">
-                          {selectedItem.estudio ? 'ESTÚDIO' : 'FORMATO'}
+                          DURAÇÃO / EP
                         </p>
-                        <p className="font-bold text-xs text-white truncate w-full">
-                          {selectedItem.estudio || selectedItem.formato || 'TV'}
+                        <p className="font-bold text-xs text-white truncate w-full flex items-center justify-center gap-1">
+                          <span className="material-symbols-outlined text-[12px] text-gray-300">schedule</span>
+                          {selectedItem.duracaoEpisodio ? `${selectedItem.duracaoEpisodio} min` : '24 min'}
                         </p>
-                      </div>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -2071,18 +1979,6 @@ const DetailsPage = () => {
                 >
                   <span className="material-symbols-outlined text-sm">info</span>
                   SINOPSE
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('comments')}
-                  className={`flex-1 py-3 text-[10px] font-black transition-all flex items-center justify-center gap-1.5 rounded-xl ${
-                    activeTab === 'comments'
-                      ? (mediaType === 'anime' ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-secondary/20 text-secondary border border-secondary/30')
-                      : 'text-on-surface-variant hover:text-white border border-transparent'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-sm">forum</span>
-                  COMENTÁRIOS
                 </button>
               </div>
 
@@ -2154,33 +2050,6 @@ const DetailsPage = () => {
                     overallRating={overallRating}
                     totalEpisodesAllSeasons={totalEpisodesAllSeasons}
                     isMobile={true}
-                  />
-                </div>
-              )}
-
-              {/* TAB CONTENT: Comments */}
-              {activeTab === 'comments' && (
-                <div className={`glass-panel rounded-[28px] border p-5 bg-[#121214]/65 shadow-xl backdrop-blur-md ${
-                  mediaType === 'anime' ? 'border-secondary/20 shadow-lg' : 'border-primary/20 shadow-lg'
-                }`}>
-                  <CommentsSection
-                    overallRating={overallRating}
-                    mediaType={mediaType as 'anime' | 'manga'}
-                    isMobile={isMobile}
-                    token={token}
-                    userRating={userRating}
-                    votarConteudo={votarConteudo}
-                    isSubmittingRating={isSubmittingRating}
-                    user={user}
-                    newCommentText={newCommentText}
-                    setNewCommentText={setNewCommentText}
-                    enviarComentario={enviarComentario}
-                    isSubmittingComment={isSubmittingComment}
-                    loadingComments={loadingComments}
-                    comments={comments}
-                    abrirPerfilExterno={abrirPerfilExterno}
-                    eliminarComentario={eliminarComentario}
-                    gostarComentario={gostarComentario}
                   />
                 </div>
               )}

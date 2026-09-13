@@ -515,64 +515,96 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                 </div>
               ) : (
                 <>
-                {/* Tracking Status Choices */}
-              <div className="space-y-1.5 text-left">
-                <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest">Estado</label>
-                <div className="flex overflow-x-auto gap-2 pb-2 pt-1 w-full justify-start scrollbar-none snap-x no-scrollbar">
-                  {TRACKING_STATUS_OPTIONS.map((opt) => {
-                    const isSelected = selectedItem.status === opt.value;
-                    let pulseColor = 'rgba(255, 255, 255, 0.2)';
-                    if (opt.value === 'WATCHING') pulseColor = 'rgba(74, 222, 128, 0.45)';
-                    else if (opt.value === 'PLANNED') pulseColor = 'rgba(139, 92, 246, 0.45)';
-                    else if (opt.value === 'COMPLETED') pulseColor = 'rgba(251, 191, 36, 0.45)';
-                    else if (opt.value === 'PAUSED') pulseColor = 'rgba(249, 115, 22, 0.45)';
-                    else if (opt.value === 'DROPPED') pulseColor = 'rgba(239, 68, 68, 0.45)';
-                    
-                    return (
-                      <button 
-                        key={opt.value} 
-                        type="button"
-                        onClick={() => atualizarCampo('status', opt.value)} 
-                        style={{ '--pulse-color': pulseColor } as React.CSSProperties}
-                        className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl border transition-all text-xs font-bold relative overflow-hidden group active:scale-95 snap-center cursor-pointer ${
-                          isSelected 
-                            ? `${mediaType === 'anime' ? 'bg-primary/20 border-primary text-primary' : 'bg-secondary/20 border-secondary text-secondary'} animate-pulse-glow` 
-                            : 'bg-surface-variant/30 border-white/5 text-on-surface-variant hover:text-white'
-                        }`}
-                      >
-                        {isSelected && (
-                          <span className={`absolute left-0 top-0 bottom-0 w-1 ${mediaType === 'anime' ? 'bg-primary' : 'bg-secondary'}`}></span>
-                        )}
-                        <span className={`material-symbols-outlined text-sm ${isSelected ? (mediaType === 'anime' ? 'text-primary' : 'text-secondary') : 'text-on-surface-variant'}`} style={{ fontVariationSettings: "'FILL' 1" }}>
-                          {opt.value === 'WATCHING' ? 'play_circle' : 
-                           opt.value === 'PLANNED' ? 'schedule' : 
-                           opt.value === 'COMPLETED' ? 'check_circle' : 
-                           opt.value === 'PAUSED' ? 'pause_circle' : 'cancel'}
-                        </span>
-                        <span>{mediaType === 'anime' ? opt.animeLabel : opt.mangaLabel}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              {/* 2 Caixas lado a lado: ESTADO e PRIORIDADE */}
+              <div className="grid grid-cols-2 gap-2.5 w-full text-left">
+                {/* Caixa 1: ESTADO */}
+                <div className="relative flex flex-col gap-1.5">
+                  <label className="text-[9px] text-on-surface-variant uppercase font-bold tracking-widest truncate">
+                    Estado
+                  </label>
+                  {(() => {
+                    const currentStatusOpt = TRACKING_STATUS_OPTIONS.find(opt => opt.value === selectedItem.status) || TRACKING_STATUS_OPTIONS[1];
+                    let statusColorClass = 'text-white border-white/10 bg-white/5';
+                    if (selectedItem.status === 'WATCHING') statusColorClass = mediaType === 'anime' ? 'text-primary border-primary/30 bg-primary/10' : 'text-secondary border-secondary/30 bg-secondary/10';
+                    else if (selectedItem.status === 'PLANNED') statusColorClass = 'text-violet-400 border-violet-500/30 bg-violet-500/10';
+                    else if (selectedItem.status === 'COMPLETED') statusColorClass = 'text-amber-400 border-amber-500/30 bg-amber-500/10';
+                    else if (selectedItem.status === 'PAUSED') statusColorClass = 'text-orange-400 border-orange-500/30 bg-orange-500/10';
+                    else if (selectedItem.status === 'DROPPED') statusColorClass = 'text-red-400 border-red-500/30 bg-red-500/10';
 
-              {/* Priority Dropdown Trigger */}
-              <div className="space-y-1.5 pt-1.5 border-t border-white/5 text-left">
-                <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-xs text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                  Prioridade de Acompanhamento
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowPriorityModal(true)}
-                  className="w-full flex items-center justify-between bg-black/40 text-white border border-white/10 px-4 py-2.5 rounded-xl outline-none focus:border-primary text-xs font-bold cursor-pointer text-left h-[46px]"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-xs text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                    <span>#{selectedItem.prioridade} - {t(currentPriorityOpt.desc)}</span>
-                  </div>
-                  <span className="material-symbols-outlined text-on-surface-variant text-base">unfold_more</span>
-                </button>
+                    return (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl border transition-all font-bold text-xs cursor-pointer active:scale-95 h-[44px] ${statusColorClass}`}
+                        >
+                          <div className="flex items-center gap-1.5 truncate">
+                            <span className="material-symbols-outlined text-sm shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>
+                              {selectedItem.status === 'WATCHING' ? 'play_circle' : 
+                               selectedItem.status === 'PLANNED' ? 'schedule' : 
+                               selectedItem.status === 'COMPLETED' ? 'check_circle' : 
+                               selectedItem.status === 'PAUSED' ? 'pause_circle' : 'cancel'}
+                            </span>
+                            <span className="truncate">{mediaType === 'anime' ? currentStatusOpt.animeLabel : currentStatusOpt.mangaLabel}</span>
+                          </div>
+                          <span className={`material-symbols-outlined text-sm shrink-0 transition-transform duration-200 ${statusDropdownOpen ? 'rotate-180' : ''}`}>keyboard_arrow_down</span>
+                        </button>
+
+                        {statusDropdownOpen && (
+                          <>
+                            <div className="fixed inset-0 z-30" onClick={() => setStatusDropdownOpen(false)} />
+                            <div className="absolute left-0 right-0 mt-2 bg-[#1c1c22] border border-white/10 rounded-2xl p-2 z-40 shadow-2xl space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                              {TRACKING_STATUS_OPTIONS.map((opt) => {
+                                const isSelected = selectedItem.status === opt.value;
+                                return (
+                                  <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() => {
+                                      atualizarCampo('status', opt.value);
+                                      setStatusDropdownOpen(false);
+                                    }}
+                                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-left cursor-pointer transition-all ${
+                                      isSelected 
+                                        ? (mediaType === 'anime' ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-secondary/20 text-secondary border border-secondary/30')
+                                        : 'text-on-surface-variant hover:text-white hover:bg-white/5 border border-transparent'
+                                    }`}
+                                  >
+                                    <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
+                                      {opt.value === 'WATCHING' ? 'play_circle' : 
+                                       opt.value === 'PLANNED' ? 'schedule' : 
+                                       opt.value === 'COMPLETED' ? 'check_circle' : 
+                                       opt.value === 'PAUSED' ? 'pause_circle' : 'cancel'}
+                                    </span>
+                                    <span className="truncate">{mediaType === 'anime' ? opt.animeLabel : opt.mangaLabel}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+
+                {/* Caixa 2: PRIORIDADE */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] text-on-surface-variant uppercase font-bold tracking-widest truncate">
+                    Prioridade
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowPriorityModal(true)}
+                    className="w-full flex items-center justify-between bg-black/40 hover:bg-white/5 text-white border border-white/10 px-3 py-2.5 rounded-2xl outline-none text-xs font-bold cursor-pointer text-left h-[44px] transition-all active:scale-95"
+                  >
+                    <div className="flex items-center gap-1.5 truncate">
+                      <span className="material-symbols-outlined text-xs text-yellow-400 shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                      <span className="truncate">#{selectedItem.prioridade} - {t(currentPriorityOpt.desc)}</span>
+                    </div>
+                    <span className="material-symbols-outlined text-on-surface-variant text-sm shrink-0">unfold_more</span>
+                  </button>
+                </div>
               </div>
 
               {/* My Progress Selector */}

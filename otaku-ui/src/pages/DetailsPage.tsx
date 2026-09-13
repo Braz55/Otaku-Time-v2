@@ -438,7 +438,8 @@ const DetailsPage = () => {
           const normalized = {
             id: data.id,
             titulo: data.title?.english || data.title?.romaji || 'Unknown Title',
-            capaUrl: data.coverImage?.large,
+            capaUrl: data.coverImage?.extraLarge || data.coverImage?.large || data.coverImage?.medium || data.coverUrl || data.capaUrl,
+            bannerUrl: data.bannerImage || data.bannerUrl || data.banner || null,
             descricao: data.description ? data.description.replace(/<[^>]*>?/gm, '') : "No description available.",
             generos: {
               ...((data.genres || []).reduce((acc: any, g: string) => ({ ...acc, [g]: 100 }), {})),
@@ -465,7 +466,7 @@ const DetailsPage = () => {
           }
           setSelectedItem(localItem);
 
-          // Fetch AniList metadata in the background to populate relations
+          // Fetch AniList metadata in the background to populate relations & banner
           const externalId = data.animeId || data.mangaId || itemData.animeId || itemData.mangaId;
           const formatVal = itemData.formato;
           if (externalId) {
@@ -481,6 +482,8 @@ const DetailsPage = () => {
                     if (prev && (prev.animeId === externalId || prev.mangaId === externalId || prev.id === externalId)) {
                       return { 
                         ...prev, 
+                        bannerUrl: prev.bannerUrl || extData.bannerImage || extData.bannerUrl || extData.banner || null,
+                        capaUrl: prev.capaUrl || extData.coverImage?.extraLarge || extData.coverImage?.large || extData.coverImage?.medium || extData.coverUrl,
                         relations: extData.relations, 
                         relationsManga: extData.relationsManga,
                         duracaoEpisodio: prev.duracaoEpisodio || extData.duracaoEpisodio || extData.duration || null
@@ -527,7 +530,7 @@ const DetailsPage = () => {
   }, []);
 
   useEffect(() => {
-    if (!selectedItem || selectedItem.bannerUrl) return;
+    if (!selectedItem || selectedItem.bannerUrl || mediaType === 'manga') return;
     const mediaId = selectedItem.animeId || selectedItem.mangaId || selectedItem.anilistId || selectedItem.id;
     if (!mediaId) return;
 
@@ -1704,45 +1707,89 @@ const DetailsPage = () => {
               
               {/* CABEÇALHO HERO BANNER (Para Anime e Mangá) */}
               <div className="flex flex-col gap-4">
-                {/* HERO BANNER COVER ARTWORK CONTAINER - APENAS A IMAGEM EM HERO CARD */}
-                <div 
-                  onClick={() => setShowArtworkModal(true)}
-                  className="relative w-full rounded-3xl overflow-hidden cursor-pointer group flex items-center justify-center bg-black/40 min-h-[180px] sm:min-h-[230px] max-h-[380px] shadow-xl border border-white/10"
-                  title="Personalizar capa ou banner"
-                >
-                  {/* Ambient Blurred Background Fill */}
-                  <img 
-                    src={selectedItem.bannerUrl || selectedItem.capaUrl} 
-                    className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-45 scale-125 pointer-events-none" 
-                    alt="" 
-                  />
-
-                  {/* Full Uncropped Image */}
-                  <img 
-                    src={selectedItem.bannerUrl || selectedItem.capaUrl} 
-                    className="relative z-10 w-full h-auto max-h-[380px] object-contain group-hover:scale-[1.02] transition-transform duration-500" 
-                    alt={selectedItem.titulo} 
-                  />
-
-                  {/* Gradient Overlay for Title readability */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none z-20" />
-
-                  {/* Title Overlaid on lower area of Banner Image */}
-                  <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5 pb-3 z-30 pointer-events-none">
-                    <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white line-clamp-2 drop-shadow-xl">
-                      {selectedItem.titulo}
-                    </h2>
-                  </div>
-
-                  {/* Subtle Edit Paintbrush Icon Button */}
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setShowArtworkModal(true); }}
-                    className="absolute top-3 right-3 z-30 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-white/80 hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-lg active:scale-95"
-                    title="Editar capa ou banner"
+                {/* HERO BANNER COVER ARTWORK CONTAINER */}
+                {mediaType === 'manga' && !selectedItem.bannerUrl ? (
+                  <div 
+                    onClick={() => setShowArtworkModal(true)}
+                    className="relative w-full rounded-3xl p-4 bg-white/[0.04] backdrop-blur-xl border border-white/10 flex gap-4 items-center cursor-pointer group shadow-xl overflow-hidden min-h-[160px]"
+                    title="Personalizar capa ou banner"
                   >
-                    <span className="material-symbols-outlined text-sm">edit</span>
-                  </button>
-                </div>
+                    {/* Ambient Blurred Background Fill */}
+                    <img 
+                      src={selectedItem.capaUrl} 
+                      className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-25 scale-125 pointer-events-none" 
+                      alt="" 
+                    />
+
+                    {/* Manga Poster Cover Image */}
+                    <div className="relative z-10 w-24 sm:w-32 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border border-white/15 shrink-0">
+                      <img 
+                        src={selectedItem.capaUrl} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                        alt={selectedItem.titulo} 
+                      />
+                    </div>
+
+                    {/* Manga Title & Info */}
+                    <div className="relative z-10 flex flex-col justify-center gap-1.5 flex-1 min-w-0 pr-6">
+                      <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white line-clamp-3 leading-snug drop-shadow-md">
+                        {selectedItem.titulo}
+                      </h2>
+                    </div>
+
+                    {/* Subtle Edit Paintbrush Icon Button */}
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setShowArtworkModal(true); }}
+                      className="absolute top-3 right-3 z-30 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-white/80 hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-lg active:scale-95"
+                      title="Editar capa ou banner"
+                    >
+                      <span className="material-symbols-outlined text-sm">edit</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div 
+                    onClick={() => setShowArtworkModal(true)}
+                    className="relative w-full rounded-3xl overflow-hidden cursor-pointer group flex items-center justify-center bg-black/40 min-h-[180px] sm:min-h-[230px] max-h-[380px] shadow-xl border border-white/10"
+                    title="Personalizar capa ou banner"
+                  >
+                    {/* Ambient Blurred Background Fill */}
+                    <img 
+                      src={selectedItem.bannerUrl || selectedItem.capaUrl} 
+                      className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-45 scale-125 pointer-events-none" 
+                      alt="" 
+                    />
+
+                    {/* Main Artwork Image (Preserva as proporções originais perfeitas para Anime; Object-cover para Banners de Mangá) */}
+                    <img 
+                      src={selectedItem.bannerUrl || selectedItem.capaUrl} 
+                      className={
+                        mediaType === 'manga'
+                          ? "relative z-10 w-full h-44 sm:h-56 object-cover group-hover:scale-[1.02] transition-transform duration-500"
+                          : "relative z-10 w-full h-auto max-h-[340px] sm:max-h-[380px] object-contain group-hover:scale-[1.02] transition-transform duration-500"
+                      }
+                      alt={selectedItem.titulo} 
+                    />
+
+                    {/* Gradient Overlay for Title readability */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none z-20" />
+
+                    {/* Title Overlaid on lower area of Banner Image */}
+                    <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5 pb-3 z-30 pointer-events-none">
+                      <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white line-clamp-2 drop-shadow-xl">
+                        {selectedItem.titulo}
+                      </h2>
+                    </div>
+
+                    {/* Subtle Edit Paintbrush Icon Button */}
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setShowArtworkModal(true); }}
+                      className="absolute top-3 right-3 z-30 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-white/80 hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-lg active:scale-95"
+                      title="Editar capa ou banner"
+                    >
+                      <span className="material-symbols-outlined text-sm">edit</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* DETALHES INTEGRADOS (Badges, Géneros e Métricas a fluir diretamente na página) */}
                 <div className="flex flex-col gap-3.5 px-0.5">
@@ -1882,6 +1929,11 @@ const DetailsPage = () => {
                     )}
                   </div>
                 </div>
+              </div>
+
+              {/* SEPARATOR DIVIDER BETWEEN HEADER METRICS AND TABS */}
+              <div className="w-full my-1 flex items-center justify-center">
+                <div className="w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
               </div>
 
               {/* TABS SWITCHER (Standalone Segmented Control) */}

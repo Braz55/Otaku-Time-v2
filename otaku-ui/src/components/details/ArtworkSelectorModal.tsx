@@ -7,6 +7,7 @@ interface ArtworkSelectorModalProps {
   isOpen: boolean;
   onClose: () => void;
   mediaId: number;
+  mediaType?: 'anime' | 'manga';
   format?: string;
   title?: string;
   token: string | null;
@@ -19,6 +20,7 @@ export const ArtworkSelectorModal: React.FC<ArtworkSelectorModalProps> = ({
   isOpen,
   onClose,
   mediaId,
+  mediaType = 'anime',
   format,
   title,
   token,
@@ -48,7 +50,11 @@ export const ArtworkSelectorModal: React.FC<ArtworkSelectorModalProps> = ({
         if (token) {
           headers['Authorization'] = `Bearer ${token}`;
         }
-        const res = await customFetch(`${API_BASE_URL}/anime/tmdb/${mediaId}/images${queryString}`, {
+        const endpoint = mediaType === 'manga'
+          ? `${API_BASE_URL}/manga/covers/${mediaId}${queryString}`
+          : `${API_BASE_URL}/anime/tmdb/${mediaId}/images${queryString}`;
+
+        const res = await customFetch(endpoint, {
           headers,
         });
         if (res.ok) {

@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Inject,
   forwardRef,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ListService } from '../list/list.service';
@@ -12,6 +13,8 @@ import { MangaSyncService } from './manga-sync.service';
 
 @Injectable()
 export class MangaService {
+  private readonly logger = new Logger(MangaService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly listService: ListService,
@@ -430,6 +433,59 @@ export class MangaService {
     } catch (e) {
       console.error('Error recalculating user statistics:', e);
     }
+  }
+
+  async getMangaCovers(id: number, title?: string): Promise<{ posters: string[]; backdrops: string[] }> {
+    const posters: string[] = [];
+    try {
+      let searchTitle = title;
+      if (!searchTitle) {
+        const local = await this.prisma.manga.findUnique({ where: { id } });
+        if (local) {
+          searchTitle = local.titulo;
+          if (local.capaUrl) posters.push(local.capaUrl);
+        } else {
+          const aniData = await this.anilistMangaService.searchAniListById(id);
+          if (aniData) {
+            searchTitle = aniData.title?.english || aniData.title?.romaji;
+            if (aniData.coverImage?.large) posters.push(aniData.coverImage.large);
+          }
+        }
+      }
+
+      if (searchTitle) {
+        const searchRes = await fetch(
+          `https://api.mangadex.org/manga?title=${encodeURIComponent(searchTitle)}&limit=1`,
+        );
+        if (searchRes.ok) {
+          const searchJson = await searchRes.json();
+          if (searchJson?.data && searchJson.data.length > 0) {
+            const mangadexId = searchJson.data[0].id;
+            const coverRes = await fetch(
+              `https://api.mangadex.org/cover?manga[]=${mangadexId}&limit=100&order[volume]=asc`,
+            );
+            if (coverRes.ok) {
+              const coverJson = await coverRes.json();
+              if (coverJson?.data && Array.isArray(coverJson.data)) {
+                for (const c of coverJson.data) {
+                  const fileName = c.attributes?.fileName;
+                  if (fileName) {
+                    const coverUrl = `https://uploads.mangadex.org/covers/${mangadexId}/${fileName}`;
+                    if (!posters.includes(coverUrl)) {
+                      posters.push(coverUrl);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      this.logger.error(`Error fetching manga covers for ID ${id}:`, e);
+    }
+
+    return { posters, backdrops: [] };
   }
 }
 

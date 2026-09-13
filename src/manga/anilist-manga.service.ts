@@ -37,7 +37,8 @@ export class AnilistMangaService {
             format
             source
             description
-            coverImage { large }
+            coverImage { extraLarge large }
+            bannerImage
             externalLinks { url site type language }
           }
         }
@@ -78,7 +79,8 @@ export class AnilistMangaService {
           format
           source
           description
-          coverImage { large }
+          coverImage { extraLarge large }
+          bannerImage
           externalLinks { url site type language }
         }
       }

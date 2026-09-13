@@ -155,7 +155,7 @@ export const ArtworkSelectorModal: React.FC<ArtworkSelectorModalProps> = ({
                           : 'border-white/10 hover:border-white/40 hover:scale-[1.02]'
                       }`}
                     >
-                      <img src={url} className="w-full h-full object-cover" alt={`Poster ${idx}`} loading="lazy" />
+                      <img src={url} className="w-full h-full object-cover" alt={`Poster ${idx}`} loading="lazy" referrerPolicy="no-referrer" />
                       {isSelected && (
                         <div className="absolute top-2 right-2 bg-primary text-on-primary w-6 h-6 rounded-full flex items-center justify-center shadow-lg">
                           <Check className="w-3.5 h-3.5 font-bold" />
@@ -191,7 +191,7 @@ export const ArtworkSelectorModal: React.FC<ArtworkSelectorModalProps> = ({
                           : 'border-white/10 hover:border-white/40 hover:scale-[1.02]'
                       }`}
                     >
-                      <img src={url} className="w-full h-full object-cover" alt={`Banner ${idx}`} loading="lazy" />
+                      <img src={url} className="w-full h-full object-cover" alt={`Banner ${idx}`} loading="lazy" referrerPolicy="no-referrer" />
                       {isSelected && (
                         <div className="absolute top-2 right-2 bg-primary text-on-primary w-6 h-6 rounded-full flex items-center justify-center shadow-lg">
                           <Check className="w-3.5 h-3.5 font-bold" />

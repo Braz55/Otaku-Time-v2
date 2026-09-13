@@ -489,7 +489,7 @@ const LibraryPage = () => {
         onClick={() => handleNavigateToDetails(item.id)}
       >
         <div className={`relative aspect-[2/3] rounded-3xl overflow-hidden shadow-xl transform transition-all duration-500 group-hover:scale-[1.03] group-hover:-translate-y-2 border border-white/10 ${categoria === 'anime' ? 'group-hover:border-secondary/60 group-hover:shadow-[0_0_30px_rgba(194,24,91,0.25)]' : 'group-hover:border-primary/60 group-hover:shadow-[0_0_30px_rgba(106,27,154,0.25)]'}`}>
-          <img src={coverUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={title} loading="lazy" />
+          <img src={coverUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={title} loading="lazy" referrerPolicy="no-referrer" />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-80 group-hover:opacity-90 transition-opacity"></div>
           
           {/* Top Badges: Status & Priority */}

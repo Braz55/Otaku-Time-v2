@@ -50,6 +50,7 @@ const MediaCard: React.FC<MediaCardProps> = ({
           alt={titulo}
           onLoad={() => setImageLoaded(true)}
           loading="lazy"
+          referrerPolicy="no-referrer"
         />
 
         {/* Overlay em degradê */}

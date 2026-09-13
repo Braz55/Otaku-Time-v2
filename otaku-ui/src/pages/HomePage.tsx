@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMedia } from '../context/MediaContext';
@@ -35,6 +35,26 @@ const HomePage = () => {
   const [hasMoreResults, setHasMoreResults] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
    const [savingItems, setSavingItems] = useState<Record<number, boolean>>({});
+   const itemDebounceTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+   const itemPendingPayloadsRef = useRef<Record<string, { type: 'anime' | 'manga', payload: any }>>({});
+
+   useEffect(() => {
+     return () => {
+       Object.entries(itemPendingPayloadsRef.current).forEach(([id, { type, payload }]) => {
+         if (itemDebounceTimersRef.current[id]) {
+           clearTimeout(itemDebounceTimersRef.current[id]);
+         }
+         const url = `${API_BASE_URL}/${type}/${id}`;
+         customFetch(url, {
+           method: 'PATCH',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify(payload)
+         }).catch(err => console.error("Error flushing homepage update on unmount:", err));
+       });
+       itemPendingPayloadsRef.current = {};
+       itemDebounceTimersRef.current = {};
+     };
+   }, []);
  
    const [customLists, setCustomLists] = useState<any[]>([]);
    const [statusFilter, setStatusFilter] = useState<'ALL' | 'RELEASING' | 'FINISHED'>(() => {
@@ -305,25 +325,28 @@ const HomePage = () => {
   };
 
   const marcarComoVisto = async (item: any, type: 'anime' | 'manga') => {
-    if (savingItems[item.id]) return;
+    // Lookup latest item state from React dashboard data to correctly handle rapid clicks
+    const currentItem = (type === 'anime'
+      ? animeDashboardData.items?.find((i: any) => i.id === item.id)
+      : mangaDashboardData.items?.find((i: any) => i.id === item.id)) || item;
 
     let payload: Record<string, any> = {};
     let optimisticUpdates: Record<string, any> = {};
 
     if (type === 'anime') {
-      const currentGlobal = item.epAtualGlobal !== undefined ? item.epAtualGlobal : (item.epAtual || 0);
-      let maxDisp = item.anime?.numEpisodiosTotal || item.numEpisodiosTotal || 9999;
-      if (item.anime?.statusLancamento !== 'FINISHED') {
+      const currentGlobal = currentItem.epAtualGlobal !== undefined ? currentItem.epAtualGlobal : (currentItem.epAtual || 0);
+      let maxDisp = currentItem.anime?.numEpisodiosTotal || currentItem.numEpisodiosTotal || 9999;
+      if (currentItem.anime?.statusLancamento !== 'FINISHED') {
         const now = new Date();
-        if (typeof item.numEpisodiosAired === 'number') {
-          maxDisp = item.numEpisodiosAired;
+        if (typeof currentItem.numEpisodiosAired === 'number') {
+          maxDisp = currentItem.numEpisodiosAired;
         } else {
-          const eps = item.episodes || [];
+          const eps = currentItem.episodes || [];
           if (Array.isArray(eps) && eps.length > 0) {
             maxDisp = eps.filter((ep: any) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now).length;
           } else {
-            const proxEp = item.anime?.proximoEpisodio || item.proximoEpisodio;
-            if ((item.anime?.statusLancamento === 'RELEASING' || item.statusLancamento === 'RELEASING') && proxEp) {
+            const proxEp = currentItem.anime?.proximoEpisodio || currentItem.proximoEpisodio;
+            if ((currentItem.anime?.statusLancamento === 'RELEASING' || currentItem.statusLancamento === 'RELEASING') && proxEp) {
               maxDisp = proxEp - 1;
             }
           }
@@ -334,8 +357,8 @@ const HomePage = () => {
         return;
       }
       
-      const epQueVouVer = item.proximoEpLocal !== undefined ? item.proximoEpLocal : (item.epAtual || 0) + 1;
-      const seasonQueVouVer = item.proximaSeason !== undefined ? item.proximaSeason : (item.seasonAtual || 1);
+      const epQueVouVer = currentItem.proximoEpLocal !== undefined ? currentItem.proximoEpLocal : (currentItem.epAtual || 0) + 1;
+      const seasonQueVouVer = currentItem.proximaSeason !== undefined ? currentItem.proximaSeason : (currentItem.seasonAtual || 1);
       payload = { 
         epAtual: epQueVouVer,
         seasonAtual: seasonQueVouVer
@@ -352,12 +375,12 @@ const HomePage = () => {
         optimisticUpdates.shouldRemove = true;
       }
     } else {
-      const currentCap = item.capAtual || 0;
+      const currentCap = currentItem.capAtual || 0;
       payload = { capAtual: currentCap + 1 };
 
-      let maxDisp = item.manga?.numCapitulosTotal || item.numCapitulosTotal || 9999;
-      const status = item.manga?.statusLancamento || item.statusLancamento;
-      const proxCap = item.manga?.proximoCapituloNumero || item.proximoCapituloNumero;
+      let maxDisp = currentItem.manga?.numCapitulosTotal || currentItem.numCapitulosTotal || 9999;
+      const status = currentItem.manga?.statusLancamento || currentItem.statusLancamento;
+      const proxCap = currentItem.manga?.proximoCapituloNumero || currentItem.proximoCapituloNumero;
       if (status === 'RELEASING' && proxCap) {
         maxDisp = proxCap - 1;
       }
@@ -372,78 +395,89 @@ const HomePage = () => {
       }
     }
 
-    // Apply Optimistic Update
+    // Apply Optimistic Update immediately
     if (type === 'anime') {
-      setAnimeDashboardData(prev => {
+      setAnimeDashboardData((prev: any) => {
         if (optimisticUpdates.shouldRemove) {
-          return { ...prev, items: prev.items.filter(i => i.id !== item.id) };
+          return { ...prev, items: prev.items.filter((i: any) => i.id !== item.id) };
         }
         return {
           ...prev,
-          items: prev.items.map(i => i.id === item.id ? { ...i, ...optimisticUpdates } : i)
+          items: prev.items.map((i: any) => i.id === item.id ? { ...i, ...optimisticUpdates } : i)
         };
       });
     } else {
-      setMangaDashboardData(prev => {
+      setMangaDashboardData((prev: any) => {
         if (optimisticUpdates.shouldRemove) {
-          return { ...prev, items: prev.items.filter(i => i.id !== item.id) };
+          return { ...prev, items: prev.items.filter((i: any) => i.id !== item.id) };
         }
         return {
           ...prev,
-          items: prev.items.map(i => i.id === item.id ? { ...i, ...optimisticUpdates } : i)
+          items: prev.items.map((i: any) => i.id === item.id ? { ...i, ...optimisticUpdates } : i)
         };
       });
     }
 
     setSavingItems(prev => ({ ...prev, [item.id]: true }));
-    const url = `${API_BASE_URL}/${type}/${item.id}`;
-    
-    try {
-      const response = await customFetch(url, {
-        method: 'PATCH',
-        headers: getHeaders(),
-        body: JSON.stringify(payload)
-      });
-      if (response.ok) {
-        const updatedData = await response.json();
-        
-        // Update list with actual response
-        if (type === 'anime') {
-          setAnimeDashboardData(prev => {
-            if (updatedData.status === 'COMPLETED') {
-              return { ...prev, items: prev.items.filter(i => i.id !== item.id) };
-            }
-            return {
-              ...prev,
-              items: prev.items.map(i => i.id === item.id ? { ...i, ...updatedData } : i)
-            };
-          });
-        } else {
-          setMangaDashboardData(prev => {
-            if (updatedData.status === 'COMPLETED') {
-              return { ...prev, items: prev.items.filter(i => i.id !== item.id) };
-            }
-            return {
-              ...prev,
-              items: prev.items.map(i => i.id === item.id ? { ...i, ...updatedData } : i)
-            };
-          });
-        }
-        
-        showToast('Progresso atualizado.', 'success');
-        // Refresh dashboard silently in background to update highlights / order
-        carregarDashboard();
-      } else {
-        showToast('Não foi possível marcar como visto.', 'error');
-        carregarDashboard();
-      }
-    } catch (error) {
-      console.error("Erro ao marcar como visto:", error);
-      showToast('Erro ao marcar como visto.', 'error');
-      carregarDashboard();
-    } finally {
-      setSavingItems(prev => ({ ...prev, [item.id]: false }));
+    itemPendingPayloadsRef.current[item.id] = { type, payload };
+
+    if (itemDebounceTimersRef.current[item.id]) {
+      clearTimeout(itemDebounceTimersRef.current[item.id]);
     }
+
+    itemDebounceTimersRef.current[item.id] = setTimeout(async () => {
+      const pending = itemPendingPayloadsRef.current[item.id];
+      if (!pending) return;
+      delete itemPendingPayloadsRef.current[item.id];
+      delete itemDebounceTimersRef.current[item.id];
+
+      const url = `${API_BASE_URL}/${pending.type}/${item.id}`;
+      try {
+        const response = await customFetch(url, {
+          method: 'PATCH',
+          headers: getHeaders(),
+          body: JSON.stringify(pending.payload)
+        });
+        if (response.ok) {
+          const updatedData = await response.json();
+          if (pending.type === 'anime') {
+            setAnimeDashboardData((prev: any) => {
+              if (updatedData.status === 'COMPLETED') {
+                return { ...prev, items: prev.items.filter((i: any) => i.id !== item.id) };
+              }
+              return {
+                ...prev,
+                items: prev.items.map((i: any) => i.id === item.id ? { ...i, ...updatedData } : i)
+              };
+            });
+          } else {
+            setMangaDashboardData((prev: any) => {
+              if (updatedData.status === 'COMPLETED') {
+                return { ...prev, items: prev.items.filter((i: any) => i.id !== item.id) };
+              }
+              return {
+                ...prev,
+                items: prev.items.map((i: any) => i.id === item.id ? { ...i, ...updatedData } : i)
+              };
+            });
+          }
+          showToast('Progresso atualizado.', 'success');
+        } else {
+          showToast('Não foi possível marcar como visto.', 'error');
+          carregarDashboard();
+        }
+      } catch (error) {
+        console.error("Erro ao marcar como visto:", error);
+        showToast('Erro ao marcar como visto.', 'error');
+        carregarDashboard();
+      } finally {
+        setSavingItems(prev => {
+          const copy = { ...prev };
+          delete copy[item.id];
+          return copy;
+        });
+      }
+    }, 400);
   };
 
   const pesquisar = async (page = 1) => {
@@ -607,7 +641,7 @@ const HomePage = () => {
                   onClick={() => navigate(`/details/${categoria}/${item.id}?external=true&format=${item.format}`)}
                 >
                   <div className="relative aspect-[2/3] rounded-2xl overflow-hidden glass-panel border border-white/5 hover:border-primary/50 transition-all duration-300 group-hover:scale-[1.02] group-hover:-translate-y-1 shadow-lg">
-                    <img src={item.coverImage.large} className="w-full h-full object-cover" alt="" />
+                    <img src={item.coverImage.large} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity"></div>
                     
                     <div className="absolute bottom-3 left-3 right-3 z-10">
@@ -748,6 +782,7 @@ const HomePage = () => {
                      className="w-full h-full object-cover scale-125 blur-3xl opacity-20 transition-transform duration-700 group-hover:scale-130" 
                      alt="" 
                      loading="lazy"
+                     referrerPolicy="no-referrer"
                   />
                   <div className="absolute inset-0 bg-[#0F1014]/40"></div>
                   <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-background via-background/40 to-transparent"></div>
@@ -770,7 +805,7 @@ const HomePage = () => {
                               ? t('Sugestão da tua lista')
                               : t('EM DESTAQUE NA TUA LISTA')}
                     </span>
-                    <h2 className="font-display-lg text-lg md:text-2xl text-white leading-tight font-black truncate">{heroTitle}</h2>
+                    <h2 className="font-display-lg text-lg md:text-2xl text-white leading-tight font-black line-clamp-2">{heroTitle}</h2>
                     <p className="font-body-lg text-[11px] md:text-xs text-on-surface-variant line-clamp-2 md:line-clamp-3 leading-relaxed max-w-xl">
                       {heroDesc}
                     </p>
@@ -791,6 +826,7 @@ const HomePage = () => {
                       className="w-full h-full object-cover" 
                       alt="Hero cover" 
                       loading="lazy"
+                      referrerPolicy="no-referrer"
                     />
                   </div>
                 </div>
@@ -1024,11 +1060,11 @@ const HomePage = () => {
                         >
                           <div className="space-y-1.5">
                             <div className="relative aspect-[2/3] rounded-xl overflow-hidden border border-white/5">
-                              <img src={coverUrl} className="w-full h-full object-cover" alt="" loading="lazy" />
+                              <img src={coverUrl} className="w-full h-full object-cover" alt="" loading="lazy" referrerPolicy="no-referrer" />
                               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-transparent opacity-60"></div>
                             </div>
                             <div className="min-w-0">
-                              <h4 className="font-bold text-[11px] text-white truncate mb-0.5">{title}</h4>
+                              <h4 className="font-bold text-[11px] text-white line-clamp-2 min-h-[2.1em] mb-0.5">{title}</h4>
                               <p className="text-[10px] text-on-surface-variant font-medium">
                                 {categoria === 'anime'
                                   ? (seasonQueVouVer && seasonQueVouVer > 1
@@ -1059,14 +1095,12 @@ const HomePage = () => {
                               </div>
                               <button 
                                 onClick={(e) => { e.stopPropagation(); marcarComoVisto(item, categoria); }}
-                                disabled={savingItems[item.id]}
-                                className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-white flex items-center justify-center active:scale-90 cursor-pointer border border-white/5"
+                                className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-white flex items-center justify-center active:scale-90 cursor-pointer border border-white/5 relative"
                                 title="Marcar mais um visto"
                               >
-                                {savingItems[item.id] ? (
-                                  <Loader2 className={`w-3 h-3 animate-spin ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`} />
-                                ) : (
-                                  <span className="material-symbols-outlined text-xs">play_arrow</span>
+                                <span className="material-symbols-outlined text-xs">play_arrow</span>
+                                {savingItems[item.id] && (
+                                  <span className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full animate-ping ${categoria === 'anime' ? 'bg-secondary' : 'bg-primary'}`} />
                                 )}
                               </button>
                             </div>
@@ -1108,7 +1142,7 @@ const HomePage = () => {
                           onClick={() => navigate(`/details/${categoria}/${item.id}`)}
                         >
                           <div className="w-24 h-36 rounded-xl overflow-hidden flex-shrink-0 relative">
-                            <img src={coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" loading="lazy" />
+                            <img src={coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" loading="lazy" referrerPolicy="no-referrer" />
                           </div>
                           <div className="flex flex-col justify-between py-1 min-w-0 flex-1">
                             <div className="min-w-0 space-y-1">
@@ -1141,14 +1175,12 @@ const HomePage = () => {
                               </div>
                               <button 
                                 onClick={(e) => { e.stopPropagation(); marcarComoVisto(item, categoria); }}
-                                disabled={savingItems[item.id]}
-                                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white flex items-center justify-center active:scale-90 cursor-pointer border border-white/5"
+                                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white flex items-center justify-center active:scale-90 cursor-pointer border border-white/5 relative"
                                 title="Marcar mais um visto"
                               >
-                                {savingItems[item.id] ? (
-                                  <Loader2 className={`w-3.5 h-3.5 animate-spin ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`} />
-                                ) : (
-                                  <span className="material-symbols-outlined text-sm">play_arrow</span>
+                                <span className="material-symbols-outlined text-sm">play_arrow</span>
+                                {savingItems[item.id] && (
+                                  <span className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full animate-ping ${categoria === 'anime' ? 'bg-secondary' : 'bg-primary'}`} />
                                 )}
                               </button>
                             </div>

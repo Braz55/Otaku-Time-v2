@@ -669,44 +669,38 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                   <button 
                     type="button"
                     onClick={() => atualizarProgresso(-1)} 
-                    disabled={isSavingDetailsProgress} 
                     title="Diminuir" 
-                    className="w-10 h-10 rounded-xl bg-surface-variant/40 hover:bg-surface-variant border border-white/5 text-on-surface-variant hover:text-white transition-all flex items-center justify-center shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    className="w-10 h-10 rounded-xl bg-surface-variant/40 hover:bg-surface-variant border border-white/5 text-on-surface-variant hover:text-white transition-all flex items-center justify-center shadow-sm active:scale-95 cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-base">remove</span>
                   </button>
 
-                  <div className="flex items-center justify-center gap-1.5 px-3.5 py-1 bg-black/40 border border-white/10 rounded-2xl h-10">
-                    {isSavingDetailsProgress ? (
-                      <div className="h-8 w-20 flex items-center justify-center">
-                        <Loader2 className={`w-5 h-5 animate-spin ${mediaType === 'anime' ? 'text-primary' : 'text-secondary'}`} />
-                      </div>
-                    ) : (
-                      <>
-                        <input 
-                          type="number" 
-                          min="0" 
-                          max={totalEpisodesAllSeasons || 9999} 
-                          value={mediaType === 'anime' ? (selectedItem.epAtualGlobal || selectedItem.epAtual || 0) : (selectedItem.capAtual || 0)} 
-                          onChange={(e) => { 
-                            const val = parseInt(e.target.value) || 0; 
-                            if (mediaType === 'anime') { 
-                              if (val > totalAiredEpisodes) {
-                                showToast('Não é possível marcar episódios que ainda não estrearam.', 'error');
-                                return;
-                              }
-                              atualizarCampo('epAtual', val); 
-                            } else { 
-                              atualizarCampo('capAtual', val); 
-                            } 
-                          }} 
-                          className={`bg-transparent ${mediaType === 'anime' ? 'text-primary focus:bg-secondary/10' : 'text-secondary focus:bg-primary/10'} font-black text-2xl w-14 text-center outline-none border-b border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} 
-                        />
-                        <span className="text-on-surface-variant font-light text-xl">/</span> 
-                        <span className="text-on-surface-variant font-bold text-xl min-w-[24px] text-center">
-                          {totalEpisodesAllSeasons || '?'}
-                        </span>
-                      </>
+                  <div className="flex items-center justify-center gap-1.5 px-3.5 py-1 bg-black/40 border border-white/10 rounded-2xl h-10 relative">
+                    <input 
+                      type="number" 
+                      min="0" 
+                      max={totalEpisodesAllSeasons || 9999} 
+                      value={mediaType === 'anime' ? (selectedItem.epAtualGlobal || selectedItem.epAtual || 0) : (selectedItem.capAtual || 0)} 
+                      onChange={(e) => { 
+                        const val = parseInt(e.target.value) || 0; 
+                        if (mediaType === 'anime') { 
+                          if (val > totalAiredEpisodes) {
+                            showToast('Não é possível marcar episódios que ainda não estrearam.', 'error');
+                            return;
+                          }
+                          atualizarCampo('epAtual', val); 
+                        } else { 
+                          atualizarCampo('capAtual', val); 
+                        } 
+                      }} 
+                      className={`bg-transparent ${mediaType === 'anime' ? 'text-primary focus:bg-secondary/10' : 'text-secondary focus:bg-primary/10'} font-black text-2xl w-14 text-center outline-none border-b border-white/10 focus:border-white/40 rounded transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5`} 
+                    />
+                    <span className="text-on-surface-variant font-light text-xl">/</span> 
+                    <span className="text-on-surface-variant font-bold text-xl min-w-[24px] text-center">
+                      {totalEpisodesAllSeasons || '?'}
+                    </span>
+                    {isSavingDetailsProgress && (
+                      <Loader2 className={`w-4 h-4 animate-spin ml-1 ${mediaType === 'anime' ? 'text-primary' : 'text-secondary'}`} />
                     )}
                   </div>
 
@@ -714,8 +708,7 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                     type="button"
                     onClick={() => atualizarProgresso(1)} 
                     disabled={
-                      isSavingDetailsProgress || 
-                      (mediaType === 'anime' && (selectedItem.epAtualGlobal || selectedItem.epAtual || 0) >= totalAiredEpisodes)
+                      mediaType === 'anime' && (selectedItem.epAtualGlobal || selectedItem.epAtual || 0) >= totalAiredEpisodes
                     } 
                     title="Aumentar" 
                     className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center shadow-md active:scale-95 font-bold cursor-pointer ${mediaType === 'anime' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary'} disabled:opacity-50 disabled:cursor-not-allowed`}
@@ -855,7 +848,7 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                                       atualizarCampo('epAtual', globalEpNum);
                                     }
                                   }}
-                                  disabled={isSavingDetailsProgress || !hasAired}
+                                  disabled={!hasAired}
                                   className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all cursor-pointer disabled:opacity-50 ${
                                     !hasAired
                                       ? 'bg-surface-variant/10 text-on-surface-variant/20 border border-white/5 cursor-not-allowed'
@@ -881,7 +874,6 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                               key={num} 
                               type="button"
                               onClick={() => atualizarCampo('capAtual', num)} 
-                              disabled={isSavingDetailsProgress} 
                               className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all cursor-pointer disabled:opacity-50 ${isWatched ? 'bg-secondary text-on-secondary scale-105 shadow-md' : 'bg-surface-variant/30 text-on-surface-variant border border-white/5'}`}
                             >
                               {num}
@@ -1237,7 +1229,6 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                         <button 
                           type="button"
                           onClick={() => atualizarProgresso(-1)} 
-                          disabled={isSavingDetailsProgress} 
                           title="Subtrair 1" 
                           className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 hover:border-white/20 text-on-surface-variant hover:text-white transition-all flex items-center justify-center cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -1258,7 +1249,6 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                           type="button"
                           onClick={() => atualizarProgresso(1)} 
                           disabled={
-                            isSavingDetailsProgress || 
                             (mediaType === 'anime' && (selectedItem.epAtualGlobal || selectedItem.epAtual || 0) >= totalAiredEpisodes)
                           } 
                           title="Adicionar 1" 
@@ -1407,7 +1397,7 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                                       atualizarCampo('epAtual', globalEpNum);
                                     }
                                   }}
-                                  disabled={isSavingDetailsProgress || !hasAired}
+                                  disabled={!hasAired}
                                   className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all cursor-pointer disabled:opacity-50 ${
                                     !hasAired
                                       ? 'bg-surface-variant/10 text-on-surface-variant/20 border border-white/5 cursor-not-allowed'
@@ -1433,7 +1423,6 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                               key={num} 
                               type="button"
                               onClick={() => atualizarCampo('capAtual', num)} 
-                              disabled={isSavingDetailsProgress} 
                               className={`aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all cursor-pointer disabled:opacity-50 ${isWatched ? 'bg-secondary text-on-secondary scale-105 shadow-md' : 'bg-surface-variant/30 text-on-surface-variant border border-white/5'}`}
                             >
                               {num}

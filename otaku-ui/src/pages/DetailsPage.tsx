@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMedia } from '../context/MediaContext';
@@ -146,6 +146,28 @@ const DetailsPage = () => {
   const [newLinkUrl, setNewLinkUrl] = useState('');
 
   const [isSavingDetailsProgress, setIsSavingDetailsProgress] = useState(false);
+  const progressDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingProgressUpdatesRef = useRef<Record<string, any>>({});
+
+  useEffect(() => {
+    return () => {
+      if (progressDebounceTimerRef.current) {
+        clearTimeout(progressDebounceTimerRef.current);
+      }
+      const pending = pendingProgressUpdatesRef.current;
+      if (Object.keys(pending).length > 0 && selectedItem && mediaType) {
+        const targetId = selectedItem.dbId || selectedItem.id;
+        const url = `${API_BASE_URL}/${mediaType}/${targetId}`;
+        const { epAtualGlobal, ...payload } = pending;
+        customFetch(url, {
+          method: 'PATCH',
+          headers: getHeaders(),
+          body: JSON.stringify(payload)
+        }).catch(err => console.error("Error flushing pending progress updates on unmount:", err));
+        pendingProgressUpdatesRef.current = {};
+      }
+    };
+  }, [selectedItem, mediaType]);
   const [comments, setComments] = useState<MediaComment[]>([]);
   const [overallRating, setOverallRating] = useState<OverallRating | null>(null);
   const [userRating, setUserRating] = useState<number | null>(null);
@@ -931,9 +953,8 @@ const DetailsPage = () => {
 
     const targetId = selectedItem.dbId || selectedItem.id;
 
-    const isProgressUpdate = 'epAtual' in updates || 'capAtual' in updates;
+    const isProgressUpdate = 'epAtual' in updates || 'capAtual' in updates || 'watchedSpecials' in updates;
     if (isProgressUpdate) {
-      if (isSavingDetailsProgress) return;
       setIsSavingDetailsProgress(true);
     }
 
@@ -998,13 +1019,47 @@ const DetailsPage = () => {
       setMangaLibraryData((prev: any[]) => prev.map((item: any) => (item.id === targetId || item.dbId === targetId) ? { ...item, ...optimisticUpdates } : item));
     }
 
+    const { epAtualGlobal, ...payloadToSend } = optimisticUpdates;
+
+    if (isProgressUpdate) {
+      pendingProgressUpdatesRef.current = { ...pendingProgressUpdatesRef.current, ...payloadToSend };
+      if (progressDebounceTimerRef.current) {
+        clearTimeout(progressDebounceTimerRef.current);
+      }
+      progressDebounceTimerRef.current = setTimeout(async () => {
+        const finalPayload = { ...pendingProgressUpdatesRef.current };
+        pendingProgressUpdatesRef.current = {};
+        const url = `${API_BASE_URL}/${mediaType}/${targetId}`;
+        try {
+          const response = await customFetch(url, {
+            method: 'PATCH',
+            headers: getHeaders(),
+            body: JSON.stringify(finalPayload)
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setSelectedItem((prev: any) => ({ ...prev, ...data, dbId: data.id }));
+            if (mediaType === 'anime') {
+              setAnimeLibraryData((prev: any[]) => prev.map((item: any) => (item.id === targetId || item.dbId === targetId) ? { ...item, ...data, dbId: data.id } : item));
+            } else {
+              setMangaLibraryData((prev: any[]) => prev.map((item: any) => (item.id === targetId || item.dbId === targetId) ? { ...item, ...data, dbId: data.id } : item));
+            }
+          }
+        } catch (error) {
+          console.error("Erro ao atualizar progresso:", error);
+        } finally {
+          setIsSavingDetailsProgress(false);
+        }
+      }, 400);
+      return;
+    }
+
     const url = `${API_BASE_URL}/${mediaType}/${targetId}`;
     try {
-      const { epAtualGlobal, ...payload } = optimisticUpdates;
       const response = await customFetch(url, {
         method: 'PATCH',
         headers: getHeaders(),
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payloadToSend)
       });
       if (response.ok) {
         const data = await response.json();
@@ -1017,10 +1072,6 @@ const DetailsPage = () => {
       }
     } catch (error) {
       console.error("Erro ao atualizar campo:", error);
-    } finally {
-      if (isProgressUpdate) {
-        setIsSavingDetailsProgress(false);
-      }
     }
   };
 
@@ -1196,13 +1247,13 @@ const DetailsPage = () => {
         <div className="relative w-full rounded-[32px] overflow-hidden border border-white/5 bg-[#121214]/65 p-6 md:p-8 flex flex-col md:flex-row gap-8 shadow-2xl backdrop-blur-md animate-in fade-in duration-300">
           
           {/* BACKGROUND BLUR */}
-          <img src={selectedItem.capaUrl} className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-15 pointer-events-none" alt="" />
+          <img src={selectedItem.capaUrl} className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-15 pointer-events-none" alt="" referrerPolicy="no-referrer" />
           
           {/* COLUNA ESQUERDA: Poster + Rating */}
           <div className="w-full md:w-[280px] flex-shrink-0 flex flex-col gap-5 relative z-10">
             {/* Poster Image */}
             <div className="w-full aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border border-white/10 group relative">
-              <img src={selectedItem.capaUrl} className="w-full h-full object-cover" alt={selectedItem.titulo} />
+              <img src={selectedItem.capaUrl} className="w-full h-full object-cover" alt={selectedItem.titulo} referrerPolicy="no-referrer" />
             </div>
           </div>
 
@@ -1422,12 +1473,12 @@ const DetailsPage = () => {
           {/* BACKGROUND HERO BANNER OR COVER BLUR */}
           {selectedItem.bannerUrl ? (
             <div className="absolute inset-x-0 top-0 h-64 z-0 overflow-hidden pointer-events-none">
-              <img src={selectedItem.bannerUrl} className="w-full h-full object-cover" alt="" />
+              <img src={selectedItem.bannerUrl} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
               <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-[#121214]/80 to-[#121214]" />
             </div>
           ) : (
             <>
-              <img src={selectedItem.capaUrl} className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-35 pointer-events-none z-0 scale-110" alt="" />
+              <img src={selectedItem.capaUrl} className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-35 pointer-events-none z-0 scale-110" alt="" referrerPolicy="no-referrer" />
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#121214]/65 to-[#121214] z-0 pointer-events-none" />
             </>
           )}
@@ -1440,7 +1491,7 @@ const DetailsPage = () => {
               className="w-full aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border border-white/10 group relative cursor-pointer"
               title="Clique para escolher outra capa ou banner"
             >
-              <img src={selectedItem.capaUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={selectedItem.titulo} />
+              <img src={selectedItem.capaUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={selectedItem.titulo} referrerPolicy="no-referrer" />
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white text-xs font-bold p-2 text-center backdrop-blur-[2px]">
                 <span className="material-symbols-outlined text-lg">photo_library</span>
                 <span>Trocar Capa / Banner</span>

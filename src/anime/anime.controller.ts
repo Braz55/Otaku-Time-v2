@@ -207,6 +207,12 @@ export class AnimeController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post(':id/refresh')
+  refresh(@Param('id') id: string, @Request() req) {
+    return this.animeService.refreshAnime(+id, req.user);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   findOne(@Param('id') id: string, @Request() req) {
     return this.animeService.findOne(+id, req.user);

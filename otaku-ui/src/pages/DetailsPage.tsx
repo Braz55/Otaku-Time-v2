@@ -130,6 +130,7 @@ const DetailsPage = () => {
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [reloadTrigger, setReloadTrigger] = useState(0);
+  const [isRefreshingEpisodes, setIsRefreshingEpisodes] = useState(false);
   const [showSourcesSelector, setShowSourcesSelector] = useState(false);
   const [sourcesToSelect] = useState<any[]>([]);
 
@@ -540,6 +541,30 @@ const DetailsPage = () => {
       setIsViewingDetails(false);
     };
   }, [mediaType, id, isExternalParam, reloadTrigger]);
+
+  const atualizarEpisodios = async () => {
+    if (!selectedItem || selectedItem.isExternal || mediaType !== 'anime' || isRefreshingEpisodes) return;
+    const targetId = selectedItem.dbId || selectedItem.id;
+    setIsRefreshingEpisodes(true);
+    try {
+      const res = await customFetch(`${API_BASE_URL}/anime/${targetId}/refresh`, {
+        method: 'POST',
+        headers: getHeaders(),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const { refreshed, anime } = await res.json();
+      if (anime) {
+        setSelectedItem((prev: any) => ({ ...prev, ...anime, dbId: anime.id, isExternal: false }));
+        setAnimeLibraryData((prev: any[]) => prev.map((item: any) => (item.id === targetId || item.dbId === targetId) ? { ...item, ...anime, dbId: anime.id } : item));
+      }
+      showToast(refreshed ? 'Datas dos episódios atualizadas!' : 'Já foi atualizado há instantes.', refreshed ? 'success' : 'info');
+    } catch (err) {
+      console.error('Error refreshing anime episodes:', err);
+      showToast('Erro ao atualizar os episódios.', 'error');
+    } finally {
+      setIsRefreshingEpisodes(false);
+    }
+  };
 
   useEffect(() => {
     const handleReload = () => {
@@ -1676,6 +1701,8 @@ const DetailsPage = () => {
                 loadingEpisodes={loadingEpisodes}
                 getGlobalEpisodeNumber={getGlobalEpisodeNumber}
                 lastAiredEpNumber={lastAiredEpNumber}
+                onRefreshEpisodes={atualizarEpisodios}
+                isRefreshingEpisodes={isRefreshingEpisodes}
                 latestChapter={latestChapter}
                 handleOpenListsModal={handleOpenListsModal}
                 showDeleteConfirm={showDeleteConfirm}
@@ -2040,6 +2067,8 @@ const DetailsPage = () => {
                   loadingEpisodes={loadingEpisodes}
                   getGlobalEpisodeNumber={getGlobalEpisodeNumber}
                   lastAiredEpNumber={lastAiredEpNumber}
+                  onRefreshEpisodes={atualizarEpisodios}
+                  isRefreshingEpisodes={isRefreshingEpisodes}
                   latestChapter={latestChapter}
                   handleOpenListsModal={handleOpenListsModal}
                   showDeleteConfirm={showDeleteConfirm}

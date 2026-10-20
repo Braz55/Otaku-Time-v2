@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { EpisodeDetailsModal } from './EpisodeDetailsModal';
 
 interface TrackingTabProps {
@@ -25,6 +25,8 @@ interface TrackingTabProps {
   viewedEpisodes: any[];
   getGlobalEpisodeNumber: (season: number, epNum: number) => number;
   lastAiredEpNumber: number;
+  onRefreshEpisodes?: () => void;
+  isRefreshingEpisodes?: boolean;
   latestChapter: number | null;
   handleOpenListsModal: () => void;
   showDeleteConfirm: boolean;
@@ -79,6 +81,8 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
   viewedEpisodes,
   getGlobalEpisodeNumber,
   lastAiredEpNumber,
+  onRefreshEpisodes,
+  isRefreshingEpisodes = false,
   latestChapter,
   handleOpenListsModal,
   showDeleteConfirm,
@@ -97,6 +101,19 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
   t,
 }) => {
   const [selectedEpisodeDetails, setSelectedEpisodeDetails] = useState<any | null>(null);
+
+  const refreshEpisodesButton = onRefreshEpisodes && mediaType === 'anime' && !selectedItem.isExternal ? (
+    <button
+      type="button"
+      onClick={onRefreshEpisodes}
+      disabled={isRefreshingEpisodes}
+      title="Atualizar datas dos episódios"
+      aria-label="Atualizar datas dos episódios"
+      className="p-2 rounded-xl border border-white/5 text-on-surface-variant opacity-40 hover:opacity-100 hover:text-primary hover:border-primary/40 transition-all active:scale-95 cursor-pointer disabled:cursor-wait disabled:opacity-60"
+    >
+      <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingEpisodes ? 'animate-spin' : ''}`} />
+    </button>
+  ) : null;
   const currentPriorityOpt = PRIORITY_OPTIONS.find(opt => opt.num === selectedItem.prioridade) || PRIORITY_OPTIONS[4];
   const isAnimePorEstrear = 
     mediaType === 'anime' && 
@@ -276,7 +293,7 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                   })()}
 
                   {/* Toggle Episodes view button */}
-                  <div className={`flex ${isMobile ? 'justify-center' : 'justify-start'} mt-2`}>
+                  <div className={`flex items-center gap-2 ${isMobile ? 'justify-center' : 'justify-start'} mt-2`}>
                     <button 
                       type="button"
                       onClick={() => setShowEpList(!showEpList)}
@@ -285,6 +302,7 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                       <span className="material-symbols-outlined text-sm">grid_view</span>
                       <span>{showEpList ? 'Fechar Grelha' : 'Ver Episódios'}</span>
                     </button>
+                    {refreshEpisodesButton}
                   </div>
 
                   {/* Episode List grid / scroll panel */}
@@ -429,7 +447,7 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                       ) : null}
 
                       {/* Toggle Episodes view button */}
-                      <div className="flex justify-center mt-2">
+                      <div className="flex items-center gap-2 justify-center mt-2">
                         <button 
                           type="button"
                           onClick={() => setShowEpList(!showEpList)}
@@ -438,6 +456,7 @@ export const TrackingTab: React.FC<TrackingTabProps> = ({
                           <span className="material-symbols-outlined text-sm">grid_view</span>
                           <span>{showEpList ? 'Fechar Grelha' : 'Ver Episódios'}</span>
                         </button>
+                        {refreshEpisodesButton}
                       </div>
 
                       {/* Episode List grid / scroll panel */}

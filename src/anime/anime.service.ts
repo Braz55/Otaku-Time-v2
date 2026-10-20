@@ -3,6 +3,7 @@ import {
   Logger,
   BadRequestException,
   ForbiddenException,
+  NotFoundException,
   Inject,
   forwardRef,
 } from '@nestjs/common';
@@ -19,6 +20,8 @@ import { detectMediaType, buildGenerosDict, resolveLatinTitleForSearchItem } fro
 @Injectable()
 export class AnimeService {
   private readonly logger = new Logger(AnimeService.name);
+  private readonly REFRESH_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutos por anime
+  private readonly lastManualRefresh = new Map<number, number>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -627,6 +630,33 @@ export class AnimeService {
       ultimoEpisodioEstreadoData,
       dataLancamento: item.anime.dataLancamento,
     };
+  }
+
+  // Atualização manual (botão na página de detalhes): pede ao TMDB as datas mais recentes dos episódios
+  async refreshAnime(id: number, user: any) {
+    const item = await this.prisma.userAnime.findUnique({
+      where: { id },
+      select: { userId: true, animeId: true },
+    });
+    if (!item) {
+      throw new NotFoundException('Anime não encontrado na biblioteca.');
+    }
+    if (item.userId !== user.userId && user.tipoConta !== 'ADMIN') {
+      throw new ForbiddenException(
+        'Não tem permissão para aceder a este registo.',
+      );
+    }
+
+    const lastRefresh = this.lastManualRefresh.get(item.animeId) || 0;
+    const skipped = Date.now() - lastRefresh < this.REFRESH_COOLDOWN_MS;
+
+    if (!skipped) {
+      this.lastManualRefresh.set(item.animeId, Date.now());
+      await this.syncLatestEpisode(item.animeId);
+    }
+
+    const anime = await this.findOne(id, user);
+    return { refreshed: !skipped, anime };
   }
 
   async update(id: number, updateDto: any, user: any) {

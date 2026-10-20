@@ -37,7 +37,7 @@ jobs:
             echo "Ping attempt $i of $MAX_RETRIES..."
             
             # Fetch HTTP status code for /health
-            STATUS_CODE=$(curl -sL -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 15 "$URL/health")
+            STATUS_CODE=$(curl -sL -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 15 "$URL/health" || true)
             echo "Service /health returned HTTP status code: $STATUS_CODE"
             
             # If status code is 2xx or 3xx
@@ -47,7 +47,7 @@ jobs:
             fi
             
             # Fallback to root path if health is not found/not working
-            STATUS_CODE_ROOT=$(curl -sL -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 15 "$URL")
+            STATUS_CODE_ROOT=$(curl -sL -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 15 "$URL" || true)
             echo "Service root path returned HTTP status code: $STATUS_CODE_ROOT"
             
             if [[ "$STATUS_CODE_ROOT" =~ ^[23][0-9][0-9]$ ]]; then

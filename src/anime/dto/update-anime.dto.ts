@@ -14,6 +14,11 @@ export class UpdateAnimeDto {
   @IsOptional()
   epAtual?: number;
 
+  // Episódio global (soma de todas as temporadas); tem prioridade sobre seasonAtual/epAtual
+  @IsInt()
+  @IsOptional()
+  epAtualGlobal?: number;
+
   @IsInt()
   @IsOptional()
   prioridade?: number;

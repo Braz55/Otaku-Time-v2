@@ -13,6 +13,37 @@ import { Capacitor } from '@capacitor/core';
 
 // Esperas entre tentativas quando o servidor está a acordar (cold start do Render)
 const DASHBOARD_RETRY_DELAYS = [5000, 15000, 30000];
+const MARK_WATCHED_DEBOUNCE_MS = 250;
+
+// Último episódio/capítulo já disponível; null se não for possível saber
+const getMaxDisponivel = (item: any, type: 'anime' | 'manga'): number | null => {
+  if (type === 'anime') {
+    if (typeof item.numEpisodiosAired === 'number') return item.numEpisodiosAired;
+    const eps = item.episodes;
+    if (Array.isArray(eps) && eps.length > 0) {
+      const now = new Date();
+      return eps.filter((ep: any) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now).length;
+    }
+    const status = item.anime?.statusLancamento || item.statusLancamento;
+    const proxEp = item.anime?.proximoEpisodio || item.proximoEpisodio;
+    if (status === 'RELEASING' && proxEp) return proxEp - 1;
+    return item.anime?.numEpisodiosTotal || item.numEpisodiosTotal || null;
+  }
+  const status = item.manga?.statusLancamento || item.statusLancamento;
+  const proxCap = item.manga?.proximoCapituloNumero || item.proximoCapituloNumero;
+  if (status === 'RELEASING' && proxCap) return proxCap - 1;
+  return item.manga?.numCapitulosTotal || item.numCapitulosTotal || null;
+};
+
+const getProgressoAtual = (item: any, type: 'anime' | 'manga'): number => {
+  if (type === 'anime') {
+    return item.epAtualGlobal !== undefined ? item.epAtualGlobal : (item.epAtual || 0);
+  }
+  return item.capAtual || 0;
+};
+
+const temPorVer = (item: any, type: 'anime' | 'manga') =>
+  getProgressoAtual(item, type) < (getMaxDisponivel(item, type) ?? Infinity);
 
 const HomePage = () => {
   const { token } = useAuth();
@@ -43,6 +74,12 @@ const HomePage = () => {
    const itemDebounceTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
    const itemPendingPayloadsRef = useRef<Record<string, { type: 'anime' | 'manga', payload: any }>>({});
    const dashboardRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   // Gravações de progresso ainda por terminar (em debounce ou em voo) e contador de cliques,
+   // para um reload do dashboard não escrever por cima do optimistic update
+   const pendingSavesRef = useRef(0);
+   const saveEpochRef = useRef(0);
+   const reloadAfterSavesRef = useRef(false);
+   const itemClickSeqRef = useRef<Record<string, number>>({});
 
    useEffect(() => {
      return () => {
@@ -227,6 +264,7 @@ const HomePage = () => {
     if (!hasCache) {
       setLoading(true);
     }
+    const epochAtStart = saveEpochRef.current;
     try {
       const [animeRes, mangaRes, listsRes] = await Promise.all([
         customFetch(`${API_BASE_URL}/anime?status=WATCHING`, { headers: getHeaders() }),
@@ -279,41 +317,12 @@ const HomePage = () => {
 
       if (Array.isArray(activeAnimes)) {
         filteredAnimes = activeAnimes
-          .filter(a => {
-            if (a.status !== 'WATCHING') return false;
-            const numTotal = a.anime?.numEpisodiosTotal || a.numEpisodiosTotal;
-            let maxDisp = numTotal || 9999;
-            if (a.anime?.statusLancamento !== 'FINISHED') {
-              const now = new Date();
-              if (typeof a.numEpisodiosAired === 'number') {
-                maxDisp = a.numEpisodiosAired;
-              } else {
-                const eps = a.episodes || [];
-                if (Array.isArray(eps) && eps.length > 0) {
-                  maxDisp = eps.filter((ep: any) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now).length;
-                } else {
-                  const proxEp = a.anime?.proximoEpisodio || a.proximoEpisodio;
-                  if ((a.anime?.statusLancamento === 'RELEASING' || a.statusLancamento === 'RELEASING') && proxEp) {
-                    maxDisp = proxEp - 1;
-                  }
-                }
-              }
-            }
-            const currentGlobal = a.epAtualGlobal !== undefined ? a.epAtualGlobal : (a.epAtual || 0);
-            return currentGlobal < maxDisp;
-          })
+          .filter(a => a.status === 'WATCHING' && temPorVer(a, 'anime'))
           .sort((a, b) => (a.prioridade || 999) - (b.prioridade || 999));
       }
       if (Array.isArray(activeMangas)) {
         filteredMangas = activeMangas
-          .filter(m => {
-            if (m.status !== 'WATCHING') return false;
-            const status = m.manga?.statusLancamento || m.statusLancamento;
-            const proxCap = m.manga?.proximoCapituloNumero || m.proximoCapituloNumero;
-            const numTotal = m.manga?.numCapitulosTotal || m.numCapitulosTotal;
-            const maxDisp = (status === 'RELEASING' && proxCap) ? proxCap - 1 : (numTotal || 9999);
-            return (m.capAtual || 0) < maxDisp;
-          })
+          .filter(m => m.status === 'WATCHING' && temPorVer(m, 'manga'))
           .sort((a, b) => (a.prioridade || 999) - (b.prioridade || 999));
       }
 
@@ -329,6 +338,12 @@ const HomePage = () => {
       // Select and set highlights
       const featuredAnime = escolherDestaque(combinedRecent, filteredAnimes, allAnimes, 'anime');
       const featuredManga = escolherDestaque(combinedRecent, filteredMangas, allMangas, 'manga');
+
+      // Houve cliques em "marcar como visto" durante o pedido: estes dados já estão desatualizados
+      if (pendingSavesRef.current > 0 || saveEpochRef.current !== epochAtStart) {
+        reloadAfterSavesRef.current = true;
+        return;
+      }
 
       setAnimeDashboardData({ items: filteredAnimes, featured: featuredAnime });
       setMangaDashboardData({ items: filteredMangas, featured: featuredManga });
@@ -347,114 +362,79 @@ const HomePage = () => {
   const carregarDashboardRef = useRef(carregarDashboard);
   carregarDashboardRef.current = carregarDashboard;
 
-  const marcarComoVisto = async (item: any, type: 'anime' | 'manga') => {
+  const marcarComoVisto = (item: any, type: 'anime' | 'manga') => {
     // Lookup latest item state from React dashboard data to correctly handle rapid clicks
     const currentItem = (type === 'anime'
       ? animeDashboardData.items?.find((i: any) => i.id === item.id)
       : mangaDashboardData.items?.find((i: any) => i.id === item.id)) || item;
 
-    let payload: Record<string, any> = {};
-    let optimisticUpdates: Record<string, any> = {};
-
-    if (type === 'anime') {
-      const currentGlobal = currentItem.epAtualGlobal !== undefined ? currentItem.epAtualGlobal : (currentItem.epAtual || 0);
-      let maxDisp = currentItem.anime?.numEpisodiosTotal || currentItem.numEpisodiosTotal || 9999;
-      if (currentItem.anime?.statusLancamento !== 'FINISHED') {
-        const now = new Date();
-        if (typeof currentItem.numEpisodiosAired === 'number') {
-          maxDisp = currentItem.numEpisodiosAired;
-        } else {
-          const eps = currentItem.episodes || [];
-          if (Array.isArray(eps) && eps.length > 0) {
-            maxDisp = eps.filter((ep: any) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now).length;
-          } else {
-            const proxEp = currentItem.anime?.proximoEpisodio || currentItem.proximoEpisodio;
-            if ((currentItem.anime?.statusLancamento === 'RELEASING' || currentItem.statusLancamento === 'RELEASING') && proxEp) {
-              maxDisp = proxEp - 1;
-            }
-          }
-        }
-      }
-      if (currentGlobal >= maxDisp) {
-        showToast('Não é possível marcar episódios que ainda não estrearam.', 'error');
-        return;
-      }
-      
-      const epQueVouVer = currentItem.proximoEpLocal !== undefined ? currentItem.proximoEpLocal : (currentItem.epAtual || 0) + 1;
-      const seasonQueVouVer = currentItem.proximaSeason !== undefined ? currentItem.proximaSeason : (currentItem.seasonAtual || 1);
-      payload = { 
-        epAtual: epQueVouVer,
-        seasonAtual: seasonQueVouVer
-      };
-
-      const nextGlobal = currentGlobal + 1;
-      optimisticUpdates = {
-        epAtual: epQueVouVer,
-        seasonAtual: seasonQueVouVer,
-        epAtualGlobal: nextGlobal,
-      };
-
-      if (nextGlobal >= maxDisp) {
-        optimisticUpdates.shouldRemove = true;
-      }
-    } else {
-      const currentCap = currentItem.capAtual || 0;
-      payload = { capAtual: currentCap + 1 };
-
-      let maxDisp = currentItem.manga?.numCapitulosTotal || currentItem.numCapitulosTotal || 9999;
-      const status = currentItem.manga?.statusLancamento || currentItem.statusLancamento;
-      const proxCap = currentItem.manga?.proximoCapituloNumero || currentItem.proximoCapituloNumero;
-      if (status === 'RELEASING' && proxCap) {
-        maxDisp = proxCap - 1;
-      }
-
-      const nextCap = currentCap + 1;
-      optimisticUpdates = {
-        capAtual: nextCap,
-      };
-
-      if (nextCap >= maxDisp) {
-        optimisticUpdates.shouldRemove = true;
-      }
+    const atual = getProgressoAtual(currentItem, type);
+    const maxDisp = getMaxDisponivel(currentItem, type) ?? Infinity;
+    if (atual >= maxDisp) {
+      showToast(type === 'anime'
+        ? 'Não é possível marcar episódios que ainda não estrearam.'
+        : 'Não é possível marcar capítulos que ainda não saíram.', 'error');
+      return;
     }
 
-    // Apply Optimistic Update immediately
+    const proximo = atual + 1;
+    let payload: Record<string, any>;
+    let optimisticUpdates: Record<string, any>;
+
     if (type === 'anime') {
-      setAnimeDashboardData((prev: any) => {
-        if (optimisticUpdates.shouldRemove) {
-          return { ...prev, items: prev.items.filter((i: any) => i.id !== item.id) };
-        }
-        return {
-          ...prev,
-          items: prev.items.map((i: any) => i.id === item.id ? { ...i, ...optimisticUpdates } : i)
-        };
-      });
+      // Enviar o episódio global: cliques seguidos acumulam sem depender do mapeamento de temporadas
+      payload = { epAtualGlobal: proximo };
+      const epVisto = currentItem.proximoEpLocal !== undefined ? currentItem.proximoEpLocal : (currentItem.epAtual || 0) + 1;
+      const seasonVista = currentItem.proximaSeason !== undefined ? currentItem.proximaSeason : (currentItem.seasonAtual || 1);
+      // Aproximação até chegar a resposta do servidor (não conhece as mudanças de temporada)
+      optimisticUpdates = {
+        epAtual: epVisto,
+        seasonAtual: seasonVista,
+        epAtualGlobal: proximo,
+        proximoEpLocal: epVisto + 1,
+        proximaSeason: seasonVista,
+      };
     } else {
-      setMangaDashboardData((prev: any) => {
-        if (optimisticUpdates.shouldRemove) {
-          return { ...prev, items: prev.items.filter((i: any) => i.id !== item.id) };
-        }
-        return {
-          ...prev,
-          items: prev.items.map((i: any) => i.id === item.id ? { ...i, ...optimisticUpdates } : i)
-        };
-      });
+      payload = { capAtual: proximo };
+      optimisticUpdates = { capAtual: proximo };
     }
 
+    const shouldRemove = proximo >= maxDisp;
+    const setDashboardData = type === 'anime' ? setAnimeDashboardData : setMangaDashboardData;
+    setDashboardData((prev: any) => {
+      if (shouldRemove) {
+        return { ...prev, items: prev.items.filter((i: any) => i.id !== item.id) };
+      }
+      return {
+        ...prev,
+        items: prev.items.map((i: any) => i.id === item.id ? { ...i, ...optimisticUpdates } : i)
+      };
+    });
+    showToast(shouldRemove ? 'Em dia! Não há mais episódios por ver.' : 'Progresso atualizado.', 'success');
+
+    saveEpochRef.current += 1;
+    itemClickSeqRef.current[item.id] = (itemClickSeqRef.current[item.id] || 0) + 1;
     setSavingItems(prev => ({ ...prev, [item.id]: true }));
     itemPendingPayloadsRef.current[item.id] = { type, payload };
 
     if (itemDebounceTimersRef.current[item.id]) {
       clearTimeout(itemDebounceTimersRef.current[item.id]);
+    } else {
+      pendingSavesRef.current += 1;
     }
 
     itemDebounceTimersRef.current[item.id] = setTimeout(async () => {
       const pending = itemPendingPayloadsRef.current[item.id];
-      if (!pending) return;
       delete itemPendingPayloadsRef.current[item.id];
       delete itemDebounceTimersRef.current[item.id];
+      if (!pending) {
+        pendingSavesRef.current -= 1;
+        return;
+      }
+      const seqAtSend = itemClickSeqRef.current[item.id];
 
-      const url = `${API_BASE_URL}/${pending.type}/${item.id}`;
+      const url = `${API_BASE_URL}/${pending.type}/${item.id}${pending.type === 'anime' ? '?lite=1' : ''}`;
+      let failed = false;
       try {
         const response = await customFetch(url, {
           method: 'PATCH',
@@ -463,44 +443,56 @@ const HomePage = () => {
         });
         if (response.ok) {
           const updatedData = await response.json();
-          if (pending.type === 'anime') {
-            setAnimeDashboardData((prev: any) => {
-              if (updatedData.status === 'COMPLETED') {
-                return { ...prev, items: prev.items.filter((i: any) => i.id !== item.id) };
-              }
+          // Só aplicar a resposta se não houve mais cliques neste item entretanto
+          if (itemClickSeqRef.current[item.id] === seqAtSend) {
+            const setData = pending.type === 'anime' ? setAnimeDashboardData : setMangaDashboardData;
+            setData((prev: any) => {
+              const merged = prev.items.map((i: any) => i.id === item.id ? {
+                ...i,
+                status: updatedData.status,
+                lastProgressUpdate: updatedData.lastProgressUpdate,
+                ...(pending.type === 'anime' ? {
+                  epAtual: updatedData.epAtual,
+                  epAtualGlobal: updatedData.epAtualGlobal,
+                  seasonAtual: updatedData.seasonAtual,
+                  proximoEpLocal: updatedData.proximoEpLocal,
+                  proximaSeason: updatedData.proximaSeason,
+                  numEpisodiosAired: updatedData.numEpisodiosAired,
+                } : {
+                  capAtual: updatedData.capAtual,
+                }),
+              } : i);
               return {
                 ...prev,
-                items: prev.items.map((i: any) => i.id === item.id ? { ...i, ...updatedData } : i)
-              };
-            });
-          } else {
-            setMangaDashboardData((prev: any) => {
-              if (updatedData.status === 'COMPLETED') {
-                return { ...prev, items: prev.items.filter((i: any) => i.id !== item.id) };
-              }
-              return {
-                ...prev,
-                items: prev.items.map((i: any) => i.id === item.id ? { ...i, ...updatedData } : i)
+                items: merged.filter((i: any) => i.id !== item.id || (i.status === 'WATCHING' && temPorVer(i, pending.type)))
               };
             });
           }
-          showToast('Progresso atualizado.', 'success');
         } else {
-          showToast('Não foi possível marcar como visto.', 'error');
-          carregarDashboard();
+          failed = true;
+          const err = await response.json().catch(() => null);
+          showToast(err?.message || 'Não foi possível marcar como visto.', 'error');
         }
       } catch (error) {
         console.error("Erro ao marcar como visto:", error);
+        failed = true;
         showToast('Erro ao marcar como visto.', 'error');
-        carregarDashboard();
       } finally {
-        setSavingItems(prev => {
-          const copy = { ...prev };
-          delete copy[item.id];
-          return copy;
-        });
+        if (itemClickSeqRef.current[item.id] === seqAtSend) {
+          setSavingItems(prev => {
+            const copy = { ...prev };
+            delete copy[item.id];
+            return copy;
+          });
+        }
+        pendingSavesRef.current -= 1;
+        if (failed) reloadAfterSavesRef.current = true;
+        if (pendingSavesRef.current === 0 && reloadAfterSavesRef.current) {
+          reloadAfterSavesRef.current = false;
+          carregarDashboardRef.current();
+        }
       }
-    }, 400);
+    }, MARK_WATCHED_DEBOUNCE_MS);
   };
 
   const pesquisar = async (page = 1) => {
@@ -1089,12 +1081,8 @@ const HomePage = () => {
                         ? item.proximaSeason
                         : item.seasonAtual;
                       
-                      const status = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
-                      const proxNum = categoria === 'anime' ? (item.anime?.proximoEpisodio || item.proximoEpisodio) : (item.manga?.proximoCapituloNumero || item.proximoCapituloNumero);
-                      const numTotal = categoria === 'anime' ? (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal) : (item.manga?.numCapitulosTotal || item.numCapitulosTotal);
-                      const total = categoria === 'anime'
-                        ? (numTotal || 12)
-                        : ((status === 'RELEASING' && proxNum) ? proxNum - 1 : (numTotal || 12));
+                      // Mesmo critério usado para remover o card: episódios/capítulos já disponíveis
+                      const total = getMaxDisponivel(item, categoria) ?? 12;
                       const percent = typeof total === 'number' && total > 0 ? (currentGlobal / total) * 100 : 0;
                       
                       return (
@@ -1172,12 +1160,8 @@ const HomePage = () => {
                         ? item.proximaSeason
                         : item.seasonAtual;
                       
-                      const status = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
-                      const proxNum = categoria === 'anime' ? (item.anime?.proximoEpisodio || item.proximoEpisodio) : (item.manga?.proximoCapituloNumero || item.proximoCapituloNumero);
-                      const numTotal = categoria === 'anime' ? (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal) : (item.manga?.numCapitulosTotal || item.numCapitulosTotal);
-                      const total = categoria === 'anime'
-                        ? (numTotal || 12)
-                        : ((status === 'RELEASING' && proxNum) ? proxNum - 1 : (numTotal || 12));
+                      // Mesmo critério usado para remover o card: episódios/capítulos já disponíveis
+                      const total = getMaxDisponivel(item, categoria) ?? 12;
                       const percent = typeof total === 'number' && total > 0 ? (currentGlobal / total) * 100 : 0;
                       
                       return (

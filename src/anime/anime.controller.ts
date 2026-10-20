@@ -224,8 +224,11 @@ export class AnimeController {
     @Param('id') id: string,
     @Body() updateAnimeDto: UpdateAnimeDto,
     @Request() req,
+    @Query('lite') lite?: string,
   ) {
-    return this.animeService.update(+id, updateAnimeDto, req.user);
+    return this.animeService.update(+id, updateAnimeDto, req.user, {
+      lite: lite === '1',
+    });
   }
 
   @UseGuards(JwtAuthGuard)

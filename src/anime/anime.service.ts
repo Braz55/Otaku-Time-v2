@@ -473,16 +473,7 @@ export class AnimeService {
         item.seasonAtual,
         item.epAtual,
       );
-      let numEpisodiosAired = item.anime.numEpisodiosAired;
-      if (numEpisodiosAired === null || numEpisodiosAired === undefined) {
-        if (item.anime.statusLancamento === 'RELEASING' && item.anime.proximoEpisodio) {
-          numEpisodiosAired = item.anime.proximoEpisodio - 1;
-        } else if (item.anime.statusLancamento === 'FINISHED' || item.anime.statusLancamento === 'COMPLETED' || item.anime.statusLancamento === 'CANCELED') {
-          numEpisodiosAired = item.anime.numEpisodiosTotal || 0;
-        } else {
-          numEpisodiosAired = 0;
-        }
-      }
+      const numEpisodiosAired = this.getAiredEpisodesCount(item.anime);
       const totalEpisodes = numEpisodiosAired;
       const ultimoEpisodioEstreadoData = item.anime.ultimoEpisodioEstreadoData ?? item.anime.dataLancamento;
 
@@ -659,7 +650,12 @@ export class AnimeService {
     return { refreshed: !skipped, anime };
   }
 
-  async update(id: number, updateDto: any, user: any) {
+  async update(
+    id: number,
+    updateDto: any,
+    user: any,
+    options: { lite?: boolean } = {},
+  ) {
     const atual = await this.prisma.userAnime.findUnique({
       where: { id },
       include: { anime: true },
@@ -721,6 +717,7 @@ export class AnimeService {
     delete novosDados.tipo;
     delete novosDados.capaUrl;
     delete novosDados.bannerUrl;
+    delete novosDados.epAtualGlobal;
 
     if (updateDto.status !== undefined && atual.status === 'DROPPED') {
       novosDados.wasDropped = true;
@@ -742,18 +739,21 @@ export class AnimeService {
       novosDados.seasonAtual = mapped.season;
     }
 
-    if (updateDto.epAtual !== undefined) {
-      const incomingSeason =
-        updateDto.seasonAtual !== undefined
-          ? updateDto.seasonAtual
-          : atual.seasonAtual;
-      const incomingEp = updateDto.epAtual;
-
-      const globalEp = this.getGlobalEpisodeNumber(
-        atual.anime,
-        incomingSeason,
-        incomingEp,
-      );
+    if (updateDto.epAtual !== undefined || updateDto.epAtualGlobal !== undefined) {
+      let globalEp: number;
+      if (updateDto.epAtualGlobal !== undefined) {
+        globalEp = updateDto.epAtualGlobal;
+      } else {
+        const incomingSeason =
+          updateDto.seasonAtual !== undefined
+            ? updateDto.seasonAtual
+            : atual.seasonAtual;
+        globalEp = this.getGlobalEpisodeNumber(
+          atual.anime,
+          incomingSeason,
+          updateDto.epAtual,
+        );
+      }
       const { season, episode } = this.getSeasonAndEpisodeFromGlobal(
         atual.anime,
         globalEp,
@@ -808,16 +808,19 @@ export class AnimeService {
       novosDados.lastProgressUpdate = new Date();
     }
 
-    const updated = await this.prisma.userAnime.update({
-      where: { id },
-      data: novosDados,
-      include: { anime: true },
-    });
+    // O anime já foi carregado (e mantido atualizado em memória) acima: não voltar a ler o episodesList
+    const [updatedRow, rating] = await Promise.all([
+      this.prisma.userAnime.update({
+        where: { id },
+        data: novosDados,
+      }),
+      this.prisma.media.findUnique({
+        where: { id: atual.animeId },
+      }),
+    ]);
+    const updated = { ...updatedRow, anime: atual.anime };
     this.recalculateUserStats(updated.userId).catch((err) => {
       console.error('Error recalculating user stats in background:', err);
-    });
-    const rating = await this.prisma.media.findUnique({
-      where: { id: updated.animeId },
     });
     const epLocal = this.getLocalEpisodeNumber(
       updated.anime,
@@ -848,6 +851,7 @@ export class AnimeService {
       proximaSeason: nextSeasonAndEp.season,
       proximoEpLocal: nextSeasonAndEp.episode,
       numEpisodiosTotal: totalEpisodesUpdated,
+      numEpisodiosAired: this.getAiredEpisodesCount(updated.anime),
       temporada: updated.anime.temporada,
       ano: updated.anime.ano,
       prioridade: updated.prioridade,
@@ -857,7 +861,7 @@ export class AnimeService {
       dataLancamento: updated.anime.dataLancamento,
       proximoEpisodio: updated.anime.proximoEpisodio,
       proximoEpisodioData: updated.anime.proximoEpisodioData,
-      episodes: updated.anime.episodesList || [],
+      ...(options.lite ? {} : { episodes: updated.anime.episodesList || [] }),
       watchedSpecials: updated.watchedSpecials || [],
       tipo: updated.anime.tipo,
       updatedAt: updated.updatedAt,
@@ -1460,6 +1464,33 @@ export class AnimeService {
       return localEp;
     }
     return globalEp;
+  }
+
+  // Episódios já estreados, com a mesma regra usada pela validação do update:
+  // lista de episódios (contagem ao vivo) > valor guardado no sync > fallback pelo AniList
+  getAiredEpisodesCount(anime: any): number {
+    if (!anime) return 0;
+    if (
+      anime.episodesList &&
+      Array.isArray(anime.episodesList) &&
+      anime.episodesList.length > 0
+    ) {
+      return this.getTotalEpisodes(anime);
+    }
+    if (anime.numEpisodiosAired !== null && anime.numEpisodiosAired !== undefined) {
+      return anime.numEpisodiosAired;
+    }
+    if (anime.statusLancamento === 'RELEASING' && anime.proximoEpisodio) {
+      return anime.proximoEpisodio - 1;
+    }
+    if (
+      anime.statusLancamento === 'FINISHED' ||
+      anime.statusLancamento === 'COMPLETED' ||
+      anime.statusLancamento === 'CANCELED'
+    ) {
+      return anime.numEpisodiosTotal || 0;
+    }
+    return 0;
   }
 
   getTotalEpisodes(anime: any): number {

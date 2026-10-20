@@ -2,10 +2,12 @@ name: Keep Service Awake
 
 on:
   schedule:
-    # Runs every 30 minutes from 06:00 to 23:59 UTC (starts at 07:00 local time in summer)
-    - cron: '*/30 6-23 * * *'
-    # Runs every 30 minutes from 00:00 to 01:59 UTC (approx. 01:00 to 03:00 local time)
-    - cron: '*/30 0-1 * * *'
+    # Every 10 minutes from 05:00 to 23:59 UTC (06:00 Lisbon in summer, 05:00 in winter).
+    # Render free sleeps after 15 min idle and GitHub often delays scheduled runs,
+    # so 10 min leaves margin. Avoids :00 where GitHub queues are busiest.
+    - cron: '3-59/10 5-23 * * *'
+    # Every 10 minutes from 00:00 to 01:59 UTC (approx. 01:00 to 03:00 local time)
+    - cron: '3-59/10 0-1 * * *'
   workflow_dispatch: # Allows manual triggering from GitHub UI
 
 jobs:

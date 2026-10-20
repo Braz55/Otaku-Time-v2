@@ -8,6 +8,11 @@ import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useTranslation } from '../hooks/useTranslation';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
+
+// Esperas entre tentativas quando o servidor está a acordar (cold start do Render)
+const DASHBOARD_RETRY_DELAYS = [5000, 15000, 30000];
 
 const HomePage = () => {
   const { token } = useAuth();
@@ -37,6 +42,7 @@ const HomePage = () => {
    const [savingItems, setSavingItems] = useState<Record<number, boolean>>({});
    const itemDebounceTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
    const itemPendingPayloadsRef = useRef<Record<string, { type: 'anime' | 'manga', payload: any }>>({});
+   const dashboardRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
    useEffect(() => {
      return () => {
@@ -212,7 +218,11 @@ const HomePage = () => {
     'Authorization': `Bearer ${token}`
   });
 
-  const carregarDashboard = async () => {
+  const carregarDashboard = async (attempt = 0) => {
+    if (dashboardRetryTimerRef.current) {
+      clearTimeout(dashboardRetryTimerRef.current);
+      dashboardRetryTimerRef.current = null;
+    }
     const hasCache = (categoria === 'anime' ? animeDashboardData.items : mangaDashboardData.items).length > 0;
     if (!hasCache) {
       setLoading(true);
@@ -223,6 +233,11 @@ const HomePage = () => {
         customFetch(`${API_BASE_URL}/manga?status=WATCHING`, { headers: getHeaders() }),
         customFetch(`${API_BASE_URL}/lists`, { headers: getHeaders() })
       ]);
+
+      // Servidor a acordar (502/503/timeout): não substituir a cache por dados vazios
+      if (!animeRes.ok || !mangaRes.ok) {
+        throw new Error(`Dashboard indisponível (${animeRes.status}/${mangaRes.status})`);
+      }
       
       const activeAnimes = await animeRes.json();
       const activeMangas = await mangaRes.json();
@@ -319,10 +334,18 @@ const HomePage = () => {
       setMangaDashboardData({ items: filteredMangas, featured: featuredManga });
     } catch (error) {
       console.error("Erro ao carregar dashboard:", error);
+      if (attempt < DASHBOARD_RETRY_DELAYS.length) {
+        dashboardRetryTimerRef.current = setTimeout(
+          () => carregarDashboardRef.current(attempt + 1),
+          DASHBOARD_RETRY_DELAYS[attempt]
+        );
+      }
     } finally {
       setLoading(false);
     }
   };
+  const carregarDashboardRef = useRef(carregarDashboard);
+  carregarDashboardRef.current = carregarDashboard;
 
   const marcarComoVisto = async (item: any, type: 'anime' | 'manga') => {
     // Lookup latest item state from React dashboard data to correctly handle rapid clicks
@@ -549,6 +572,28 @@ const HomePage = () => {
   useEffect(() => {
     carregarDashboard();
   }, [categoria, homeTrigger]);
+
+  // Ao voltar à app (vinda do background), buscar dados frescos em vez de ficar com a cache
+  useEffect(() => {
+    const onResume = () => carregarDashboardRef.current();
+    let removeListener: () => void;
+    if (Capacitor.isNativePlatform()) {
+      const subscription = CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) onResume();
+      });
+      removeListener = () => { subscription.then(s => s.remove()); };
+    } else {
+      const onVisibility = () => {
+        if (document.visibilityState === 'visible') onResume();
+      };
+      document.addEventListener('visibilitychange', onVisibility);
+      removeListener = () => document.removeEventListener('visibilitychange', onVisibility);
+    }
+    return () => {
+      removeListener();
+      if (dashboardRetryTimerRef.current) clearTimeout(dashboardRetryTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!token) return;

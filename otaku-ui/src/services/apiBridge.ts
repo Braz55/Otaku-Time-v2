@@ -44,16 +44,48 @@ async function nativeFetchResponse(input: RequestInfo | URL, init?: RequestInit)
   }
 }
 
-let isRefreshing = false;
-let refreshSubscribers: ((token: string) => void)[] = [];
+// Refresh em curso, partilhado por todos os pedidos que receberem 401 ao mesmo tempo.
+// Resolve com o novo token, ou null se o refresh falhar (todos os pedidos à espera são libertados).
+let refreshPromise: Promise<string | null> | null = null;
 
-function subscribeTokenRefresh(cb: (token: string) => void) {
-  refreshSubscribers.push(cb);
-}
+function refreshAccessToken(): Promise<string | null> {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const refreshInit: RequestInit = {
+          method: 'POST',
+        };
 
-function onRefreshed(token: string) {
-  refreshSubscribers.forEach((cb) => cb(token));
-  refreshSubscribers = [];
+        const savedRefreshToken = await getStorageItem('otaku_refresh_token');
+        if (savedRefreshToken) {
+          refreshInit.body = JSON.stringify({ refresh_token: savedRefreshToken });
+          refreshInit.headers = { 'Content-Type': 'application/json' };
+        }
+
+        const refreshRes = await nativeFetchResponse(`${API_BASE_URL}/auth/refresh`, refreshInit);
+        if (refreshRes.ok) {
+          const data = await refreshRes.json();
+          await setStorageItem('otaku_token', data.access_token);
+          await setStorageItem('otaku_refresh_token', data.refresh_token);
+          return data.access_token as string;
+        }
+
+        // Invalida sessão se o servidor recusar o refresh
+        await removeStorageItem('otaku_token');
+        await removeStorageItem('otaku_refresh_token');
+        await removeStorageItem('otaku_user');
+        window.location.href = '/login';
+        return null;
+      } catch (err) {
+        // Erro de rede (ex: servidor a acordar): manter a sessão, o pedido original falha normalmente
+        console.error('Erro ao renovar o token:', err);
+        return null;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+  }
+  return refreshPromise;
 }
 
 // Função customFetch principal que intercepta todos os pedidos
@@ -88,51 +120,14 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
     !url.includes('/auth/refresh') &&
     !url.includes('/auth/register')
   ) {
-    if (!isRefreshing) {
-      isRefreshing = true;
-      try {
-        const refreshUrl = `${API_BASE_URL}/auth/refresh`;
-        const refreshInit: RequestInit = {
-          method: 'POST',
-        };
+    const newToken = await refreshAccessToken();
+    if (!newToken) return response;
 
-        const savedRefreshToken = await getStorageItem('otaku_refresh_token');
-        if (savedRefreshToken) {
-          refreshInit.body = JSON.stringify({ refresh_token: savedRefreshToken });
-          refreshInit.headers = { 'Content-Type': 'application/json' };
-        }
-
-        const refreshRes = await nativeFetchResponse(refreshUrl, refreshInit);
-        if (refreshRes.ok) {
-          const data = await refreshRes.json();
-          await setStorageItem('otaku_token', data.access_token);
-          await setStorageItem('otaku_refresh_token', data.refresh_token);
-          isRefreshing = false;
-          onRefreshed(data.access_token);
-        } else {
-          isRefreshing = false;
-          // Invalida sessão se falhar o refresh
-          await removeStorageItem('otaku_token');
-          await removeStorageItem('otaku_refresh_token');
-          await removeStorageItem('otaku_user');
-          window.location.href = '/login';
-          return response;
-        }
-      } catch (err) {
-        isRefreshing = false;
-        return response;
-      }
-    }
-
-    // Aguarda o refresh do token terminar e repete o pedido original
-    return new Promise((resolve) => {
-      subscribeTokenRefresh((newToken) => {
-        const retryHeaders = new Headers(newInit.headers as any);
-        retryHeaders.set('Authorization', `Bearer ${newToken}`);
-        newInit.headers = retryHeaders as any;
-        resolve(nativeFetchResponse(input, newInit));
-      });
-    });
+    // Repete o pedido original com o token novo
+    const retryHeaders = new Headers(newInit.headers as any);
+    retryHeaders.set('Authorization', `Bearer ${newToken}`);
+    newInit.headers = retryHeaders as any;
+    return nativeFetchResponse(input, newInit);
   }
 
   return response;

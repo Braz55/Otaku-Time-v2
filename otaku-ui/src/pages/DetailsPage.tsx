@@ -16,6 +16,41 @@ import { TrackingTab } from '../components/details/TrackingTab';
 import { InfoTab } from '../components/details/InfoTab';
 import { ArtworkSelectorModal } from '../components/details/ArtworkSelectorModal';
 
+// Esperas entre tentativas quando o servidor está a acordar (cold start do Render) ou a rede falha
+const DETAILS_RETRY_DELAYS = [3000, 8000, 15000];
+
+// Na app nativa um erro de rede chega como 500, por isso também se repete
+const isRetryableStatus = (status: number) => [500, 502, 503, 504].includes(status);
+
+// Pedido GET com novas tentativas; devolve null se a rede falhar sempre ou se o pedido for cancelado
+const fetchWithRetry = async (
+  url: string,
+  init: RequestInit,
+  onRetry: () => void,
+  isCancelled: () => boolean,
+): Promise<Response | null> => {
+  for (let attempt = 0; ; attempt++) {
+    let response: Response | null = null;
+    try {
+      response = await customFetch(url, init);
+    } catch (e) {
+      console.error(`Erro de rede em ${url}:`, e);
+    }
+    if (isCancelled()) return null;
+    if (response && !isRetryableStatus(response.status)) return response;
+    if (attempt >= DETAILS_RETRY_DELAYS.length) return response;
+    onRetry();
+    await new Promise(resolve => setTimeout(resolve, DETAILS_RETRY_DELAYS[attempt]));
+    if (isCancelled()) return null;
+  }
+};
+
+// findOne devolve corpo vazio quando o registo não existe
+const readJsonOrNull = async (response: Response) => {
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
+};
+
 const getGenresList = (generos: any): { name: string; weight: number }[] => {
   if (!generos) return [];
   
@@ -130,6 +165,9 @@ const DetailsPage = () => {
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [reloadTrigger, setReloadTrigger] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isRetryingLoad, setIsRetryingLoad] = useState(false);
+  const loadedKeyRef = useRef<string | null>(null);
   const [isRefreshingEpisodes, setIsRefreshingEpisodes] = useState(false);
   const [showSourcesSelector, setShowSourcesSelector] = useState(false);
   const [sourcesToSelect] = useState<any[]>([]);
@@ -372,13 +410,40 @@ const DetailsPage = () => {
     setCategoria(mediaType);
     setIsViewingDetails(true);
 
+    let cancelled = false;
+    const isCancelled = () => cancelled;
+
     const loadData = async () => {
       setLoading(true);
       setLoadingDetails(true);
+      setLoadError(null);
+      setIsRetryingLoad(false);
+
+      // Ao mudar de item, não continuar a mostrar o anterior (nem em caso de erro)
+      const loadKey = `${mediaType}/${id}/${isExternalParam}`;
+      if (loadedKeyRef.current !== loadKey) {
+        setSelectedItem(null);
+      }
+
+      // Erro final: com o item já visível (reload) basta um toast; senão mostra o ecrã de erro
+      const failLoad = (message: string) => {
+        if (cancelled) return;
+        if (loadedKeyRef.current === loadKey) {
+          showToast(message, 'error');
+        } else {
+          setLoadError(message);
+        }
+        setIsRetryingLoad(false);
+        setLoading(false);
+        setLoadingDetails(false);
+      };
+      const onRetry = () => { if (!cancelled) setIsRetryingLoad(true); };
 
       let targetId = parseInt(id);
       let isExternal = isExternalParam;
       let data = null;
+      // Id externo (TMDB/AniList) a usar se o item tiver de ser carregado de fora
+      let externalLookupId = targetId;
 
       // Ensure library cache is populated before checking if it already exists
       let currentCache = mediaType === 'manga' ? mangaLibraryData : animeLibraryData;
@@ -411,28 +476,44 @@ const DetailsPage = () => {
 
       if (matched) {
         targetId = matched.id;
+        externalLookupId = mediaType === 'manga' ? matched.mangaId : matched.animeId;
         isExternal = false;
-        try {
-          const response = await customFetch(`${API_BASE_URL}/${mediaType}/${targetId}`, { headers: getHeaders() });
-          if (response.ok) {
-            data = await response.json();
-          }
-        } catch (e) {
-          console.error("Error fetching matching library details:", e);
+        const response = await fetchWithRetry(`${API_BASE_URL}/${mediaType}/${targetId}`, { headers: getHeaders() }, onRetry, isCancelled);
+        if (cancelled) return;
+        if (!response || !response.ok) {
+          // Está na biblioteca: nunca tentar o id da base de dados como id externo
+          failLoad(response
+            ? `Não foi possível carregar os detalhes (erro ${response.status}).`
+            : 'Sem ligação ao servidor. Verifica a internet e tenta novamente.');
+          return;
         }
-      } else {
-        // Fallback: Query the single item locally first. If 404/NotFound or empty, we know it's external
         try {
-          const response = await customFetch(`${API_BASE_URL}/${mediaType}/${targetId}`, { headers: getHeaders() });
-          if (response.ok) {
-            const temp = await response.json();
+          data = await readJsonOrNull(response);
+        } catch (e) {
+          console.error("Error parsing library details:", e);
+        }
+        // Registo já não existe (ex: removido noutro dispositivo): mostrar a versão externa
+      } else if (!isExternalParam) {
+        // O id pode ser de um registo da biblioteca que ainda não está em cache
+        const response = await fetchWithRetry(`${API_BASE_URL}/${mediaType}/${targetId}`, { headers: getHeaders() }, onRetry, isCancelled);
+        if (cancelled) return;
+        if (!response || isRetryableStatus(response.status)) {
+          failLoad(response
+            ? 'O servidor não está a responder. Tenta novamente daqui a pouco.'
+            : 'Sem ligação ao servidor. Verifica a internet e tenta novamente.');
+          return;
+        }
+        // 403/404/corpo vazio: não é um registo teu, por isso é um id externo
+        if (response.ok) {
+          try {
+            const temp = await readJsonOrNull(response);
             if (temp && (temp.id || temp.animeId || temp.mangaId)) {
               data = temp;
               isExternal = false;
             }
+          } catch (e) {
+            console.error("Error parsing local details:", e);
           }
-        } catch (e) {
-          // Silent fallback to external
         }
       }
 
@@ -440,21 +521,30 @@ const DetailsPage = () => {
       if (!data) {
         isExternal = true;
         const formatQuery = formatParam ? `?format=${formatParam}` : '';
+        const response = await fetchWithRetry(`${API_BASE_URL}/${mediaType}/anilist/${externalLookupId}${formatQuery}`, { headers: getHeaders() }, onRetry, isCancelled);
+        if (cancelled) return;
+        if (!response) {
+          failLoad('Sem ligação ao servidor. Verifica a internet e tenta novamente.');
+          return;
+        }
+        if (!response.ok) {
+          failLoad(response.status === 404
+            ? 'Este título não foi encontrado.'
+            : 'Não foi possível obter os detalhes do TMDB/AniList. Tenta novamente daqui a pouco.');
+          return;
+        }
         try {
-          const response = await customFetch(`${API_BASE_URL}/${mediaType}/anilist/${targetId}${formatQuery}`, { headers: getHeaders() });
-          if (!response.ok) {
-            showToast('Could not load details. Please try again later.', 'error');
-            navigate(-1);
-            return;
-          }
-          data = await response.json();
+          data = await readJsonOrNull(response);
         } catch (error) {
           console.error("Error loading external details:", error);
-          showToast('Error loading details.', 'error');
-          navigate(-1);
+        }
+        if (!data) {
+          failLoad('Este título não foi encontrado.');
           return;
         }
       }
+
+      setIsRetryingLoad(false);
 
       try {
         if (isExternal && data) {
@@ -481,6 +571,7 @@ const DetailsPage = () => {
             relations: data.relations
           };
           setSelectedItem(normalized);
+          loadedKeyRef.current = loadKey;
         } else if (data) {
           const itemData = data.manga || data.anime || data;
           const localItem = { ...itemData, ...data, dbId: data.id, isExternal: false };
@@ -488,6 +579,7 @@ const DetailsPage = () => {
             localItem.formato = 'MOVIE';
           }
           setSelectedItem(localItem);
+          loadedKeyRef.current = loadKey;
 
           // Fetch AniList metadata in the background to populate relations & banner
           const externalId = data.animeId || data.mangaId || itemData.animeId || itemData.mangaId;
@@ -527,8 +619,7 @@ const DetailsPage = () => {
         // carregarDadosInterativos(data.mangaId || data.animeId || data.id);
       } catch (error) {
         console.error("Error parsing details:", error);
-        showToast('Error loading details.', 'error');
-        navigate(-1);
+        failLoad('Ocorreu um erro ao mostrar os detalhes.');
       } finally {
         setLoading(false);
         setLoadingDetails(false);
@@ -538,6 +629,7 @@ const DetailsPage = () => {
     loadData();
 
     return () => {
+      cancelled = true;
       setIsViewingDetails(false);
     };
   }, [mediaType, id, isExternalParam, reloadTrigger]);
@@ -1751,6 +1843,34 @@ const DetailsPage = () => {
       <div className="flex flex-col items-center justify-center py-32 space-y-4">
         <Loader2 className={`w-12 h-12 animate-spin ${mediaType === 'anime' ? 'text-primary' : 'text-secondary'}`} />
         <p className="text-on-surface-variant text-sm font-black animate-pulse">A carregar detalhes...</p>
+        {isRetryingLoad && (
+          <p className="text-on-surface-variant text-xs text-center max-w-xs">
+            O servidor está a demorar a responder (pode estar a acordar). A tentar novamente…
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  if (loadError && !selectedItem) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 px-6 space-y-5 text-center">
+        <span className="material-symbols-outlined text-5xl text-error">cloud_off</span>
+        <p className="text-white font-bold text-base max-w-sm">{loadError}</p>
+        <div className="flex gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="px-5 py-2.5 rounded-full glass-panel border border-white/10 text-on-surface-variant hover:text-white font-bold text-sm cursor-pointer"
+          >
+            {t("Voltar")}
+          </button>
+          <button
+            onClick={() => setReloadTrigger(prev => prev + 1)}
+            className={`px-5 py-2.5 rounded-full font-bold text-sm text-white cursor-pointer active:scale-95 transition-all ${mediaType === 'anime' ? 'bg-primary' : 'bg-secondary'}`}
+          >
+            Tentar novamente
+          </button>
+        </div>
       </div>
     );
   }

@@ -6,19 +6,26 @@ Otaku Time Pro is a complete Fullstack ecosystem designed to **register, organiz
 
 The platform automates release schedules via integrations with AniList and TMDB APIs, tracks manga chapters across multiple portals, supports TV Time JSON imports, and features a highly customizable and fluid interface.
 
-In this repository's root folder, you will find the **otakutime_v3.apk** file, which is the pre-compiled Android application ready for installation.
+A pre-compiled Android build is available at **[`testes_e_scripts/otakuTime_V3.apk`](testes_e_scripts/otakuTime_V3.apk)**, ready for installation.
 
 Production Applications:
 * Frontend Web & API: [https://otaku-time-v2.onrender.com](https://otaku-time-v2.onrender.com)
-* Database: Hosted remotely on Neon Cloud (PostgreSQL)
+* Database: Hosted remotely on Aiven Cloud (PostgreSQL)
 
 ---
 
 ## Main Features & Updates (v3.5 - TV Time & TMDB Integration)
 
-### 1. Cloud Ecosystem & Centralized Database (Neon DB + Render)
-* **PostgreSQL Database (Neon DB)**: Transitioned from local SQLite to remote cloud PostgreSQL, using connection pooling and SSL to secure library state across all user devices in real-time.
+### 1. Cloud Ecosystem & Centralized Database (Aiven + Render)
+* **PostgreSQL Database (Aiven)**: Remote cloud PostgreSQL accessed through a `pg` connection pool (Prisma `adapter-pg`) with SSL, keeping library state in sync across all user devices.
 * **Continuous Hosting**: The NestJS API and React SPA are fully deployed and hosted on Render with automated CI/CD.
+* **Keep-Awake System**: A GitHub Actions workflow ([`keep-awake.yml`](.github/workflows/keep-awake.yml)) pings the `/health` endpoint every 10 minutes during active hours so the Render free instance doesn't sleep. On the server, a `KeepAwakeService` tracks user activity and skips scheduled syncs when nobody has used the app in the last 2 hours, saving database resources.
+* **Admin Sync Reports**: When a full anime/manga synchronization finishes, the server emails a report to admin accounts (via SMTP/Nodemailer) with its status and the list of synced titles.
+
+### Security
+* **HttpOnly Cookie Auth**: JWT access and refresh tokens are issued as HttpOnly cookies (`otaku_access_token` / `otaku_refresh_token`) instead of being stored in `localStorage`.
+* **Rate Limiting**: Global request throttling (`@nestjs/throttler`, 100 requests/min) protects login and other endpoints against brute-force attempts.
+* **Sanitized Responses**: Passwords and other sensitive fields are never returned by the API.
 
 ### 2. Native Android Experience (via Capacitor)
 * **Direct Cloud Synchronization**: Real-time read and write operations to the cloud database directly from your Android mobile app.
@@ -32,7 +39,9 @@ Production Applications:
 * **Unified Tracking Hub**: Home screen with dedicated tracking sections for "WATCH NEXT" (Anime & TV Series), "READ NEXT" (Manga), and "MOVIES" (Filmes).
 * **Divided Library Structure**: Library catalog split into clean categories (Anime, Séries, Filmes, Manga) with filters for tracking status.
 * **Optimistic UI Updates**: Immediate client-side progress updates when incrementing watched episodes or read chapters, syncing in the background with the server.
-* **Automatic Progression**: Automatic library status transition to "WATCHING" / "READING" when changing progress from 0 to 1, and to "COMPLETED" when reaching the final episode or chapter.
+* **Automatic Progression**: Automatic library status transition to "WATCHING" / "READING" when changing progress from 0 to 1, and to "COMPLETED" when reaching the final episode or chapter (never while the work is still releasing).
+* **Upcoming Section**: Anime that hasn't premiered yet gets its own section on the home page and moves automatically to "Watch Next" once its first episode airs.
+* **Auto-Refresh on Resume**: The dashboard reloads when you return to the app, so the "Up Next" carousel always reflects the latest episodes.
 
 ### 5. TV Time-Style Personal Calendar
 * **Airing Schedule Mapping**: Automatically maps upcoming release schedules for continuing works present in your personal library.
@@ -50,7 +59,7 @@ Production Applications:
 * **Background Bookmark Association**: An automated sync listener (`onAssociateBookmark`) that intercepts bookmarked sites in the native browser, extracts their domains, and automatically saves them as custom personal links under the active anime/manga details in the user's library.
 
 ### 8. Real-Time Release Notifications System
-* **Automated Tracked Releases**: In-app notifications are automatically generated when background content synchronization runs and detects a new release (new episode/chapter) for works in the user's library.
+* **Automated Tracked Releases**: In-app notifications are automatically generated when background content synchronization runs and detects a new release (new episode/chapter, including special episodes) for works in the user's library. An hourly job checks locally stored airing schedules, and notifications older than 48 hours are automatically marked as read.
 * **Targeted Library Subscriptions**: Only triggers notifications for works currently marked as "WATCHING" (Anime) or "READING" (Manga) to avoid unwanted alerts.
 * **Interactive Inbox**: Custom interactive notifications dropdown/inbox on both desktop and mobile headers with options to mark individual items as read, clear all notifications, delete specific alerts, and navigate directly to the media details page on click.
 
@@ -58,17 +67,17 @@ Production Applications:
 * **Modern Themes**: Clean interface with Dark and Light modes and smooth transitions.
 * **Color Palettes**: Features 6 interchangeable chromatic color themes: Classic Purple, Shounen Orange (Crunchyroll), Akatsuki Red (Naruto), Mutsu Green (Mushi-Shi), Solo Leveling Purple, and Visionary Blue (AniList).
 * **Language & Filters**: Toggle languages (Portuguese/English) and adult content filters (NSFW) directly in user profile settings.
+* **Custom Artwork**: Pick an alternative poster or banner for any title in your library through the artwork selector on the Details page.
 
 ### 10. Global Ratings & Community Comments
 * **Dynamic Evaluations**: Score anime, series, movies, and manga titles, dynamically recalculating the average global score on the backend.
-* **Community Comments**: Dedicated comment sections per media title with full commenting, deletion, and comment liking capabilities.
+* **Community Comments**: Dedicated comment sections per media title with commenting, deletion, and authenticated likes (one like per user per comment).
 
 ### 11. Fun Achievement & Badge System
 * **Dynamic Achievements**: Fun badges dynamically unlocked when users hit milestones. Includes image URL badges, descriptions, and rarity tiers (Common, Rare, Epic, Legendary).
 
-### 12. PRO Tier & Gift Code Subscriptions
-* **Redemption Service**: Upgrade accounts to "PRO" status instantly by redeeming duration-limited Gift Codes.
-* **Administrative Controls**: Admin panel endpoints to generate new Gift Codes, limit code uses, set custom durations, and manage subscription statuses.
+### 12. Admin Panel
+* **Administrative Controls**: An admin tab on the profile page with system stats, manual AutoSync triggering (anime & manga), user role management, achievement management, and recent sync logs. (The former PRO tier / Gift Code subscription system has been removed.)
 
 ### 13. Social Sharing & Public Profiles
 * **Public Profiles**: Browse other users' libraries, stats, and top titles by visiting `/user/profile/:id`.
@@ -114,7 +123,7 @@ Production Applications:
 ### 21. Interactive Episode Checklist & Season Selector
 * **Detailed Progress Tracker**: Revamped Details page featuring an interactive list of episodes categorized by season (TV Time-style) to check off watched episodes individually.
 * **Specials Tracking**: Supports checking off special episodes and seasons without disrupting the main episode progression.
-
+* **Fresh Episode Data**: Opening the Details page refreshes episode counts and air dates in the background, and a dedicated button forces an update of the episode dates on demand.
 ### 22. Confirmed Continuations Section
 * **Airing Status Planning**: Under the "Up to Date" (Em dia) page, a new section shows tracked anime/series that are officially confirmed to continue but do not have upcoming release dates scheduled yet.
 
@@ -127,10 +136,11 @@ Production Applications:
 
 ```mermaid
 flowchart TD
-    subgraph Cloud ["Cloud & Production (Render + Neon)"]
+    subgraph Cloud ["Cloud & Production (Render + Aiven)"]
         FE_Render["Frontend (Render SPA) \n otaku-time-v2.onrender.com"]
         BE_Render["Backend (Render Web Service) \n api-otaku-time"]
-        DB_Neon[(PostgreSQL - Neon DB)]
+        DB_Aiven[(PostgreSQL - Aiven)]
+        GH_Actions["GitHub Actions \n keep-awake ping"]
     end
 
     subgraph Device ["Local Client (Web & Mobile)"]
@@ -152,7 +162,8 @@ flowchart TD
     Browser -->|REST Requests| BE_Render
     Capacitor -->|REST Requests| BE_Render
     
-    BE_Render ---|"Prisma ORM"| DB_Neon
+    BE_Render ---|"Prisma ORM"| DB_Aiven
+    GH_Actions -->|"GET /health"| BE_Render
     
     BE_Render -->|Metadata & Releases| AniList
     BE_Render -->|Chapters & Seasons| BakaUpdates
@@ -191,9 +202,11 @@ graph TD
 | Layer | Technology | Description |
 | :--- | :--- | :--- |
 | Backend | NestJS (v11) | Progressive Node.js framework with TypeScript, hosted on Render |
-| Database | PostgreSQL (Neon DB) | Cloud database with connection pooling and active SSL |
-| ORM | Prisma (v7) | Relational database mapping and efficient migrations |
-| Frontend | React (v19) + Vite + TailwindCSS (v4) | Fast interface with theme system, useIsMobile hook, and modern CSS |
+| Scheduling | @nestjs/schedule | Cron jobs for release sync and notifications |
+| Database | PostgreSQL (Aiven) | Cloud database with `pg` connection pooling and SSL |
+| ORM | Prisma (v7) | Relational database mapping via `@prisma/adapter-pg` |
+| Email | Nodemailer (SMTP) | Admin synchronization reports |
+| Frontend | React (v19) + Vite (v8) + TailwindCSS (v4) | Fast interface with theme system, Framer Motion animations, and modern CSS |
 | Mobile | Capacitor (v8) | Hybrid wrapper for Android WebView with ES2020 target |
 | APIs | AniList / TMDB / MangaUpdates / MangaDex | External integrations for metadata, calendar, and chapter lookups |
 
@@ -225,9 +238,12 @@ classDiagram
         +String descricao
         +Json generos
         +String capaUrl
+        +String bannerUrl
         +Int numEpisodiosTotal
+        +Int numEpisodiosAired
         +Int proximoEpisodio
         +DateTime proximoEpisodioData
+        +DateTime ultimoEpisodioEstreadoData
         +DateTime dataLancamento
         +String temporada
         +Int ano
@@ -247,6 +263,7 @@ classDiagram
         +TrackingStatus status
         +Int prioridade
         +String linksPersonalizados
+        +String notas
         +Int userId
         +Int animeId
         +Boolean wasDropped
@@ -261,8 +278,10 @@ classDiagram
         +String statusLancamento
         +Float numCapitulosTotal
         +String capaUrl
+        +String bannerUrl
         +Json generos
-        +String autor
+        +String formato
+        +String materialOrigem
         +String descricao
         +DateTime proximoCapituloData
         +Float proximoCapituloNumero
@@ -277,6 +296,7 @@ classDiagram
         +TrackingStatus status
         +Int prioridade
         +String linksPersonalizados
+        +String notas
         +Int userId
         +Int mangaId
         +Boolean wasDropped
@@ -338,24 +358,15 @@ classDiagram
         +DateTime unlockedAt
     }
 
-    class UserSubscription {
+    class Notification {
         +Int id
         +Int userId
-        +String planType
-        +SubscriptionStatus status
-        +DateTime startDate
-        +DateTime currentPeriodEnd
-        +String externalSubscriptionId
-    }
-
-    class GiftCode {
-        +Int id
-        +String code
-        +Int durationDays
-        +Boolean isUsed
-        +Int redeemedByUserId
-        +DateTime redeemedAt
-        +DateTime expiresAt
+        +String title
+        +String message
+        +String type
+        +Int mediaId
+        +Boolean read
+        +DateTime createdAt
     }
 
     class Media {
@@ -379,6 +390,13 @@ classDiagram
         +Int mediaId
         +String text
         +Int likes
+        +DateTime createdAt
+    }
+
+    class CommentLike {
+        +Int id
+        +Int userId
+        +Int commentId
         +DateTime createdAt
     }
 
@@ -430,24 +448,17 @@ classDiagram
         MANGA
     }
 
-    class SubscriptionStatus {
-        <<enumeration>>
-        ACTIVE
-        CANCELED
-        EXPIRED
-        PAST_DUE
-    }
-
     User "1" --> "*" UserAnime : has
     User "1" --> "*" UserManga : has
     User "1" --> "*" ChatSession : has
     User "1" --> "*" UserTopFavorite : has
     User "1" --> "0..1" UserStatistics : has
     User "1" --> "*" UserAchievement : has
-    User "1" --> "0..1" UserSubscription : has
-    User "1" --> "*" GiftCode : redeems
     User "1" --> "*" UserRating : rates
     User "1" --> "*" Comment : comments
+    User "1" --> "*" CommentLike : likes
+    User "1" --> "*" Notification : receives
+    Comment "1" --> "*" CommentLike : liked_by
 
     Anime "1" --> "*" UserAnime : associated
     Manga "1" --> "*" UserManga : associated
@@ -470,25 +481,33 @@ classDiagram
 
 ```bash
 Otaku-Time-v2/
-├── prisma/                  # PostgreSQL (Neon) configuration and Prisma Schema
+├── .github/workflows/       # keep-awake.yml (pings Render every 10 min)
+├── docs/                    # Project docs (sync engine, history, requirements, next steps)
+├── prisma/                  # Prisma schema, migrations, and seed/backfill scripts
 │   └── schema.prisma        # Definition of relational tables
+├── prisma.config.ts         # Prisma 7 config (DATABASE_URL / DIRECT_URL)
 ├── src/                     # NestJS Backend
-│   ├── anime/               # AniList metadata and calendar
+│   ├── anime/               # AniList + TMDB metadata, calendar, recommendations, TV Time import
 │   ├── manga/               # MangaUpdates, MangaDex, and AniList integration
-│   ├── list/                # Custom user lists backend module
-│   ├── sync/                # Release updates synchronization logic
+│   ├── list/                # Custom user lists
+│   ├── sync/                # Scheduled release synchronization (cron jobs)
+│   ├── notification/        # In-app release notifications
+│   ├── email/               # SMTP email service (admin sync reports)
 │   ├── rating/              # Global rating evaluation endpoints
-│   ├── comment/             # Global comment and community interaction
-│   └── user/ & auth/        # User management, subscription tier, and achievements
+│   ├── comment/             # Comments and likes
+│   ├── user/ & auth/        # Users, achievements, backups, admin routes, JWT cookie auth
+│   └── keep-awake.*         # Activity tracking / self-ping for Render
 ├── otaku-ui/                # React + Vite + Capacitor Frontend (Tailwind v4)
 │   ├── android/             # Native Android project built by Capacitor
-│   ├── src/                 
-│   │   ├── components/      # Reusable UI components (GenreTagPicker, Layout, etc.)
-│   │   ├── pages/           # Dashboard, Library, Calendar, Profile, Details, Lists, ListDetails
-│   │   ├── services/        
-│   │   │   └── apiBridge.ts # Communication helper with CORS bypass for Capacitor
-│   │   └── context/         # Global navigation, themes, and category states
+│   ├── src/
+│   │   ├── components/      # Reusable UI (Header, MediaCard, details/, profile/ tabs, ...)
+│   │   ├── pages/           # Home, Explore, Library, Calendar, Profile, Details, Lists, ListDetails, Login, Register
+│   │   ├── services/        # apiBridge (Capacitor-aware fetch), storage, color palettes
+│   │   ├── hooks/           # useIsMobile, useTranslation (PT/EN)
+│   │   └── context/         # Auth, Media, and Toast contexts
 │   └── capacitor.config.ts  # Capacitor mobile build settings
+├── test/                    # E2E tests (Jest + Supertest)
+└── testes_e_scripts/        # Prebuilt APK, scratch/maintenance scripts, sample TV Time exports
 ```
 
 ---
@@ -496,7 +515,8 @@ Otaku-Time-v2/
 ## Local Installation and Configuration
 
 ### Prerequisites
-* Node.js (v18 or superior)
+* Node.js (v20.19 or superior — required by Vite 8 and Prisma 7)
+* A PostgreSQL database (local or cloud)
 * Android Studio (for mobile compilation and testing)
 
 ---
@@ -512,10 +532,33 @@ In the project root folder:
 2. **Configure the `.env` file:**
    Create a `.env` file in the root of the project with the following variables:
    ```env
-   DATABASE_URL="postgresql://utilizador:password@ep-cold-surf.eu-central-1.aws.neon.tech/otakutime?sslmode=require"
+   # Required
+   DATABASE_URL="postgresql://user:password@your-host:5432/otakutime?sslmode=require"
    JWT_SECRET="your_secret_key_here"
+   TMDB_API_KEY="your_tmdb_api_key"
+
+   # Optional
+   DIRECT_URL=""                      # Direct (non-pooled) connection for Prisma migrations
+   PORT=3001
+   FRONTEND_URL="https://your-frontend.example.com"  # Extra CORS origin (localhost & capacitor:// are always allowed)
+   SECURE_COOKIES="false"             # "true" forces Secure cookies outside NODE_ENV=production
+
+   # Email (admin sync reports)
+   SMTP_HOST="smtp.gmail.com"
+   SMTP_PORT=465
+   SMTP_SECURE="true"
+   SMTP_USER="you@example.com"
+   SMTP_PASS="app_password"
+   SMTP_FROM="Otaku Time <you@example.com>"
+
+   # Keep-awake (Render)
+   RENDER_URL="https://your-app.onrender.com"
+   AWAKE_TIMEZONE="Europe/Lisbon"
+   AWAKE_START_HOUR=7
+   AWAKE_END_HOUR=2
    ```
-3. **Generate the Prisma Client:**
+   SSL is enabled automatically unless `DATABASE_URL` points to `localhost`.
+3. **Generate the Prisma Client** (also runs automatically on `npm install`):
    ```bash
    npx prisma generate
    ```
@@ -611,6 +654,11 @@ adb reverse tcp:3001 tcp:3001
 * **Apply manual changes to the Database Schema:**
   ```bash
   npx prisma db push
+  ```
+* **Run backend tests (unit / e2e):**
+  ```bash
+  npm test
+  npm run test:e2e
   ```
 
 ---

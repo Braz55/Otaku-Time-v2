@@ -29,38 +29,62 @@ export class AniListService {
     private readonly animeService: AnimeService,
   ) {}
 
+  // Devolve apenas os g\u00e9neros/tags realmente usados pelos animes (ou mangas) guardados,
+  // enriquecidos com a categoria da tabela GenreTag. Antes a distin\u00e7\u00e3o anime/manga era feita
+  // com um sufixo '\u200b' (heran\u00e7a do AniList) que os dados vindos do TMDB j\u00e1 n\u00e3o t\u00eam.
   async getGenreTags(type?: 'ANIME' | 'MANGA') {
-    if (type === 'ANIME') {
-      return this.prisma.genreTag.findMany({
-        where: {
-          name: {
-            endsWith: '\u200b',
-          },
-        },
-        orderBy: [
-          { type: 'asc' },
-          { category: 'asc' },
-          { subcategory: 'asc' },
-          { name: 'asc' },
-        ],
-      });
-    }
+    const rows =
+      type === 'MANGA'
+        ? await this.prisma.manga.findMany({ select: { generos: true } })
+        : await this.prisma.anime.findMany({ select: { generos: true } });
 
-    return this.prisma.genreTag.findMany({
-      where: {
-        NOT: {
-          name: {
-            endsWith: '\u200b',
-          },
-        },
-      },
-      orderBy: [
-        { type: 'asc' },
-        { category: 'asc' },
-        { subcategory: 'asc' },
-        { name: 'asc' },
-      ],
+    const names = new Set<string>();
+    for (const row of rows) {
+      const generos = row.generos as unknown;
+      if (!generos) continue;
+      if (typeof generos === 'string') {
+        generos
+          .split(',')
+          .map((g) => g.trim())
+          .filter(Boolean)
+          .forEach((g) => names.add(g));
+      } else if (typeof generos === 'object' && !Array.isArray(generos)) {
+        Object.keys(generos).forEach((g) => {
+          const trimmed = g.trim();
+          if (trimmed) names.add(trimmed);
+        });
+      }
+    }
+    if (names.size === 0) return [];
+
+    const known = await this.prisma.genreTag.findMany({
+      where: { name: { in: [...names] } },
     });
+    const knownByName = new Map(known.map((g) => [g.name, g]));
+
+    let fallbackId = -1;
+    const result = [...names].map((name) => {
+      const existing = knownByName.get(name);
+      if (existing) return existing;
+      const isGenre = STANDARD_GENRES.has(name);
+      return {
+        id: fallbackId--,
+        name,
+        type: isGenre ? 'GENRE' : 'TAG',
+        category: isGenre ? 'G\u00e9neros Principais' : 'Outros Temas',
+        subcategory: isGenre ? 'G\u00e9nero' : 'T\u00f3picos Diversos',
+        isAdult: false,
+        isExposed: true,
+      };
+    });
+
+    return result.sort(
+      (a, b) =>
+        a.type.localeCompare(b.type) ||
+        a.category.localeCompare(b.category) ||
+        a.subcategory.localeCompare(b.subcategory) ||
+        a.name.localeCompare(b.name),
+    );
   }
 
   async registerGenreTags(generosDict: Record<string, number> | null | undefined) {

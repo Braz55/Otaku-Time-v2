@@ -9,9 +9,28 @@ export class KeepAwakeService implements OnModuleDestroy {
   private baseUrl: string | null = null;
   private lastUserActivity = 0;
   private readonly bootstrappedAt = Date.now();
+  private readonly USER_IDLE_MS = 7200000; // 2 horas
+  private userReturnListeners: Array<() => void> = [];
+
+  // Regista um callback chamado no primeiro pedido de utilizador após um período inativo
+  onUserReturn(listener: () => void) {
+    this.userReturnListeners.push(listener);
+  }
 
   recordUserActivity() {
-    this.lastUserActivity = Date.now();
+    const now = Date.now();
+    const wasIdle = now - this.lastUserActivity >= this.USER_IDLE_MS;
+    this.lastUserActivity = now;
+
+    if (wasIdle) {
+      for (const listener of this.userReturnListeners) {
+        try {
+          listener();
+        } catch (e: any) {
+          this.logger.error(`Erro num listener de regresso de utilizador: ${e.message}`);
+        }
+      }
+    }
   }
 
   isUserActiveRecently(windowMs = 7200000): boolean { // 2 horas por defeito

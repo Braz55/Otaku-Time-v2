@@ -25,6 +25,15 @@ export class SyncService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
+    // O servidor é acordado pelos pings do GitHub Actions (que não contam como atividade),
+    // por isso verificamos logo os syncs pendentes quando o utilizador volta à app
+    this.keepAwakeService.onUserReturn(() => {
+      this.logger.log('User returned after inactivity: Checking scheduled syncs...');
+      this.checkAndRunScheduledSyncs().catch((err) =>
+        this.logger.error('Error in user-return scheduled sync check:', err),
+      );
+    });
+
     this.logger.log('Application Bootstrapped: Checking scheduled syncs...');
     this.checkAndRunScheduledSyncs().catch((err) =>
       this.logger.error('Error in startup scheduled sync check:', err),

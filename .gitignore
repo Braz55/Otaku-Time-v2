@@ -65,3 +65,6 @@ scratch_check.ts
 db_dump.json
 
 meus_dados.sql
+
+# Documentacao de requisitos/arquitetura (temporariamente fora do git)
+/documentacao

@@ -8,7 +8,6 @@ describe('UserController', () => {
 
   const mockUserService = {
     update: jest.fn(),
-    redeemGiftCode: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -37,21 +36,6 @@ describe('UserController', () => {
 
       expect(service.update).toHaveBeenCalledWith(123, dto);
       expect(result).toEqual({ id: 123, nome: 'Alice' });
-    });
-  });
-
-  describe('redeemGiftCode', () => {
-    it('should call userService.redeemGiftCode with userId and code', async () => {
-      const req = { user: { userId: 456 } };
-      const dto = { code: 'GIFT-CODE-123' };
-      const mockResult = { success: true, message: 'Subscrição ativada!' };
-
-      mockUserService.redeemGiftCode.mockResolvedValue(mockResult);
-
-      const result = await controller.redeemGiftCode(req, dto);
-
-      expect(service.redeemGiftCode).toHaveBeenCalledWith(456, 'GIFT-CODE-123');
-      expect(result).toEqual(mockResult);
     });
   });
 });

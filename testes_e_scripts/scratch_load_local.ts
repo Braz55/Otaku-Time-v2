@@ -100,12 +100,6 @@ async function main() {
   );
   await resetSequence('GenreTag');
 
-  // 7. GiftCode
-  await loadTable('GiftCode', dump.GiftCode, (batch) =>
-    prisma.giftCode.createMany({ data: batch, skipDuplicates: true })
-  );
-  await resetSequence('GiftCode');
-
   // 8. ChatSession
   await loadTable('ChatSession', dump.ChatSession, (batch) =>
     prisma.chatSession.createMany({ data: batch, skipDuplicates: true })
@@ -145,12 +139,6 @@ async function main() {
   await loadTable('UserAchievement', dump.UserAchievement, (batch) =>
     prisma.userAchievement.createMany({ data: batch, skipDuplicates: true })
   );
-
-  // 15. UserSubscription
-  await loadTable('UserSubscription', dump.UserSubscription, (batch) =>
-    prisma.userSubscription.createMany({ data: batch, skipDuplicates: true })
-  );
-  await resetSequence('UserSubscription');
 
   // 16. UserRating
   await loadTable('UserRating', dump.UserRating, (batch) =>

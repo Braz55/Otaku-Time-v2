@@ -20,7 +20,7 @@ Production Applications:
 * **PostgreSQL Database (Aiven)**: Remote cloud PostgreSQL accessed through a `pg` connection pool (Prisma `adapter-pg`) with SSL, keeping library state in sync across all user devices.
 * **Continuous Hosting**: The NestJS API and React SPA are fully deployed and hosted on Render with automated CI/CD.
 * **Keep-Awake System**: A GitHub Actions workflow ([`keep-awake.yml`](.github/workflows/keep-awake.yml)) pings the `/health` endpoint every 10 minutes during active hours so the Render free instance doesn't sleep. On the server, a `KeepAwakeService` tracks user activity and skips scheduled syncs when nobody has used the app in the last 2 hours, saving database resources.
-* **Admin Sync Reports**: When a full anime/manga synchronization finishes, the server emails a report to admin accounts (via SMTP/Nodemailer) with its status and the list of synced titles.
+* **Admin Sync Logs**: Every synchronization run is recorded in the `SyncLog` table (status and details) and shown in the admin panel.
 
 ### Security
 * **HttpOnly Cookie Auth**: JWT access and refresh tokens are issued as HttpOnly cookies (`otaku_access_token` / `otaku_refresh_token`) instead of being stored in `localStorage`.
@@ -205,7 +205,6 @@ graph TD
 | Scheduling | @nestjs/schedule | Cron jobs for release sync and notifications |
 | Database | PostgreSQL (Aiven) | Cloud database with `pg` connection pooling and SSL |
 | ORM | Prisma (v7) | Relational database mapping via `@prisma/adapter-pg` |
-| Email | Nodemailer (SMTP) | Admin synchronization reports |
 | Frontend | React (v19) + Vite (v8) + TailwindCSS (v4) | Fast interface with theme system, Framer Motion animations, and modern CSS |
 | Mobile | Capacitor (v8) | Hybrid wrapper for Android WebView with ES2020 target |
 | APIs | AniList / TMDB / MangaUpdates / MangaDex | External integrations for metadata, calendar, and chapter lookups |
@@ -492,7 +491,6 @@ Otaku-Time-v2/
 │   ├── list/                # Custom user lists
 │   ├── sync/                # Scheduled release synchronization (cron jobs)
 │   ├── notification/        # In-app release notifications
-│   ├── email/               # SMTP email service (admin sync reports)
 │   ├── rating/              # Global rating evaluation endpoints
 │   ├── comment/             # Comments and likes
 │   ├── user/ & auth/        # Users, achievements, backups, admin routes, JWT cookie auth
@@ -542,14 +540,6 @@ In the project root folder:
    PORT=3001
    FRONTEND_URL="https://your-frontend.example.com"  # Extra CORS origin (localhost & capacitor:// are always allowed)
    SECURE_COOKIES="false"             # "true" forces Secure cookies outside NODE_ENV=production
-
-   # Email (admin sync reports)
-   SMTP_HOST="smtp.gmail.com"
-   SMTP_PORT=465
-   SMTP_SECURE="true"
-   SMTP_USER="you@example.com"
-   SMTP_PASS="app_password"
-   SMTP_FROM="Otaku Time <you@example.com>"
 
    # Keep-awake (Render)
    RENDER_URL="https://your-app.onrender.com"

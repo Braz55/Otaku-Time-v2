@@ -100,18 +100,6 @@ async function main() {
   );
   await resetSequence('GenreTag');
 
-  // 8. ChatSession
-  await loadTable('ChatSession', dump.ChatSession, (batch) =>
-    prisma.chatSession.createMany({ data: batch, skipDuplicates: true })
-  );
-  await resetSequence('ChatSession');
-
-  // 9. ChatMessage
-  await loadTable('ChatMessage', dump.ChatMessage, (batch) =>
-    prisma.chatMessage.createMany({ data: batch, skipDuplicates: true })
-  );
-  await resetSequence('ChatMessage');
-
   // 10. UserAnime
   await loadTable('UserAnime', dump.UserAnime, (batch) =>
     prisma.userAnime.createMany({ data: batch, skipDuplicates: true })

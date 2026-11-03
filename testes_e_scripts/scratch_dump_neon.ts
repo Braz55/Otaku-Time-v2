@@ -34,8 +34,6 @@ async function main() {
   dump.UserAnime = await dumpTable('UserAnime', () => prisma.userAnime.findMany());
   dump.Manga = await dumpTable('Manga', () => prisma.manga.findMany());
   dump.UserManga = await dumpTable('UserManga', () => prisma.userManga.findMany());
-  dump.ChatSession = await dumpTable('ChatSession', () => prisma.chatSession.findMany());
-  dump.ChatMessage = await dumpTable('ChatMessage', () => prisma.chatMessage.findMany());
   dump.SyncLog = await dumpTable('SyncLog', () => prisma.syncLog.findMany());
   dump.UserTopFavorite = await dumpTable('UserTopFavorite', () => prisma.userTopFavorite.findMany());
   dump.UserStatistics = await dumpTable('UserStatistics', () => prisma.userStatistics.findMany());

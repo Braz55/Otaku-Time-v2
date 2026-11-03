@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS "ChatMessage";
+DROP TABLE IF EXISTS "ChatSession";

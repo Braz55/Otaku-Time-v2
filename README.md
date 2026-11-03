@@ -303,22 +303,6 @@ classDiagram
         +DateTime updatedAt
     }
 
-    class ChatSession {
-        +Int id
-        +String titulo
-        +DateTime createdAt
-        +DateTime updatedAt
-        +Int userId
-    }
-
-    class ChatMessage {
-        +Int id
-        +String role
-        +String content
-        +DateTime createdAt
-        +Int sessionId
-    }
-
     class SyncLog {
         +Int id
         +DateTime timestamp
@@ -449,7 +433,6 @@ classDiagram
 
     User "1" --> "*" UserAnime : has
     User "1" --> "*" UserManga : has
-    User "1" --> "*" ChatSession : has
     User "1" --> "*" UserTopFavorite : has
     User "1" --> "0..1" UserStatistics : has
     User "1" --> "*" UserAchievement : has
@@ -461,8 +444,6 @@ classDiagram
 
     Anime "1" --> "*" UserAnime : associated
     Manga "1" --> "*" UserManga : associated
-
-    ChatSession "1" --> "*" ChatMessage : contains
 
     Achievement "1" --> "*" UserAchievement : earned_by
     Media "1" --> "*" UserRating : rated_by

@@ -21,7 +21,7 @@
   - Ponderação probabilística em duas etapas:
     1. **Probabilidade de Estado:** Escolha entre obra terminada e não terminada (a probabilidade de sorteio de algo terminado é substancialmente menor, ex: 5%).
     2. **Peso de Prioridade:** Obras com maior prioridade/ranking pessoal recebem pesos significativamente superiores no sorteio (ex: $peso = prioridade^2$).
-- [ ] **Remoção Completa do Chatbot de IA (Otaku Bot):**
+- [x] **Remoção Completa do Chatbot de IA (Otaku Bot):**
   - Limpeza total do código de inteligência artificial para evitar gastos de tokens e chamadas externas desnecessárias em produção.
   - Remover componentes frontend (Chat page, rotas, botões de acesso).
   - Remover endpoints backend (`/chat`, `ChatModule`, `ChatController`, `ChatService`).

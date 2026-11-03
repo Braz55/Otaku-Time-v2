@@ -1343,8 +1343,6 @@ export class AnimeService {
           mangaDaysWasted,
         },
       });
-
-      // Achievement processing disabled for performance optimization
     } catch (e) {
       console.error('Error recalculating user statistics:', e);
     }

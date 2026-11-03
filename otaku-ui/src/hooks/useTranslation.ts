@@ -101,11 +101,6 @@ const dictionary: Record<string, string> = {
   "Email": "Email",
   "Alterar Palavra-passe": "Change Password",
   "Salvar Alterações": "Save Changes",
-  "Plano Atual": "Current Plan",
-  "Redimir Código": "Redeem Code",
-  "Insere o teu código de subscrição premium": "Enter your premium subscription code",
-  "Redimir": "Redeem",
-  "Código promocional": "Promo code",
   
   // Calendar
   "Não existem lançamentos agendados para a tua lista.": "There are no scheduled releases for your list.",

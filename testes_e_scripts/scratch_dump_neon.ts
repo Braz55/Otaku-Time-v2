@@ -37,8 +37,6 @@ async function main() {
   dump.SyncLog = await dumpTable('SyncLog', () => prisma.syncLog.findMany());
   dump.UserTopFavorite = await dumpTable('UserTopFavorite', () => prisma.userTopFavorite.findMany());
   dump.UserStatistics = await dumpTable('UserStatistics', () => prisma.userStatistics.findMany());
-  dump.Achievement = await dumpTable('Achievement', () => prisma.achievement.findMany());
-  dump.UserAchievement = await dumpTable('UserAchievement', () => prisma.userAchievement.findMany());
   dump.Media = await dumpTable('Media', () => prisma.media.findMany());
   dump.UserRating = await dumpTable('UserRating', () => prisma.userRating.findMany());
   dump.Comment = await dumpTable('Comment', () => prisma.comment.findMany());

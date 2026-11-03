@@ -73,61 +73,58 @@ Production Applications:
 * **Dynamic Evaluations**: Score anime, series, movies, and manga titles, dynamically recalculating the average global score on the backend.
 * **Community Comments**: Dedicated comment sections per media title with commenting, deletion, and authenticated likes (one like per user per comment).
 
-### 11. Fun Achievement & Badge System
-* **Dynamic Achievements**: Fun badges dynamically unlocked when users hit milestones. Includes image URL badges, descriptions, and rarity tiers (Common, Rare, Epic, Legendary).
+### 11. Admin Panel
+* **Administrative Controls**: An admin tab on the profile page with system stats, manual AutoSync triggering (anime & manga), user role management, and recent sync logs. (The former PRO tier / Gift Code subscription system has been removed.)
 
-### 12. Admin Panel
-* **Administrative Controls**: An admin tab on the profile page with system stats, manual AutoSync triggering (anime & manga), user role management, achievement management, and recent sync logs. (The former PRO tier / Gift Code subscription system has been removed.)
-
-### 13. Social Sharing & Public Profiles
+### 12. Social Sharing & Public Profiles
 * **Public Profiles**: Browse other users' libraries, stats, and top titles by visiting `/user/profile/:id`.
 * **Top 3 Showcase**: Pin up to 3 favorite titles to showcase at the top of your public profile.
 * **Custom Bio/Status**: Set a custom status message displayed under your profile banner.
 
-### 14. Advanced Explore Catalog (Anime & Manga)
+### 13. Advanced Explore Catalog (Anime & Manga)
 * **Hybrid Multiselect Filters**: Custom dropdown to filter titles by multiple genres concurrently, combined with an advanced tag selector modal categorizing hundreds of thematic tags (e.g., formats, themes, casts).
 * **Targeted Search Parameters**: Custom query filters for release years, airing seasons, formats (TV, movie, special, OVA, ONA, manga, novel, one-shot), publishing status, and country of origin.
 * **Local Library Exclusion**: Checkbox filters to isolate the search by hiding titles already present in the user's library or only showing active library items.
 * **Flexible Sorting Options**: Fast sort orders including Em Alta (Trending), Mais Populares (Popularity), Mais Bem Avaliados (Score), and Mais Recentes (Start Date).
 
-### 15. Personalized Thematic Recommendations ("Feito para si" - DIBI Engine)
+### 14. Personalized Thematic Recommendations ("Feito para si" - DIBI Engine)
 * **DIBI Engine**: Dynamically builds a personalized recommendation feed for the user's Explore page based on their active library items.
 * **Isolated Tastes Profile**: Tastes are extracted separately for Anime and Manga libraries to ensure targeted recommendations.
 * **Thematic Co-Occurrence Clustering**: Groups similar genres and tags (e.g., `["Action", "Martial Arts", "Superpowers"]`) to retrieve multi-tag matches from the AniList API.
 * **Local Overlap Re-ranking**: Dynamically re-ranks candidates based on tag overlap with the user's library profile.
 * **Country Preference Support**: Detects preferred country of origin (e.g., Korea for Manhwa, Japan for Manga) and filters recommendation feeds accordingly.
 
-### 16. Custom Lists System (Sistema de Listas Customizadas)
+### 15. Custom Lists System (Sistema de Listas Customizadas)
 * **Custom Collections**: Create, manage, and delete custom lists beyond default statuses (e.g., "Favorites", "To Buy", "Summer Marathon").
 * **Manual Reordering**: Supports custom reordering of list items, featuring HTML5 drag-and-drop on Web and custom sorting control arrows on mobile.
 * **Visibility Control**: Configure individual custom lists to be public (visible to other users visiting your profile) or private.
 
-### 17. Dynamic 50/50 Highlights Engine (Destaques Inteligentes)
+### 16. Dynamic 50/50 Highlights Engine (Destaques Inteligentes)
 * **Probability-Based Hero**: The HomePage hero highlight features a 50/50 probability system that selects either a recently active item (from the profile's recent activity) or an "Up Next" high-priority item that has been gathering dust (not updated in a long time).
 * **Dynamic Badges**: Displays contextual tags depending on why it's highlighted: "A ver mais no momento" / "A ler mais no momento" for recent activity, or "A apanhar pó na lista" for long-neglected high-priority works.
 * **Empty List Fallback**: If the user has no active items in progress (watching/reading), the hero banner falls back to suggesting a random work from their library list (prioritizing `PLANNED` and `PAUSED` items) with the badge `"Sugestão da tua lista"`.
 * **New Release Badging**: Displays contextual tags like "Novidade" or "Novo EP" when new episodes or chapters are detected and synced.
 
-### 18. User Recent Activity Feed (Atividade Recente)
+### 17. User Recent Activity Feed (Atividade Recente)
 * **Automatic Activity Logs**: Whenever you increment your watched episodes or read chapters, the system updates `lastProgressUpdate` in the database.
 * **Profile Activity Feed**: Displays the 3 most recently updated items on the profile page, complete with relative time formats (e.g., "Updated 2 hours ago").
 
-### 19. TMDB Integration & Multi-Category Library (Anime, Séries & Filmes)
+### 18. TMDB Integration & Multi-Category Library (Anime, Séries & Filmes)
 * **Full TMDB API Engine**: Integrates with the TMDB (The Movie Database) API to query and track TV series, western shows, documentaries, and movies, broadening scope beyond traditional anime.
 * **English Title Fallbacks**: Automatically fetches English titles from TMDB/AniList as fallbacks for titles not fully translated in Portuguese.
 
-### 20. TV Time JSON Library Import
+### 19. TV Time JSON Library Import
 * **Seamless Sync**: Users can import their existing tracking history from TV Time by uploading standard export JSON files.
 * **Smart Progress & Status Handler**: Mapped series are imported with correct episodes and seasons, and ongoing shows are automatically set to `WATCHING` (A ver) status rather than marking them as completed.
 
-### 21. Interactive Episode Checklist & Season Selector
+### 20. Interactive Episode Checklist & Season Selector
 * **Detailed Progress Tracker**: Revamped Details page featuring an interactive list of episodes categorized by season (TV Time-style) to check off watched episodes individually.
 * **Specials Tracking**: Supports checking off special episodes and seasons without disrupting the main episode progression.
 * **Fresh Episode Data**: Opening the Details page refreshes episode counts and air dates in the background, and a dedicated button forces an update of the episode dates on demand.
-### 22. Confirmed Continuations Section
+### 21. Confirmed Continuations Section
 * **Airing Status Planning**: Under the "Up to Date" (Em dia) page, a new section shows tracked anime/series that are officially confirmed to continue but do not have upcoming release dates scheduled yet.
 
-### 23. Manga Chapter Flex-Tracking
+### 22. Manga Chapter Flex-Tracking
 * **Over-Limit Increments**: Allows marking chapters as read beyond the officially synchronized release count, updating progress while leaving other metadata intact.
 
 ---
@@ -327,20 +324,6 @@ classDiagram
         +Float mangaDaysWasted
     }
 
-    class Achievement {
-        +Int id
-        +String name
-        +String description
-        +String badgeImageUrl
-        +String rarity
-    }
-
-    class UserAchievement {
-        +Int userId
-        +Int achievementId
-        +DateTime unlockedAt
-    }
-
     class Notification {
         +Int id
         +Int userId
@@ -435,7 +418,6 @@ classDiagram
     User "1" --> "*" UserManga : has
     User "1" --> "*" UserTopFavorite : has
     User "1" --> "0..1" UserStatistics : has
-    User "1" --> "*" UserAchievement : has
     User "1" --> "*" UserRating : rates
     User "1" --> "*" Comment : comments
     User "1" --> "*" CommentLike : likes
@@ -445,7 +427,6 @@ classDiagram
     Anime "1" --> "*" UserAnime : associated
     Manga "1" --> "*" UserManga : associated
 
-    Achievement "1" --> "*" UserAchievement : earned_by
     Media "1" --> "*" UserRating : rated_by
     Media "1" --> "*" Comment : has
 
@@ -474,7 +455,7 @@ Otaku-Time-v2/
 │   ├── notification/        # In-app release notifications
 │   ├── rating/              # Global rating evaluation endpoints
 │   ├── comment/             # Comments and likes
-│   ├── user/ & auth/        # Users, achievements, backups, admin routes, JWT cookie auth
+│   ├── user/ & auth/        # Users, backups, admin routes, JWT cookie auth
 │   └── keep-awake.*         # Activity tracking / self-ping for Render
 ├── otaku-ui/                # React + Vite + Capacitor Frontend (Tailwind v4)
 │   ├── android/             # Native Android project built by Capacitor

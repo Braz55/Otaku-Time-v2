@@ -5,7 +5,7 @@ import { useToast } from '../context/ToastContext';
 import { 
   Database, RefreshCw, AlertCircle, User, Shield, 
   Upload, Copy, Check, Award, Heart, 
-  Edit3, Search, Clock, Film, BarChart3
+  Edit3, Search, Film, BarChart3
 } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 import { Capacitor } from '@capacitor/core';
@@ -22,19 +22,6 @@ import { AdminTab } from '../components/profile/AdminTab';
 
 
 
-
-const getRarityBadge = (rarity?: string) => {
-  switch (rarity) {
-    case 'RARE':
-      return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 uppercase tracking-wider">Raro</span>;
-    case 'EPIC':
-      return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black bg-purple-500/10 border border-purple-500/20 text-purple-400 uppercase tracking-wider">Épico</span>;
-    case 'LEGENDARY':
-      return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black bg-amber-500/10 border border-amber-500/20 text-amber-400 uppercase tracking-wider">Lendário</span>;
-    default:
-      return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black bg-gray-500/10 border border-gray-500/20 text-gray-400 uppercase tracking-wider">Comum</span>;
-  }
-};
 
 const ProfilePage = () => {
   const { user, logout, token, updateUser } = useAuth();
@@ -67,7 +54,6 @@ const ProfilePage = () => {
   const [profile, setProfile] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [favoriteDetails, setFavoriteDetails] = useState<Record<string, { title: string; coverUrl: string }>>({});
-  const [catalog, setCatalog] = useState<any[]>([]);
 
   // Edit Account/Profile state
   const [newName, setNewName] = useState(user?.nome || '');
@@ -84,18 +70,6 @@ const ProfilePage = () => {
   const [editBannerUrl, setEditBannerUrl] = useState('');
   const [editBannerPosition, setEditBannerPosition] = useState<number>(50);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
-
-  // Estados para Recorte de Imagem das Conquistas
-  const [showCropModal, setShowCropModal] = useState(false);
-  const [cropImageSrc, setCropImageSrc] = useState('');
-
-  const [zoom, setZoom] = useState(1);
-  const [offsetX, setOffsetX] = useState(0);
-  const [offsetY, setOffsetY] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [cropImageDimensions, setCropImageDimensions] = useState({ width: 0, height: 0 });
-  const [cropBaseScale, setCropBaseScale] = useState(1);
 
   // Compress/resize image using Canvas before converting to base64
   const compressImage = (file: File, maxWidth: number, maxHeight: number): Promise<string> => {
@@ -273,32 +247,8 @@ const ProfilePage = () => {
   const [adminStats, setAdminStats] = useState<any>(null);
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [adminSyncLogs, setAdminSyncLogs] = useState<any[]>([]);
-  const [adminGiftCodes, setAdminGiftCodes] = useState<any[]>([]);
-  const [adminSubscriptions, setAdminSubscriptions] = useState<any[]>([]);
   const [loadingAdminData, setLoadingAdminData] = useState(false);
   const [adminUserSearch, setAdminUserSearch] = useState('');
-  const [adminGiftSearch, setAdminGiftSearch] = useState('');
-  const [adminSubSearch, setAdminSubSearch] = useState('');
-  const [isSeedingAchievements, setIsSeedingAchievements] = useState(false);
-
-  // Gift Code Generation State
-  const [giftDays, setGiftDays] = useState(30);
-  const [giftCustomCode, setGiftCustomCode] = useState('');
-  const [giftExpiresAt, setGiftExpiresAt] = useState('');
-  const [isGeneratingGift, setIsGeneratingGift] = useState(false);
-
-  // Manage Achievements State
-  const [showManageAchievementsModal, setShowManageAchievementsModal] = useState(false);
-  const [editingAchievement, setEditingAchievement] = useState<any>(null);
-  const [editAchievementName, setEditAchievementName] = useState('');
-  const [editAchievementDescription, setEditAchievementDescription] = useState('');
-  const [editAchievementBadgeUrl, setEditAchievementBadgeUrl] = useState('');
-  const [editAchievementRarity, setEditAchievementRarity] = useState('COMMON');
-  const [isSavingAchievement, setIsSavingAchievement] = useState(false);
-
-  // User redemption state
-  const [redeemCodeInput, setRedeemCodeInput] = useState('');
-  const [isRedeemingCode, setIsRedeemingCode] = useState(false);
 
   // New Profile Redesign States
   const [favoritePodiumType, setFavoritePodiumType] = useState<'ANIME' | 'MANGA'>('ANIME');
@@ -345,19 +295,15 @@ const ProfilePage = () => {
     if (!token) return;
     setLoadingAdminData(true);
     try {
-      const [statsRes, usersRes, logsRes, giftCodesRes, subscriptionsRes] = await Promise.all([
+      const [statsRes, usersRes, logsRes] = await Promise.all([
         customFetch(`${API_BASE_URL}/user/admin/stats`, { headers: getHeaders() }),
         customFetch(`${API_BASE_URL}/user/admin/users`, { headers: getHeaders() }),
-        customFetch(`${API_BASE_URL}/user/admin/sync-logs`, { headers: getHeaders() }),
-        customFetch(`${API_BASE_URL}/user/admin/gift-codes`, { headers: getHeaders() }),
-        customFetch(`${API_BASE_URL}/user/admin/subscriptions`, { headers: getHeaders() })
+        customFetch(`${API_BASE_URL}/user/admin/sync-logs`, { headers: getHeaders() })
       ]);
 
       if (statsRes.ok) setAdminStats(await statsRes.json());
       if (usersRes.ok) setAdminUsers(await usersRes.json());
       if (logsRes.ok) setAdminSyncLogs(await logsRes.json());
-      if (giftCodesRes.ok) setAdminGiftCodes(await giftCodesRes.json());
-      if (subscriptionsRes.ok) setAdminSubscriptions(await subscriptionsRes.json());
     } catch (err) {
       console.error('Error fetching admin data:', err);
       showToast('Erro ao carregar dados do painel admin.', 'error');
@@ -392,290 +338,6 @@ const ProfilePage = () => {
     }
   };
 
-  const handleAdminSeedAchievements = async () => {
-    if (!token) return;
-    setIsSeedingAchievements(true);
-    try {
-      const res = await customFetch(`${API_BASE_URL}/user/achievements/seed`, {
-        method: 'POST',
-        headers: getHeaders()
-      });
-      if (res.ok) {
-        showToast('Conquistas repovoadas com sucesso no sistema!', 'success');
-        fetchCatalog();
-      } else {
-        showToast('Falha ao repovoar conquistas.', 'error');
-      }
-    } catch (err: any) {
-      showToast(`Erro: ${err.message || err}`, 'error');
-    } finally {
-      setIsSeedingAchievements(false);
-    }
-  };
-
-
-
-  const handleGenerateGiftCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token) return;
-    setIsGeneratingGift(true);
-    try {
-      const res = await customFetch(`${API_BASE_URL}/user/admin/gift-codes/generate`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({
-          durationDays: giftDays,
-          customCode: giftCustomCode || undefined,
-          expiresAt: giftExpiresAt || undefined
-        })
-      });
-      if (res.ok) {
-        showToast('Gift Card gerado com sucesso!', 'success');
-        setGiftCustomCode('');
-        setGiftExpiresAt('');
-        // Refresh codes list
-        const refreshedCodes = await customFetch(`${API_BASE_URL}/user/admin/gift-codes`, { headers: getHeaders() });
-        if (refreshedCodes.ok) setAdminGiftCodes(await refreshedCodes.json());
-      } else {
-        const err = await res.json().catch(() => ({}));
-        showToast(err.message || 'Falha ao gerar Gift Card.', 'error');
-      }
-    } catch (err: any) {
-      showToast(`Erro: ${err.message || err}`, 'error');
-    } finally {
-      setIsGeneratingGift(false);
-    }
-  };
-
-
-  const handleRedeemCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token || !redeemCodeInput.trim()) return;
-    setIsRedeemingCode(true);
-    try {
-      const res = await customFetch(`${API_BASE_URL}/user/subscription/redeem`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({ code: redeemCodeInput })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        showToast(data.message || 'Premium resgatado com sucesso!', 'success');
-        setRedeemCodeInput('');
-        fetchProfile();
-        updateUser({ tipoConta: 'pro' });
-      } else {
-        const err = await res.json().catch(() => ({}));
-        showToast(err.message || 'Falha ao resgatar código.', 'error');
-      }
-    } catch (err: any) {
-      showToast(`Erro: ${err.message || err}`, 'error');
-    } finally {
-      setIsRedeemingCode(false);
-    }
-  };
-
-  const handleAchievementIconChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      showToast('Por favor, seleciona um ficheiro de imagem válido.', 'warning');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setCropImageSrc(event.target?.result as string);
-      setZoom(1);
-      setOffsetX(0);
-      setOffsetY(0);
-      setShowCropModal(true);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleCropImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget;
-    const naturalWidth = img.naturalWidth;
-    const naturalHeight = img.naturalHeight;
-    setCropImageDimensions({ width: naturalWidth, height: naturalHeight });
-
-    const M = 200; // crop size
-    const scale = Math.max(M / naturalWidth, M / naturalHeight);
-    setCropBaseScale(scale);
-
-    img.style.width = `${naturalWidth * scale}px`;
-    img.style.height = `${naturalHeight * scale}px`;
-  };
-
-  const clampOffsets = (newOffsetX: number, newOffsetY: number, currentZoom: number) => {
-    const M = 200;
-    const C = 280;
-    const cropLeft = (C - M) / 2; // 40
-    const cropTop = (C - M) / 2; // 40
-
-    const w = cropImageDimensions.width * cropBaseScale * currentZoom;
-    const h = cropImageDimensions.height * cropBaseScale * currentZoom;
-
-    const x0 = (C - w) / 2;
-    const y0 = (C - h) / 2;
-
-    const minX = cropLeft + M - w - x0;
-    const maxX = cropLeft - x0;
-    const minY = cropTop + M - h - y0;
-    const maxY = cropTop - y0;
-
-    const clampedX = Math.min(Math.max(newOffsetX, minX), maxX);
-    const clampedY = Math.min(Math.max(newOffsetY, minY), maxY);
-
-    return { x: clampedX, y: clampedY };
-  };
-
-  const handleZoomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newZoom = parseFloat(e.target.value);
-    setZoom(newZoom);
-    const clamped = clampOffsets(offsetX, offsetY, newZoom);
-    setOffsetX(clamped.x);
-    setOffsetY(clamped.y);
-  };
-
-  const handleCropMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    setDragStart({ x: e.clientX - offsetX, y: e.clientY - offsetY });
-  };
-
-  const handleCropMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    const newOffsetX = e.clientX - dragStart.x;
-    const newOffsetY = e.clientY - dragStart.y;
-    const clamped = clampOffsets(newOffsetX, newOffsetY, zoom);
-    setOffsetX(clamped.x);
-    setOffsetY(clamped.y);
-  };
-
-  const handleCropMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleCropTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 1) {
-      setIsDragging(true);
-      setDragStart({
-        x: e.touches[0].clientX - offsetX,
-        y: e.touches[0].clientY - offsetY,
-      });
-    }
-  };
-
-  const handleCropTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging || e.touches.length !== 1) return;
-    const newOffsetX = e.touches[0].clientX - dragStart.x;
-    const newOffsetY = e.touches[0].clientY - dragStart.y;
-    const clamped = clampOffsets(newOffsetX, newOffsetY, zoom);
-    setOffsetX(clamped.x);
-    setOffsetY(clamped.y);
-  };
-
-  const handleCropTouchEnd = () => {
-    setIsDragging(false);
-  };
-
-  const handleConfirmCrop = () => {
-    if (!cropImageSrc) return;
-
-    const img = new Image();
-    img.src = cropImageSrc;
-    img.onload = () => {
-      const M = 200; // crop size
-      const C = 280;
-      const cropLeft = 40;
-      const cropTop = 40;
-
-      const w = cropImageDimensions.width * cropBaseScale * zoom;
-      const h = cropImageDimensions.height * cropBaseScale * zoom;
-
-      const x0 = (C - w) / 2;
-      const y0 = (C - h) / 2;
-
-      const actualX = x0 + offsetX;
-      const actualY = y0 + offsetY;
-
-      const relativeX = cropLeft - actualX;
-      const relativeY = cropTop - actualY;
-
-      const scaleFactor = cropBaseScale * zoom;
-      const sourceX = relativeX / scaleFactor;
-      const sourceY = relativeY / scaleFactor;
-      const sourceWidth = M / scaleFactor;
-      const sourceHeight = M / scaleFactor;
-
-      const canvas = document.createElement('canvas');
-      canvas.width = 150;
-      canvas.height = 150;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(
-          img,
-          sourceX, sourceY, sourceWidth, sourceHeight,
-          0, 0, 150, 150
-        );
-        const croppedBase64 = canvas.toDataURL('image/png');
-        setEditAchievementBadgeUrl(croppedBase64);
-        showToast('Ícone da conquista recortado e ajustado!', 'success');
-      }
-
-      setShowCropModal(false);
-      setCropImageSrc('');
-    };
-  };
-
-  const selectAchievementForEdit = (ach: any) => {
-    setEditingAchievement(ach);
-    setEditAchievementName(ach.name);
-    setEditAchievementDescription(ach.description);
-    setEditAchievementBadgeUrl(ach.badgeImageUrl || '');
-    setEditAchievementRarity(ach.rarity || 'COMMON');
-  };
-
-  const handleSaveAchievement = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingAchievement) return;
-    if (!editAchievementName.trim() || !editAchievementDescription.trim()) {
-      showToast('Nome e descrição são obrigatórios.', 'warning');
-      return;
-    }
-    setIsSavingAchievement(true);
-    try {
-      const res = await customFetch(`${API_BASE_URL}/user/admin/achievements/${editingAchievement.id}`, {
-        method: 'PATCH',
-        headers: getHeaders(),
-        body: JSON.stringify({
-          name: editAchievementName,
-          description: editAchievementDescription,
-          badgeImageUrl: editAchievementBadgeUrl || null,
-          rarity: editAchievementRarity
-        })
-      });
-      if (res.ok) {
-        showToast('Conquista atualizada com sucesso!', 'success');
-        setEditingAchievement(null);
-        setEditAchievementName('');
-        setEditAchievementDescription('');
-        setEditAchievementBadgeUrl('');
-        setEditAchievementRarity('COMMON');
-        fetchCatalog();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        showToast(err.message || 'Falha ao atualizar conquista.', 'error');
-      }
-    } catch (err: any) {
-      showToast(`Erro: ${err.message || err}`, 'error');
-    } finally {
-      setIsSavingAchievement(false);
-    }
-  };
-
   const getHeaders = () => ({
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${token}`
@@ -700,19 +362,6 @@ const ProfilePage = () => {
     }
   };
 
-  // Fetch Achievements Catalog
-  const fetchCatalog = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/user/achievements/catalog`);
-      if (res.ok) {
-        const data = await res.json();
-        setCatalog(data);
-      }
-    } catch (e) {
-      console.error('Error loading achievements catalog:', e);
-    }
-  };
-
   // Fetch details of top favorites from AniList/cache (Now pre-populated locally by backend)
   const fetchFavoriteDetails = () => {
     if (!profile?.topFavorites) return;
@@ -729,7 +378,6 @@ const ProfilePage = () => {
 
   useEffect(() => {
     fetchProfile();
-    fetchCatalog();
     fetchRecentActivity();
   }, [token]);
 
@@ -1348,10 +996,6 @@ const ProfilePage = () => {
                 <span className="bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-label-sm font-bold border border-red-500/30 shadow-sm animate-pulse flex items-center gap-1">
                   <Shield className="w-3.5 h-3.5" /> ADMIN
                 </span>
-              ) : user?.tipoConta === 'pro' ? (
-                <span className="bg-secondary/20 text-secondary px-3 py-1 rounded-full text-label-sm font-bold border border-secondary/30 shadow-sm flex items-center gap-1">
-                  <Award className="w-3.5 h-3.5" /> PRO TIER
-                </span>
               ) : (
                 <span className="bg-gray-500/20 text-gray-400 px-3 py-1 rounded-full text-label-sm font-bold border border-gray-500/40 shadow-sm flex items-center gap-1">
                   <User className="w-3.5 h-3.5" /> MEMBRO
@@ -1361,11 +1005,6 @@ const ProfilePage = () => {
             {profile?.preferences?.bio && (
               <p className="font-body-md text-on-surface-variant max-w-2xl text-xs md:text-sm leading-relaxed">
                 {profile.preferences.bio}
-              </p>
-            )}
-            {profile?.subscription?.status === 'ACTIVE' && (
-              <p className="text-xs text-amber-400 font-bold flex items-center justify-center md:justify-start gap-1 drop-shadow mt-1">
-                <Clock className="w-3.5 h-3.5 text-amber-500 animate-pulse" /> Premium válido até {new Date(profile.subscription.currentPeriodEnd).toLocaleDateString('pt-PT')}
               </p>
             )}
           </div>
@@ -1395,7 +1034,7 @@ const ProfilePage = () => {
             }`}
           >
             <Award className="w-4 h-4" />
-            <span>Perfil & Conquistas</span>
+            <span>Perfil</span>
           </button>
 
           <button 
@@ -1437,11 +1076,10 @@ const ProfilePage = () => {
       {/* 4. Tab Contents */}
       <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop mt-8">
         
-        {/* TAB 1: DASHBOARD (Perfil & Conquistas) */}
+        {/* TAB 1: DASHBOARD (Perfil) */}
         {!loadingProfile && activeTab === 'dashboard' && profile && (
           <DashboardTab
             profile={profile}
-            catalog={catalog}
             favoritePodiumType={favoritePodiumType}
             setFavoritePodiumType={setFavoritePodiumType}
             favoriteDetails={favoriteDetails}
@@ -1451,12 +1089,6 @@ const ProfilePage = () => {
             setShowDetailedStatsModal={setShowDetailedStatsModal}
             openFavoritesSearch={openFavoritesSearch}
             handleRemoveFavorite={handleRemoveFavorite}
-            user={user}
-            customFetch={customFetch}
-            API_BASE_URL={API_BASE_URL}
-            showToast={showToast}
-            fetchCatalog={fetchCatalog}
-            fetchProfile={fetchProfile}
             navigate={navigate}
           />
         )}
@@ -1486,10 +1118,6 @@ const ProfilePage = () => {
             logout={logout}
             ALL_GENRES={ALL_GENRES}
             handleToggleGenre={handleToggleGenre}
-            redeemCodeInput={redeemCodeInput}
-            setRedeemCodeInput={setRedeemCodeInput}
-            handleRedeemCode={handleRedeemCode}
-            isRedeemingCode={isRedeemingCode}
             isExporting={isExporting}
             handleExportBackup={handleExportBackup}
             setShowRestoreModal={setShowRestoreModal}
@@ -1510,27 +1138,10 @@ const ProfilePage = () => {
             user={user}
             handleUpdateUserRole={handleUpdateUserRole}
             adminSyncLogs={adminSyncLogs}
-            handleAdminSeedAchievements={handleAdminSeedAchievements}
-            isSeedingAchievements={isSeedingAchievements}
-            setShowManageAchievementsModal={setShowManageAchievementsModal}
             fetchAdminData={fetchAdminData}
             syncStatus={syncStatus}
             triggerManualReleaseSync={triggerManualReleaseSync}
             releaseSyncError={releaseSyncError}
-            giftDays={giftDays}
-            setGiftDays={setGiftDays}
-            giftCustomCode={giftCustomCode}
-            setGiftCustomCode={setGiftCustomCode}
-            giftExpiresAt={giftExpiresAt}
-            setGiftExpiresAt={setGiftExpiresAt}
-            isGeneratingGift={isGeneratingGift}
-            handleGenerateGiftCode={handleGenerateGiftCode}
-            adminGiftSearch={adminGiftSearch}
-            setAdminGiftSearch={setAdminGiftSearch}
-            adminGiftCodes={adminGiftCodes}
-            adminSubscriptions={adminSubscriptions}
-            adminSubSearch={adminSubSearch}
-            setAdminSubSearch={setAdminSubSearch}
           />
         )}
       </div>
@@ -2270,280 +1881,6 @@ const ProfilePage = () => {
                     <span>SIM, APAGAR MANGÁS</span>
                   </>
                 )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Manage Achievements Modal */}
-      {showManageAchievementsModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="glass-panel w-full max-w-4xl p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-primary/10 to-transparent rounded-full blur-3xl pointer-events-none"></div>
-
-            <div className="flex justify-between items-center border-b border-white/5 pb-4">
-              <div className="space-y-1">
-                <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                  <Award className="w-6 h-6 text-amber-400" />
-                  <span>Gerir Conquistas</span>
-                </h3>
-                <p className="text-xs text-gray-400">
-                  Visualiza e edita os detalhes das conquistas registadas no sistema.
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setShowManageAchievementsModal(false);
-                  setEditingAchievement(null);
-                }}
-                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white transition-all text-xs font-bold"
-              >
-                Fechar
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Left Column: Achievement List */}
-              <div className="lg:col-span-7 space-y-4">
-                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Lista de Conquistas ({catalog.length})</h4>
-                <div className="max-h-[380px] overflow-y-auto space-y-3 pr-2 rounded-xl border border-white/5 bg-black/30 p-3">
-                  {catalog.map((ach) => {
-                    const isEditingThis = editingAchievement?.id === ach.id;
-                    return (
-                      <div
-                        key={ach.id}
-                        onClick={() => selectAchievementForEdit(ach)}
-                        className={`p-3 rounded-xl border transition-all flex items-center justify-between gap-3 cursor-pointer ${
-                          isEditingThis
-                            ? 'border-primary/50 bg-primary/10'
-                            : 'border-white/5 bg-white/[0.02] hover:bg-white/5 hover:border-white/10'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-full bg-white/5 p-1 flex items-center justify-center flex-shrink-0">
-                            {ach.badgeImageUrl ? (
-                              <img src={ach.badgeImageUrl} className="w-full h-full object-contain" alt={ach.name} />
-                            ) : (
-                              <Award className="w-6 h-6 text-primary" />
-                            )}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h5 className="font-bold text-sm text-white">{ach.name}</h5>
-                              {getRarityBadge(ach.rarity)}
-                            </div>
-                            <p className="text-[10px] text-gray-400 line-clamp-1 mt-0.5">{ach.description}</p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-primary hover:text-on-primary hover:border-primary text-[10px] font-bold text-white transition-all"
-                        >
-                          Editar
-                        </button>
-                      </div>
-                    );
-                  })}
-                  {catalog.length === 0 && (
-                    <div className="text-center py-8 text-gray-500 text-xs font-medium">
-                      Nenhuma conquista encontrada. Clica em "Repovoar Conquistas" para semear.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Right Column: Edit Form */}
-              <div className="lg:col-span-5 space-y-4">
-                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  {editingAchievement ? 'Editar Detalhes' : 'Selecione para Editar'}
-                </h4>
-                {editingAchievement ? (
-                  <form onSubmit={handleSaveAchievement} className="space-y-4 bg-white/[0.01] border border-white/5 p-4 rounded-xl">
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Nome da Conquista</label>
-                      <input
-                        type="text"
-                        value={editAchievementName}
-                        onChange={(e) => setEditAchievementName(e.target.value)}
-                        className="w-full bg-black/40 text-white font-bold p-2.5 rounded-lg border border-white/10 outline-none text-xs focus:border-primary"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Descrição</label>
-                      <textarea
-                        value={editAchievementDescription}
-                        onChange={(e) => setEditAchievementDescription(e.target.value)}
-                        rows={2}
-                        className="w-full bg-black/40 text-white font-medium p-2.5 rounded-lg border border-white/10 outline-none text-xs focus:border-primary resize-none"
-                        required
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Raridade</label>
-                        <select
-                          value={editAchievementRarity}
-                          onChange={(e) => setEditAchievementRarity(e.target.value)}
-                          className="w-full bg-black/40 text-white font-bold p-2.5 rounded-lg border border-white/10 outline-none text-xs cursor-pointer focus:border-primary"
-                        >
-                          <option value="COMMON">Comum</option>
-                          <option value="RARE">Raro</option>
-                          <option value="EPIC">Épico</option>
-                          <option value="LEGENDARY">Lendário</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Carregar Ícone</label>
-                        <input
-                          type="file"
-                          id="achievement-icon-file"
-                          accept="image/*"
-                          onChange={handleAchievementIconChange}
-                          className="hidden"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => document.getElementById('achievement-icon-file')?.click()}
-                          className="w-full py-2.5 px-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5"
-                        >
-                          <Upload className="w-3.5 h-3.5 text-primary" />
-                          <span>Upload Icon</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">URL do Ícone (Alternativo)</label>
-                      <div className="flex gap-2 items-center">
-                        <input
-                          type="text"
-                          value={editAchievementBadgeUrl}
-                          onChange={(e) => setEditAchievementBadgeUrl(e.target.value)}
-                          className="flex-1 bg-black/40 text-white font-mono p-2 rounded-lg border border-white/10 outline-none text-[10px] focus:border-primary"
-                          placeholder="EX: https://..."
-                        />
-                        {editAchievementBadgeUrl && (
-                          <div className="w-8 h-8 rounded-full bg-white/5 p-0.5 flex items-center justify-center flex-shrink-0 border border-white/10">
-                            <img src={editAchievementBadgeUrl} className="w-full h-full object-contain rounded-full" alt="Preview" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2 pt-2 border-t border-white/5">
-                      <button
-                        type="button"
-                        onClick={() => setEditingAchievement(null)}
-                        className="flex-1 py-2 rounded-lg bg-surface-variant/30 text-on-surface-variant hover:text-white text-xs font-bold transition-all border border-white/5"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={isSavingAchievement}
-                        className="flex-1 py-2 rounded-lg bg-primary hover:opacity-90 text-white text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow"
-                      >
-                        {isSavingAchievement ? (
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Check className="w-3.5 h-3.5" />
-                        )}
-                        <span>Salvar</span>
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  <div className="border border-dashed border-white/10 rounded-xl p-8 text-center text-gray-500 text-xs flex flex-col items-center justify-center gap-2 bg-black/10 min-h-[220px]">
-                    <Award className="w-8 h-8 text-gray-600" />
-                    <span>Seleciona uma conquista na lista para editar os seus detalhes.</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Image Crop Modal */}
-      {showCropModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="glass-panel w-full max-w-md p-6 rounded-[32px] border border-white/10 space-y-6 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col items-center">
-            <div className="space-y-1 text-center w-full">
-              <h3 className="text-lg font-black text-white flex items-center justify-center gap-2">
-                <span className="material-symbols-outlined text-amber-400">crop</span>
-                <span>Ajustar Ícone da Conquista</span>
-              </h3>
-              <p className="text-xs text-gray-400">Arraste a imagem para reposicionar e use a barra para fazer zoom.</p>
-            </div>
-
-            {/* Crop Interactive Area */}
-            <div 
-              className="w-[280px] h-[280px] bg-black/40 border border-white/15 rounded-2xl overflow-hidden relative flex items-center justify-center cursor-move select-none"
-              onMouseDown={handleCropMouseDown}
-              onMouseMove={handleCropMouseMove}
-              onMouseUp={handleCropMouseUp}
-              onMouseLeave={handleCropMouseUp}
-              onTouchStart={handleCropTouchStart}
-              onTouchMove={handleCropTouchMove}
-              onTouchEnd={handleCropTouchEnd}
-            >
-              {/* Scaled/Positioned Image */}
-              {cropImageSrc && (
-                <img
-                  src={cropImageSrc}
-                  alt="Crop Target"
-                  id="crop-image-element"
-                  className="absolute max-w-none origin-center pointer-events-none"
-                  style={{
-                    transform: `translate(${offsetX}px, ${offsetY}px) scale(${zoom})`,
-                  }}
-                  onLoad={handleCropImageLoad}
-                />
-              )}
-
-              {/* Circular overlay mask */}
-              <div className="w-[200px] h-[200px] rounded-full border-2 border-amber-500 border-dashed absolute pointer-events-none shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]"></div>
-            </div>
-
-            {/* Zoom Slider */}
-            <div className="w-full flex items-center gap-3 px-4">
-              <span className="material-symbols-outlined text-gray-400 text-sm">zoom_out</span>
-              <input
-                type="range"
-                min="1"
-                max="3"
-                step="0.01"
-                value={zoom}
-                onChange={handleZoomChange}
-                className="flex-1 accent-amber-500 bg-black/40 h-2 rounded-lg cursor-pointer"
-              />
-              <span className="material-symbols-outlined text-gray-400 text-sm">zoom_in</span>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-3 w-full border-t border-white/5 pt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCropModal(false);
-                  setCropImageSrc('');
-                }}
-                className="flex-1 py-2.5 rounded-xl bg-surface-variant/30 text-on-surface-variant hover:text-white text-xs font-bold transition-all border border-white/5"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmCrop}
-                className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow"
-              >
-                <span className="material-symbols-outlined text-xs">check</span>
-                <span>Confirmar</span>
               </button>
             </div>
           </div>

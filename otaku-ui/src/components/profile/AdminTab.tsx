@@ -1,6 +1,6 @@
 import React from 'react';
 import { 
-  Database, RefreshCw, Award, Search, 
+  Database, RefreshCw, Search, 
   Film, BookOpen, AlertCircle, User
 } from 'lucide-react';
 
@@ -13,27 +13,10 @@ interface AdminTabProps {
   user: any;
   handleUpdateUserRole: (userId: number, role: string) => void;
   adminSyncLogs: any[];
-  handleAdminSeedAchievements: () => void;
-  isSeedingAchievements: boolean;
-  setShowManageAchievementsModal: (show: boolean) => void;
   fetchAdminData: () => void;
   syncStatus: any;
   triggerManualReleaseSync: () => void;
   releaseSyncError: string | null;
-  giftDays: number;
-  setGiftDays: (val: number) => void;
-  giftCustomCode: string;
-  setGiftCustomCode: (val: string) => void;
-  giftExpiresAt: string;
-  setGiftExpiresAt: (val: string) => void;
-  isGeneratingGift: boolean;
-  handleGenerateGiftCode: (e: React.FormEvent) => void;
-  adminGiftSearch: string;
-  setAdminGiftSearch: (val: string) => void;
-  adminGiftCodes: any[];
-  adminSubscriptions: any[];
-  adminSubSearch: string;
-  setAdminSubSearch: (val: string) => void;
 }
 
 export const AdminTab: React.FC<AdminTabProps> = ({
@@ -45,9 +28,6 @@ export const AdminTab: React.FC<AdminTabProps> = ({
   user,
   handleUpdateUserRole,
   adminSyncLogs,
-  handleAdminSeedAchievements,
-  isSeedingAchievements,
-  setShowManageAchievementsModal,
   fetchAdminData,
   syncStatus,
   triggerManualReleaseSync,
@@ -94,23 +74,6 @@ export const AdminTab: React.FC<AdminTabProps> = ({
             </h3>
             
             <div className="flex flex-wrap gap-4">
-              <button
-                type="button"
-                onClick={handleAdminSeedAchievements}
-                disabled={isSeedingAchievements}
-                className="px-5 py-3 rounded-xl bg-surface-variant/30 hover:bg-white/10 border border-white/5 text-white font-bold text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-              >
-                {isSeedingAchievements ? <RefreshCw className="w-4 h-4 animate-spin text-primary" /> : <Award className="w-4 h-4 text-primary-light" />}
-                <span>Repovoar Conquistas</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowManageAchievementsModal(true)}
-                className="px-5 py-3 rounded-xl bg-gradient-to-r from-primary/80 to-primary hover:from-primary hover:to-primary-dark text-on-primary font-bold text-xs sm:text-sm flex items-center gap-2 transition-all active:scale-95 shadow-md shadow-primary/20 cursor-pointer"
-              >
-                <Award className="w-4 h-4 text-white" />
-                <span>Gerir Conquistas</span>
-              </button>
               <button
                 type="button"
                 onClick={fetchAdminData}

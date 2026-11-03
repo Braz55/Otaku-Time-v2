@@ -1,6 +1,6 @@
 import React from 'react';
 import { 
-  Smartphone, Heart, User, Award, Database, 
+  Smartphone, Heart, User, Database, 
   Download, Upload, RefreshCw 
 } from 'lucide-react';
 
@@ -27,10 +27,6 @@ interface AccountTabProps {
   logout: () => void;
   ALL_GENRES: string[];
   handleToggleGenre: (genre: string) => void;
-  redeemCodeInput: string;
-  setRedeemCodeInput: (val: string) => void;
-  handleRedeemCode: (e: React.FormEvent) => void;
-  isRedeemingCode: boolean;
   isExporting: boolean;
   handleExportBackup: () => void;
   setShowRestoreModal: (show: boolean) => void;
@@ -62,10 +58,6 @@ export const AccountTab: React.FC<AccountTabProps> = ({
   logout,
   ALL_GENRES,
   handleToggleGenre,
-  redeemCodeInput,
-  setRedeemCodeInput,
-  handleRedeemCode,
-  isRedeemingCode,
   isExporting,
   handleExportBackup,
   setShowRestoreModal,
@@ -325,38 +317,6 @@ export const AccountTab: React.FC<AccountTabProps> = ({
               </button>
             );
           })}
-        </div>
-      </div>
-
-      {/* Premium Code Redeem Card */}
-      <div className="glass-panel p-6 sm:p-8 rounded-[32px] border border-white/10 space-y-6 shadow-xl lg:col-span-2">
-        <h3 className="font-headline-lg text-lg md:text-xl text-white flex items-center gap-2.5 mb-2">
-          <Award className="w-5 h-5 text-amber-500 animate-pulse" />
-          <span>Resgatar Código Premium</span>
-        </h3>
-        <div className="space-y-4">
-          <p className="text-xs text-on-surface-variant">Introduz um código promocional ou de Gift Card para ativares ou prolongares o teu Premium tier.</p>
-          <form onSubmit={handleRedeemCode} className="flex flex-col sm:flex-row gap-4 items-end">
-            <div className="space-y-2 flex-1 w-full">
-              <label className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Código de Resgate</label>
-              <input 
-                type="text" 
-                value={redeemCodeInput} 
-                onChange={(e) => setRedeemCodeInput(e.target.value)} 
-                className="w-full bg-black/40 text-white font-black p-3 rounded-xl border border-white/10 focus:border-primary outline-none transition-all uppercase placeholder-gray-600"
-                placeholder="EX: OTAKU-XXXX-XXXX"
-                disabled={isRedeemingCode}
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={isRedeemingCode || !redeemCodeInput.trim()}
-              className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-primary hover:from-amber-600 hover:to-primary-dark text-white font-bold text-xs sm:text-sm transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg cursor-pointer"
-            >
-              {isRedeemingCode ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Award className="w-4 h-4" />}
-              <span>Ativar Premium</span>
-            </button>
-          </form>
         </div>
       </div>
 

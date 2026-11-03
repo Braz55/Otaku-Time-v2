@@ -16,10 +16,7 @@ import { AdminGuard } from '../auth/guards/admin.guard';
 import { RestoreBackupDto } from './dto/restore-backup.dto';
 import { SetFavoriteDto } from './dto/set-favorite.dto';
 import { UpdateUserStatisticsDto } from './dto/update-statistics.dto';
-import { UnlockAchievementDto } from './dto/unlock-achievement.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
-import { CreateAchievementDto } from './dto/create-achievement.dto';
-import { UpdateAchievementDto } from './dto/update-achievement.dto';
 
 @Controller('user')
 export class UserController {
@@ -114,33 +111,6 @@ export class UserController {
     return this.userService.updateStatistics(req.user.userId, statsData);
   }
 
-  // --- Conquistas ---
-  @UseGuards(JwtAuthGuard)
-  @Get('achievements')
-  getAchievements(@Request() req) {
-    return this.userService.getAchievements(req.user.userId);
-  }
-
-  @Get('achievements/catalog')
-  getAchievementCatalog() {
-    return this.userService.getAchievementCatalog();
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Post('achievements/unlock')
-  unlockAchievement(@Request() req, @Body() body: UnlockAchievementDto) {
-    return this.userService.unlockAchievement(
-      req.user.userId,
-      body.achievementId,
-    );
-  }
-
-  @UseGuards(JwtAuthGuard, AdminGuard)
-  @Post('achievements/seed')
-  seedAchievements() {
-    return this.userService.seedAchievements();
-  }
-
   // --- Rotas Administrativas ---
   @UseGuards(JwtAuthGuard, AdminGuard)
   @Get('admin/stats')
@@ -164,26 +134,5 @@ export class UserController {
   @Get('admin/sync-logs')
   getSyncLogs() {
     return this.userService.getSyncLogs();
-  }
-
-
-
-  @UseGuards(JwtAuthGuard, AdminGuard)
-  @Post('admin/achievements')
-  createAchievement(
-    @Body()
-    data: CreateAchievementDto,
-  ) {
-    return this.userService.createAchievement(data);
-  }
-
-  @UseGuards(JwtAuthGuard, AdminGuard)
-  @Patch('admin/achievements/:id')
-  updateAchievement(
-    @Param('id') id: string,
-    @Body()
-    data: UpdateAchievementDto,
-  ) {
-    return this.userService.updateAchievement(+id, data);
   }
 }

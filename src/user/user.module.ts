@@ -4,7 +4,6 @@ import { UserController } from './user.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { BackfillStatsService } from './backfill-stats.service';
 import { BackupService } from './backup.service';
-import { AchievementService } from './achievement.service';
 
 @Module({
   imports: [PrismaModule],
@@ -13,12 +12,10 @@ import { AchievementService } from './achievement.service';
     UserService,
     BackfillStatsService,
     BackupService,
-    AchievementService,
   ],
   exports: [
     UserService,
     BackupService,
-    AchievementService,
   ],
 })
 export class UserModule {}

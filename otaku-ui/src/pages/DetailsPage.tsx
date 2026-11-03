@@ -3,7 +3,7 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMedia } from '../context/MediaContext';
 import { useToast } from '../context/ToastContext';
-import { Loader2, Smartphone, Award, BookOpen, Clock, Film, PlayCircle, Shield, User, X } from 'lucide-react';
+import { Loader2, Smartphone, BookOpen, Clock, Film, PlayCircle, Shield, User, X } from 'lucide-react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
@@ -2394,60 +2394,6 @@ const DetailsPage = () => {
                         <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Tempo Mangá</span>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <Award className="w-4 h-4 text-amber-400" />
-                      <span>Conquistas Otaku ({externalProfile.achievements?.length || 0})</span>
-                    </h3>
-                    
-                    {externalProfile.achievements && externalProfile.achievements.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {externalProfile.achievements.map((ua: any) => {
-                          const ach = ua.achievement;
-                          if (!ach) return null;
-                          let borderClass = 'border-white/5 bg-black/40';
-                          if (ach.rarity === 'RARE') borderClass = 'border-cyan-500/20 bg-cyan-500/5';
-                          else if (ach.rarity === 'EPIC') borderClass = 'border-purple-500/20 bg-purple-500/5';
-                          else if (ach.rarity === 'LEGENDARY') borderClass = 'border-amber-500/20 bg-amber-500/5';
-                          else borderClass = 'border-primary/20 bg-primary/5';
-
-                          return (
-                            <div key={ua.id} className={`glass-panel p-3.5 rounded-2xl border flex items-start gap-3 transition-all ${borderClass}`}>
-                              <div className="w-12 h-12 rounded-full bg-white/5 p-1 relative flex items-center justify-center flex-shrink-0">
-                                {ach.badgeImageUrl ? (
-                                  <img src={ach.badgeImageUrl} className="w-full h-full object-contain" alt={ach.name} />
-                                ) : (
-                                  <Award className="w-6 h-6 text-primary" />
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <h5 className="font-bold text-xs sm:text-sm text-white flex items-center gap-1.5 flex-wrap">
-                                  <span>{ach.name}</span>
-                                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-black tracking-wider ${
-                                    ach.rarity === 'RARE' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' :
-                                    ach.rarity === 'EPIC' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
-                                    ach.rarity === 'LEGENDARY' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse' :
-                                    'bg-primary/20 text-primary-light border border-primary/30'
-                                  }`}>
-                                    {ach.rarity}
-                                  </span>
-                                </h5>
-                                <p className="text-[10px] text-gray-500 mt-1 line-clamp-2 leading-tight">{ach.description}</p>
-                                <span className="inline-block text-[8px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 mt-1.5">
-                                  Ganho {new Date(ua.unlockedAt).toLocaleDateString('pt-PT')}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-center py-6 bg-white/5 rounded-2xl border border-white/5 text-xs text-gray-400 italic">
-                        Este utilizador ainda não desbloqueou nenhuma conquista.
-                      </p>
-                    )}
                   </div>
                 </div>
               </div>

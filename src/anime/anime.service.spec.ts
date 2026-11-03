@@ -7,6 +7,7 @@ import { AniListService } from './anilist.service';
 import { RecommendationService } from './recommendation.service';
 import { TVTimeImportService } from './tvtime-import.service';
 import { CalendarService } from './calendar.service';
+import { NotificationService } from '../notification/notification.service';
 
 describe('AnimeService', () => {
   let service: AnimeService;
@@ -36,10 +37,6 @@ describe('AnimeService', () => {
     },
     userStatistics: {
       upsert: jest.fn(),
-    },
-    userAchievement: {
-      findMany: jest.fn(),
-      create: jest.fn(),
     },
     userTopFavorite: {
       count: jest.fn(),
@@ -89,6 +86,10 @@ describe('AnimeService', () => {
         {
           provide: TMDBService,
           useValue: mockTMDBService,
+        },
+        {
+          provide: NotificationService,
+          useValue: { createOrReplaceNotification: jest.fn() },
         },
       ],
     }).compile();

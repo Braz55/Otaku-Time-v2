@@ -88,12 +88,6 @@ async function main() {
     prisma.media.createMany({ data: batch, skipDuplicates: true })
   );
 
-  // 5. Achievement
-  await loadTable('Achievement', dump.Achievement, (batch) =>
-    prisma.achievement.createMany({ data: batch, skipDuplicates: true })
-  );
-  await resetSequence('Achievement');
-
   // 6. GenreTag
   await loadTable('GenreTag', dump.GenreTag, (batch) =>
     prisma.genreTag.createMany({ data: batch, skipDuplicates: true })
@@ -121,11 +115,6 @@ async function main() {
   // 13. UserStatistics
   await loadTable('UserStatistics', dump.UserStatistics, (batch) =>
     prisma.userStatistics.createMany({ data: batch, skipDuplicates: true })
-  );
-
-  // 14. UserAchievement
-  await loadTable('UserAchievement', dump.UserAchievement, (batch) =>
-    prisma.userAchievement.createMany({ data: batch, skipDuplicates: true })
   );
 
   // 16. UserRating

@@ -6,17 +6,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { RestoreBackupDto } from './dto/restore-backup.dto';
 import { UpdateUserStatisticsDto } from './dto/update-statistics.dto';
-import { CreateAchievementDto } from './dto/create-achievement.dto';
-import { UpdateAchievementDto } from './dto/update-achievement.dto';
 import { BackupService } from './backup.service';
-import { AchievementService } from './achievement.service';
 
 @Injectable()
 export class UserService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly backupService: BackupService,
-    private readonly achievementService: AchievementService,
 ) {}
 
   // -------------------------------------------------------------
@@ -41,30 +37,6 @@ export class UserService {
 
   async getAniListMangaById(id: number) {
     return this.backupService.getAniListMangaById(id);
-  }
-
-  async getAchievements(userId: number) {
-    return this.achievementService.getAchievements(userId);
-  }
-
-  async getAchievementCatalog() {
-    return this.achievementService.getAchievementCatalog();
-  }
-
-  async unlockAchievement(userId: number, achievementId: number) {
-    return this.achievementService.unlockAchievement(userId, achievementId);
-  }
-
-  async seedAchievements() {
-    return this.achievementService.seedAchievements();
-  }
-
-  async createAchievement(data: CreateAchievementDto) {
-    return this.achievementService.createAchievement(data);
-  }
-
-  async updateAchievement(id: number, data: UpdateAchievementDto) {
-    return this.achievementService.updateAchievement(id, data);
   }
 
   // -------------------------------------------------------------
@@ -273,12 +245,6 @@ export class UserService {
         topFavorites: {
           orderBy: { rankPosition: 'asc' },
         },
-        achievements: {
-          include: {
-            achievement: true,
-          },
-          orderBy: { unlockedAt: 'desc' },
-        },
       },
     });
 
@@ -414,12 +380,6 @@ export class UserService {
 
     if (!currentUser) {
       throw new BadRequestException('Utilizador não encontrado.');
-    }
-
-    if (currentUser.tipoConta === 'pro' && tipoConta === 'padrao') {
-      throw new BadRequestException(
-        'Não é permitido despromover um utilizador Pro para Padrão, pois trata-se de um serviço pago.',
-      );
     }
 
     const user = await this.prisma.user.update({

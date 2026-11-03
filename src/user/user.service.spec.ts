@@ -4,7 +4,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { BackupService } from './backup.service';
-import { AchievementService } from './achievement.service';
 
 describe('UserService', () => {
   let service: UserService;
@@ -39,7 +38,6 @@ describe('UserService', () => {
       providers: [
         UserService,
         BackupService,
-        AchievementService,
         {
           provide: PrismaService,
           useValue: mockPrismaService,
@@ -169,7 +167,6 @@ describe('UserService', () => {
         id: 1,
         statistics: {},
         topFavorites: [],
-        achievements: [],
       });
       await service.getUserProfile(1);
       expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({

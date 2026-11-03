@@ -1,12 +1,11 @@
 import React from 'react';
 import { 
-  Smartphone, Award, BarChart3, ChevronDown, ChevronUp, 
+  Smartphone, BarChart3, ChevronDown, ChevronUp, 
   Trash2, Plus 
 } from 'lucide-react';
 
 interface DashboardTabProps {
   profile: any;
-  catalog: any[];
   favoritePodiumType: 'ANIME' | 'MANGA';
   setFavoritePodiumType: (type: 'ANIME' | 'MANGA') => void;
   favoriteDetails: Record<string, { title: string; coverUrl: string }>;
@@ -16,20 +15,11 @@ interface DashboardTabProps {
   setShowDetailedStatsModal: (show: boolean) => void;
   openFavoritesSearch: (mediaType: 'anime' | 'manga', rank: number) => void;
   handleRemoveFavorite: (mediaType: 'ANIME' | 'MANGA', rank: number) => void;
-  handleAdminSeedAchievements?: () => void;
-  isSeedingAchievements?: boolean;
-  user: any;
-  customFetch: any;
-  API_BASE_URL: string;
-  showToast: any;
-  fetchCatalog: () => void;
-  fetchProfile: () => void;
   navigate: any;
 }
 
 export const DashboardTab: React.FC<DashboardTabProps> = ({
   profile,
-  catalog,
   favoritePodiumType,
   setFavoritePodiumType,
   favoriteDetails,
@@ -39,24 +29,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   setShowDetailedStatsModal,
   openFavoritesSearch,
   handleRemoveFavorite,
-  user,
-  customFetch,
-  API_BASE_URL,
-  showToast,
-  fetchCatalog,
-  fetchProfile,
   navigate,
 }) => {
-  const isUnlocked = (achievementId: number) => {
-    return profile?.achievements?.some((ua: any) => ua.achievementId === achievementId);
-  };
-
-  const getUnlockDate = (achievementId: number) => {
-    const record = profile?.achievements?.find((ua: any) => ua.achievementId === achievementId);
-    if (!record?.unlockedAt) return '';
-    return new Date(record.unlockedAt).toLocaleDateString('pt-PT');
-  };
-
   const getRelativeTime = (dateStr?: string) => {
     if (!dateStr) return 'Recentemente';
     try {
@@ -145,7 +119,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   return (
     <div className="grid grid-cols-12 gap-6 md:gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Left Column: Stats & Conquistas */}
+      {/* Left Column: Stats */}
       <div className="col-span-12 lg:col-span-4 space-y-6 md:space-y-8">
         
         {/* Stats Card */}
@@ -199,77 +173,6 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               <span>Ver Estatísticas Detalhadas</span>
             </button>
           </div>
-        </div>
-
-        {/* Achievements Gallery */}
-        <div className="glass-panel p-6 rounded-[32px] border border-white/10 space-y-6 shadow-xl relative overflow-hidden">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="font-headline-lg text-lg md:text-xl text-white">Conquistas</h3>
-            <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded-full">
-              {profile.achievements?.length || 0}/{catalog.length || 5}
-            </span>
-          </div>
-          
-          {catalog.length > 0 ? (
-            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide no-scrollbar md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-4 md:overflow-visible">
-              {catalog.map(ach => {
-                const unlocked = isUnlocked(ach.id);
-                let borderClass = 'border-white/5 bg-black/40 grayscale opacity-45';
-                if (unlocked) {
-                  if (ach.rarity === 'RARE') borderClass = 'border-cyan-500/20 bg-cyan-500/5 hover:scale-[1.02] shadow-[0_0_15px_rgba(6,182,212,0.2)]';
-                  else if (ach.rarity === 'EPIC') borderClass = 'border-purple-500/20 bg-purple-500/5 hover:scale-[1.02] shadow-[0_0_15px_rgba(139,92,246,0.2)]';
-                  else if (ach.rarity === 'LEGENDARY') borderClass = 'border-amber-500/20 bg-amber-500/5 hover:scale-[1.02] shadow-[0_0_15px_rgba(245,158,11,0.2)]';
-                  else borderClass = 'border-primary/20 bg-primary/5 hover:scale-[1.02]';
-                }
-                return (
-                  <div 
-                    key={ach.id} 
-                    className={`flex-shrink-0 flex flex-col items-center w-20 md:w-auto md:p-3.5 glass-panel border rounded-2xl transition-all group relative ${borderClass}`}
-                    title={`${ach.name}: ${ach.description}${unlocked ? ` (Ganho em: ${getUnlockDate(ach.id)})` : ''}`}
-                  >
-                    <div className="w-12 h-12 rounded-full bg-white/5 p-1 relative flex items-center justify-center mb-1.5 flex-shrink-0">
-                      {ach.badgeImageUrl ? (
-                        <img src={ach.badgeImageUrl} className="w-full h-full object-contain rounded-full" alt="" />
-                      ) : (
-                        <Award className="w-6 h-6 text-primary" />
-                      )}
-                      {!unlocked && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full">
-                          <span className="material-symbols-outlined text-white !text-xs">lock</span>
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-[9px] font-bold text-white text-center tracking-tight leading-tight line-clamp-1 w-full uppercase">{ach.name}</span>
-                    {unlocked && (
-                      <span className="hidden md:inline-block text-[8px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 mt-1">
-                        Ganho
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-6 bg-white/5 rounded-2xl border border-white/5 space-y-3">
-              <p className="text-xs italic text-gray-500">Nenhuma conquista registada.</p>
-              {user?.tipoConta === 'ADMIN' && (
-                <button 
-                  type="button"
-                  onClick={async () => {
-                    const res = await customFetch(`${API_BASE_URL}/user/achievements/seed`, { method: 'POST' });
-                    if (res.ok) {
-                      showToast('Conquistas semeadas!', 'success');
-                      fetchCatalog();
-                      fetchProfile();
-                    }
-                  }}
-                  className="px-4 py-2 bg-primary text-on-primary text-xs font-bold rounded-xl active:scale-95 transition-all shadow"
-                >
-                  Popular Conquistas
-                </button>
-              )}
-            </div>
-          )}
         </div>
       </div>
 

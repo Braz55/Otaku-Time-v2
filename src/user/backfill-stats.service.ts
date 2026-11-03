@@ -1,11 +1,15 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { StatisticsService } from '../statistics/statistics.service';
 
 @Injectable()
 export class BackfillStatsService implements OnModuleInit {
   private readonly logger = new Logger(BackfillStatsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly statisticsService: StatisticsService,
+  ) {}
 
   async onModuleInit() {
     this.logger.log(
@@ -20,51 +24,10 @@ export class BackfillStatsService implements OnModuleInit {
   }
 
   async runBackfill() {
-    const users = await this.prisma.user.findMany({
-      include: {
-        statistics: true,
-        animes: true,
-        mangas: true,
-      },
-    });
+    const users = await this.prisma.user.findMany({ select: { id: true } });
 
     for (const user of users) {
-      const totalAnimeCompleted = user.animes.filter(
-        (a) => a.status === 'COMPLETED',
-      ).length;
-      const totalEpisodesWatched = user.animes.reduce(
-        (sum, a) => sum + (a.epAtual || 0),
-        0,
-      );
-      const totalMangaRead = user.mangas.reduce(
-        (sum, m) => sum + Math.floor(m.capAtual || 0),
-        0,
-      );
-      const animeDaysWasted = parseFloat(
-        ((totalEpisodesWatched * 24) / 1440).toFixed(2),
-      );
-      const mangaDaysWasted = parseFloat(
-        ((totalMangaRead * 10) / 1440).toFixed(2),
-      );
-
-      await this.prisma.userStatistics.upsert({
-        where: { userId: user.id },
-        update: {
-          totalAnimeCompleted,
-          totalEpisodesWatched,
-          totalMangaRead,
-          animeDaysWasted,
-          mangaDaysWasted,
-        },
-        create: {
-          userId: user.id,
-          totalAnimeCompleted,
-          totalEpisodesWatched,
-          totalMangaRead,
-          animeDaysWasted,
-          mangaDaysWasted,
-        },
-      });
+      await this.statisticsService.recalculateUserStats(user.id);
     }
   }
 }

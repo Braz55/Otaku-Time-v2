@@ -4,9 +4,10 @@ import { UserController } from './user.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { BackfillStatsService } from './backfill-stats.service';
 import { BackupService } from './backup.service';
+import { StatisticsModule } from '../statistics/statistics.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, StatisticsModule],
   controllers: [UserController],
   providers: [
     UserService,

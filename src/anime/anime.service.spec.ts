@@ -8,6 +8,7 @@ import { RecommendationService } from './recommendation.service';
 import { TVTimeImportService } from './tvtime-import.service';
 import { CalendarService } from './calendar.service';
 import { NotificationService } from '../notification/notification.service';
+import { StatisticsService } from '../statistics/statistics.service';
 
 describe('AnimeService', () => {
   let service: AnimeService;
@@ -90,6 +91,10 @@ describe('AnimeService', () => {
         {
           provide: NotificationService,
           useValue: { createOrReplaceNotification: jest.fn() },
+        },
+        {
+          provide: StatisticsService,
+          useValue: { recalculateUserStats: jest.fn() },
         },
       ],
     }).compile();

@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ListService } from '../list/list.service';
 import { AnilistMangaService } from './anilist-manga.service';
 import { MangaSyncService } from './manga-sync.service';
+import { StatisticsService } from '../statistics/statistics.service';
 
 @Injectable()
 export class MangaService {
@@ -22,6 +23,7 @@ export class MangaService {
     private readonly anilistMangaService: AnilistMangaService,
     @Inject(forwardRef(() => MangaSyncService))
     private readonly mangaSyncService: MangaSyncService,
+    private readonly statisticsService: StatisticsService,
   ) {}
 
   // -------------------------------------------------------------
@@ -382,55 +384,7 @@ export class MangaService {
   // -------------------------------------------------------------
 
   async recalculateUserStats(userId: number) {
-    try {
-      const animes = await this.prisma.userAnime.findMany({
-        where: { userId },
-        include: { anime: true },
-      });
-      const mangas = await this.prisma.userManga.findMany({
-        where: { userId },
-        include: { manga: true },
-      });
-
-      const totalAnimeCompleted = animes.filter(
-        (a) => a.status === 'COMPLETED',
-      ).length;
-      const totalEpisodesWatched = animes.reduce(
-        (sum, a) => sum + (a.epAtual || 0),
-        0,
-      );
-      const totalMangaRead = mangas.reduce(
-        (sum, m) => sum + Math.floor(m.capAtual || 0),
-        0,
-      );
-      const animeDaysWasted = parseFloat(
-        ((totalEpisodesWatched * 24) / 1440).toFixed(2),
-      );
-      const mangaDaysWasted = parseFloat(
-        ((totalMangaRead * 10) / 1440).toFixed(2),
-      );
-
-      await this.prisma.userStatistics.upsert({
-        where: { userId },
-        update: {
-          totalAnimeCompleted,
-          totalEpisodesWatched,
-          totalMangaRead,
-          animeDaysWasted,
-          mangaDaysWasted,
-        },
-        create: {
-          userId,
-          totalAnimeCompleted,
-          totalEpisodesWatched,
-          totalMangaRead,
-          animeDaysWasted,
-          mangaDaysWasted,
-        },
-      });
-    } catch (e) {
-      console.error('Error recalculating user statistics:', e);
-    }
+    return this.statisticsService.recalculateUserStats(userId);
   }
 
   async getMangaCovers(id: number, title?: string): Promise<{ posters: string[]; backdrops: string[] }> {

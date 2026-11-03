@@ -12,6 +12,7 @@ import { ListService } from '../list/list.service';
 import { TMDBService } from './tmdb.service';
 import { AniListService } from './anilist.service';
 import { RecommendationService } from './recommendation.service';
+import { StatisticsService } from '../statistics/statistics.service';
 import { TVTimeImportService } from './tvtime-import.service';
 import { CalendarService } from './calendar.service';
 import { NotificationService } from '../notification/notification.service';
@@ -34,6 +35,7 @@ export class AnimeService {
     private readonly tvtimeImportService: TVTimeImportService,
     private readonly calendarService: CalendarService,
     private readonly notificationService: NotificationService,
+    private readonly statisticsService: StatisticsService,
   ) {}
 
   // -------------------------------------------------------------
@@ -1272,80 +1274,7 @@ export class AnimeService {
   // -------------------------------------------------------------
 
   async recalculateUserStats(userId: number) {
-    try {
-      const animes = await this.prisma.userAnime.findMany({
-        where: { userId },
-        select: {
-          status: true,
-          epAtual: true,
-          updatedAt: true,
-          wasDropped: true,
-          anime: {
-            select: {
-              id: true,
-              generos: true,
-              ano: true,
-            }
-          }
-        }
-      });
-      const mangas = await this.prisma.userManga.findMany({
-        where: { userId },
-        select: {
-          status: true,
-          capAtual: true,
-          updatedAt: true,
-          wasDropped: true,
-          manga: {
-            select: {
-              id: true,
-              generos: true,
-              titulo: true,
-              descricao: true,
-            }
-          }
-        }
-      });
-
-      const totalAnimeCompleted = animes.filter(
-        (a) => a.status === 'COMPLETED',
-      ).length;
-      const totalEpisodesWatched = animes.reduce(
-        (sum, a) => sum + (a.epAtual || 0),
-        0,
-      );
-      const totalMangaRead = mangas.reduce(
-        (sum, m) => sum + Math.floor(m.capAtual || 0),
-        0,
-      );
-      const animeDaysWasted = parseFloat(
-        ((totalEpisodesWatched * 24) / 1440).toFixed(2),
-      );
-      const mangaDaysWasted = parseFloat(
-        ((totalMangaRead * 10) / 1440).toFixed(2),
-      );
-
-      await this.prisma.userStatistics.upsert({
-        where: { userId },
-        update: {
-          totalAnimeCompleted,
-          totalEpisodesWatched,
-          totalMangaRead,
-          animeDaysWasted,
-          mangaDaysWasted,
-        },
-        create: {
-          userId,
-          totalAnimeCompleted,
-          totalEpisodesWatched,
-          totalMangaRead,
-          animeDaysWasted,
-          mangaDaysWasted,
-        },
-      });
-    } catch (e) {
-      console.error('Error recalculating user statistics:', e);
-    }
+    return this.statisticsService.recalculateUserStats(userId);
   }
 
   calculateAiredEpisodesInfo(episodesList: any[]) {

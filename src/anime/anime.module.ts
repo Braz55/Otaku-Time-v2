@@ -8,9 +8,10 @@ import { TVTimeImportService } from './tvtime-import.service';
 import { CalendarService } from './calendar.service';
 import { ListModule } from '../list/list.module';
 import { NotificationModule } from '../notification/notification.module';
+import { StatisticsModule } from '../statistics/statistics.module';
 
 @Module({
-  imports: [ListModule, NotificationModule],
+  imports: [ListModule, NotificationModule, StatisticsModule],
   controllers: [AnimeController],
   providers: [
     AnimeService,

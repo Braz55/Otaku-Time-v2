@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { UserService } from '../user/user.service';
 import { JwtService } from '@nestjs/jwt';
-import { UnauthorizedException } from '@nestjs/common';
+import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 
 jest.mock('bcrypt');
@@ -206,12 +206,12 @@ describe('AuthService', () => {
       expect(result.refresh_token).toBe('refresh_token_val');
     });
 
-    it('should throw UnauthorizedException if email already exists', async () => {
+    it('should throw ConflictException if email already exists', async () => {
       mockUserService.findByEmail.mockResolvedValue(mockUser);
 
       await expect(
         service.register({ email: 'test@example.com', password: 'password' }),
-      ).rejects.toThrow(UnauthorizedException);
+      ).rejects.toThrow(ConflictException);
     });
   });
 });

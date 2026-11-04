@@ -11,6 +11,7 @@ import { ListService } from '../list/list.service';
 import { AnilistMangaService } from './anilist-manga.service';
 import { MangaSyncService } from './manga-sync.service';
 import { StatisticsService } from '../statistics/statistics.service';
+import { aplicarRegrasDeProgresso } from '../library/progress-rules';
 
 @Injectable()
 export class MangaService {
@@ -278,53 +279,29 @@ export class MangaService {
     delete novosDados.capaUrl;
     delete novosDados.bannerUrl;
 
-    if (updateDto.status !== undefined && atual.status === 'DROPPED') {
-      novosDados.wasDropped = true;
-    }
+    // Último capítulo lançado: numa obra em emissão é o anterior ao próximo previsto
+    const ultimoDisponivel =
+      atual.manga.statusLancamento === 'RELEASING' &&
+      atual.manga.proximoCapituloNumero
+        ? atual.manga.proximoCapituloNumero - 1
+        : atual.manga.numCapitulosTotal;
+    const regras = aplicarRegrasDeProgresso(
+      { status: atual.status, progresso: atual.capAtual },
+      {
+        terminada: atual.manga.statusLancamento !== 'RELEASING',
+        total: ultimoDisponivel,
+        ultimoDisponivel,
+        limiteLancado: null,
+        limitarAoTotal: false,
+      },
+      { status: updateDto.status, progresso: updateDto.capAtual },
+    );
 
-    if (updateDto.status === 'COMPLETED') {
-      const totalDisponivel =
-        atual.manga.statusLancamento === 'RELEASING' &&
-        atual.manga.proximoCapituloNumero
-          ? atual.manga.proximoCapituloNumero - 1
-          : atual.manga.numCapitulosTotal || atual.capAtual;
-      novosDados.capAtual = totalDisponivel;
-    }
-
-    if (updateDto.capAtual !== undefined) {
-      const cap = updateDto.capAtual;
-      const totalDisponivel =
-        atual.manga.statusLancamento === 'RELEASING' &&
-        atual.manga.proximoCapituloNumero
-          ? atual.manga.proximoCapituloNumero - 1
-          : atual.manga.numCapitulosTotal;
-
-      if (atual.status === 'PLANNED' && cap > 0) novosDados.status = 'WATCHING';
-      if (
-        atual.status === 'COMPLETED' &&
-        totalDisponivel &&
-        cap < totalDisponivel
-      ) {
-        novosDados.status = 'WATCHING';
-      }
-
-      if (
-        atual.manga.statusLancamento !== 'RELEASING' &&
-        atual.manga.numCapitulosTotal &&
-        cap === atual.manga.numCapitulosTotal
-      ) {
-        novosDados.status = 'COMPLETED';
-        novosDados.capAtual = atual.manga.numCapitulosTotal;
-      } else {
-        novosDados.capAtual = cap;
-      }
-    }
-
-    if (
-      novosDados.capAtual !== undefined &&
-      novosDados.capAtual > atual.capAtual
-    ) {
-      novosDados.lastProgressUpdate = new Date();
+    if (regras.status !== undefined) novosDados.status = regras.status;
+    if (regras.wasDropped) novosDados.wasDropped = true;
+    if (regras.progresso !== undefined) novosDados.capAtual = regras.progresso;
+    if (regras.lastProgressUpdate) {
+      novosDados.lastProgressUpdate = regras.lastProgressUpdate;
     }
 
     const updated = await this.prisma.userManga.update({

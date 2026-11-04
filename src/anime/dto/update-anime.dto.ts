@@ -1,4 +1,12 @@
-import { IsString, IsOptional, IsInt, IsBoolean, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsInt,
+  IsBoolean,
+  IsEnum,
+  Min,
+  Max,
+} from 'class-validator';
 import { TrackingStatus } from '@prisma/client';
 
 export class UpdateAnimeDto {
@@ -20,6 +28,8 @@ export class UpdateAnimeDto {
   epAtualGlobal?: number;
 
   @IsInt()
+  @Min(1)
+  @Max(10)
   @IsOptional()
   prioridade?: number;
 

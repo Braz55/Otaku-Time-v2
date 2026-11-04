@@ -33,7 +33,8 @@ const RegisterPage: React.FC = () => {
         login(data.access_token, data.user, data.refresh_token);
         navigate('/');
       } else {
-        setError(data.message || 'Error creating account');
+        const message = Array.isArray(data.message) ? data.message.join(' ') : data.message;
+        setError(message || 'Error creating account');
       }
     } catch (err: any) {
       console.error("Register fetch error:", err);
@@ -106,6 +107,7 @@ const RegisterPage: React.FC = () => {
                 <input
                   type="password"
                   required
+                  minLength={8}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-[#0f1014] border border-gray-800 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-secondary transition-colors"

@@ -458,6 +458,10 @@ const ProfilePage = () => {
         showToast('A palavra-passe atual é obrigatória para definir uma nova!', 'warning');
         return;
       }
+      if (newPassword.length < 8) {
+        showToast('A nova palavra-passe deve ter pelo menos 8 caracteres.', 'warning');
+        return;
+      }
       if (newPassword !== confirmPassword) {
         showToast('As novas palavras-passe não coincidem!', 'warning');
         return;
@@ -500,7 +504,8 @@ const ProfilePage = () => {
         setCurrentPassword('');
       } else {
         const errData = await res.json().catch(() => ({}));
-        showToast(errData.message || 'Falha ao atualizar dados da conta.', 'error');
+        const message = Array.isArray(errData.message) ? errData.message.join(' ') : errData.message;
+        showToast(message || 'Falha ao atualizar dados da conta.', 'error');
       }
     } catch (err: any) {
       showToast(`Erro: ${err.message || err}`, 'error');

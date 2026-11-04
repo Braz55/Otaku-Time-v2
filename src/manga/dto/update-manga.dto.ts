@@ -1,4 +1,13 @@
-import { IsString, IsOptional, IsInt, IsBoolean, IsEnum, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsInt,
+  IsBoolean,
+  IsEnum,
+  IsNumber,
+  Min,
+  Max,
+} from 'class-validator';
 import { TrackingStatus } from '@prisma/client';
 
 export class UpdateMangaDto {
@@ -11,6 +20,8 @@ export class UpdateMangaDto {
   capAtual?: number;
 
   @IsInt()
+  @Min(1)
+  @Max(10)
   @IsOptional()
   prioridade?: number;
 

@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsBoolean, IsObject } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsObject,
+  MinLength,
+} from 'class-validator';
 
 export class UpdateProfileDto {
   @IsString()
@@ -31,6 +37,9 @@ export class UpdateProfileDto {
 
   @IsString()
   @IsOptional()
+  @MinLength(8, {
+    message: 'A palavra-passe deve ter pelo menos 8 caracteres.',
+  })
   password?: string;
 
   @IsString()

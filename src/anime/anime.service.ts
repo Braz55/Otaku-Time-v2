@@ -16,6 +16,7 @@ import { StatisticsService } from '../statistics/statistics.service';
 import { TVTimeImportService } from './tvtime-import.service';
 import { CalendarService } from './calendar.service';
 import { NotificationService } from '../notification/notification.service';
+import { aplicarRegrasDeProgresso } from '../library/progress-rules';
 import { detectMediaType, buildGenerosDict, resolveLatinTitleForSearchItem } from './anime.utils';
 
 @Injectable()
@@ -721,93 +722,53 @@ export class AnimeService {
     delete novosDados.bannerUrl;
     delete novosDados.epAtualGlobal;
 
-    if (updateDto.status !== undefined && atual.status === 'DROPPED') {
-      novosDados.wasDropped = true;
+    let globalEp: number | undefined;
+    if (updateDto.epAtualGlobal !== undefined) {
+      globalEp = updateDto.epAtualGlobal;
+    } else if (updateDto.epAtual !== undefined) {
+      const incomingSeason =
+        updateDto.seasonAtual !== undefined
+          ? updateDto.seasonAtual
+          : atual.seasonAtual;
+      globalEp = this.getGlobalEpisodeNumber(
+        atual.anime,
+        incomingSeason,
+        updateDto.epAtual,
+      );
     }
 
     const totalEpisodes = this.getTotalEpisodes(atual.anime);
+    const hasEpisodeList =
+      Array.isArray(atual.anime.episodesList) &&
+      atual.anime.episodesList.length > 0;
+    const regras = aplicarRegrasDeProgresso(
+      { status: atual.status, progresso: atual.epAtual },
+      {
+        terminada: atual.anime.statusLancamento === 'FINISHED',
+        total: totalEpisodes,
+        ultimoDisponivel:
+          atual.anime.statusLancamento === 'RELEASING' &&
+          atual.anime.proximoEpisodio
+            ? atual.anime.proximoEpisodio - 1
+            : totalEpisodes,
+        limiteLancado: hasEpisodeList || totalEpisodes > 0 ? totalEpisodes : null,
+        limitarAoTotal: true,
+      },
+      { status: updateDto.status, progresso: globalEp },
+    );
 
-    if (updateDto.status === 'COMPLETED') {
-      const totalDisponivel =
-        atual.anime.statusLancamento === 'RELEASING' &&
-        atual.anime.proximoEpisodio
-          ? atual.anime.proximoEpisodio - 1
-          : totalEpisodes || atual.epAtual;
-      novosDados.epAtual = totalDisponivel;
-      const mapped = this.getSeasonAndEpisodeFromGlobal(
-        atual.anime,
-        totalDisponivel,
-      );
-      novosDados.seasonAtual = mapped.season;
+    if (regras.status !== undefined) novosDados.status = regras.status;
+    if (regras.wasDropped) novosDados.wasDropped = true;
+    if (regras.lastProgressUpdate) {
+      novosDados.lastProgressUpdate = regras.lastProgressUpdate;
     }
-
-    if (updateDto.epAtual !== undefined || updateDto.epAtualGlobal !== undefined) {
-      let globalEp: number;
-      if (updateDto.epAtualGlobal !== undefined) {
-        globalEp = updateDto.epAtualGlobal;
-      } else {
-        const incomingSeason =
-          updateDto.seasonAtual !== undefined
-            ? updateDto.seasonAtual
-            : atual.seasonAtual;
-        globalEp = this.getGlobalEpisodeNumber(
-          atual.anime,
-          incomingSeason,
-          updateDto.epAtual,
-        );
-      }
-      const { season, episode } = this.getSeasonAndEpisodeFromGlobal(
+    if (regras.progresso !== undefined) {
+      // O progresso é guardado como episódio global (RN-17); a temporada deriva dele
+      novosDados.epAtual = regras.progresso;
+      novosDados.seasonAtual = this.getSeasonAndEpisodeFromGlobal(
         atual.anime,
-        globalEp,
-      );
-
-      const totalAired = this.getTotalEpisodes(atual.anime);
-      const hasEpisodeList =
-        atual.anime.episodesList &&
-        Array.isArray(atual.anime.episodesList) &&
-        atual.anime.episodesList.length > 0;
-      if (
-        atual.anime.statusLancamento !== 'FINISHED' &&
-        (hasEpisodeList || totalAired > 0) &&
-        globalEp > totalAired
-      ) {
-        throw new BadRequestException(
-          'Não é possível marcar episódios que ainda não estrearam.',
-        );
-      }
-
-      novosDados.seasonAtual = season;
-      novosDados.epAtual = globalEp;
-
-      if (atual.status === 'PLANNED' && globalEp > 0)
-        novosDados.status = 'WATCHING';
-      if (
-        atual.status === 'COMPLETED' &&
-        totalEpisodes &&
-        globalEp < totalEpisodes
-      )
-        novosDados.status = 'WATCHING';
-
-      if (
-        atual.anime.statusLancamento === 'FINISHED' &&
-        totalEpisodes &&
-        globalEp >= totalEpisodes
-      ) {
-        novosDados.status = 'COMPLETED';
-        novosDados.epAtual = totalEpisodes;
-        const lastState = this.getSeasonAndEpisodeFromGlobal(
-          atual.anime,
-          totalEpisodes,
-        );
-        novosDados.seasonAtual = lastState.season;
-      }
-    }
-
-    if (
-      novosDados.epAtual !== undefined &&
-      novosDados.epAtual > atual.epAtual
-    ) {
-      novosDados.lastProgressUpdate = new Date();
+        regras.progresso,
+      ).season;
     }
 
     // O anime já foi carregado (e mantido atualizado em memória) acima: não voltar a ler o episodesList

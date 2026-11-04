@@ -1,6 +1,9 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
 
+// Igual ao limite validado no backend (src/comment/dto/comment.dto.ts)
+const COMMENT_MAX_LENGTH = 1000;
+
 interface MediaComment {
   id: number;
   userId: number;
@@ -119,8 +122,12 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
                 onChange={event => setNewCommentText(event.target.value)}
                 placeholder="Escreve um comentário..."
                 rows={3}
+                maxLength={COMMENT_MAX_LENGTH}
                 className={`w-full bg-black/30 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white outline-none resize-none transition-all ${mediaType === 'anime' ? 'focus:border-primary/60' : 'focus:border-secondary/60'}`}
               />
+              <p className="text-[10px] text-on-surface-variant text-right -mt-2">
+                {newCommentText.length}/{COMMENT_MAX_LENGTH}
+              </p>
               <button
                 type="button"
                 onClick={enviarComentario}

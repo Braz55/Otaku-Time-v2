@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowDown, ArrowLeft, ArrowUp, Eye, EyeOff, Loader2, Save, Trash2, Upload, GripVertical, Search, X, Edit } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Loader2, Save, Trash2, Upload, GripVertical, Search, X, Edit } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
 import { useAuth } from '../context/AuthContext';
@@ -20,7 +20,6 @@ type CustomList = {
   name: string;
   description?: string | null;
   coverUrl?: string | null;
-  isPublic: boolean;
   criteria?: any;
   items: ListItem[];
 };
@@ -51,7 +50,6 @@ const ListDetailsPage = () => {
     name: '',
     description: '',
     coverUrl: '',
-    isPublic: false,
     coverPosition: 50,
   });
 
@@ -65,7 +63,6 @@ const ListDetailsPage = () => {
       name: data.name || '',
       description: data.description || '',
       coverUrl: data.coverUrl || '',
-      isPublic: Boolean(data.isPublic),
       coverPosition: data.criteria?.coverPosition ?? 50,
     });
   };
@@ -76,7 +73,6 @@ const ListDetailsPage = () => {
     const formChanged = list.name !== form.name ||
                         (list.description || '') !== form.description ||
                         (list.coverUrl || '') !== form.coverUrl ||
-                        list.isPublic !== form.isPublic ||
                         (list.criteria?.coverPosition ?? 50) !== form.coverPosition;
 
     const orderChanged = list.items && list.items.length > 0 &&
@@ -269,7 +265,6 @@ const ListDetailsPage = () => {
       const formChanged = list.name !== form.name ||
                           (list.description || '') !== form.description ||
                           (list.coverUrl || '') !== form.coverUrl ||
-                          list.isPublic !== form.isPublic ||
                           (list.criteria?.coverPosition ?? 50) !== form.coverPosition;
 
       let updatedList = list;
@@ -281,7 +276,6 @@ const ListDetailsPage = () => {
             name: form.name,
             description: form.description,
             coverUrl: form.coverUrl,
-            isPublic: form.isPublic,
             criteria: { ...list.criteria, coverPosition: form.coverPosition },
           }),
         });
@@ -458,10 +452,6 @@ const ListDetailsPage = () => {
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/65 to-black/20" />
         <div className="relative z-10 p-5 md:p-10 min-h-[160px] sm:min-h-[240px] md:min-h-[280px] flex flex-col justify-end">
           <div className="flex items-center gap-2 mb-2 sm:mb-4">
-            <span className="px-3 py-1 rounded-full bg-black/50 text-white text-[10px] sm:text-xs font-bold flex items-center gap-1">
-              {list.isPublic ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-              {list.isPublic ? 'Pública' : 'Privada'}
-            </span>
             <span className="px-3 py-1 rounded-full bg-primary/20 text-primary text-[10px] sm:text-xs font-bold">{list.items.length} itens</span>
           </div>
           <h2 className="font-display-lg text-2xl sm:text-4xl md:text-6xl font-black text-white tracking-tight leading-tight">{list.name}</h2>
@@ -569,18 +559,6 @@ const ListDetailsPage = () => {
               <p className="text-[10px] text-gray-500">Arrasta para ajustar a posição vertical da capa.</p>
             </div>
           )}
-
-          <button 
-            type="button"
-            onClick={() => setForm(prev => ({ ...prev, isPublic: !prev.isPublic }))} 
-            className={`w-full py-2.5 rounded-xl border text-xs font-bold transition-all active:scale-95 ${
-              form.isPublic 
-                ? 'bg-primary/20 border-primary text-primary shadow-[0_0_10px_rgba(139,92,246,0.1)]' 
-                : 'bg-white/5 border-white/10 text-on-surface-variant'
-            }`}
-          >
-            {form.isPublic ? 'Lista Pública' : 'Lista Privada'}
-          </button>
 
           <button 
             onClick={saveList} 

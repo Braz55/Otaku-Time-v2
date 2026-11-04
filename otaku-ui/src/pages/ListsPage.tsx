@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, ListPlus, Loader2, Plus, Sparkles, Upload, X } from 'lucide-react';
+import { ListPlus, Loader2, Plus, Sparkles, Upload, X } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
 import { useAuth } from '../context/AuthContext';
@@ -11,7 +11,6 @@ type CustomList = {
   name: string;
   description?: string | null;
   coverUrl?: string | null;
-  isPublic: boolean;
   criteria?: any;
   _count?: { items: number };
 };
@@ -29,7 +28,6 @@ const ListsPage = () => {
     name: '',
     description: '',
     coverUrl: '',
-    isPublic: false,
     coverPosition: 50,
   });
 
@@ -131,7 +129,6 @@ const ListsPage = () => {
           name: form.name,
           description: form.description,
           coverUrl: form.coverUrl,
-          isPublic: form.isPublic,
           criteria: { coverPosition: form.coverPosition },
         }),
       });
@@ -189,10 +186,6 @@ const ListsPage = () => {
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-primary/40 via-secondary/30 to-emerald-500/30" />
                 )}
-                <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/60 text-white text-[10px] font-bold flex items-center gap-1">
-                  {list.isPublic ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                  {list.isPublic ? 'Pública' : 'Privada'}
-                </div>
               </div>
               <div className="p-4">
                 <h3 className="text-white font-black text-lg truncate">{list.name}</h3>
@@ -218,7 +211,7 @@ const ListsPage = () => {
               <button 
                 onClick={() => {
                   setShowCreateModal(false);
-                  setForm({ name: '', description: '', coverUrl: '', isPublic: false, coverPosition: 50 });
+                  setForm({ name: '', description: '', coverUrl: '', coverPosition: 50 });
                 }} 
                 className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-on-surface-variant hover:text-white transition-colors cursor-pointer flex items-center justify-center"
               >
@@ -309,19 +302,6 @@ const ListsPage = () => {
                 </div>
               )}
 
-              <div className="pt-2">
-                <button 
-                  type="button"
-                  onClick={() => setForm(prev => ({ ...prev, isPublic: !prev.isPublic }))} 
-                  className={`w-full py-3 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer ${
-                    form.isPublic 
-                      ? 'bg-primary/20 border-primary text-primary shadow-[0_0_10px_rgba(139,92,246,0.1)]' 
-                      : 'bg-white/5 border-white/10 text-on-surface-variant'
-                  }`}
-                >
-                  {form.isPublic ? 'Lista Pública' : 'Lista Privada'}
-                </button>
-              </div>
             </div>
 
             <div className="flex gap-3 border-t border-white/5 pt-4 mt-2">
@@ -329,7 +309,7 @@ const ListsPage = () => {
                 type="button"
                 onClick={() => {
                   setShowCreateModal(false);
-                  setForm({ name: '', description: '', coverUrl: '', isPublic: false, coverPosition: 50 });
+                  setForm({ name: '', description: '', coverUrl: '', coverPosition: 50 });
                 }}
                 className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold text-xs transition-all active:scale-95 text-center cursor-pointer font-black"
               >

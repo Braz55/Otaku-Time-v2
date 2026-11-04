@@ -14,6 +14,7 @@ export class UpdateListDto implements Partial<CreateListDto> {
   @IsOptional()
   coverUrl?: string;
 
+  // Ignorado: as listas são sempre privadas. Mantido para versões antigas da app que ainda o enviam.
   @IsBoolean()
   @IsOptional()
   isPublic?: boolean;

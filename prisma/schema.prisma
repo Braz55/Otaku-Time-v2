@@ -213,7 +213,6 @@ model CustomList {
   name        String
   description String?
   coverUrl    String?
-  isPublic    Boolean          @default(false)
   criteria    Json?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @default(now()) @updatedAt

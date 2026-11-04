@@ -27,7 +27,6 @@ export class ListService {
         name: dto.name?.trim() || 'Nova lista',
         description: dto.description?.trim() || null,
         coverUrl: dto.coverUrl?.trim() || null,
-        isPublic: Boolean(dto.isPublic),
         criteria: dto.criteria ? (dto.criteria as any) : Prisma.JsonNull,
       },
     });
@@ -52,7 +51,7 @@ export class ListService {
 
   async findOne(userId: number, listId: number) {
     const list = await this.prisma.customList.findFirst({
-      where: { id: listId, OR: [{ userId }, { isPublic: true }] },
+      where: { id: listId, userId },
       include: {
         items: {
           include: { anime: true, manga: true },
@@ -72,7 +71,6 @@ export class ListService {
       data.description = dto.description?.trim() || null;
     if (dto.coverUrl !== undefined)
       data.coverUrl = dto.coverUrl?.trim() || null;
-    if (dto.isPublic !== undefined) data.isPublic = Boolean(dto.isPublic);
     if (dto.criteria !== undefined) {
       data.criteria = dto.criteria ? (dto.criteria as any) : Prisma.JsonNull;
     }

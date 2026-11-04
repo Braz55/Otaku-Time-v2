@@ -1,0 +1,1 @@
+ALTER TABLE "CustomList" DROP COLUMN IF EXISTS "isPublic";

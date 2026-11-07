@@ -187,6 +187,8 @@ const DetailsPage = () => {
   const [isSavingDetailsProgress, setIsSavingDetailsProgress] = useState(false);
   const progressDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingProgressUpdatesRef = useRef<Record<string, any>>({});
+  // Valores anteriores aos cliques agrupados no pedido pendente, para repor se o servidor recusar (L-13)
+  const progressRollbackRef = useRef<Record<string, any>>({});
 
   useEffect(() => {
     return () => {
@@ -1067,6 +1069,16 @@ const DetailsPage = () => {
       return;
     }
 
+    // RN-04 no frontend (L-13, solução B): não deixar avançar para episódios por estrear,
+    // seja qual for o sítio de onde veio o clique. Recuar é sempre permitido.
+    if (mediaType === 'anime' && typeof updates.epAtual === 'number') {
+      const atualGlobal = selectedItem.epAtualGlobal ?? selectedItem.epAtual ?? 0;
+      if (updates.epAtual > atualGlobal && updates.epAtual > totalAiredEpisodes) {
+        showToast('Não é possível marcar episódios que ainda não estrearam.', 'error');
+        return;
+      }
+    }
+
     const targetId = selectedItem.dbId || selectedItem.id;
 
     const isProgressUpdate = 'epAtual' in updates || 'capAtual' in updates || 'watchedSpecials' in updates;
@@ -1128,23 +1140,53 @@ const DetailsPage = () => {
       }
     }
 
-    setSelectedItem((prev: any) => ({ ...prev, ...optimisticUpdates }));
-    if (mediaType === 'anime') {
-      setAnimeLibraryData((prev: any[]) => prev.map((item: any) => (item.id === targetId || item.dbId === targetId) ? { ...item, ...optimisticUpdates } : item));
-    } else {
-      setMangaLibraryData((prev: any[]) => prev.map((item: any) => (item.id === targetId || item.dbId === targetId) ? { ...item, ...optimisticUpdates } : item));
+    // L-13 (solução A): guardar os valores atuais antes de mostrar os novos
+    const snapshot: Record<string, any> = {};
+    for (const key of Object.keys(optimisticUpdates)) {
+      snapshot[key] = selectedItem[key];
     }
+
+    const aplicarLocalmente = (campos: Record<string, any>) => {
+      setSelectedItem((prev: any) => ({ ...prev, ...campos }));
+      if (mediaType === 'anime') {
+        setAnimeLibraryData((prev: any[]) => prev.map((item: any) => (item.id === targetId || item.dbId === targetId) ? { ...item, ...campos } : item));
+      } else {
+        setMangaLibraryData((prev: any[]) => prev.map((item: any) => (item.id === targetId || item.dbId === targetId) ? { ...item, ...campos } : item));
+      }
+    };
+
+    // Repõe os valores anteriores e explica ao utilizador porque não ficou gravado
+    const reverter = async (valoresAnteriores: Record<string, any>, response?: Response) => {
+      aplicarLocalmente(valoresAnteriores);
+      let mensagem = 'Não foi possível guardar a alteração. Foi reposto o valor anterior.';
+      if (response) {
+        try {
+          const body = await response.json();
+          const msg = Array.isArray(body?.message) ? body.message[0] : body?.message;
+          if (msg && response.status < 500) mensagem = msg;
+        } catch {
+          // corpo vazio ou não-JSON: fica a mensagem genérica
+        }
+      }
+      showToast(mensagem, 'error');
+    };
+
+    aplicarLocalmente(optimisticUpdates);
 
     const { epAtualGlobal, ...payloadToSend } = optimisticUpdates;
 
     if (isProgressUpdate) {
+      // Em cliques seguidos, guarda-se o valor de antes do primeiro clique
+      progressRollbackRef.current = { ...snapshot, ...progressRollbackRef.current };
       pendingProgressUpdatesRef.current = { ...pendingProgressUpdatesRef.current, ...payloadToSend };
       if (progressDebounceTimerRef.current) {
         clearTimeout(progressDebounceTimerRef.current);
       }
       progressDebounceTimerRef.current = setTimeout(async () => {
         const finalPayload = { ...pendingProgressUpdatesRef.current };
+        const rollback = { ...progressRollbackRef.current };
         pendingProgressUpdatesRef.current = {};
+        progressRollbackRef.current = {};
         const url = `${API_BASE_URL}/${mediaType}/${targetId}`;
         try {
           const response = await customFetch(url, {
@@ -1154,15 +1196,13 @@ const DetailsPage = () => {
           });
           if (response.ok) {
             const data = await response.json();
-            setSelectedItem((prev: any) => ({ ...prev, ...data, dbId: data.id }));
-            if (mediaType === 'anime') {
-              setAnimeLibraryData((prev: any[]) => prev.map((item: any) => (item.id === targetId || item.dbId === targetId) ? { ...item, ...data, dbId: data.id } : item));
-            } else {
-              setMangaLibraryData((prev: any[]) => prev.map((item: any) => (item.id === targetId || item.dbId === targetId) ? { ...item, ...data, dbId: data.id } : item));
-            }
+            aplicarLocalmente({ ...data, dbId: data.id });
+          } else {
+            await reverter(rollback, response);
           }
         } catch (error) {
           console.error("Erro ao atualizar progresso:", error);
+          await reverter(rollback);
         } finally {
           setIsSavingDetailsProgress(false);
         }
@@ -1179,15 +1219,13 @@ const DetailsPage = () => {
       });
       if (response.ok) {
         const data = await response.json();
-        setSelectedItem((prev: any) => ({ ...prev, ...data, dbId: data.id }));
-        if (mediaType === 'anime') {
-          setAnimeLibraryData((prev: any[]) => prev.map((item: any) => (item.id === targetId || item.dbId === targetId) ? { ...item, ...data, dbId: data.id } : item));
-        } else {
-          setMangaLibraryData((prev: any[]) => prev.map((item: any) => (item.id === targetId || item.dbId === targetId) ? { ...item, ...data, dbId: data.id } : item));
-        }
+        aplicarLocalmente({ ...data, dbId: data.id });
+      } else {
+        await reverter(snapshot, response);
       }
     } catch (error) {
       console.error("Erro ao atualizar campo:", error);
+      await reverter(snapshot);
     }
   };
 

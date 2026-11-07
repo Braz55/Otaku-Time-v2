@@ -1,6 +1,14 @@
-import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  Inject,
+  forwardRef,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { createLibraryEntry } from '../library/library-errors';
 import { TMDBService } from './tmdb.service';
 import { RecommendationService } from './recommendation.service';
 import { AnimeService } from './anime.service';
@@ -535,20 +543,23 @@ export class AniListService {
       });
 
       if (userAnime) {
-        throw new Error('Este anime já se encontra na sua biblioteca.');
+        throw new ConflictException('Este anime já se encontra na sua biblioteca.');
       }
 
       const hasNotAiredYet = this.isAnimeNotYetAired(anime);
 
-      const createdUserAnime = await this.prisma.userAnime.create({
-        data: {
-          userId,
-          animeId: anime.id,
-          status: hasNotAiredYet ? 'WATCHING' : 'PLANNED',
-          seasonAtual: 1,
-          epAtual: 0,
-        },
-      });
+      const createdUserAnime = await createLibraryEntry(
+        this.prisma.userAnime.create({
+          data: {
+            userId,
+            animeId: anime.id,
+            status: hasNotAiredYet ? 'WATCHING' : 'PLANNED',
+            seasonAtual: 1,
+            epAtual: 0,
+          },
+        }),
+        'Este anime já se encontra na sua biblioteca.',
+      );
 
       await this.animeService.recalculateUserStats(userId);
 
@@ -574,7 +585,7 @@ export class AniListService {
       : await this.searchTmdbAnime(nomeAnime);
 
     if (!tmdbData) {
-      throw new Error(
+      throw new NotFoundException(
         'Não foi possível encontrar a série no TMDB ou importar os dados.',
       );
     }
@@ -591,20 +602,23 @@ export class AniListService {
       });
 
       if (userAnime) {
-        throw new Error('Este anime já se encontra na sua biblioteca.');
+        throw new ConflictException('Este anime já se encontra na sua biblioteca.');
       }
 
       const hasNotAiredYet = this.isAnimeNotYetAired(matchedInDb);
 
-      const createdUserAnime = await this.prisma.userAnime.create({
-        data: {
-          userId,
-          animeId: matchedInDb.id,
-          status: hasNotAiredYet ? 'WATCHING' : 'PLANNED',
-          seasonAtual: 1,
-          epAtual: 0,
-        },
-      });
+      const createdUserAnime = await createLibraryEntry(
+        this.prisma.userAnime.create({
+          data: {
+            userId,
+            animeId: matchedInDb.id,
+            status: hasNotAiredYet ? 'WATCHING' : 'PLANNED',
+            seasonAtual: 1,
+            epAtual: 0,
+          },
+        }),
+        'Este anime já se encontra na sua biblioteca.',
+      );
 
       await this.animeService.recalculateUserStats(userId);
 
@@ -691,15 +705,18 @@ export class AniListService {
 
     const hasNotAiredYet = this.isAnimeNotYetAired(currentAnime);
 
-    const createdUserAnime = await this.prisma.userAnime.create({
-      data: {
-        userId,
-        animeId: createdAnime.id,
-        status: hasNotAiredYet ? 'WATCHING' : 'PLANNED',
-        seasonAtual: 1,
-        epAtual: 0,
-      },
-    });
+    const createdUserAnime = await createLibraryEntry(
+      this.prisma.userAnime.create({
+        data: {
+          userId,
+          animeId: createdAnime.id,
+          status: hasNotAiredYet ? 'WATCHING' : 'PLANNED',
+          seasonAtual: 1,
+          epAtual: 0,
+        },
+      }),
+      'Este anime já se encontra na sua biblioteca.',
+    );
 
     await this.animeService.recalculateUserStats(userId);
 

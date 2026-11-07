@@ -1,4 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { AnimeService } from './anime.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ListService } from '../list/list.service';
@@ -116,6 +121,10 @@ describe('AnimeService', () => {
       await expect(service.importFromTVTime(1, {} as any)).rejects.toThrow(
         'Formato inválido. O arquivo JSON deve ser um array.',
       );
+      // L-17: erro de validação é 400, não 500
+      await expect(service.importFromTVTime(1, {} as any)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
     });
 
     it('should throw error if an import is already running for the user', async () => {
@@ -132,6 +141,9 @@ describe('AnimeService', () => {
       // Attempt another one
       await expect(service.importFromTVTime(1, [])).rejects.toThrow(
         'Já existe uma importação de dados em andamento.',
+      );
+      await expect(service.importFromTVTime(1, [])).rejects.toBeInstanceOf(
+        ConflictException,
       );
     });
 
@@ -404,6 +416,17 @@ describe('AnimeService', () => {
   describe('update', () => {
     const userId = 10;
     const user = { userId, tipoConta: 'USER' };
+
+    // L-14: entrada inexistente devolve 404 em vez de 200 vazio
+    it('should throw NotFoundException when the library entry does not exist', async () => {
+      mockPrismaService.userAnime.findUnique.mockResolvedValue(null);
+      await expect(service.update(999, { epAtual: 1 }, user)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      await expect(service.remove(999, user)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
 
     it('should auto-complete a finished anime when the user marks the last episode as seen', async () => {
       const mockAnimeFinished = {

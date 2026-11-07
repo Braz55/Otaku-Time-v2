@@ -953,7 +953,17 @@ const DetailsPage = () => {
         }
         showToast('Adicionado à biblioteca com sucesso!', 'success');
       } else {
-        showToast('Não foi possível adicionar à biblioteca.', 'error');
+        // 409 (já na biblioteca) e 404 (obra não encontrada) trazem uma mensagem útil
+        let mensagem = 'Não foi possível adicionar à biblioteca.';
+        if (response.status === 409 || response.status === 404) {
+          try {
+            const body = await response.json();
+            if (body?.message) mensagem = body.message;
+          } catch {
+            // sem corpo JSON: fica a mensagem genérica
+          }
+        }
+        showToast(mensagem, response.status === 409 ? 'info' : 'error');
       }
     } catch (error) {
       console.error("Erro no POST:", error);

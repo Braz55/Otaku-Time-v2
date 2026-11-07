@@ -87,24 +87,29 @@ export class RatingService {
       throw new BadRequestException('A nota deve estar entre 0 e 10.');
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      // 1. Verificar se a Media existe, se não, criar obtendo a nota base do AniList
-      let media = await tx.media.findUnique({
-        where: { id: mediaId },
-      });
+    // 1. Nota base pedida à AniList ANTES de abrir a transação (L-18): um pedido HTTP lento
+    // não pode manter a transação aberta (o Prisma cancela-a ao fim de 5 s).
+    const mediaExistente = await this.prisma.media.findUnique({
+      where: { id: mediaId },
+      select: { id: true },
+    });
+    const baseScore = mediaExistente
+      ? 0 // não é usada: a Media já existe e o upsert não a altera
+      : await this.fetchAniListAverageScore(mediaId);
 
-      if (!media) {
-        const baseScore = await this.fetchAniListAverageScore(mediaId);
-        media = await tx.media.create({
-          data: {
-            id: mediaId,
-            avaliacao_base: baseScore,
-            total_votos_users: 0,
-            soma_notas_users: 0,
-            avaliacao_geral: baseScore,
-          },
-        });
-      }
+    return this.prisma.$transaction(async (tx) => {
+      // upsert: se dois primeiros votos chegarem ao mesmo tempo, só um cria a Media
+      const media = await tx.media.upsert({
+        where: { id: mediaId },
+        update: {},
+        create: {
+          id: mediaId,
+          avaliacao_base: baseScore,
+          total_votos_users: 0,
+          soma_notas_users: 0,
+          avaliacao_geral: baseScore,
+        },
+      });
 
       // 2. Verificar se já existe classificação do utilizador para esta Media
       const existingRating = await tx.userRating.findUnique({

@@ -1,5 +1,12 @@
-import { Injectable, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  forwardRef,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { createLibraryEntry } from '../library/library-errors';
 import { MangaService } from './manga.service';
 import { MangaSyncService } from './manga-sync.service';
 
@@ -193,6 +200,17 @@ export class AnilistMangaService {
     }
   }
 
+  // L-12: anime e manga reagem da mesma forma a uma obra repetida (409)
+  private async assertNotInLibrary(userId: number, mangaId: number) {
+    const existing = await this.prisma.userManga.findUnique({
+      where: { userId_mangaId: { userId, mangaId } },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException('Este manga já se encontra na sua biblioteca.');
+    }
+  }
+
   async importFromAniList(
     nomeManga: string,
     userId: number,
@@ -203,18 +221,20 @@ export class AnilistMangaService {
       : null;
 
     if (manga) {
-      const userManga = await this.prisma.userManga.upsert({
-        where: { userId_mangaId: { userId, mangaId: manga.id } },
-        update: {},
-        create: {
-          userId,
-          mangaId: manga.id,
-          status: 'PLANNED',
-          capAtual: 0,
-          prioridade: 5,
-        },
-        include: { manga: true },
-      });
+      await this.assertNotInLibrary(userId, manga.id);
+      const userManga = await createLibraryEntry(
+        this.prisma.userManga.create({
+          data: {
+            userId,
+            mangaId: manga.id,
+            status: 'PLANNED',
+            capAtual: 0,
+            prioridade: 5,
+          },
+          include: { manga: true },
+        }),
+        'Este manga já se encontra na sua biblioteca.',
+      );
 
       this.mangaService.backgroundUpdateManga(manga.id, userId).catch((err) => {
         console.error('Error in backgroundUpdateManga:', err);
@@ -233,7 +253,13 @@ export class AnilistMangaService {
     const aniListData = anilistId
       ? await this.searchAniListById(anilistId)
       : await this.searchAniListManga(nomeManga, userId);
-    if (!aniListData) throw new Error('Manga not found');
+    if (!aniListData) {
+      throw new NotFoundException(
+        'Não foi possível encontrar o manga na AniList ou importar os dados.',
+      );
+    }
+    // L-12: recusar logo, antes de escrever no catálogo, como no anime
+    await this.assertNotInLibrary(userId, aniListData.id);
 
     const linksJSON = aniListData.externalLinks
       ? JSON.stringify(aniListData.externalLinks)
@@ -295,18 +321,19 @@ export class AnilistMangaService {
       });
     }
 
-    const userManga = await this.prisma.userManga.upsert({
-      where: { userId_mangaId: { userId, mangaId: manga.id } },
-      update: {},
-      create: {
-        userId,
-        mangaId: manga.id,
-        status: 'PLANNED',
-        capAtual: 0,
-        prioridade: 5,
-      },
-      include: { manga: true },
-    });
+    const userManga = await createLibraryEntry(
+      this.prisma.userManga.create({
+        data: {
+          userId,
+          mangaId: manga.id,
+          status: 'PLANNED',
+          capAtual: 0,
+          prioridade: 5,
+        },
+        include: { manga: true },
+      }),
+      'Este manga já se encontra na sua biblioteca.',
+    );
 
     this.mangaService.recalculateUserStats(userId).catch((err) => {
       console.error('Error recalculating user stats in background:', err);

@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   ForbiddenException,
+  NotFoundException,
   Inject,
   forwardRef,
   Logger,
@@ -230,7 +231,9 @@ export class MangaService {
       where: { id },
       include: { manga: true },
     });
-    if (!atual) return null;
+    if (!atual) {
+      throw new NotFoundException('Manga não encontrado na biblioteca.');
+    }
 
     if (atual.userId !== user.userId && user.tipoConta !== 'ADMIN') {
       throw new ForbiddenException(
@@ -327,7 +330,9 @@ export class MangaService {
     const atual = await this.prisma.userManga.findUnique({
       where: { id },
     });
-    if (!atual) return null;
+    if (!atual) {
+      throw new NotFoundException('Manga não encontrado na biblioteca.');
+    }
 
     if (atual.userId !== user.userId && user.tipoConta !== 'ADMIN') {
       throw new ForbiddenException(

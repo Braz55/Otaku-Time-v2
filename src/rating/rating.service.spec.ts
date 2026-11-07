@@ -11,6 +11,7 @@ describe('RatingService', () => {
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      upsert: jest.fn(),
     },
     userRating: {
       findUnique: jest.fn(),
@@ -44,8 +45,13 @@ describe('RatingService', () => {
       .spyOn(service, 'fetchAniListAverageScore')
       .mockResolvedValue(8);
     prisma.media.findUnique.mockResolvedValue(null);
-    prisma.media.create.mockImplementation(({ data }) => Promise.resolve(data));
+    prisma.media.upsert.mockImplementation(({ create }) => Promise.resolve(create));
     prisma.userRating.findUnique.mockResolvedValue(null);
+    // L-18: o pedido à AniList tem de acontecer antes de a transação abrir
+    prisma.$transaction.mockImplementationOnce((cb: (tx: any) => Promise<unknown>) => {
+      expect(fetchBase).toHaveBeenCalled();
+      return cb(prisma);
+    });
 
     const result = await service.submitRating(1, 42, 10);
 
@@ -65,6 +71,13 @@ describe('RatingService', () => {
       soma_notas_users: 10,
       avaliacao_geral: 8.18,
     });
+    prisma.media.upsert.mockResolvedValue({
+      id: 42,
+      avaliacao_base: 8,
+      total_votos_users: 1,
+      soma_notas_users: 10,
+      avaliacao_geral: 8.18,
+    });
     prisma.userRating.findUnique.mockResolvedValue(null);
 
     const result = await service.submitRating(2, 42, 6);
@@ -77,6 +90,13 @@ describe('RatingService', () => {
 
   it('votar de novo substitui o voto anterior sem contar um voto extra', async () => {
     prisma.media.findUnique.mockResolvedValue({
+      id: 42,
+      avaliacao_base: 8,
+      total_votos_users: 1,
+      soma_notas_users: 10,
+      avaliacao_geral: 8.18,
+    });
+    prisma.media.upsert.mockResolvedValue({
       id: 42,
       avaliacao_base: 8,
       total_votos_users: 1,

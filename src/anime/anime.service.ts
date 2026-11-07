@@ -665,7 +665,9 @@ export class AnimeService {
       where: { id },
       include: { anime: true },
     });
-    if (!atual) return null;
+    if (!atual) {
+      throw new NotFoundException('Anime não encontrado na biblioteca.');
+    }
 
     if (atual.userId !== user.userId && user.tipoConta !== 'ADMIN') {
       throw new ForbiddenException(
@@ -836,7 +838,9 @@ export class AnimeService {
     const atual = await this.prisma.userAnime.findUnique({
       where: { id },
     });
-    if (!atual) return null;
+    if (!atual) {
+      throw new NotFoundException('Anime não encontrado na biblioteca.');
+    }
 
     if (atual.userId !== user.userId && user.tipoConta !== 'ADMIN') {
       throw new ForbiddenException(

@@ -1,4 +1,11 @@
-import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  Inject,
+  forwardRef,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TMDBService } from './tmdb.service';
 import { AnimeService } from './anime.service';
@@ -41,12 +48,16 @@ export class TVTimeImportService {
 
   async importFromTVTime(userId: number, tvTimeShows: any[]) {
     if (!Array.isArray(tvTimeShows)) {
-      throw new Error('Formato inválido. O arquivo JSON deve ser um array.');
+      throw new BadRequestException(
+        'Formato inválido. O arquivo JSON deve ser um array.',
+      );
     }
 
     const currentStatus = this.tvTimeImportStatus.get(userId);
     if (currentStatus && currentStatus.isImporting) {
-      throw new Error('Já existe uma importação de dados em andamento.');
+      throw new ConflictException(
+        'Já existe uma importação de dados em andamento.',
+      );
     }
 
     this.tvTimeImportStatus.set(userId, {

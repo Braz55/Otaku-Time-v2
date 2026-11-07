@@ -261,19 +261,35 @@ export class UserService {
         .filter((f) => f.mediaType === 'MANGA')
         .map((f) => f.anilistMediaId);
 
-      const [localAnimes, localMangas] = await Promise.all([
-        this.prisma.anime.findMany({
-          where: { id: { in: animeIds } },
-          select: { id: true, titulo: true, capaUrl: true },
-        }),
-        this.prisma.manga.findMany({
-          where: { id: { in: mangaIds } },
-          select: { id: true, titulo: true, capaUrl: true },
-        }),
-      ]);
+      const [localAnimes, localMangas, userAnimes, userMangas] =
+        await Promise.all([
+          this.prisma.anime.findMany({
+            where: { id: { in: animeIds } },
+            select: { id: true, titulo: true, capaUrl: true },
+          }),
+          this.prisma.manga.findMany({
+            where: { id: { in: mangaIds } },
+            select: { id: true, titulo: true, capaUrl: true },
+          }),
+          // Capa personalizada do dono do perfil (L-15)
+          this.prisma.userAnime.findMany({
+            where: { userId, animeId: { in: animeIds } },
+            select: { animeId: true, capaPersonalizada: true },
+          }),
+          this.prisma.userManga.findMany({
+            where: { userId, mangaId: { in: mangaIds } },
+            select: { mangaId: true, capaPersonalizada: true },
+          }),
+        ]);
 
       const animeMap = new Map(localAnimes.map((a) => [a.id, a]));
       const mangaMap = new Map(localMangas.map((m) => [m.id, m]));
+      const animeCapaMap = new Map(
+        userAnimes.map((ua) => [ua.animeId, ua.capaPersonalizada]),
+      );
+      const mangaCapaMap = new Map(
+        userMangas.map((um) => [um.mangaId, um.capaPersonalizada]),
+      );
 
       topFavoritesWithDetails = user.topFavorites.map((fav) => {
         if (fav.mediaType === 'ANIME') {
@@ -281,14 +297,16 @@ export class UserService {
           return {
             ...fav,
             titulo: anime?.titulo || 'Título Desconhecido',
-            capaUrl: anime?.capaUrl || '',
+            capaUrl:
+              animeCapaMap.get(fav.anilistMediaId) || anime?.capaUrl || '',
           };
         } else {
           const manga = mangaMap.get(fav.anilistMediaId);
           return {
             ...fav,
             titulo: manga?.titulo || 'Título Desconhecido',
-            capaUrl: manga?.capaUrl || '',
+            capaUrl:
+              mangaCapaMap.get(fav.anilistMediaId) || manga?.capaUrl || '',
           };
         }
       });

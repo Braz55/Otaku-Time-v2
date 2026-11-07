@@ -12,6 +12,7 @@ import { AnilistMangaService } from './anilist-manga.service';
 import { MangaSyncService } from './manga-sync.service';
 import { StatisticsService } from '../statistics/statistics.service';
 import { aplicarRegrasDeProgresso } from '../library/progress-rules';
+import { artworkUpdateData, resolveArtwork } from '../library/artwork';
 
 @Injectable()
 export class MangaService {
@@ -164,8 +165,7 @@ export class MangaService {
         mangaId: item.mangaId,
         titulo: item.manga.titulo,
         statusLancamento: item.manga.statusLancamento,
-        capaUrl: item.manga.capaUrl,
-        bannerUrl: item.manga.bannerUrl,
+        ...resolveArtwork(item, item.manga),
         generos: item.manga.generos,
         descricao: item.manga.descricao,
         status: item.status,
@@ -206,8 +206,7 @@ export class MangaService {
       mangaId: item.mangaId,
       titulo: item.manga.titulo,
       statusLancamento: item.manga.statusLancamento,
-      capaUrl: item.manga.capaUrl,
-      bannerUrl: item.manga.bannerUrl,
+      ...resolveArtwork(item, item.manga),
       generos: item.manga.generos,
       descricao: item.manga.descricao,
       status: item.status,
@@ -262,22 +261,12 @@ export class MangaService {
       atual.manga.numCapitulosTotal = total;
     }
 
-    if (updateDto.capaUrl !== undefined || updateDto.bannerUrl !== undefined) {
-      const mangaData: any = {};
-      if (updateDto.capaUrl !== undefined) mangaData.capaUrl = updateDto.capaUrl;
-      if (updateDto.bannerUrl !== undefined) mangaData.bannerUrl = updateDto.bannerUrl;
-      await this.prisma.manga.update({
-        where: { id: atual.mangaId },
-        data: mangaData,
-      });
-      if (updateDto.capaUrl !== undefined) atual.manga.capaUrl = updateDto.capaUrl;
-      if (updateDto.bannerUrl !== undefined) atual.manga.bannerUrl = updateDto.bannerUrl;
-    }
-
     const novosDados = { ...updateDto };
     delete novosDados.numCapitulosTotal;
     delete novosDados.capaUrl;
     delete novosDados.bannerUrl;
+    // Capa/banner escolhidos ficam na entrada do utilizador, não no catálogo global (L-15)
+    Object.assign(novosDados, artworkUpdateData(updateDto));
 
     // Último capítulo lançado: numa obra em emissão é o anterior ao próximo previsto
     const ultimoDisponivel =
@@ -318,8 +307,7 @@ export class MangaService {
     return {
       ...updated,
       titulo: updated.manga.titulo,
-      capaUrl: updated.manga.capaUrl,
-      bannerUrl: updated.manga.bannerUrl,
+      ...resolveArtwork(updated, updated.manga),
       linksExternos: updated.manga.linksExternos,
       numCapitulosTotal: updated.manga.numCapitulosTotal,
       proximoCapituloNumero: updated.manga.proximoCapituloNumero,

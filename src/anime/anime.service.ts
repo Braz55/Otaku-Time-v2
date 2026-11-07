@@ -17,6 +17,7 @@ import { TVTimeImportService } from './tvtime-import.service';
 import { CalendarService } from './calendar.service';
 import { NotificationService } from '../notification/notification.service';
 import { aplicarRegrasDeProgresso } from '../library/progress-rules';
+import { artworkUpdateData, resolveArtwork } from '../library/artwork';
 import { detectMediaType, buildGenerosDict, resolveLatinTitleForSearchItem } from './anime.utils';
 
 @Injectable()
@@ -313,6 +314,7 @@ export class AnimeService {
           data: {
             numEpisodiosTotal: tmdbData.episodes,
             capaUrl: tmdbData.coverImage.large,
+            bannerUrl: tmdbData.bannerUrl ?? undefined,
             statusLancamento: tmdbData.status,
             proximoEpisodio: tmdbData.nextAiringEpisode?.episode,
             proximoEpisodioData: tmdbData.nextAiringEpisode
@@ -435,6 +437,8 @@ export class AnimeService {
         watchedSpecials: true,
         updatedAt: true,
         lastProgressUpdate: true,
+        capaPersonalizada: true,
+        bannerPersonalizado: true,
         anime: {
           select: {
             id: true,
@@ -491,8 +495,7 @@ export class AnimeService {
         animeId: item.animeId,
         titulo: item.anime.titulo,
         statusLancamento: item.anime.statusLancamento,
-        capaUrl: item.anime.capaUrl,
-        bannerUrl: item.anime.bannerUrl,
+        ...resolveArtwork(item, item.anime),
         generos: item.anime.generos,
         descricao: item.anime.descricao,
         status: item.status,
@@ -594,8 +597,7 @@ export class AnimeService {
       animeId: item.animeId,
       titulo: item.anime.titulo,
       statusLancamento: item.anime.statusLancamento,
-      capaUrl: item.anime.capaUrl,
-      bannerUrl: item.anime.bannerUrl,
+      ...resolveArtwork(item, item.anime),
       generos: item.anime.generos,
       descricao: item.anime.descricao,
       status: item.status,
@@ -703,24 +705,14 @@ export class AnimeService {
       atual.anime.tipo = updateDto.tipo;
     }
 
-    if (updateDto.capaUrl !== undefined || updateDto.bannerUrl !== undefined) {
-      const animeData: any = {};
-      if (updateDto.capaUrl !== undefined) animeData.capaUrl = updateDto.capaUrl;
-      if (updateDto.bannerUrl !== undefined) animeData.bannerUrl = updateDto.bannerUrl;
-      await this.prisma.anime.update({
-        where: { id: atual.animeId },
-        data: animeData,
-      });
-      if (updateDto.capaUrl !== undefined) atual.anime.capaUrl = updateDto.capaUrl;
-      if (updateDto.bannerUrl !== undefined) atual.anime.bannerUrl = updateDto.bannerUrl;
-    }
-
     const novosDados = { ...updateDto };
     delete novosDados.numEpisodiosTotal;
     delete novosDados.tipo;
     delete novosDados.capaUrl;
     delete novosDados.bannerUrl;
     delete novosDados.epAtualGlobal;
+    // Capa/banner escolhidos ficam na entrada do utilizador, não no catálogo global (L-15)
+    Object.assign(novosDados, artworkUpdateData(updateDto));
 
     let globalEp: number | undefined;
     if (updateDto.epAtualGlobal !== undefined) {
@@ -803,8 +795,7 @@ export class AnimeService {
       animeId: updated.animeId,
       titulo: updated.anime.titulo,
       statusLancamento: updated.anime.statusLancamento,
-      capaUrl: updated.anime.capaUrl,
-      bannerUrl: updated.anime.bannerUrl,
+      ...resolveArtwork(updated, updated.anime),
       generos: updated.anime.generos,
       descricao: updated.anime.descricao,
       status: updated.status,
@@ -931,6 +922,7 @@ export class AnimeService {
       data: {
         numEpisodiosTotal: media.episodes,
         capaUrl: media.coverImage.large,
+        bannerUrl: media.bannerUrl ?? undefined,
         statusLancamento: media.status,
         proximoEpisodio: media.nextAiringEpisode?.episode,
         proximoEpisodioData: media.nextAiringEpisode

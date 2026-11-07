@@ -26,6 +26,9 @@ describe('AuthController', () => {
     refresh: jest.fn(),
   };
 
+  const webReq = { headers: {} } as any as Request;
+  const androidReq = { headers: { 'x-client': 'android' } } as any as Request;
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
@@ -56,7 +59,7 @@ describe('AuthController', () => {
       mockAuthService.validateUser.mockResolvedValue(mockUser);
       mockAuthService.login.mockResolvedValue(mockAuthResult);
 
-      const result = await controller.login(loginDto, mockRes);
+      const result = await controller.login(loginDto, webReq, mockRes);
 
       expect(authService.validateUser).toHaveBeenCalledWith(loginDto.email, loginDto.password);
       expect(authService.login).toHaveBeenCalledWith(mockUser);
@@ -73,6 +76,22 @@ describe('AuthController', () => {
         'mock_refresh_token',
         expect.any(Object),
       );
+      // Na web os tokens ficam só nos cookies HttpOnly (L-08)
+      expect(result).toEqual({ user: mockAuthResult.user });
+    });
+
+    it('should return the tokens in the body only for the Android app', async () => {
+      const loginDto = { email: 'test@example.com', password: 'password' };
+      const mockRes = {
+        cookie: jest.fn(),
+      } as any as Response;
+
+      mockAuthService.validateUser.mockResolvedValue({ id: 1 });
+      mockAuthService.login.mockResolvedValue(mockAuthResult);
+
+      const result = await controller.login(loginDto, androidReq, mockRes);
+
+      expect(mockRes.cookie).toHaveBeenCalledTimes(2);
       expect(result).toEqual(mockAuthResult);
     });
 
@@ -84,7 +103,7 @@ describe('AuthController', () => {
 
       mockAuthService.validateUser.mockResolvedValue(null);
 
-      await expect(controller.login(loginDto, mockRes)).rejects.toThrow(UnauthorizedException);
+      await expect(controller.login(loginDto, webReq, mockRes)).rejects.toThrow(UnauthorizedException);
       expect(authService.validateUser).toHaveBeenCalledWith(loginDto.email, loginDto.password);
       expect(authService.login).not.toHaveBeenCalled();
       expect(mockRes.cookie).not.toHaveBeenCalled();
@@ -100,11 +119,11 @@ describe('AuthController', () => {
 
       mockAuthService.register.mockResolvedValue(mockAuthResult);
 
-      const result = await controller.register(createUserDto, mockRes);
+      const result = await controller.register(createUserDto, webReq, mockRes);
 
       expect(authService.register).toHaveBeenCalledWith(createUserDto);
       expect(mockRes.cookie).toHaveBeenCalledTimes(2);
-      expect(result).toEqual(mockAuthResult);
+      expect(result).toEqual({ user: mockAuthResult.user });
     });
   });
 
@@ -125,11 +144,12 @@ describe('AuthController', () => {
 
       expect(authService.refresh).toHaveBeenCalledWith('cookie_refresh_token');
       expect(mockRes.cookie).toHaveBeenCalledTimes(2);
-      expect(result).toEqual(mockAuthResult);
+      expect(result).toEqual({ user: mockAuthResult.user });
     });
 
     it('should extract token from body if cookie is absent, refresh, set cookies and return result', async () => {
       const mockReq = {
+        headers: { 'x-client': 'android' },
         cookies: {},
         body: {
           refresh_token: 'body_refresh_token',

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { customFetch } from '../services/apiBridge';
+import { Capacitor } from '@capacitor/core';
+import { customFetch, SESSION_COOKIE } from '../services/apiBridge';
 import { API_BASE_URL } from '../config';
 import { getStorageItem, setStorageItem, removeStorageItem } from '../services/storage';
 
@@ -19,7 +20,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (token: string, user: User, refreshToken?: string) => void;
+  login: (token: string | null | undefined, user: User, refreshToken?: string) => void;
   logout: () => void;
   isAuthenticated: boolean;
   updateUser: (updatedUser: Partial<User>) => void;
@@ -33,11 +34,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const login = (newToken: string, newUser: User, refreshToken?: string) => {
-    setToken(newToken);
+  const login = (newToken: string | null | undefined, newUser: User, refreshToken?: string) => {
+    // Na web o backend não devolve tokens (ficam em cookies HttpOnly, L-08): guarda-se só o marcador
+    const isNative = Capacitor.isNativePlatform();
+    const sessionToken = isNative && newToken ? newToken : SESSION_COOKIE;
+    setToken(sessionToken);
     setUser(newUser);
-    setStorageItem('otaku_token', newToken);
-    if (refreshToken) {
+    setStorageItem('otaku_token', sessionToken);
+    if (isNative && refreshToken) {
       setStorageItem('otaku_refresh_token', refreshToken);
     }
     setStorageItem('otaku_user', JSON.stringify(newUser));
@@ -70,8 +74,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        const savedToken = await getStorageItem('otaku_token');
+        let savedToken = await getStorageItem('otaku_token');
         const savedUser = await getStorageItem('otaku_user');
+
+        // Web: apagar tokens reais guardados por versões anteriores (L-08); a sessão segue nos cookies
+        if (!Capacitor.isNativePlatform()) {
+          await removeStorageItem('otaku_refresh_token');
+          if (savedToken && savedToken !== SESSION_COOKIE) {
+            savedToken = SESSION_COOKIE;
+            await setStorageItem('otaku_token', SESSION_COOKIE);
+          }
+        }
 
         if (savedToken && savedUser) {
           // 1. Restaurar sessão localmente primeiro para que a app carregue instantaneamente

@@ -649,6 +649,7 @@ export class AniListService {
         descricao: tmdbData.description,
         generos: generosDict,
         capaUrl: tmdbData.coverImage.large,
+        bannerUrl: tmdbData.bannerUrl ?? null,
         numEpisodiosTotal: tmdbData.episodes,
         temporada: tmdbData.season,
         ano:

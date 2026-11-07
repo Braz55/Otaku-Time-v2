@@ -682,11 +682,10 @@ const DetailsPage = () => {
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data && data.backdrops && data.backdrops.length > 0) {
+          // Só para mostrar: não é uma escolha do utilizador, por isso não se grava (L-15).
+          // O banner do catálogo é preenchido pela importação/sincronização.
           const defaultBanner = data.backdrops[0];
           setSelectedItem((prev: any) => prev ? { ...prev, bannerUrl: defaultBanner } : prev);
-          if (!selectedItem.isExternal) {
-            atualizarCampo('bannerUrl', defaultBanner);
-          }
         }
       })
       .catch(err => console.error("Error auto-fetching default banner:", err));

@@ -83,6 +83,8 @@ model UserAnime {
   wasDropped Boolean        @default(false)
   lastProgressUpdate DateTime?
   watchedSpecials Json?        @default("[]")
+  capaPersonalizada   String? // Capa escolhida pelo utilizador; null = usa a do catálogo
+  bannerPersonalizado String? // Banner escolhido pelo utilizador; null = usa o do catálogo
   updatedAt  DateTime       @default(now()) @updatedAt
 
   @@unique([userId, animeId])
@@ -121,6 +123,8 @@ model UserManga {
   manga      Manga          @relation(fields: [mangaId], references: [id])
   wasDropped Boolean        @default(false)
   lastProgressUpdate DateTime?
+  capaPersonalizada   String? // Capa escolhida pelo utilizador; null = usa a do catálogo
+  bannerPersonalizado String? // Banner escolhido pelo utilizador; null = usa o do catálogo
   updatedAt  DateTime       @default(now()) @updatedAt
 
   @@unique([userId, mangaId])

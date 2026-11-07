@@ -2,6 +2,10 @@ import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { API_BASE_URL } from '../config';
 import { getStorageItem, setStorageItem, removeStorageItem } from './storage';
 
+// Na web os tokens vivem só em cookies HttpOnly (L-08): o JavaScript nunca os vê.
+// Em vez do token guarda-se este marcador, que indica "há sessão" e que o backend ignora.
+export const SESSION_COOKIE = 'session-cookie';
+
 // Helper para fazer chamadas HTTP nativas retornando um objeto Response padrão
 async function nativeFetchResponse(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   if (Capacitor.isNativePlatform()) {
@@ -10,6 +14,8 @@ async function nativeFetchResponse(input: RequestInfo | URL, init?: RequestInit)
     const headers: any = {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
+      // Só a app nativa recebe os tokens no corpo da resposta (cookies entre domínios não são fiáveis)
+      'X-Client': Capacitor.getPlatform(),
       ...init?.headers
     };
     const options: any = { url, method, headers };
@@ -56,18 +62,28 @@ function refreshAccessToken(): Promise<string | null> {
           method: 'POST',
         };
 
-        const savedRefreshToken = await getStorageItem('otaku_refresh_token');
-        if (savedRefreshToken) {
-          refreshInit.body = JSON.stringify({ refresh_token: savedRefreshToken });
-          refreshInit.headers = { 'Content-Type': 'application/json' };
+        const isNative = Capacitor.isNativePlatform();
+
+        // Na web o refresh token segue no cookie HttpOnly; só a app nativa o envia no corpo
+        if (isNative) {
+          const savedRefreshToken = await getStorageItem('otaku_refresh_token');
+          if (savedRefreshToken) {
+            refreshInit.body = JSON.stringify({ refresh_token: savedRefreshToken });
+            refreshInit.headers = { 'Content-Type': 'application/json' };
+          }
         }
 
         const refreshRes = await nativeFetchResponse(`${API_BASE_URL}/auth/refresh`, refreshInit);
         if (refreshRes.ok) {
           const data = await refreshRes.json();
-          await setStorageItem('otaku_token', data.access_token);
-          await setStorageItem('otaku_refresh_token', data.refresh_token);
-          return data.access_token as string;
+          if (isNative && data.access_token) {
+            await setStorageItem('otaku_token', data.access_token);
+            await setStorageItem('otaku_refresh_token', data.refresh_token);
+            return data.access_token as string;
+          }
+          // Web: os cookies novos já foram gravados pelo browser
+          await setStorageItem('otaku_token', SESSION_COOKIE);
+          return SESSION_COOKIE;
         }
 
         // Invalida sessão se o servidor recusar o refresh
@@ -95,13 +111,13 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
   // Manipular cabeçalhos para o token
   let headers = init?.headers ? new Headers(init.headers as any) : new Headers();
   
-  if (headers.get('Authorization') === 'Bearer session-cookie') {
+  if (headers.get('Authorization') === `Bearer ${SESSION_COOKIE}`) {
     headers.delete('Authorization');
   }
 
   if (!headers.has('Authorization')) {
     const savedToken = await getStorageItem('otaku_token');
-    if (savedToken && savedToken !== 'session-cookie') {
+    if (savedToken && savedToken !== SESSION_COOKIE) {
       headers.set('Authorization', `Bearer ${savedToken}`);
     }
   }
@@ -123,9 +139,13 @@ export async function customFetch(input: RequestInfo | URL, init?: RequestInit):
     const newToken = await refreshAccessToken();
     if (!newToken) return response;
 
-    // Repete o pedido original com o token novo
+    // Repete o pedido original com o token novo (na web o cookie novo basta)
     const retryHeaders = new Headers(newInit.headers as any);
-    retryHeaders.set('Authorization', `Bearer ${newToken}`);
+    if (newToken === SESSION_COOKIE) {
+      retryHeaders.delete('Authorization');
+    } else {
+      retryHeaders.set('Authorization', `Bearer ${newToken}`);
+    }
     newInit.headers = retryHeaders as any;
     return nativeFetchResponse(input, newInit);
   }

@@ -87,6 +87,10 @@ export class AuthService {
     }
   }
 
+  async logoutAll(userId: number) {
+    await this.userService.revokeAllSessions(userId);
+  }
+
   async register(createUserDto: any) {
     const existingUser = await this.userService.findByEmail(
       createUserDto.email,

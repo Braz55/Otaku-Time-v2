@@ -25,6 +25,7 @@ interface AccountTabProps {
   isSavingAccount: boolean;
   handleSaveAccountInfo: (e: React.FormEvent) => void;
   logout: () => void;
+  logoutAll: () => Promise<boolean>;
   ALL_GENRES: string[];
   handleToggleGenre: (genre: string) => void;
   isExporting: boolean;
@@ -56,6 +57,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({
   isSavingAccount,
   handleSaveAccountInfo,
   logout,
+  logoutAll,
   ALL_GENRES,
   handleToggleGenre,
   isExporting,
@@ -277,6 +279,17 @@ export const AccountTab: React.FC<AccountTabProps> = ({
               className="px-6 py-3 rounded-2xl bg-red-500/10 hover:bg-red-500 text-red-300 hover:text-white font-bold text-xs md:text-sm transition-all border border-red-500/20 shadow-lg cursor-pointer"
             >
               Encerrar Sessão
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!window.confirm('Terminar a sessão em todos os dispositivos (web e Android)? Vais ter de iniciar sessão outra vez em cada um.')) return;
+                const ok = await logoutAll();
+                if (!ok) showToast('Não foi possível terminar todas as sessões. Tenta outra vez.', 'error');
+              }}
+              className="px-6 py-3 rounded-2xl bg-red-500/10 hover:bg-red-500 text-red-300 hover:text-white font-bold text-xs md:text-sm transition-all border border-red-500/20 shadow-lg cursor-pointer"
+            >
+              Terminar Todas as Sessões
             </button>
             <button 
               type="submit"

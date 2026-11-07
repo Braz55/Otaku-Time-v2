@@ -5,6 +5,12 @@ import { AnimeService } from '../anime/anime.service';
 import { MangaService } from '../manga/manga.service';
 import { KeepAwakeService } from '../keep-awake.service';
 import { NotificationService } from '../notification/notification.service';
+import {
+  SYNC_DONE_STATUSES,
+  SyncOutcome,
+  decidirEstadoSync,
+  descreverSync,
+} from './sync-result';
 
 @Injectable()
 export class SyncService implements OnApplicationBootstrap {
@@ -309,14 +315,14 @@ export class SyncService implements OnApplicationBootstrap {
         // Daily active sync needs to run if there is no successful ANIME_ACTIVE or ANIME_FULL sync since 7 AM today
         const lastActiveSync = await this.prisma.syncLog.findFirst({
           where: {
-            status: 'SUCCESS',
+            status: { in: SYNC_DONE_STATUSES },
             details: { startsWith: '[ANIME_ACTIVE]' },
             timestamp: { gte: animeWindowStartDate },
           },
         });
         const lastFullSyncToday = await this.prisma.syncLog.findFirst({
           where: {
-            status: 'SUCCESS',
+            status: { in: SYNC_DONE_STATUSES },
             details: { startsWith: '[ANIME_FULL]' },
             timestamp: { gte: animeWindowStartDate },
           },
@@ -331,7 +337,7 @@ export class SyncService implements OnApplicationBootstrap {
               timestamp: { gte: new Date(Date.now() - 20 * 60 * 60 * 1000) },
               OR: [
                 { details: { contains: 'ANIME_ACTIVE' } },
-                { details: { contains: 'ANIME_FULL' }, status: 'SUCCESS' },
+                { details: { contains: 'ANIME_FULL' }, status: { in: SYNC_DONE_STATUSES } },
               ],
             },
           });
@@ -395,7 +401,7 @@ export class SyncService implements OnApplicationBootstrap {
 
         const lastMangaSync = await this.prisma.syncLog.findFirst({
           where: {
-            status: 'SUCCESS',
+            status: { in: SYNC_DONE_STATUSES },
             details: { startsWith: activeMangaWindow.label },
             timestamp: { gte: mangaWindowStartDate },
           },
@@ -453,9 +459,6 @@ export class SyncService implements OnApplicationBootstrap {
     let mangaLog: any = null;
 
     try {
-      let syncedAnimesCount = 0;
-      let syncedMangasCount = 0;
-
       // 1a. Anime Active Sync
       if (runAnimeActive) {
         this.logger.log('Starting scheduled ANIME ACTIVE sync...');
@@ -479,33 +482,11 @@ export class SyncService implements OnApplicationBootstrap {
           },
           select: { id: true, titulo: true },
         });
-        this.totalItemsToSync = animes.length;
 
-        for (let i = 0; i < animes.length; i += 3) {
-          if (!this.isSyncingActive) break;
-
-          const batch = animes.slice(i, i + 3);
-          for (const anime of batch) {
-            this.currentItemTitle = anime.titulo;
-            this.logger.log(
-              `[ScheduledSync] [ANIME_ACTIVE] Syncing: "${anime.titulo}" (${this.currentSyncedCount + 1}/${this.totalItemsToSync})`,
-            );
-            await this.animeService.syncLatestEpisode(anime.id);
-            this.currentSyncedCount++;
-            syncedAnimesCount++;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-        }
-
-        const detailsMsg = `[ANIME_ACTIVE] Successfully synced all ${syncedAnimesCount} active/releasing animes.`;
-        await this.prisma.syncLog.update({
-          where: { id: activeLog.id },
-          data: {
-            status: 'SUCCESS',
-            details: detailsMsg,
-          },
-        });
-        this.logger.log('Scheduled ANIME ACTIVE sync completed successfully.');
+        const outcome = await this.syncItems('[ANIME_ACTIVE]', animes, (id) =>
+          this.animeService.syncLatestEpisode(id),
+        );
+        await this.finishSyncLog(activeLog.id, '[ANIME_ACTIVE]', 'active/releasing animes', outcome);
       }
 
       // 1b. Anime Full Sync
@@ -527,34 +508,12 @@ export class SyncService implements OnApplicationBootstrap {
           take: 100, // Limit full sync to 100 oldest outdated items to avoid Render timeouts/crashes
           select: { id: true, titulo: true },
         });
-        this.totalItemsToSync = animes.length;
-        this.logger.log(`Selected ${this.totalItemsToSync} outdated animes (updated > 7 days ago) to sync.`);
+        this.logger.log(`Selected ${animes.length} outdated animes (updated > 7 days ago) to sync.`);
 
-        for (let i = 0; i < animes.length; i += 3) {
-          if (!this.isSyncingActive) break;
-
-          const batch = animes.slice(i, i + 3);
-          for (const anime of batch) {
-            this.currentItemTitle = anime.titulo;
-            this.logger.log(
-              `[ScheduledSync] [ANIME_FULL] Syncing: "${anime.titulo}" (${this.currentSyncedCount + 1}/${this.totalItemsToSync})`,
-            );
-            await this.animeService.syncLatestEpisode(anime.id);
-            this.currentSyncedCount++;
-            syncedAnimesCount++;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-        }
-
-        const detailsMsg = `[ANIME_FULL] Successfully synced all ${syncedAnimesCount} animes.`;
-        await this.prisma.syncLog.update({
-          where: { id: fullLog.id },
-          data: {
-            status: 'SUCCESS',
-            details: detailsMsg,
-          },
-        });
-        this.logger.log('Scheduled ANIME FULL sync completed successfully.');
+        const outcome = await this.syncItems('[ANIME_FULL]', animes, (id) =>
+          this.animeService.syncLatestEpisode(id),
+        );
+        await this.finishSyncLog(fullLog.id, '[ANIME_FULL]', 'animes', outcome);
       }
 
       // Reset counters for Manga if both ran
@@ -578,32 +537,11 @@ export class SyncService implements OnApplicationBootstrap {
           where: { statusLancamento: 'RELEASING' },
           select: { id: true, titulo: true },
         });
-        this.totalItemsToSync = mangas.length;
 
-        for (let i = 0; i < mangas.length; i += 3) {
-          if (!this.isSyncingActive) break;
-
-          const batch = mangas.slice(i, i + 3);
-          for (const manga of batch) {
-            this.currentItemTitle = manga.titulo;
-            this.logger.log(
-              `[ScheduledSync] ${mangaLabel} Syncing: "${manga.titulo}" (${this.currentSyncedCount + 1}/${this.totalItemsToSync})`,
-            );
-            await this.mangaService.syncLatestChapter(manga.id);
-            this.currentSyncedCount++;
-            syncedMangasCount++;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-        }
-
-        await this.prisma.syncLog.update({
-          where: { id: mangaLog.id },
-          data: {
-            status: 'SUCCESS',
-            details: `${mangaLabel} Successfully synced ${syncedMangasCount} releasing mangas.`,
-          },
-        });
-        this.logger.log(`Scheduled MANGA ACTIVE sync for ${mangaLabel} completed successfully.`);
+        const outcome = await this.syncItems(mangaLabel, mangas, (id) =>
+          this.mangaService.syncLatestChapter(id),
+        );
+        await this.finishSyncLog(mangaLog.id, mangaLabel, 'releasing mangas', outcome);
       }
 
       // 2b. Manga Full Sync (Weekly)
@@ -625,34 +563,12 @@ export class SyncService implements OnApplicationBootstrap {
           take: 100, // Limit full sync to 100 oldest outdated items to avoid Render timeouts/crashes
           select: { id: true, titulo: true },
         });
-        this.totalItemsToSync = mangas.length;
-        this.logger.log(`Selected ${this.totalItemsToSync} outdated mangas (updated > 7 days ago) to sync.`);
+        this.logger.log(`Selected ${mangas.length} outdated mangas (updated > 7 days ago) to sync.`);
 
-        for (let i = 0; i < mangas.length; i += 3) {
-          if (!this.isSyncingActive) break;
-
-          const batch = mangas.slice(i, i + 3);
-          for (const manga of batch) {
-            this.currentItemTitle = manga.titulo;
-            this.logger.log(
-              `[ScheduledSync] [MANGA_FULL] Syncing: "${manga.titulo}" (${this.currentSyncedCount + 1}/${this.totalItemsToSync})`,
-            );
-            await this.mangaService.syncLatestChapter(manga.id);
-            this.currentSyncedCount++;
-            syncedMangasCount++;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-        }
-
-        const detailsMsg = `[MANGA_FULL] Successfully synced all ${syncedMangasCount} mangas.`;
-        await this.prisma.syncLog.update({
-          where: { id: mangaLog.id },
-          data: {
-            status: 'SUCCESS',
-            details: detailsMsg,
-          },
-        });
-        this.logger.log('Scheduled MANGA FULL sync completed successfully.');
+        const outcome = await this.syncItems('[MANGA_FULL]', mangas, (id) =>
+          this.mangaService.syncLatestChapter(id),
+        );
+        await this.finishSyncLog(mangaLog.id, '[MANGA_FULL]', 'mangas', outcome);
       }
     } catch (error) {
       this.logger.error('Error during scheduled synchronization:', error);
@@ -688,6 +604,56 @@ export class SyncService implements OnApplicationBootstrap {
       this.currentSyncedCount = 0;
       this.totalItemsToSync = 0;
     }
+  }
+
+  // Sincroniza as obras em lotes de 3. Um erro numa obra fica registado e o ciclo
+  // continua com as seguintes, em vez de abortar a sincronização toda (L-22).
+  private async syncItems(
+    label: string,
+    items: { id: number; titulo: string }[],
+    syncOne: (id: number) => Promise<unknown>,
+  ): Promise<SyncOutcome> {
+    const outcome: SyncOutcome = { total: items.length, sincronizadas: 0, falhas: [] };
+    this.totalItemsToSync = items.length;
+
+    for (let i = 0; i < items.length; i += 3) {
+      if (!this.isSyncingActive) break;
+
+      const batch = items.slice(i, i + 3);
+      for (const item of batch) {
+        this.currentItemTitle = item.titulo;
+        this.logger.log(
+          `[ScheduledSync] ${label} Syncing: "${item.titulo}" (${this.currentSyncedCount + 1}/${this.totalItemsToSync})`,
+        );
+        try {
+          await syncOne(item.id);
+          outcome.sincronizadas++;
+        } catch (err) {
+          const erro = err instanceof Error ? err.message : String(err);
+          outcome.falhas.push({ id: item.id, titulo: item.titulo, erro });
+          this.logger.error(`[ScheduledSync] ${label} Failed: "${item.titulo}" (${item.id}): ${erro}`);
+        }
+        this.currentSyncedCount++;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+    return outcome;
+  }
+
+  private async finishSyncLog(
+    logId: number,
+    label: string,
+    tipoObra: string,
+    outcome: SyncOutcome,
+  ) {
+    const status = decidirEstadoSync(outcome);
+    await this.prisma.syncLog.update({
+      where: { id: logId },
+      data: { status, details: descreverSync(label, tipoObra, outcome) },
+    });
+    this.logger.log(
+      `Scheduled ${label} sync finished with status ${status} (${outcome.sincronizadas}/${outcome.total}, ${outcome.falhas.length} failed).`,
+    );
   }
 
   async runManualSync() {

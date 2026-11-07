@@ -22,8 +22,8 @@ export class CalendarService {
     const userAnimes = await this.prisma.userAnime.findMany({
       where: {
         userId,
+        // Só conta o estado atual: uma obra retomada depois de abandonada volta ao calendário (L-20)
         status: { not: 'DROPPED' },
-        wasDropped: false,
         anime: {
           OR: [
             { statusLancamento: 'RELEASING' },

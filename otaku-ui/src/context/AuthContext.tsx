@@ -22,6 +22,7 @@ interface AuthContextType {
   token: string | null;
   login: (token: string | null | undefined, user: User, refreshToken?: string) => void;
   logout: () => void;
+  logoutAll: () => Promise<boolean>;
   isAuthenticated: boolean;
   updateUser: (updatedUser: Partial<User>) => void;
   loading: boolean;
@@ -47,7 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setStorageItem('otaku_user', JSON.stringify(newUser));
   };
 
-  const logout = async () => {
+  const clearLocalSession = async () => {
     setToken(null);
     setUser(null);
     await removeStorageItem('otaku_token');
@@ -57,9 +58,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await removeStorageItem('otaku_manga_library');
     await removeStorageItem('otaku_anime_dashboard');
     await removeStorageItem('otaku_manga_dashboard');
+  };
 
+  const logout = async () => {
+    await clearLocalSession();
     customFetch(`${API_BASE_URL}/auth/logout`, { method: 'POST' })
       .catch(err => console.error('Erro ao terminar sessão no backend:', err));
+  };
+
+  // Termina a sessão em todos os dispositivos (L-09). Devolve false se o servidor não confirmar,
+  // e nesse caso a sessão local mantém-se para o utilizador poder tentar outra vez.
+  const logoutAll = async (): Promise<boolean> => {
+    try {
+      const res = await customFetch(`${API_BASE_URL}/auth/logout-all`, { method: 'POST' });
+      if (!res.ok) return false;
+    } catch (err) {
+      console.error('Erro ao terminar todas as sessões:', err);
+      return false;
+    }
+    await clearLocalSession();
+    return true;
   };
 
   const updateUser = (updatedFields: Partial<User>) => {
@@ -124,7 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token, updateUser, loading }}>
+    <AuthContext.Provider value={{ user, token, login, logout, logoutAll, isAuthenticated: !!token, updateUser, loading }}>
       {children}
     </AuthContext.Provider>
   );

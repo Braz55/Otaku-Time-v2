@@ -122,6 +122,14 @@ export class UserService {
     });
   }
 
+  // Invalida todos os tokens já emitidos (access e refresh), em todos os dispositivos (L-09)
+  async revokeAllSessions(id: number) {
+    await this.prisma.user.update({
+      where: { id },
+      data: { tokenVersion: { increment: 1 } },
+    });
+  }
+
   remove(id: number) {
     return this.prisma.user.delete({
       where: { id },

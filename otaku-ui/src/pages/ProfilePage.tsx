@@ -24,7 +24,7 @@ import { AdminTab } from '../components/profile/AdminTab';
 
 
 const ProfilePage = () => {
-  const { user, logout, token, updateUser } = useAuth();
+  const { user, logout, logoutAll, token, updateUser } = useAuth();
   const { showToast } = useToast();
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -1121,6 +1121,7 @@ const ProfilePage = () => {
             isSavingAccount={isSavingAccount}
             handleSaveAccountInfo={handleSaveAccountInfo}
             logout={logout}
+            logoutAll={logoutAll}
             ALL_GENRES={ALL_GENRES}
             handleToggleGenre={handleToggleGenre}
             isExporting={isExporting}

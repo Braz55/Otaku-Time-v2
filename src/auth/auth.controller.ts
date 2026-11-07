@@ -7,7 +7,9 @@ import {
   HttpStatus,
   Res,
   Req,
+  UseGuards,
 } from '@nestjs/common';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import type { Response, Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
@@ -116,5 +118,20 @@ export class AuthController {
     res.clearCookie('otaku_access_token', cookieOptions);
     res.clearCookie('otaku_refresh_token', cookieOptions);
     return { message: 'Sessão terminada com sucesso.' };
+  }
+
+  // "Terminar todas as sessões" (L-09): incrementa a tokenVersion, o que invalida
+  // os tokens de todos os dispositivos, incluindo refresh tokens copiados.
+  @Post('logout-all')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async logoutAll(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    await this.authService.logoutAll((req as any).user.userId);
+    res.clearCookie('otaku_access_token', cookieOptions);
+    res.clearCookie('otaku_refresh_token', cookieOptions);
+    return { message: 'Todas as sessões foram terminadas.' };
   }
 }

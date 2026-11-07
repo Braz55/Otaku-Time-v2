@@ -24,6 +24,7 @@ describe('AuthController', () => {
     login: jest.fn(),
     register: jest.fn(),
     refresh: jest.fn(),
+    logoutAll: jest.fn(),
   };
 
   const webReq = { headers: {} } as any as Request;
@@ -195,6 +196,21 @@ describe('AuthController', () => {
       expect(mockRes.clearCookie).toHaveBeenNthCalledWith(1, 'otaku_access_token', expect.any(Object));
       expect(mockRes.clearCookie).toHaveBeenNthCalledWith(2, 'otaku_refresh_token', expect.any(Object));
       expect(result).toEqual({ message: 'Sessão terminada com sucesso.' });
+    });
+  });
+
+  describe('logoutAll', () => {
+    it('should revoke every session of the user and clear the cookies (L-09)', async () => {
+      const mockReq = { user: { userId: 7 } } as any as Request;
+      const mockRes = {
+        clearCookie: jest.fn(),
+      } as any as Response;
+
+      const result = await controller.logoutAll(mockReq, mockRes);
+
+      expect(authService.logoutAll).toHaveBeenCalledWith(7);
+      expect(mockRes.clearCookie).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({ message: 'Todas as sessões foram terminadas.' });
     });
   });
 });

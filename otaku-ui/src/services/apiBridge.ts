@@ -11,14 +11,16 @@ async function nativeFetchResponse(input: RequestInfo | URL, init?: RequestInit)
   if (Capacitor.isNativePlatform()) {
     const url = typeof input === 'string' ? input : input.toString();
     const method = (init?.method || 'GET').toUpperCase();
-    const headers: any = {
+    // Headers não é um objeto simples: espalhá-lo com "..." perde todos os campos (ex: Authorization).
+    // Junta-se tudo num Headers (sem duplicados, ignora maiúsculas) e só depois se converte.
+    const merged = new Headers({
       'Accept': 'application/json',
       'Content-Type': 'application/json',
       // Só a app nativa recebe os tokens no corpo da resposta (cookies entre domínios não são fiáveis)
       'X-Client': Capacitor.getPlatform(),
-      // Headers não é um objeto simples: espalhá-lo com "..." perde todos os campos (ex: Authorization)
-      ...Object.fromEntries(new Headers(init?.headers as any).entries())
-    };
+    });
+    new Headers(init?.headers as any).forEach((value, key) => merged.set(key, value));
+    const headers: any = Object.fromEntries(merged.entries());
     const options: any = { url, method, headers };
     if (init?.body) {
       options.data = typeof init.body === 'string' ? JSON.parse(init.body) : init.body;

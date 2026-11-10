@@ -1,15 +1,18 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { MediaType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { mediaKey } from './media-type';
 
 @Injectable()
 export class RatingService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getOverallRating(mediaId: number) {
+  async getOverallRating(mediaId: number, mediaType: MediaType) {
     const media = await this.prisma.media.findUnique({
-      where: { id: mediaId },
+      where: mediaKey(mediaId, mediaType),
       select: {
         id: true,
+        mediaType: true,
         avaliacao_geral: true,
         total_votos_users: true,
       },
@@ -22,17 +25,19 @@ export class RatingService {
     const baseScore = await this.fetchAniListAverageScore(mediaId);
     return {
       id: mediaId,
+      mediaType,
       avaliacao_geral: Math.round(baseScore * 100) / 100,
       total_votos_users: 0,
     };
   }
 
-  async getUserRating(userId: number, mediaId: number) {
+  async getUserRating(userId: number, mediaId: number, mediaType: MediaType) {
     const rating = await this.prisma.userRating.findUnique({
       where: {
-        userId_mediaId: {
+        userId_mediaId_mediaType: {
           userId,
           mediaId,
+          mediaType,
         },
       },
       select: {
@@ -42,6 +47,7 @@ export class RatingService {
 
     return {
       mediaId,
+      mediaType,
       score: rating?.score ?? null,
     };
   }
@@ -82,7 +88,12 @@ export class RatingService {
   }
 
   // Regista ou atualiza um voto de utilizador dentro de uma Transaction
-  async submitRating(userId: number, mediaId: number, score: number) {
+  async submitRating(
+    userId: number,
+    mediaId: number,
+    mediaType: MediaType,
+    score: number,
+  ) {
     if (score < 0 || score > 10) {
       throw new BadRequestException('A nota deve estar entre 0 e 10.');
     }
@@ -90,7 +101,7 @@ export class RatingService {
     // 1. Nota base pedida à AniList ANTES de abrir a transação (L-18): um pedido HTTP lento
     // não pode manter a transação aberta (o Prisma cancela-a ao fim de 5 s).
     const mediaExistente = await this.prisma.media.findUnique({
-      where: { id: mediaId },
+      where: mediaKey(mediaId, mediaType),
       select: { id: true },
     });
     const baseScore = mediaExistente
@@ -100,10 +111,11 @@ export class RatingService {
     return this.prisma.$transaction(async (tx) => {
       // upsert: se dois primeiros votos chegarem ao mesmo tempo, só um cria a Media
       const media = await tx.media.upsert({
-        where: { id: mediaId },
+        where: mediaKey(mediaId, mediaType),
         update: {},
         create: {
           id: mediaId,
+          mediaType,
           avaliacao_base: baseScore,
           total_votos_users: 0,
           soma_notas_users: 0,
@@ -114,9 +126,10 @@ export class RatingService {
       // 2. Verificar se já existe classificação do utilizador para esta Media
       const existingRating = await tx.userRating.findUnique({
         where: {
-          userId_mediaId: {
+          userId_mediaId_mediaType: {
             userId,
             mediaId,
+            mediaType,
           },
         },
       });
@@ -130,6 +143,7 @@ export class RatingService {
           data: {
             userId,
             mediaId,
+            mediaType,
             score,
           },
         });
@@ -157,7 +171,7 @@ export class RatingService {
 
       // Atualizar a Media com a nova média geral e estatísticas
       const updatedMedia = await tx.media.update({
-        where: { id: mediaId },
+        where: mediaKey(mediaId, mediaType),
         data: {
           total_votos_users: totalVotos,
           soma_notas_users: somaNotas,
@@ -168,6 +182,7 @@ export class RatingService {
       return {
         userId,
         mediaId,
+        mediaType,
         score,
         isNewRating: !existingRating,
         media: updatedMedia,

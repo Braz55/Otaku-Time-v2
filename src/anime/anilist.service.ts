@@ -24,6 +24,7 @@ import {
   TMDB_GENRE_NAME_TO_MOVIE_ID,
   TMDB_STATIC_KEYWORDS,
 } from './anime.utils';
+import { mediaKey } from '../rating/media-type';
 
 @Injectable()
 export class AniListService {
@@ -355,12 +356,13 @@ export class AniListService {
           ? normalized.averageScore / 10
           : 0;
         const existingMedia = await this.prisma.media.findUnique({
-          where: { id: tmdbId },
+          where: mediaKey(tmdbId, 'ANIME'),
         });
         if (!existingMedia) {
           await this.prisma.media.create({
             data: {
               id: tmdbId,
+              mediaType: 'ANIME',
               avaliacao_base: averageScore,
               total_votos_users: 0,
               soma_notas_users: 0,
@@ -381,12 +383,12 @@ export class AniListService {
         });
 
         await this.prisma.comment.updateMany({
-          where: { mediaId: id },
+          where: { mediaId: id, mediaType: 'ANIME' },
           data: { mediaId: tmdbId },
         });
 
         await this.prisma.userRating.updateMany({
-          where: { mediaId: id },
+          where: { mediaId: id, mediaType: 'ANIME' },
           data: { mediaId: tmdbId },
         });
 
@@ -398,7 +400,9 @@ export class AniListService {
         // Delete old Anime record and old Media rating
         try {
           await this.prisma.anime.delete({ where: { id } });
-          await this.prisma.media.delete({ where: { id } }).catch(() => {});
+          await this.prisma.media
+            .delete({ where: mediaKey(id, 'ANIME') })
+            .catch(() => {});
         } catch (err) {
           this.logger.error(`[Migration] Error deleting old record:`, err);
         }
@@ -685,12 +689,13 @@ export class AniListService {
       ? tmdbData.averageScore / 10
       : 0;
     const existingMedia = await this.prisma.media.findUnique({
-      where: { id: createdAnime.id },
+      where: mediaKey(createdAnime.id, 'ANIME'),
     });
     if (!existingMedia) {
       await this.prisma.media.create({
         data: {
           id: createdAnime.id,
+          mediaType: 'ANIME',
           avaliacao_base: averageScore,
           total_votos_users: 0,
           soma_notas_users: 0,

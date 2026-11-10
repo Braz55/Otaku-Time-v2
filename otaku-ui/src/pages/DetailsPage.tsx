@@ -739,6 +739,10 @@ const DetailsPage = () => {
     }
   };
 
+  // L-24: o anime usa IDs do TMDB e o manga IDs da AniList, que se sobrepõem.
+  // Avaliações e comentários são pedidos com o tipo para não misturar as duas obras.
+  const ratingMediaType: 'ANIME' | 'MANGA' = mediaType === 'manga' ? 'MANGA' : 'ANIME';
+
   const carregarDadosInterativos = async (mediaId: number) => {
     setLoadingComments(true);
     setComments([]);
@@ -747,13 +751,14 @@ const DetailsPage = () => {
     setNewCommentText('');
 
     try {
+      const typeQuery = `?type=${ratingMediaType}`;
       const requests: Promise<Response>[] = [
-        customFetch(`${API_BASE_URL}/comment/media/${mediaId}`),
-        customFetch(`${API_BASE_URL}/rating/media/${mediaId}`),
+        customFetch(`${API_BASE_URL}/comment/media/${mediaId}${typeQuery}`),
+        customFetch(`${API_BASE_URL}/rating/media/${mediaId}${typeQuery}`),
       ];
 
       if (token) {
-        requests.push(customFetch(`${API_BASE_URL}/rating/media/${mediaId}/user`, { headers: getHeaders() }));
+        requests.push(customFetch(`${API_BASE_URL}/rating/media/${mediaId}/user${typeQuery}`, { headers: getHeaders() }));
       }
 
       const [commentsRes, overallRes, userRatingRes] = await Promise.all(requests);
@@ -791,7 +796,7 @@ const DetailsPage = () => {
       const response = await customFetch(`${API_BASE_URL}/rating`, {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify({ mediaId, score }),
+        body: JSON.stringify({ mediaId, mediaType: ratingMediaType, score }),
       });
 
       if (!response.ok) throw new Error('Erro ao submeter avaliação');
@@ -822,7 +827,7 @@ const DetailsPage = () => {
       const response = await customFetch(`${API_BASE_URL}/comment`, {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify({ mediaId, text }),
+        body: JSON.stringify({ mediaId, mediaType: ratingMediaType, text }),
       });
 
       if (!response.ok) throw new Error('Erro ao enviar comentário');

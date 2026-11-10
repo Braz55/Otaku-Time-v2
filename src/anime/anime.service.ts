@@ -19,6 +19,7 @@ import { NotificationService } from '../notification/notification.service';
 import { aplicarRegrasDeProgresso } from '../library/progress-rules';
 import { artworkUpdateData, resolveArtwork } from '../library/artwork';
 import { detectMediaType, buildGenerosDict, resolveLatinTitleForSearchItem } from './anime.utils';
+import { mediaKey } from '../rating/media-type';
 
 @Injectable()
 export class AnimeService {
@@ -333,12 +334,13 @@ export class AnimeService {
           ? tmdbData.averageScore / 10
           : 0;
         const existingMedia = await this.prisma.media.findUnique({
-          where: { id: animeId },
+          where: mediaKey(animeId, 'ANIME'),
         });
         if (!existingMedia) {
           await this.prisma.media.create({
             data: {
               id: animeId,
+              mediaType: 'ANIME',
               avaliacao_base: averageScore,
               total_votos_users: 0,
               soma_notas_users: 0,
@@ -469,7 +471,7 @@ export class AnimeService {
     });
     const animeIds = list.map((item) => item.animeId);
     const ratings = await this.prisma.media.findMany({
-      where: { id: { in: animeIds } },
+      where: { id: { in: animeIds }, mediaType: 'ANIME' },
     });
     const ratingMap = new Map(ratings.map((r) => [r.id, r]));
 
@@ -562,7 +564,7 @@ export class AnimeService {
       });
     }
     const rating = await this.prisma.media.findUnique({
-      where: { id: item.animeId },
+      where: mediaKey(item.animeId, 'ANIME'),
     });
     const epLocal = this.getLocalEpisodeNumber(
       item.anime,
@@ -772,7 +774,7 @@ export class AnimeService {
         data: novosDados,
       }),
       this.prisma.media.findUnique({
-        where: { id: atual.animeId },
+        where: mediaKey(atual.animeId, 'ANIME'),
       }),
     ]);
     const updated = { ...updatedRow, anime: atual.anime };
@@ -1200,14 +1202,14 @@ export class AnimeService {
         where: { mediaType: 'ANIME' },
       });
       await this.prisma.comment.deleteMany({
-        where: { mediaId: { in: animeIds } },
+        where: { mediaId: { in: animeIds }, mediaType: 'ANIME' },
       });
       await this.prisma.userRating.deleteMany({
-        where: { mediaId: { in: animeIds } },
+        where: { mediaId: { in: animeIds }, mediaType: 'ANIME' },
       });
       await this.prisma.anime.deleteMany({});
       await this.prisma.media.deleteMany({
-        where: { id: { in: animeIds } },
+        where: { id: { in: animeIds }, mediaType: 'ANIME' },
       });
 
       const users = await this.prisma.user.findMany({ select: { id: true } });

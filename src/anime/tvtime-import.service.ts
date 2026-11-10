@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TMDBService } from './tmdb.service';
 import { AnimeService } from './anime.service';
 import { detectMediaType } from './anime.utils';
+import { mediaKey } from '../rating/media-type';
 
 @Injectable()
 export class TVTimeImportService {
@@ -173,12 +174,13 @@ export class TVTimeImportService {
         ? tmdbData.averageScore / 10
         : 0;
       const existingMedia = await this.prisma.media.findUnique({
-        where: { id: anime.id },
+        where: mediaKey(anime.id, 'ANIME'),
       });
       if (!existingMedia) {
         await this.prisma.media.create({
           data: {
             id: anime.id,
+            mediaType: 'ANIME',
             avaliacao_base: averageScore,
             total_votos_users: 0,
             soma_notas_users: 0,

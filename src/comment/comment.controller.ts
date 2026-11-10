@@ -8,14 +8,20 @@ import {
   UseGuards,
   Request,
   BadRequestException,
+  Query,
 } from '@nestjs/common';
 import { CommentService } from './comment.service';
 import { CreateCommentDto } from './dto/comment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PrismaService } from '../prisma/prisma.service';
+import { parseMediaType, resolveMediaType } from '../rating/media-type';
 
 @Controller('comment')
 export class CommentController {
-  constructor(private readonly commentService: CommentService) {}
+  constructor(
+    private readonly commentService: CommentService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Post()
@@ -42,15 +48,29 @@ export class CommentController {
     }
 
     const userId = req.user.userId;
-    return this.commentService.createComment(userId, mediaId, text);
+    const mediaType = await resolveMediaType(
+      this.prisma,
+      mediaId,
+      parseMediaType(body.mediaType),
+    );
+    return this.commentService.createComment(userId, mediaId, mediaType, text);
   }
 
+  // ?type=ANIME|MANGA (L-24). Sem tipo, é deduzido do catálogo (versões antigas da app).
   @Get('media/:mediaId')
-  async getCommentsByMedia(@Param('mediaId') mediaId: string) {
+  async getCommentsByMedia(
+    @Param('mediaId') mediaId: string,
+    @Query('type') type?: string,
+  ) {
     if (isNaN(+mediaId)) {
       throw new BadRequestException('mediaId deve ser um número válido.');
     }
-    return this.commentService.getCommentsByMedia(+mediaId);
+    const mediaType = await resolveMediaType(
+      this.prisma,
+      +mediaId,
+      parseMediaType(type),
+    );
+    return this.commentService.getCommentsByMedia(+mediaId, mediaType);
   }
 
   @UseGuards(JwtAuthGuard)

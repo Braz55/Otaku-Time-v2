@@ -31,10 +31,10 @@ describe('RatingService', () => {
   });
 
   it('rejeita notas fora do intervalo 0–10', async () => {
-    await expect(service.submitRating(1, 1, 11)).rejects.toThrow(
+    await expect(service.submitRating(1, 1, 'ANIME', 11)).rejects.toThrow(
       BadRequestException,
     );
-    await expect(service.submitRating(1, 1, -1)).rejects.toThrow(
+    await expect(service.submitRating(1, 1, 'ANIME', -1)).rejects.toThrow(
       BadRequestException,
     );
     expect(prisma.$transaction).not.toHaveBeenCalled();
@@ -45,15 +45,19 @@ describe('RatingService', () => {
       .spyOn(service, 'fetchAniListAverageScore')
       .mockResolvedValue(8);
     prisma.media.findUnique.mockResolvedValue(null);
-    prisma.media.upsert.mockImplementation(({ create }) => Promise.resolve(create));
+    prisma.media.upsert.mockImplementation(({ create }) =>
+      Promise.resolve(create),
+    );
     prisma.userRating.findUnique.mockResolvedValue(null);
     // L-18: o pedido à AniList tem de acontecer antes de a transação abrir
-    prisma.$transaction.mockImplementationOnce((cb: (tx: any) => Promise<unknown>) => {
-      expect(fetchBase).toHaveBeenCalled();
-      return cb(prisma);
-    });
+    prisma.$transaction.mockImplementationOnce(
+      (cb: (tx: any) => Promise<unknown>) => {
+        expect(fetchBase).toHaveBeenCalled();
+        return cb(prisma);
+      },
+    );
 
-    const result = await service.submitRating(1, 42, 10);
+    const result = await service.submitRating(1, 42, 'ANIME', 10);
 
     expect(fetchBase).toHaveBeenCalledWith(42);
     // (8 × 10 + 10) / (10 + 1) = 8.1818… → 8.18
@@ -80,7 +84,7 @@ describe('RatingService', () => {
     });
     prisma.userRating.findUnique.mockResolvedValue(null);
 
-    const result = await service.submitRating(2, 42, 6);
+    const result = await service.submitRating(2, 42, 'ANIME', 6);
 
     expect(fetchBase).not.toHaveBeenCalled();
     // (8 × 10 + 10 + 6) / (10 + 2) = 8
@@ -105,7 +109,7 @@ describe('RatingService', () => {
     });
     prisma.userRating.findUnique.mockResolvedValue({ id: 7, score: 10 });
 
-    const result = await service.submitRating(1, 42, 4);
+    const result = await service.submitRating(1, 42, 'ANIME', 4);
 
     expect(prisma.userRating.create).not.toHaveBeenCalled();
     expect(prisma.userRating.update).toHaveBeenCalledWith({
@@ -117,5 +121,40 @@ describe('RatingService', () => {
     expect(result.media.total_votos_users).toBe(1);
     expect(result.media.avaliacao_geral).toBe(7.64);
     expect(result.isNewRating).toBe(false);
+  });
+
+  it('L-24: o voto de um manga usa a chave (id, MANGA) e não toca no anime com o mesmo ID', async () => {
+    jest.spyOn(service, 'fetchAniListAverageScore').mockResolvedValue(7);
+    prisma.media.findUnique.mockResolvedValue(null);
+    prisma.media.upsert.mockImplementation(({ create }) =>
+      Promise.resolve(create),
+    );
+    prisma.userRating.findUnique.mockResolvedValue(null);
+
+    const result = await service.submitRating(1, 42, 'MANGA', 9);
+
+    const key = { id_mediaType: { id: 42, mediaType: 'MANGA' } };
+    expect(prisma.media.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: key }),
+    );
+    expect(prisma.media.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: key,
+        create: expect.objectContaining({ id: 42, mediaType: 'MANGA' }),
+      }),
+    );
+    expect(prisma.userRating.findUnique).toHaveBeenCalledWith({
+      where: {
+        userId_mediaId_mediaType: {
+          userId: 1,
+          mediaId: 42,
+          mediaType: 'MANGA',
+        },
+      },
+    });
+    expect(prisma.userRating.create).toHaveBeenCalledWith({
+      data: { userId: 1, mediaId: 42, mediaType: 'MANGA', score: 9 },
+    });
+    expect(result.mediaType).toBe('MANGA');
   });
 });

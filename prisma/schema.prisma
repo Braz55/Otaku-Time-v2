@@ -78,7 +78,7 @@ model UserAnime {
   notas      String?
   userId     Int
   animeId    Int
-  user       User           @relation(fields: [userId], references: [id])
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade) // L-26
   anime      Anime          @relation(fields: [animeId], references: [id])
   wasDropped Boolean        @default(false)
   lastProgressUpdate DateTime?
@@ -119,7 +119,7 @@ model UserManga {
   notas      String?
   userId     Int
   mangaId    Int
-  user       User           @relation(fields: [userId], references: [id])
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade) // L-26
   manga      Manga          @relation(fields: [mangaId], references: [id])
   wasDropped Boolean        @default(false)
   lastProgressUpdate DateTime?
@@ -164,34 +164,40 @@ model UserStatistics {
   user                 User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+// Avaliação agregada de uma obra. O ID sozinho não identifica a obra: o anime usa IDs do TMDB e o
+// manga IDs da AniList, que se sobrepõem (L-24). A chave é o par (id, mediaType).
 model Media {
-  id                Int          @id
+  id                Int
+  mediaType         MediaType    @default(ANIME)
   avaliacao_base    Float
   total_votos_users Int          @default(0)
   soma_notas_users  Float        @default(0)
   avaliacao_geral   Float
   ratings           UserRating[]
 
+  @@id([id, mediaType])
   @@map("Media")
 }
 
 model UserRating {
   id      Int   @id @default(autoincrement())
   userId  Int   @map("user_id")
-  mediaId Int   @map("media_id")
-  score   Float
+  mediaId   Int       @map("media_id")
+  mediaType MediaType @default(ANIME) @map("media_type")
+  score     Float
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  media Media @relation(fields: [mediaId, mediaType], references: [id, mediaType], onDelete: Cascade)
 
-  @@unique([userId, mediaId])
+  @@unique([userId, mediaId, mediaType])
   @@map("User_Rating")
 }
 
 model Comment {
   id        Int      @id @default(autoincrement())
   userId    Int      @map("user_id")
-  mediaId   Int      @map("media_id")
+  mediaId   Int       @map("media_id")
+  mediaType MediaType @default(ANIME) @map("media_type") // L-24
   text      String
   likes     Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
@@ -199,6 +205,7 @@ model Comment {
   user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   likesList CommentLike[]
 
+  @@index([mediaId, mediaType])
   @@map("User_Comment")
 }
 

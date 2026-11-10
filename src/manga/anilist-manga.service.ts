@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { createLibraryEntry } from '../library/library-errors';
 import { MangaService } from './manga.service';
 import { MangaSyncService } from './manga-sync.service';
+import { mediaKey } from '../rating/media-type';
 
 @Injectable()
 export class AnilistMangaService {
@@ -241,7 +242,7 @@ export class AnilistMangaService {
       });
 
       const rating = await this.prisma.media.findUnique({
-        where: { id: manga.id },
+        where: mediaKey(manga.id, 'MANGA'),
       });
       return {
         ...userManga,
@@ -307,12 +308,13 @@ export class AnilistMangaService {
       ? aniListData.averageScore / 10
       : 0;
     const existingMedia = await this.prisma.media.findUnique({
-      where: { id: manga.id },
+      where: mediaKey(manga.id, 'MANGA'),
     });
     if (!existingMedia) {
       await this.prisma.media.create({
         data: {
           id: manga.id,
+          mediaType: 'MANGA',
           avaliacao_base: averageScore,
           total_votos_users: 0,
           soma_notas_users: 0,
@@ -347,7 +349,7 @@ export class AnilistMangaService {
     });
 
     const rating = await this.prisma.media.findUnique({
-      where: { id: manga.id },
+      where: mediaKey(manga.id, 'MANGA'),
     });
     return {
       ...userManga,

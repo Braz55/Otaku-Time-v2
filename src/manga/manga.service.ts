@@ -14,6 +14,7 @@ import { MangaSyncService } from './manga-sync.service';
 import { StatisticsService } from '../statistics/statistics.service';
 import { aplicarRegrasDeProgresso } from '../library/progress-rules';
 import { artworkUpdateData, resolveArtwork } from '../library/artwork';
+import { mediaKey } from '../rating/media-type';
 
 @Injectable()
 export class MangaService {
@@ -103,12 +104,13 @@ export class MangaService {
           ? aniListData.averageScore / 10
           : 0;
         const existingMedia = await this.prisma.media.findUnique({
-          where: { id: mangaId },
+          where: mediaKey(mangaId, 'MANGA'),
         });
         if (!existingMedia) {
           await this.prisma.media.create({
             data: {
               id: mangaId,
+              mediaType: 'MANGA',
               avaliacao_base: averageScore,
               total_votos_users: 0,
               soma_notas_users: 0,
@@ -155,7 +157,7 @@ export class MangaService {
     });
     const mangaIds = list.map((item) => item.mangaId);
     const ratings = await this.prisma.media.findMany({
-      where: { id: { in: mangaIds } },
+      where: { id: { in: mangaIds }, mediaType: 'MANGA' },
     });
     const ratingMap = new Map(ratings.map((r) => [r.id, r]));
 
@@ -200,7 +202,7 @@ export class MangaService {
       );
     }
     const rating = await this.prisma.media.findUnique({
-      where: { id: item.mangaId },
+      where: mediaKey(item.mangaId, 'MANGA'),
     });
     return {
       id: item.id,
@@ -305,7 +307,7 @@ export class MangaService {
       console.error('Error recalculating user stats in background:', err);
     });
     const rating = await this.prisma.media.findUnique({
-      where: { id: updated.mangaId },
+      where: mediaKey(updated.mangaId, 'MANGA'),
     });
     return {
       ...updated,

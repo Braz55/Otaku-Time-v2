@@ -16,7 +16,8 @@ async function nativeFetchResponse(input: RequestInfo | URL, init?: RequestInit)
       'Content-Type': 'application/json',
       // Só a app nativa recebe os tokens no corpo da resposta (cookies entre domínios não são fiáveis)
       'X-Client': Capacitor.getPlatform(),
-      ...init?.headers
+      // Headers não é um objeto simples: espalhá-lo com "..." perde todos os campos (ex: Authorization)
+      ...Object.fromEntries(new Headers(init?.headers as any).entries())
     };
     const options: any = { url, method, headers };
     if (init?.body) {

@@ -286,15 +286,20 @@ export class TMDBService {
       const primaryEndpoint = isMovie ? `/movie/${id}/images` : `/tv/${id}/images`;
       const fallbackEndpoint = isMovie ? `/tv/${id}/images` : `/movie/${id}/images`;
 
+      // Sem isto, `language=en-US` faz o TMDB devolver só imagens em inglês e
+      // deixa de fora as sem texto (idioma null), que é o que costuma ser o
+      // `backdrop_path` principal usado como banner do catálogo.
+      const imageParams = { include_image_language: 'en,ja,null' };
+
       let res: any = null;
       try {
-        res = await this.fetchFromTMDB(primaryEndpoint);
+        res = await this.fetchFromTMDB(primaryEndpoint, imageParams);
       } catch (err: any) {
         this.logger.warn(
           `Primary TMDB image endpoint ${primaryEndpoint} failed for ID ${id}, trying fallback ${fallbackEndpoint}`,
         );
         try {
-          res = await this.fetchFromTMDB(fallbackEndpoint);
+          res = await this.fetchFromTMDB(fallbackEndpoint, imageParams);
         } catch (fallbackErr) {
           // ignore fallback error
         }
@@ -304,7 +309,7 @@ export class TMDBService {
         // If primary returned empty results, try fallback endpoint
         if (primaryEndpoint !== fallbackEndpoint) {
           try {
-            const fallbackRes = await this.fetchFromTMDB(fallbackEndpoint);
+            const fallbackRes = await this.fetchFromTMDB(fallbackEndpoint, imageParams);
             if (fallbackRes && (fallbackRes.posters?.length || fallbackRes.backdrops?.length)) {
               res = fallbackRes;
             }

@@ -558,6 +558,7 @@ const DetailsPage = () => {
             titulo: data.title?.english || data.title?.romaji || 'Unknown Title',
             capaUrl: data.coverImage?.extraLarge || data.coverImage?.large || data.coverImage?.medium || data.coverUrl || data.capaUrl,
             bannerUrl: data.bannerImage || data.bannerUrl || data.banner || null,
+            anilistBannerUrl: data.bannerImage || null,
             descricao: data.description ? data.description.replace(/<[^>]*>?/gm, '') : "No description available.",
             generos: {
               ...((data.genres || []).reduce((acc: any, g: string) => ({ ...acc, [g]: 100 }), {})),
@@ -604,6 +605,8 @@ const DetailsPage = () => {
                       return { 
                         ...prev, 
                         bannerUrl: prev.bannerUrl || extData.bannerImage || extData.bannerUrl || extData.banner || null,
+                        // Guardado à parte para o seletor de banners o poder oferecer
+                        anilistBannerUrl: extData.bannerImage || null,
                         capaUrl: prev.capaUrl || extData.coverImage?.extraLarge || extData.coverImage?.large || extData.coverImage?.medium || extData.coverUrl,
                         relations: extData.relations, 
                         relationsManga: extData.relationsManga,
@@ -2501,6 +2504,7 @@ const DetailsPage = () => {
           token={token}
           currentCapaUrl={selectedItem.capaUrl || ''}
           currentBannerUrl={selectedItem.bannerUrl || ''}
+          extraBannerUrls={[selectedItem.anilistBannerUrl]}
           onSelectCover={(newUrl, type) => {
             if (type === 'banner') {
               setSelectedItem((prev: any) => ({ ...prev, bannerUrl: newUrl }));

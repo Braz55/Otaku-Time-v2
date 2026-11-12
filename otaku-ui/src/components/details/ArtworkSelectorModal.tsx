@@ -13,6 +13,8 @@ interface ArtworkSelectorModalProps {
   token: string | null;
   currentCapaUrl: string;
   currentBannerUrl?: string;
+  /** Banners de outras fontes (ex.: AniList) a mostrar além dos do TMDB. */
+  extraBannerUrls?: (string | null | undefined)[];
   onSelectCover: (newUrl: string, type: 'cover' | 'banner') => void;
 }
 
@@ -26,6 +28,7 @@ export const ArtworkSelectorModal: React.FC<ArtworkSelectorModalProps> = ({
   token,
   currentCapaUrl,
   currentBannerUrl,
+  extraBannerUrls,
   onSelectCover,
 }) => {
   const [loading, setLoading] = useState(true);
@@ -60,7 +63,12 @@ export const ArtworkSelectorModal: React.FC<ArtworkSelectorModalProps> = ({
         if (res.ok) {
           const data = await res.json();
           const fetchedPosters = data.posters || [];
-          const fetchedBackdrops = data.backdrops || [];
+          // O banner atual (e o do AniList) pode não estar na lista do TMDB:
+          // junta-os no início para se poder voltar a eles e ver qual está aplicado.
+          const fetchedBackdrops: string[] = Array.from(new Set(
+            [currentBannerUrl, ...(extraBannerUrls || []), ...(data.backdrops || [])]
+              .filter((url): url is string => !!url)
+          ));
           setPosters(fetchedPosters);
           setBackdrops(fetchedBackdrops);
           if (fetchedPosters.length === 0 && fetchedBackdrops.length > 0) {

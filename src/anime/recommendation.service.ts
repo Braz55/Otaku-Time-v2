@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { animeSourceFromFormat } from '../rating/media-type';
 
 @Injectable()
 export class RecommendationService {
@@ -12,7 +13,12 @@ export class RecommendationService {
     userId: number,
     page: number = 1,
   ) {
-    let userLibraryIds = new Set<number>();
+    // Chaves fonte:id (L-23): uma série e um filme com o mesmo id são obras diferentes
+    let userLibraryIds = new Set<string>();
+    const libraryKey = (item: { id: number; format?: string | null }) =>
+      type === 'ANIME'
+        ? `${animeSourceFromFormat(item.format)}:${item.id}`
+        : `ANILIST:${item.id}`;
     let userLibraryTitles = new Set<string>();
     let userInteractedItems: {
       generos: any;
@@ -25,7 +31,9 @@ export class RecommendationService {
         where: { userId },
         include: { anime: true },
       });
-      userLibraryIds = new Set<number>(userAnimes.map((ua) => ua.animeId));
+      userLibraryIds = new Set<string>(
+        userAnimes.map((ua) => `${ua.animeFonte}:${ua.animeId}`),
+      );
       userLibraryTitles = new Set<string>(
         userAnimes.map((ua) => ua.anime?.titulo?.toLowerCase() || ''),
       );
@@ -39,7 +47,9 @@ export class RecommendationService {
         where: { userId },
         include: { manga: true },
       });
-      userLibraryIds = new Set<number>(userMangas.map((um) => um.mangaId));
+      userLibraryIds = new Set<string>(
+        userMangas.map((um) => `ANILIST:${um.mangaId}`),
+      );
       userInteractedItems = userMangas.map((um) => ({
         generos: um.manga?.generos,
         status: um.status,
@@ -312,7 +322,7 @@ export class RecommendationService {
       poolGlobal.length,
     );
 
-    const addedIds = new Set<number>();
+    const addedIds = new Set<string>();
 
     for (let i = 0; i < maxLen; i++) {
       const candidatesInRound = [
@@ -327,13 +337,13 @@ export class RecommendationService {
         const titleEn = (item.title?.english || '').toLowerCase();
         const titleRo = (item.title?.romaji || '').toLowerCase();
         const alreadyInLibrary =
-          userLibraryIds.has(item.id) ||
+          userLibraryIds.has(libraryKey(item)) ||
           (type === 'ANIME' &&
             (userLibraryTitles.has(titleEn) || userLibraryTitles.has(titleRo)));
 
-        if (!alreadyInLibrary && !addedIds.has(item.id)) {
+        if (!alreadyInLibrary && !addedIds.has(libraryKey(item))) {
           allCandidates.push(item);
-          addedIds.add(item.id);
+          addedIds.add(libraryKey(item));
         }
       });
     }
@@ -343,13 +353,13 @@ export class RecommendationService {
         const titleEn = (item.title?.english || '').toLowerCase();
         const titleRo = (item.title?.romaji || '').toLowerCase();
         const alreadyInLibrary =
-          userLibraryIds.has(item.id) ||
+          userLibraryIds.has(libraryKey(item)) ||
           (type === 'ANIME' &&
             (userLibraryTitles.has(titleEn) || userLibraryTitles.has(titleRo)));
 
-        if (!alreadyInLibrary && !addedIds.has(item.id)) {
+        if (!alreadyInLibrary && !addedIds.has(libraryKey(item))) {
           allCandidates.push(item);
-          addedIds.add(item.id);
+          addedIds.add(libraryKey(item));
         }
       });
     }

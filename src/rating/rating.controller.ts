@@ -9,11 +9,27 @@ import {
   BadRequestException,
   Query,
 } from '@nestjs/common';
+import { MediaSource } from '@prisma/client';
 import { RatingService } from './rating.service';
 import { CreateRatingDto } from './dto/rating.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import { parseMediaType, resolveMediaType } from './media-type';
+import {
+  parseMediaSource,
+  parseMediaType,
+  resolveMediaSource,
+} from './media-type';
+
+function parseId(mediaId: string): number {
+  if (isNaN(+mediaId)) {
+    throw new BadRequestException('mediaId deve ser um número válido.');
+  }
+  return +mediaId;
+}
+
+function requireSource(fonte: string): MediaSource {
+  return parseMediaSource(fonte)!;
+}
 
 @Controller('rating')
 export class RatingController {
@@ -22,40 +38,62 @@ export class RatingController {
     private readonly prisma: PrismaService,
   ) {}
 
-  // ?type=ANIME|MANGA (L-24). Sem tipo, é deduzido do catálogo (versões antigas da app).
+  // Rotas antigas (sem fonte): ?type=ANIME|MANGA e ?format=MOVIE|TV; a fonte é deduzida.
+  // Declaradas antes das novas para /media/:id/user não ser lido como /media/:fonte/:id.
   @Get('media/:mediaId')
-  async getOverallRating(
+  async getOverallRatingLegacy(
     @Param('mediaId') mediaId: string,
     @Query('type') type?: string,
+    @Query('format') format?: string,
   ) {
-    if (isNaN(+mediaId)) {
-      throw new BadRequestException('mediaId deve ser um número válido.');
-    }
-    const mediaType = await resolveMediaType(
-      this.prisma,
-      +mediaId,
-      parseMediaType(type),
-    );
-    return this.ratingService.getOverallRating(+mediaId, mediaType);
+    const id = parseId(mediaId);
+    const fonte = await resolveMediaSource(this.prisma, id, {
+      mediaType: parseMediaType(type),
+      format,
+    });
+    return this.ratingService.getOverallRating(fonte, id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('media/:mediaId/user')
-  async getUserRating(
+  async getUserRatingLegacy(
     @Request() req,
     @Param('mediaId') mediaId: string,
     @Query('type') type?: string,
+    @Query('format') format?: string,
   ) {
-    if (isNaN(+mediaId)) {
-      throw new BadRequestException('mediaId deve ser um número válido.');
-    }
-    const userId = req.user.userId;
-    const mediaType = await resolveMediaType(
-      this.prisma,
-      +mediaId,
-      parseMediaType(type),
+    const id = parseId(mediaId);
+    const fonte = await resolveMediaSource(this.prisma, id, {
+      mediaType: parseMediaType(type),
+      format,
+    });
+    return this.ratingService.getUserRating(req.user.userId, fonte, id);
+  }
+
+  // L-23: /rating/media/TMDB_TV/1399
+  @Get('media/:fonte/:mediaId')
+  async getOverallRating(
+    @Param('fonte') fonte: string,
+    @Param('mediaId') mediaId: string,
+  ) {
+    return this.ratingService.getOverallRating(
+      requireSource(fonte),
+      parseId(mediaId),
     );
-    return this.ratingService.getUserRating(userId, +mediaId, mediaType);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('media/:fonte/:mediaId/user')
+  async getUserRating(
+    @Request() req,
+    @Param('fonte') fonte: string,
+    @Param('mediaId') mediaId: string,
+  ) {
+    return this.ratingService.getUserRating(
+      req.user.userId,
+      requireSource(fonte),
+      parseId(mediaId),
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -80,11 +118,10 @@ export class RatingController {
     }
 
     const userId = req.user.userId;
-    const mediaType = await resolveMediaType(
-      this.prisma,
-      mediaId,
-      parseMediaType(body.mediaType),
-    );
-    return this.ratingService.submitRating(userId, mediaId, mediaType, score);
+    const fonte = await resolveMediaSource(this.prisma, mediaId, {
+      fonte: body.fonte,
+      mediaType: parseMediaType(body.mediaType),
+    });
+    return this.ratingService.submitRating(userId, fonte, mediaId, score);
   }
 }

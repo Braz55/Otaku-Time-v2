@@ -41,8 +41,11 @@ model User {
   notifications     Notification[]
 }
 
+// L-23: o ID do TMDB sozinho não identifica a obra, porque séries e filmes têm numerações
+// separadas. A chave é o par (fonte, id), com fonte TMDB_TV ou TMDB_MOVIE (CHECK na migração).
 model Anime {
-  id                  Int         @id // Usar o ID da AniList/TMDB diretamente
+  id                  Int         // ID externo da obra na fonte
+  fonte               MediaSource
   titulo              String
   statusLancamento    String?
   descricao           String?
@@ -66,6 +69,8 @@ model Anime {
   numEpisodiosAired   Int?
   ultimoEpisodioEstreadoData DateTime?
   updatedAt           DateTime    @default(now()) @updatedAt
+
+  @@id([fonte, id])
 }
 
 model UserAnime {
@@ -77,9 +82,10 @@ model UserAnime {
   linksPersonalizados String?
   notas      String?
   userId     Int
+  animeFonte MediaSource
   animeId    Int
   user       User           @relation(fields: [userId], references: [id], onDelete: Cascade) // L-26
-  anime      Anime          @relation(fields: [animeId], references: [id])
+  anime      Anime          @relation(fields: [animeFonte, animeId], references: [fonte, id])
   wasDropped Boolean        @default(false)
   lastProgressUpdate DateTime?
   watchedSpecials Json?        @default("[]")
@@ -87,11 +93,12 @@ model UserAnime {
   bannerPersonalizado String? // Banner escolhido pelo utilizador; null = usa o do catálogo
   updatedAt  DateTime       @default(now()) @updatedAt
 
-  @@unique([userId, animeId])
+  @@unique([userId, animeFonte, animeId])
 }
 
+// O manga vem sempre da AniList: a sua chave natural é (ANILIST, id), por isso basta o id.
 model Manga {
-  id                    Int         @id // Usar o ID da AniList diretamente
+  id                    Int         @id // ID da AniList
   titulo                String
   statusLancamento      String?
   numCapitulosTotal     Float?
@@ -142,16 +149,27 @@ enum MediaType {
   MANGA
 }
 
+// L-23/L-24/L-25: de onde vem o ID de uma obra. Com o ID externo forma a chave natural da obra.
+// ANILIST = manga; TMDB_TV / TMDB_MOVIE = anime (séries e filmes têm numerações separadas no TMDB).
+enum MediaSource {
+  ANILIST
+  TMDB_TV
+  TMDB_MOVIE
+}
+
+// mediaType é a prateleira do destaque (top 3 de anime e top 3 de manga). Um CHECK na migração
+// garante que bate com a fonte.
 model UserTopFavorite {
-  id             Int       @id @default(autoincrement())
-  userId         Int
-  anilistMediaId Int
-  mediaType      MediaType
-  rankPosition   Int       // 1, 2 ou 3
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           Int         @id @default(autoincrement())
+  userId       Int
+  fonte        MediaSource
+  mediaId      Int
+  mediaType    MediaType
+  rankPosition Int         // 1, 2 ou 3
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, mediaType, rankPosition])
-  @@unique([userId, anilistMediaId, mediaType])
+  @@unique([userId, fonte, mediaId])
 }
 
 model UserStatistics {
@@ -164,40 +182,39 @@ model UserStatistics {
   user                 User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// Avaliação agregada de uma obra. O ID sozinho não identifica a obra: o anime usa IDs do TMDB e o
-// manga IDs da AniList, que se sobrepõem (L-24). A chave é o par (id, mediaType).
+// Avaliação agregada de uma obra, identificada pelo par (fonte, id) (L-23, L-24).
 model Media {
   id                Int
-  mediaType         MediaType    @default(ANIME)
+  fonte             MediaSource
   avaliacao_base    Float
   total_votos_users Int          @default(0)
   soma_notas_users  Float        @default(0)
   avaliacao_geral   Float
   ratings           UserRating[]
 
-  @@id([id, mediaType])
+  @@id([fonte, id])
   @@map("Media")
 }
 
 model UserRating {
   id      Int   @id @default(autoincrement())
   userId  Int   @map("user_id")
-  mediaId   Int       @map("media_id")
-  mediaType MediaType @default(ANIME) @map("media_type")
+  fonte     MediaSource @map("media_source")
+  mediaId   Int         @map("media_id")
   score     Float
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  media Media @relation(fields: [mediaId, mediaType], references: [id, mediaType], onDelete: Cascade)
+  media Media @relation(fields: [fonte, mediaId], references: [fonte, id], onDelete: Cascade)
 
-  @@unique([userId, mediaId, mediaType])
+  @@unique([userId, fonte, mediaId])
   @@map("User_Rating")
 }
 
 model Comment {
   id        Int      @id @default(autoincrement())
   userId    Int      @map("user_id")
-  mediaId   Int       @map("media_id")
-  mediaType MediaType @default(ANIME) @map("media_type") // L-24
+  fonte     MediaSource @map("media_source") // L-23, L-24
+  mediaId   Int         @map("media_id")
   text      String
   likes     Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
@@ -205,7 +222,7 @@ model Comment {
   user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   likesList CommentLike[]
 
-  @@index([mediaId, mediaType])
+  @@index([fonte, mediaId])
   @@map("User_Comment")
 }
 
@@ -232,20 +249,22 @@ model CustomList {
   items       CustomListItem[]
 }
 
+// A obra é identificada pela fonte e por animeId ou mangaId (L-23, L-28). Um CHECK na migração
+// garante que só a FK que corresponde à fonte está preenchida.
 model CustomListItem {
-  id             Int        @id @default(autoincrement())
-  listId         Int
-  anilistMediaId Int
-  mediaType      MediaType
-  position       Int
-  addedAt        DateTime   @default(now())
-  animeId        Int?
-  mangaId        Int?
-  list           CustomList @relation(fields: [listId], references: [id], onDelete: Cascade)
-  anime          Anime?     @relation(fields: [animeId], references: [id], onDelete: SetNull)
-  manga          Manga?     @relation(fields: [mangaId], references: [id], onDelete: SetNull)
+  id        Int         @id @default(autoincrement())
+  listId    Int
+  fonte     MediaSource
+  position  Int
+  addedAt   DateTime    @default(now())
+  animeId   Int?
+  mangaId   Int?
+  list      CustomList  @relation(fields: [listId], references: [id], onDelete: Cascade)
+  anime     Anime?      @relation(fields: [fonte, animeId], references: [fonte, id], onDelete: Cascade)
+  manga     Manga?      @relation(fields: [mangaId], references: [id], onDelete: Cascade)
 
-  @@unique([listId, anilistMediaId, mediaType])
+  @@unique([listId, fonte, animeId])
+  @@unique([listId, mangaId])
   @@index([listId, position])
 }
 
@@ -255,7 +274,8 @@ model Notification {
   title     String
   message   String
   type      String   // 'ANIME' | 'MANGA' | 'SYSTEM'
-  mediaId   Int?     // AniList ID of the anime/manga
+  fonte     MediaSource? // Fonte da obra (L-23); null nas notificações sem obra
+  mediaId   Int?     // ID externo da obra na fonte
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -10,7 +10,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TMDBService } from './tmdb.service';
 import { AnimeService } from './anime.service';
 import { detectMediaType } from './anime.utils';
-import { mediaKey } from '../rating/media-type';
+import { MediaSource } from '@prisma/client';
+import {
+  AnimeSource,
+  animeKey,
+  formatFromSource,
+  mediaKey,
+} from '../rating/media-type';
 
 @Injectable()
 export class TVTimeImportService {
@@ -81,10 +87,13 @@ export class TVTimeImportService {
     return { message: 'Importação iniciada com sucesso em segundo plano.' };
   }
 
-  private async ensureAnimeExists(tmdbId: number): Promise<boolean> {
+  private async ensureAnimeExists(
+    fonte: AnimeSource,
+    tmdbId: number,
+  ): Promise<boolean> {
     try {
       const existing = await this.prisma.anime.findUnique({
-        where: { id: tmdbId },
+        where: animeKey(fonte, tmdbId),
       });
 
       const hasEpisodes =
@@ -97,7 +106,7 @@ export class TVTimeImportService {
       const tmdbData = await this.animeService.searchAniListById(
         tmdbId,
         undefined,
-        existing?.formato || 'TV',
+        formatFromSource(fonte),
       );
       if (!tmdbData) return false;
 
@@ -118,7 +127,7 @@ export class TVTimeImportService {
       }
 
       const anime = await this.prisma.anime.upsert({
-        where: { id: tmdbData.id },
+        where: animeKey(fonte, tmdbData.id),
         update: {
           numEpisodiosTotal: tmdbData.episodes,
           capaUrl: tmdbData.coverImage.large,
@@ -139,6 +148,7 @@ export class TVTimeImportService {
         },
         create: {
           id: tmdbData.id,
+          fonte,
           titulo:
             tmdbData.title.english || tmdbData.title.romaji || 'Sem título',
           statusLancamento: tmdbData.status,
@@ -167,20 +177,24 @@ export class TVTimeImportService {
       });
 
       if (details && details.seasons) {
-        await this.animeService.syncAnimeEpisodes(tmdbData.id, details.seasons);
+        await this.animeService.syncAnimeEpisodes(
+          fonte,
+          tmdbData.id,
+          details.seasons,
+        );
       }
 
       const averageScore = tmdbData.averageScore
         ? tmdbData.averageScore / 10
         : 0;
       const existingMedia = await this.prisma.media.findUnique({
-        where: mediaKey(anime.id, 'ANIME'),
+        where: mediaKey(fonte, anime.id),
       });
       if (!existingMedia) {
         await this.prisma.media.create({
           data: {
             id: anime.id,
-            mediaType: 'ANIME',
+            fonte,
             avaliacao_base: averageScore,
             total_votos_users: 0,
             soma_notas_users: 0,
@@ -213,6 +227,8 @@ export class TVTimeImportService {
           this.tvTimeImportStatus.set(userId, { ...status });
 
           let tmdbId: number | null = null;
+          // O TV Time só tem séries; a pesquisa por título pode devolver um filme (L-23)
+          let fonte: AnimeSource = MediaSource.TMDB_TV;
 
           // 1. Resolver ID pelo TVDB ID
           if (show.id && show.id.tvdb) {
@@ -229,6 +245,10 @@ export class TVTimeImportService {
             const searchResults = await this.tmdbService.search(show.title);
             if (searchResults && searchResults.length > 0) {
               tmdbId = searchResults[0].id;
+              fonte =
+                searchResults[0].media_type === 'movie'
+                  ? MediaSource.TMDB_MOVIE
+                  : MediaSource.TMDB_TV;
             }
           }
 
@@ -241,7 +261,7 @@ export class TVTimeImportService {
           }
 
           // 2. Garantir que a série/anime existe na tabela Anime (e Media)
-          const ok = await this.ensureAnimeExists(tmdbId);
+          const ok = await this.ensureAnimeExists(fonte, tmdbId);
           if (!ok) {
             throw new Error(
               `Falha ao obter dados e registar a série: "${show.title}" (TMDB ID: ${tmdbId})`,
@@ -249,7 +269,7 @@ export class TVTimeImportService {
           }
 
           const dbAnime = await this.prisma.anime.findUnique({
-            where: { id: tmdbId },
+            where: animeKey(fonte, tmdbId),
           });
           const totalEpisodes = dbAnime?.numEpisodiosTotal || 0;
 
@@ -398,8 +418,15 @@ export class TVTimeImportService {
           }
 
           // 5. Upsert UserAnime
+          const libraryKey = {
+            userId_animeFonte_animeId: {
+              userId,
+              animeFonte: fonte,
+              animeId: tmdbId,
+            },
+          };
           const existingUserAnime = await this.prisma.userAnime.findUnique({
-            where: { userId_animeId: { userId, animeId: tmdbId } },
+            where: libraryKey,
           });
 
           const globalEpToSave =
@@ -444,6 +471,7 @@ export class TVTimeImportService {
             await this.prisma.userAnime.create({
               data: {
                 userId,
+                animeFonte: fonte,
                 animeId: tmdbId,
                 seasonAtual: maxSeason,
                 epAtual: globalEpToSave,
@@ -454,7 +482,7 @@ export class TVTimeImportService {
           }
 
           const savedUserAnime = await this.prisma.userAnime.findUnique({
-            where: { userId_animeId: { userId, animeId: tmdbId } },
+            where: libraryKey,
             include: { anime: true },
           });
 
@@ -467,6 +495,7 @@ export class TVTimeImportService {
             const totalEps = this.animeService.getTotalEpisodes(savedUserAnime.anime);
             status.importedShows.push({
               id: savedUserAnime.id,
+              fonte,
               animeId: savedUserAnime.animeId,
               titulo: savedUserAnime.anime.titulo,
               capaUrl: savedUserAnime.anime.capaUrl,
@@ -478,6 +507,7 @@ export class TVTimeImportService {
           } else {
             status.importedShows.push({
               id: 0,
+              fonte,
               animeId: tmdbId,
               titulo: show.title || 'Sem título',
               capaUrl: null,

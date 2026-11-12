@@ -14,7 +14,18 @@ import { CommentService } from './comment.service';
 import { CreateCommentDto } from './dto/comment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import { parseMediaType, resolveMediaType } from '../rating/media-type';
+import {
+  parseMediaSource,
+  parseMediaType,
+  resolveMediaSource,
+} from '../rating/media-type';
+
+function parseId(mediaId: string): number {
+  if (isNaN(+mediaId)) {
+    throw new BadRequestException('mediaId deve ser um número válido.');
+  }
+  return +mediaId;
+}
 
 @Controller('comment')
 export class CommentController {
@@ -48,29 +59,38 @@ export class CommentController {
     }
 
     const userId = req.user.userId;
-    const mediaType = await resolveMediaType(
-      this.prisma,
-      mediaId,
-      parseMediaType(body.mediaType),
-    );
-    return this.commentService.createComment(userId, mediaId, mediaType, text);
+    const fonte = await resolveMediaSource(this.prisma, mediaId, {
+      fonte: body.fonte,
+      mediaType: parseMediaType(body.mediaType),
+    });
+    return this.commentService.createComment(userId, fonte, mediaId, text);
   }
 
-  // ?type=ANIME|MANGA (L-24). Sem tipo, é deduzido do catálogo (versões antigas da app).
+  // Rota antiga: ?type=ANIME|MANGA e ?format=MOVIE|TV; a fonte é deduzida.
   @Get('media/:mediaId')
-  async getCommentsByMedia(
+  async getCommentsByMediaLegacy(
     @Param('mediaId') mediaId: string,
     @Query('type') type?: string,
+    @Query('format') format?: string,
   ) {
-    if (isNaN(+mediaId)) {
-      throw new BadRequestException('mediaId deve ser um número válido.');
-    }
-    const mediaType = await resolveMediaType(
-      this.prisma,
-      +mediaId,
-      parseMediaType(type),
+    const id = parseId(mediaId);
+    const fonte = await resolveMediaSource(this.prisma, id, {
+      mediaType: parseMediaType(type),
+      format,
+    });
+    return this.commentService.getCommentsByMedia(fonte, id);
+  }
+
+  // L-23: /comment/media/TMDB_TV/1399
+  @Get('media/:fonte/:mediaId')
+  async getCommentsByMedia(
+    @Param('fonte') fonte: string,
+    @Param('mediaId') mediaId: string,
+  ) {
+    return this.commentService.getCommentsByMedia(
+      parseMediaSource(fonte)!,
+      parseId(mediaId),
     );
-    return this.commentService.getCommentsByMedia(+mediaId, mediaType);
   }
 
   @UseGuards(JwtAuthGuard)

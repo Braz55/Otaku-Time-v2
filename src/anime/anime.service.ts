@@ -19,13 +19,21 @@ import { NotificationService } from '../notification/notification.service';
 import { aplicarRegrasDeProgresso } from '../library/progress-rules';
 import { artworkUpdateData, resolveArtwork } from '../library/artwork';
 import { detectMediaType, buildGenerosDict, resolveLatinTitleForSearchItem } from './anime.utils';
-import { mediaKey } from '../rating/media-type';
+import { MediaSource } from '@prisma/client';
+import {
+  ANIME_SOURCES,
+  animeKey,
+  animeSourceFromFormat,
+  formatFromSource,
+  mediaKey,
+} from '../rating/media-type';
 
 @Injectable()
 export class AnimeService {
   private readonly logger = new Logger(AnimeService.name);
   private readonly REFRESH_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutos por anime
-  private readonly lastManualRefresh = new Map<number, number>();
+  // Chave fonte:id (L-23)
+  private readonly lastManualRefresh = new Map<string, number>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -108,9 +116,9 @@ export class AnimeService {
       let animeTitle = title;
       let targetFormat = format;
 
-      // Check DB for Anime record
-      const anime = await this.prisma.anime.findUnique({
-        where: { id },
+      // Check DB for Anime record (com o formato, a fonte fica determinada: L-23)
+      const anime = await this.prisma.anime.findFirst({
+        where: format ? { id, fonte: animeSourceFromFormat(format) } : { id },
         select: { titulo: true, formato: true },
       });
       if (anime) {
@@ -274,11 +282,13 @@ export class AnimeService {
   }
 
   async autoTransitionPlannedToWatching(
+    fonte: MediaSource,
     animeId: number,
     episodesList: any[],
     animeTitle: string,
   ) {
     return this.calendarService.autoTransitionPlannedToWatching(
+      fonte,
       animeId,
       episodesList,
       animeTitle,
@@ -289,13 +299,13 @@ export class AnimeService {
   // CORE LOCAL CATALOG & USER LIST METHODS (CRUD, SYNC)
   // -------------------------------------------------------------
 
-  async backgroundUpdateAnime(animeId: number, userId: number) {
+  async backgroundUpdateAnime(
+    fonte: MediaSource,
+    animeId: number,
+    userId: number,
+  ) {
     try {
-      const existingAnime = await this.prisma.anime.findUnique({
-        where: { id: animeId },
-        select: { formato: true },
-      });
-      const format = existingAnime?.formato || undefined;
+      const format = formatFromSource(fonte as 'TMDB_TV' | 'TMDB_MOVIE');
       const tmdbData = await this.getTmdbDetailsById(animeId, userId, format);
       if (tmdbData) {
         const generosDict = buildGenerosDict(tmdbData.genres, undefined);
@@ -311,7 +321,7 @@ export class AnimeService {
         }
 
         await this.prisma.anime.update({
-          where: { id: animeId },
+          where: animeKey(fonte, animeId),
           data: {
             numEpisodiosTotal: tmdbData.episodes,
             capaUrl: tmdbData.coverImage.large,
@@ -327,20 +337,20 @@ export class AnimeService {
         });
 
         if (details && details.seasons) {
-          await this.syncAnimeEpisodes(animeId, details.seasons);
+          await this.syncAnimeEpisodes(fonte, animeId, details.seasons);
         }
 
         const averageScore = tmdbData.averageScore
           ? tmdbData.averageScore / 10
           : 0;
         const existingMedia = await this.prisma.media.findUnique({
-          where: mediaKey(animeId, 'ANIME'),
+          where: mediaKey(fonte, animeId),
         });
         if (!existingMedia) {
           await this.prisma.media.create({
             data: {
               id: animeId,
-              mediaType: 'ANIME',
+              fonte,
               avaliacao_base: averageScore,
               total_votos_users: 0,
               soma_notas_users: 0,
@@ -435,6 +445,7 @@ export class AnimeService {
         linksPersonalizados: true,
         notas: true,
         userId: true,
+        animeFonte: true,
         animeId: true,
         watchedSpecials: true,
         updatedAt: true,
@@ -469,14 +480,16 @@ export class AnimeService {
         }
       }
     });
-    const animeIds = list.map((item) => item.animeId);
+    // Avaliações pela chave (fonte, id) de cada anime (L-23); OR vazio não devolve nada
     const ratings = await this.prisma.media.findMany({
-      where: { id: { in: animeIds }, mediaType: 'ANIME' },
+      where: {
+        OR: list.map((item) => ({ fonte: item.animeFonte, id: item.animeId })),
+      },
     });
-    const ratingMap = new Map(ratings.map((r) => [r.id, r]));
+    const ratingMap = new Map(ratings.map((r) => [`${r.fonte}:${r.id}`, r]));
 
     return list.map((item) => {
-      const rating = ratingMap.get(item.animeId);
+      const rating = ratingMap.get(`${item.animeFonte}:${item.animeId}`);
       const epLocal = this.getLocalEpisodeNumber(
         item.anime,
         item.seasonAtual,
@@ -494,6 +507,7 @@ export class AnimeService {
 
       return {
         id: item.id,
+        fonte: item.animeFonte,
         animeId: item.animeId,
         titulo: item.anime.titulo,
         statusLancamento: item.anime.statusLancamento,
@@ -556,7 +570,7 @@ export class AnimeService {
           new Date() >= new Date(item.anime.proximoEpisodioData)))
     ) {
       // Sincronização em segundo plano (não bloqueante)
-      this.syncLatestEpisode(item.animeId).catch((err) => {
+      this.syncLatestEpisode(item.animeFonte, item.animeId).catch((err) => {
         this.logger.error(
           `Error auto-syncing releasing anime ${item.animeId} during findOne:`,
           err,
@@ -564,7 +578,7 @@ export class AnimeService {
       });
     }
     const rating = await this.prisma.media.findUnique({
-      where: mediaKey(item.animeId, 'ANIME'),
+      where: mediaKey(item.animeFonte, item.animeId),
     });
     const epLocal = this.getLocalEpisodeNumber(
       item.anime,
@@ -596,6 +610,7 @@ export class AnimeService {
 
     return {
       id: item.id,
+      fonte: item.animeFonte,
       animeId: item.animeId,
       titulo: item.anime.titulo,
       statusLancamento: item.anime.statusLancamento,
@@ -634,7 +649,7 @@ export class AnimeService {
   async refreshAnime(id: number, user: any) {
     const item = await this.prisma.userAnime.findUnique({
       where: { id },
-      select: { userId: true, animeId: true },
+      select: { userId: true, animeFonte: true, animeId: true },
     });
     if (!item) {
       throw new NotFoundException('Anime não encontrado na biblioteca.');
@@ -645,12 +660,13 @@ export class AnimeService {
       );
     }
 
-    const lastRefresh = this.lastManualRefresh.get(item.animeId) || 0;
+    const refreshKey = `${item.animeFonte}:${item.animeId}`;
+    const lastRefresh = this.lastManualRefresh.get(refreshKey) || 0;
     const skipped = Date.now() - lastRefresh < this.REFRESH_COOLDOWN_MS;
 
     if (!skipped) {
-      this.lastManualRefresh.set(item.animeId, Date.now());
-      await this.syncLatestEpisode(item.animeId);
+      this.lastManualRefresh.set(refreshKey, Date.now());
+      await this.syncLatestEpisode(item.animeFonte, item.animeId);
     }
 
     const anime = await this.findOne(id, user);
@@ -695,7 +711,7 @@ export class AnimeService {
         atual.anime.proximoEpisodio = total + 1;
       }
       await this.prisma.anime.update({
-        where: { id: atual.animeId },
+        where: animeKey(atual.animeFonte, atual.animeId),
         data: updateData,
       });
       atual.anime.numEpisodiosTotal = total;
@@ -703,7 +719,7 @@ export class AnimeService {
 
     if (updateDto.tipo !== undefined) {
       await this.prisma.anime.update({
-        where: { id: atual.animeId },
+        where: animeKey(atual.animeFonte, atual.animeId),
         data: { tipo: updateDto.tipo },
       });
       atual.anime.tipo = updateDto.tipo;
@@ -774,7 +790,7 @@ export class AnimeService {
         data: novosDados,
       }),
       this.prisma.media.findUnique({
-        where: mediaKey(atual.animeId, 'ANIME'),
+        where: mediaKey(atual.animeFonte, atual.animeId),
       }),
     ]);
     const updated = { ...updatedRow, anime: atual.anime };
@@ -796,6 +812,7 @@ export class AnimeService {
 
     return {
       id: updated.id,
+      fonte: updated.animeFonte,
       animeId: updated.animeId,
       titulo: updated.anime.titulo,
       statusLancamento: updated.anime.statusLancamento,
@@ -829,9 +846,13 @@ export class AnimeService {
     };
   }
 
-  async updateLastModified(id: number, date: Date = new Date()) {
+  async updateLastModified(
+    fonte: MediaSource,
+    id: number,
+    date: Date = new Date(),
+  ) {
     return this.prisma.anime.update({
-      where: { id },
+      where: animeKey(fonte, id),
       data: { updatedAt: date },
     });
   }
@@ -901,16 +922,17 @@ export class AnimeService {
     }
   }
 
-  async syncLatestEpisode(tmdbId: number) {
+  async syncLatestEpisode(fonte: MediaSource, tmdbId: number) {
     const dbAnime = await this.prisma.anime.findUnique({
-      where: { id: tmdbId },
+      where: animeKey(fonte, tmdbId),
     });
     if (!dbAnime) return { latest: null };
 
+    // O formato vem da fonte: o TMDB não é consultado como série e depois como filme (L-23)
     const media = await this.getTmdbDetailsById(
       tmdbId,
       undefined,
-      dbAnime.formato || undefined,
+      formatFromSource(fonte as 'TMDB_TV' | 'TMDB_MOVIE'),
     );
     if (!media) return { latest: null };
 
@@ -924,7 +946,7 @@ export class AnimeService {
     }
 
     await this.prisma.anime.update({
-      where: { id: tmdbId },
+      where: animeKey(fonte, tmdbId),
       data: {
         numEpisodiosTotal: media.episodes,
         capaUrl: media.coverImage.large,
@@ -939,11 +961,11 @@ export class AnimeService {
     });
 
     if (details && details.seasons) {
-      await this.syncAnimeEpisodes(tmdbId, details.seasons);
+      await this.syncAnimeEpisodes(fonte, tmdbId, details.seasons);
     }
 
     const updatedAnime = await this.prisma.anime.findUnique({
-      where: { id: tmdbId },
+      where: animeKey(fonte, tmdbId),
     });
     if (!updatedAnime || !updatedAnime.episodesList) {
       return { latest: null, source: 'TMDB', notificationsSent: 0 };
@@ -955,6 +977,7 @@ export class AnimeService {
     const totalListEpisodes = episodes.filter((ep: any) => ep.season > 0).length;
     const completedUserAnimes = await this.prisma.userAnime.findMany({
       where: {
+        animeFonte: fonte,
         animeId: tmdbId,
         status: 'COMPLETED',
       },
@@ -980,6 +1003,7 @@ export class AnimeService {
 
     const userAnimes = await this.prisma.userAnime.findMany({
       where: {
+        animeFonte: fonte,
         animeId: tmdbId,
         status: 'WATCHING',
       },
@@ -1019,7 +1043,7 @@ export class AnimeService {
                 title,
                 message,
                 'ANIME',
-                tmdbId,
+                { fonte, id: tmdbId },
               );
             }
             notificationCount++;
@@ -1035,7 +1059,7 @@ export class AnimeService {
         this.calculateAiredEpisodesInfo(episodes);
 
       await this.prisma.anime.update({
-        where: { id: tmdbId },
+        where: animeKey(fonte, tmdbId),
         data: {
           episodesList: episodes,
           numEpisodiosAired,
@@ -1051,10 +1075,14 @@ export class AnimeService {
     };
   }
 
-  async syncAnimeEpisodes(animeId: number, detailsSeasons: any[]) {
+  async syncAnimeEpisodes(
+    fonte: MediaSource,
+    animeId: number,
+    detailsSeasons: any[],
+  ) {
     try {
       const anime = await this.prisma.anime.findUnique({
-        where: { id: animeId },
+        where: animeKey(fonte, animeId),
       });
       if (!anime) {
         this.logger.warn(
@@ -1166,7 +1194,7 @@ export class AnimeService {
         this.calculateAiredEpisodesInfo(episodesList);
 
       await this.prisma.anime.update({
-        where: { id: animeId },
+        where: animeKey(fonte, animeId),
         data: {
           episodesList,
           numEpisodiosAired,
@@ -1175,6 +1203,7 @@ export class AnimeService {
       });
 
       await this.autoTransitionPlannedToWatching(
+        fonte,
         animeId,
         episodesList,
         anime.titulo,
@@ -1194,22 +1223,25 @@ export class AnimeService {
   async clearAnimeCatalog() {
     this.logger.log('A iniciar a limpeza de toda a base de dados de Anime...');
     try {
-      const animes = await this.prisma.anime.findMany({ select: { id: true } });
-      const animeIds = animes.map((a) => a.id);
+      // Só obras de fontes de anime (TMDB_TV / TMDB_MOVIE): mangas com o mesmo id ficam intactos
+      const animes = await this.prisma.anime.findMany({
+        select: { fonte: true, id: true },
+      });
+      const animeRefs = animes.map((a) => ({ fonte: a.fonte, mediaId: a.id }));
 
       await this.prisma.userAnime.deleteMany({});
       await this.prisma.customListItem.deleteMany({
-        where: { mediaType: 'ANIME' },
+        where: { fonte: { in: ANIME_SOURCES } },
       });
       await this.prisma.comment.deleteMany({
-        where: { mediaId: { in: animeIds }, mediaType: 'ANIME' },
+        where: { OR: animeRefs },
       });
       await this.prisma.userRating.deleteMany({
-        where: { mediaId: { in: animeIds }, mediaType: 'ANIME' },
+        where: { OR: animeRefs },
       });
       await this.prisma.anime.deleteMany({});
       await this.prisma.media.deleteMany({
-        where: { id: { in: animeIds }, mediaType: 'ANIME' },
+        where: { OR: animes.map((a) => ({ fonte: a.fonte, id: a.id })) },
       });
 
       const users = await this.prisma.user.findMany({ select: { id: true } });

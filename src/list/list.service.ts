@@ -3,8 +3,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { MediaType, Prisma } from '@prisma/client';
+import { MediaSource, MediaType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  isAnimeSource,
+  kindOf,
+  parseMediaSource,
+  parseMediaType,
+  resolveMediaSource,
+} from '../rating/media-type';
 import { AddListItemDto } from './dto/add-list-item.dto';
 import { CreateListDto } from './dto/create-list.dto';
 import { UpdateListDto } from './dto/update-list.dto';
@@ -15,6 +22,29 @@ type ListCriteria = {
   tags?: string[];
   mediaTypes?: MediaType[];
 } | null;
+
+// Chave única do item: a obra é identificada pela fonte e pela FK do seu tipo (L-23, L-28)
+function itemKey(listId: number, fonte: MediaSource, mediaId: number) {
+  return isAnimeSource(fonte)
+    ? { listId_fonte_animeId: { listId, fonte, animeId: mediaId } }
+    : { listId_mangaId: { listId, mangaId: mediaId } };
+}
+
+// A API expõe o ID da obra num só campo, calculado a partir da FK preenchida,
+// e o tipo (ANIME/MANGA) deduzido da fonte
+function withMediaId<
+  T extends {
+    fonte: MediaSource;
+    animeId: number | null;
+    mangaId: number | null;
+  },
+>(item: T) {
+  return {
+    ...item,
+    mediaId: (item.animeId ?? item.mangaId)!,
+    mediaType: kindOf(item.fonte),
+  };
+}
 
 @Injectable()
 export class ListService {
@@ -34,19 +64,24 @@ export class ListService {
   }
 
   async findAll(userId: number) {
-    return this.prisma.customList.findMany({
+    const lists = await this.prisma.customList.findMany({
       where: { userId },
       include: {
         _count: { select: { items: true } },
         items: {
           select: {
-            anilistMediaId: true,
-            mediaType: true,
+            fonte: true,
+            animeId: true,
+            mangaId: true,
           },
         },
       },
       orderBy: { updatedAt: 'desc' },
     });
+    return lists.map((list) => ({
+      ...list,
+      items: list.items.map(withMediaId),
+    }));
   }
 
   async findOne(userId: number, listId: number) {
@@ -60,7 +95,7 @@ export class ListService {
       },
     });
     if (!list) throw new NotFoundException('Lista não encontrada');
-    return list;
+    return { ...list, items: list.items.map(withMediaId) };
   }
 
   async update(userId: number, listId: number, dto: UpdateListDto) {
@@ -85,25 +120,26 @@ export class ListService {
 
   async addItem(userId: number, listId: number, dto: AddListItemDto) {
     await this.assertOwner(userId, listId);
-    await this.addItemAtEnd(listId, dto.anilistMediaId, dto.mediaType);
+    const fonte = await resolveMediaSource(this.prisma, dto.mediaId, {
+      fonte: dto.fonte,
+      mediaType: dto.mediaType,
+      format: dto.format,
+    });
+    await this.addItemAtEnd(listId, fonte, dto.mediaId);
     return this.findOne(userId, listId);
   }
 
+  // fonteOuTipo: a fonte (TMDB_TV, ...) ou, em versões antigas da app, o tipo (ANIME/MANGA)
   async removeItem(
     userId: number,
     listId: number,
-    mediaType: MediaType,
+    fonteOuTipo: string,
     mediaId: number,
   ) {
     await this.assertOwner(userId, listId);
+    const fonte = await this.resolveItemSource(listId, fonteOuTipo, mediaId);
     await this.prisma.customListItem.delete({
-      where: {
-        listId_anilistMediaId_mediaType: {
-          listId,
-          anilistMediaId: mediaId,
-          mediaType,
-        },
-      },
+      where: itemKey(listId, fonte, mediaId),
     });
     await this.compactPositions(listId);
     return this.findOne(userId, listId);
@@ -143,28 +179,45 @@ export class ListService {
     return list;
   }
 
+  private async resolveItemSource(
+    listId: number,
+    fonteOuTipo: string,
+    mediaId: number,
+  ): Promise<MediaSource> {
+    const upper = fonteOuTipo.toUpperCase();
+    if ((Object.values(MediaSource) as string[]).includes(upper)) {
+      return parseMediaSource(upper)!;
+    }
+    const mediaType = parseMediaType(upper);
+    if (mediaType === MediaType.MANGA) return MediaSource.ANILIST;
+    // Anime sem fonte: usa a do item que já está nesta lista (série primeiro)
+    const items = await this.prisma.customListItem.findMany({
+      where: { listId, animeId: mediaId },
+      select: { fonte: true },
+    });
+    if (items.some((i) => i.fonte === MediaSource.TMDB_TV)) {
+      return MediaSource.TMDB_TV;
+    }
+    return items[0]?.fonte ?? MediaSource.TMDB_TV;
+  }
+
   private async addItemAtEnd(
     listId: number,
-    anilistMediaId: number,
-    mediaType: MediaType,
+    fonte: MediaSource,
+    mediaId: number,
   ) {
     const max = await this.prisma.customListItem.aggregate({
       where: { listId },
       _max: { position: true },
     });
-    const data: Prisma.CustomListItemCreateInput = {
-      list: { connect: { id: listId } },
-      anilistMediaId,
-      mediaType,
+    const data: Prisma.CustomListItemUncheckedCreateInput = {
+      listId,
+      fonte,
       position: (max._max.position ?? 0) + 1,
-      ...(mediaType === 'ANIME'
-        ? { anime: { connect: { id: anilistMediaId } } }
-        : { manga: { connect: { id: anilistMediaId } } }),
+      ...(isAnimeSource(fonte) ? { animeId: mediaId } : { mangaId: mediaId }),
     };
     return this.prisma.customListItem.upsert({
-      where: {
-        listId_anilistMediaId_mediaType: { listId, anilistMediaId, mediaType },
-      },
+      where: itemKey(listId, fonte, mediaId),
       update: {},
       create: data,
     });

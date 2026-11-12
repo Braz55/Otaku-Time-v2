@@ -4,18 +4,18 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { MediaType } from '@prisma/client';
+import { MediaSource } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class CommentService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // Cria um comentário associado a uma obra (mediaId + mediaType, L-24) e ao autor
+  // Cria um comentário associado a uma obra (fonte + mediaId, L-23) e ao autor
   async createComment(
     userId: number,
+    fonte: MediaSource,
     mediaId: number,
-    mediaType: MediaType,
     text: string,
   ) {
     if (!text || text.trim() === '') {
@@ -27,8 +27,8 @@ export class CommentService {
     return this.prisma.comment.create({
       data: {
         userId,
+        fonte,
         mediaId,
-        mediaType,
         text: text.trim(),
       },
       include: {
@@ -43,9 +43,9 @@ export class CommentService {
   }
 
   // Lista todos os comentários de um anime/manga (mediaId)
-  async getCommentsByMedia(mediaId: number, mediaType: MediaType) {
+  async getCommentsByMedia(fonte: MediaSource, mediaId: number) {
     return this.prisma.comment.findMany({
-      where: { mediaId, mediaType },
+      where: { fonte, mediaId },
       orderBy: { createdAt: 'desc' },
       include: {
         user: {

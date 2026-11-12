@@ -15,6 +15,7 @@ import { CustomListsModal } from '../components/details/CustomListsModal';
 import { TrackingTab } from '../components/details/TrackingTab';
 import { InfoTab } from '../components/details/InfoTab';
 import { ArtworkSelectorModal } from '../components/details/ArtworkSelectorModal';
+import { getMediaSource } from '../services/mediaSource';
 
 // Esperas entre tentativas quando o servidor está a acordar (cold start do Render) ou a rede falha
 const DETAILS_RETRY_DELAYS = [3000, 8000, 15000];
@@ -352,12 +353,12 @@ const DetailsPage = () => {
 
   const toggleItemInList = async (listId: number, isCurrentlyInList: boolean) => {
     const currentAnilistId = getMediaId();
-    const currentMediaType = mediaType?.toUpperCase() as 'ANIME' | 'MANGA';
-    if (!currentAnilistId || !currentMediaType) return;
+    const currentFonte = getFonte();
+    if (!currentAnilistId || !mediaType) return;
 
     try {
       if (isCurrentlyInList) {
-        const res = await customFetch(`${API_BASE_URL}/lists/${listId}/items/${currentMediaType}/${currentAnilistId}`, {
+        const res = await customFetch(`${API_BASE_URL}/lists/${listId}/items/${currentFonte}/${currentAnilistId}`, {
           method: 'DELETE',
           headers: getHeaders(),
         });
@@ -365,7 +366,7 @@ const DetailsPage = () => {
           const updatedList = await res.json();
           setLists(prev => prev.map(l => l.id === listId ? {
             ...l,
-            items: updatedList.items.map((i: any) => ({ anilistMediaId: i.anilistMediaId, mediaType: i.mediaType })),
+            items: updatedList.items.map((i: any) => ({ mediaId: i.mediaId, fonte: i.fonte, mediaType: i.mediaType })),
             _count: { items: updatedList.items.length }
           } : l));
           showToast('Item removido da lista!', 'success');
@@ -377,15 +378,15 @@ const DetailsPage = () => {
           method: 'POST',
           headers: getHeaders(),
           body: JSON.stringify({
-            anilistMediaId: currentAnilistId,
-            mediaType: currentMediaType,
+            mediaId: currentAnilistId,
+            fonte: currentFonte,
           }),
         });
         if (res.ok) {
           const updatedList = await res.json();
           setLists(prev => prev.map(l => l.id === listId ? {
             ...l,
-            items: updatedList.items.map((i: any) => ({ anilistMediaId: i.anilistMediaId, mediaType: i.mediaType })),
+            items: updatedList.items.map((i: any) => ({ mediaId: i.mediaId, fonte: i.fonte, mediaType: i.mediaType })),
             _count: { items: updatedList.items.length }
           } : l));
           showToast('Item adicionado à lista!', 'success');
@@ -405,6 +406,8 @@ const DetailsPage = () => {
   });
 
   const getMediaId = (item = selectedItem) => item?.mangaId || item?.animeId || item?.id;
+  // L-23: fonte da obra (ANILIST, TMDB_TV ou TMDB_MOVIE)
+  const getFonte = (item = selectedItem) => getMediaSource(mediaType, item, formatParam);
 
   // Load details and configurations
   useEffect(() => {
@@ -569,6 +572,7 @@ const DetailsPage = () => {
             linksExternos: data.externalLinks ? JSON.stringify(data.externalLinks) : null,
             isExternal: true,
             formato: data.format,
+            fonte: data.fonte, // L-23: série ou filme do TMDB (só no anime)
             duracaoEpisodio: data.duracaoEpisodio || data.duration || null,
             relations: data.relations
           };
@@ -707,9 +711,6 @@ const DetailsPage = () => {
         const fetchedDuration = extData?.duracaoEpisodio || extData?.duration;
         if (fetchedDuration && fetchedDuration > 0) {
           setSelectedItem((prev: any) => prev ? { ...prev, duracaoEpisodio: fetchedDuration } : prev);
-          if (!selectedItem.isExternal) {
-            atualizarCampo('duracaoEpisodio', fetchedDuration);
-          }
         }
       })
       .catch(err => console.error("Error auto-fetching episode duration:", err));
@@ -739,9 +740,8 @@ const DetailsPage = () => {
     }
   };
 
-  // L-24: o anime usa IDs do TMDB e o manga IDs da AniList, que se sobrepõem.
-  // Avaliações e comentários são pedidos com o tipo para não misturar as duas obras.
-  const ratingMediaType: 'ANIME' | 'MANGA' = mediaType === 'manga' ? 'MANGA' : 'ANIME';
+  // L-23/L-24: o mesmo ID pode ser uma série, um filme e um manga. Avaliações e comentários
+  // são pedidos com a fonte da obra para não misturar obras diferentes.
 
   const carregarDadosInterativos = async (mediaId: number) => {
     setLoadingComments(true);
@@ -751,14 +751,14 @@ const DetailsPage = () => {
     setNewCommentText('');
 
     try {
-      const typeQuery = `?type=${ratingMediaType}`;
+      const fonte = getFonte();
       const requests: Promise<Response>[] = [
-        customFetch(`${API_BASE_URL}/comment/media/${mediaId}${typeQuery}`),
-        customFetch(`${API_BASE_URL}/rating/media/${mediaId}${typeQuery}`),
+        customFetch(`${API_BASE_URL}/comment/media/${fonte}/${mediaId}`),
+        customFetch(`${API_BASE_URL}/rating/media/${fonte}/${mediaId}`),
       ];
 
       if (token) {
-        requests.push(customFetch(`${API_BASE_URL}/rating/media/${mediaId}/user${typeQuery}`, { headers: getHeaders() }));
+        requests.push(customFetch(`${API_BASE_URL}/rating/media/${fonte}/${mediaId}/user`, { headers: getHeaders() }));
       }
 
       const [commentsRes, overallRes, userRatingRes] = await Promise.all(requests);
@@ -796,7 +796,7 @@ const DetailsPage = () => {
       const response = await customFetch(`${API_BASE_URL}/rating`, {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify({ mediaId, mediaType: ratingMediaType, score }),
+        body: JSON.stringify({ mediaId, fonte: getFonte(), score }),
       });
 
       if (!response.ok) throw new Error('Erro ao submeter avaliação');
@@ -827,7 +827,7 @@ const DetailsPage = () => {
       const response = await customFetch(`${API_BASE_URL}/comment`, {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify({ mediaId, mediaType: ratingMediaType, text }),
+        body: JSON.stringify({ mediaId, fonte: getFonte(), text }),
       });
 
       if (!response.ok) throw new Error('Erro ao enviar comentário');
@@ -1013,13 +1013,13 @@ const DetailsPage = () => {
     setIsCheckingLists(true);
     try {
       const currentAnilistId = getMediaId();
-      const currentMediaType = mediaType.toUpperCase();
+      const currentFonte = getFonte();
       
       const res = await customFetch(`${API_BASE_URL}/lists`, { headers: getHeaders() });
       if (res.ok) {
         const userLists = await res.json();
         const containingLists = userLists.filter((list: any) =>
-          list.items?.some((i: any) => i.anilistMediaId === currentAnilistId && i.mediaType === currentMediaType)
+          list.items?.some((i: any) => i.mediaId === currentAnilistId && i.fonte === currentFonte)
         );
         
         if (containingLists.length > 0) {
@@ -1043,12 +1043,12 @@ const DetailsPage = () => {
     if (!mediaType || !selectedItem) return;
     setIsDeletingFromLists(true);
     const currentAnilistId = getMediaId();
-    const currentMediaType = mediaType.toUpperCase();
+    const currentFonte = getFonte();
     
     try {
       // Remove from all containing lists
       await Promise.all(listsWithMedia.map(list =>
-        customFetch(`${API_BASE_URL}/lists/${list.id}/items/${currentMediaType}/${currentAnilistId}`, {
+        customFetch(`${API_BASE_URL}/lists/${list.id}/items/${currentFonte}/${currentAnilistId}`, {
           method: 'DELETE',
           headers: getHeaders(),
         })
@@ -2152,7 +2152,7 @@ const DetailsPage = () => {
                           if (input !== null) {
                             const parsed = parseInt(input);
                             if (!isNaN(parsed) && parsed > 0) {
-                              atualizarCampo('duracaoEpisodio', parsed);
+                              setSelectedItem((prev: any) => prev ? { ...prev, duracaoEpisodio: parsed } : prev);
                             }
                           }
                         }}
@@ -2331,6 +2331,7 @@ const DetailsPage = () => {
         loadingLists={loadingLists}
         lists={lists}
         getMediaId={getMediaId}
+        getFonte={getFonte}
         toggleItemInList={toggleItemInList}
         navigate={navigate}
         showPriorityModal={showPriorityModal}

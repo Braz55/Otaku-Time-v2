@@ -5,10 +5,13 @@ import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { getMediaSource } from '../services/mediaSource';
 
 type ListItem = {
   id: number;
-  anilistMediaId: number;
+  mediaId: number;
+  // L-23: ANILIST, TMDB_TV ou TMDB_MOVIE
+  fonte: string;
   mediaType: 'ANIME' | 'MANGA';
   position: number;
   anime?: any;
@@ -163,6 +166,7 @@ const ListDetailsPage = () => {
         if (Array.isArray(animeData)) {
           allItems = [...allItems, ...animeData.map((item: any) => ({
             id: item.animeId || item.id,
+            fonte: getMediaSource('anime', item),
             titulo: item.anime?.titulo || item.titulo,
             capaUrl: item.anime?.capaUrl || item.capaUrl,
             mediaType: 'ANIME',
@@ -175,6 +179,7 @@ const ListDetailsPage = () => {
         if (Array.isArray(mangaData)) {
           allItems = [...allItems, ...mangaData.map((item: any) => ({
             id: item.mangaId || item.id,
+            fonte: 'ANILIST',
             titulo: item.manga?.titulo || item.titulo,
             capaUrl: item.manga?.capaUrl || item.capaUrl,
             mediaType: 'MANGA',
@@ -326,7 +331,7 @@ const ListDetailsPage = () => {
     setList(prev => prev ? { ...prev, items: next } : null);
   };
 
-  const handleAddItemToList = async (mediaId: number, mediaType: 'ANIME' | 'MANGA') => {
+  const handleAddItemToList = async (mediaId: number, fonte: string) => {
     if (!id || !list || addingItemId) return;
     
     // Require saving order first
@@ -341,7 +346,7 @@ const ListDetailsPage = () => {
       const res = await customFetch(`${API_BASE_URL}/lists/${id}/items`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ anilistMediaId: mediaId, mediaType }),
+        body: JSON.stringify({ mediaId, fonte }),
       });
       if (!res.ok) throw new Error('Erro ao adicionar item');
       
@@ -369,7 +374,7 @@ const ListDetailsPage = () => {
     }
 
     try {
-      const res = await customFetch(`${API_BASE_URL}/lists/${id}/items/${item.mediaType}/${item.anilistMediaId}`, {
+      const res = await customFetch(`${API_BASE_URL}/lists/${id}/items/${item.fonte}/${item.mediaId}`, {
         method: 'DELETE',
         headers,
       });
@@ -408,7 +413,7 @@ const ListDetailsPage = () => {
       
       // 2. Already in this list
       const alreadyInList = list.items.some(listItem => 
-        listItem.anilistMediaId === item.id && listItem.mediaType === item.mediaType
+        listItem.mediaId === item.id && listItem.fonte === item.fonte
       );
       return !alreadyInList;
     });
@@ -611,7 +616,7 @@ const ListDetailsPage = () => {
                   <p className="text-[11px] text-on-surface-variant text-center py-4">Nenhum título disponível encontrado.</p>
                 ) : (
                   filteredLibraryItems.slice(0, 10).map(item => (
-                    <div key={`${item.mediaType}-${item.id}`} className="flex items-center justify-between gap-3 p-2 rounded-lg bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
+                    <div key={`${item.fonte}-${item.id}`} className="flex items-center justify-between gap-3 p-2 rounded-lg bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
                       <div className="flex items-center gap-2 min-w-0">
                         {item.capaUrl ? (
                           <img src={item.capaUrl} alt={item.titulo} className="w-8 aspect-[3/4] object-cover rounded-md flex-shrink-0" />
@@ -625,7 +630,7 @@ const ListDetailsPage = () => {
                       </div>
                       <button
                         disabled={addingItemId === item.id}
-                        onClick={() => handleAddItemToList(item.id, item.mediaType)}
+                        onClick={() => handleAddItemToList(item.id, item.fonte)}
                         className="px-3 py-1.5 rounded-lg bg-primary text-on-primary font-black text-[10px] active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1 flex-shrink-0"
                       >
                         {addingItemId === item.id ? (
@@ -691,13 +696,13 @@ const ListDetailsPage = () => {
                     </div>
                   )}
 
-                  <Link to={`/details/${mediaTypePath}/${item.anilistMediaId}?external=true${media?.formato ? `&format=${media.formato}` : ''}`} onClick={(e) => handleLinkClick(e, `/details/${mediaTypePath}/${item.anilistMediaId}?external=true${media?.formato ? `&format=${media.formato}` : ''}`)} className="aspect-[3/4] rounded-xl overflow-hidden bg-white/5 flex-shrink-0">
+                  <Link to={`/details/${mediaTypePath}/${item.mediaId}?external=true${media?.formato ? `&format=${media.formato}` : ''}`} onClick={(e) => handleLinkClick(e, `/details/${mediaTypePath}/${item.mediaId}?external=true${media?.formato ? `&format=${media.formato}` : ''}`)} className="aspect-[3/4] rounded-xl overflow-hidden bg-white/5 flex-shrink-0">
                     {media?.capaUrl ? <img src={media.capaUrl} alt={media?.titulo} className="w-full h-full object-cover" /> : null}
                   </Link>
 
                   <div className="min-w-0">
                     <p className="text-primary text-xs font-black">#{index + 1} · {item.mediaType}</p>
-                    <Link to={`/details/${mediaTypePath}/${item.anilistMediaId}?external=true${media?.formato ? `&format=${media.formato}` : ''}`} onClick={(e) => handleLinkClick(e, `/details/${mediaTypePath}/${item.anilistMediaId}?external=true${media?.formato ? `&format=${media.formato}` : ''}`)} className="text-white font-black text-base sm:text-lg truncate block hover:text-primary transition-colors">{media?.titulo || `Media ${item.anilistMediaId}`}</Link>
+                    <Link to={`/details/${mediaTypePath}/${item.mediaId}?external=true${media?.formato ? `&format=${media.formato}` : ''}`} onClick={(e) => handleLinkClick(e, `/details/${mediaTypePath}/${item.mediaId}?external=true${media?.formato ? `&format=${media.formato}` : ''}`)} className="text-white font-black text-base sm:text-lg truncate block hover:text-primary transition-colors">{media?.titulo || `Media ${item.mediaId}`}</Link>
                     <p className="text-on-surface-variant text-xs line-clamp-2 mt-0.5">{media?.descricao || 'Sem descrição.'}</p>
                   </div>
 

@@ -1,15 +1,28 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { MediaSource } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RestoreBackupDto } from './dto/restore-backup.dto';
+import { TMDBService } from '../anime/tmdb.service';
+import { normalizeTMDBToAniList } from '../anime/anime.utils';
+import {
+  AnimeSource,
+  animeKey,
+  animeSourceFromFormat,
+  findAnimeSource,
+} from '../rating/media-type';
 
 @Injectable()
 export class BackupService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly tmdbService?: TMDBService,
+  ) {}
 
   async generateBackup(userId: number) {
     const animes = await this.prisma.userAnime.findMany({
       where: { userId },
       select: {
+        animeFonte: true,
         animeId: true,
         status: true,
         epAtual: true,
@@ -39,6 +52,7 @@ export class BackupService {
     });
 
     const backupAnimes = animes.map((item) => ({
+      fonte: item.animeFonte,
       animeId: item.animeId,
       titulo: item.anime.titulo,
       status: item.status,
@@ -115,25 +129,22 @@ export class BackupService {
     return null;
   }
 
-  async getAniListAnimeById(id: number) {
-    const query = `
-      query ($id: Int) {
-        Media(id: $id, type: ANIME) {
-          id
-          title { english romaji native }
-          coverImage { large }
-          status
-          description
-          genres
-          tags { name rank }
-          episodes
-          countryOfOrigin
-          format
-          source
-        }
-      }
-    `;
-    return this.fetchAniListGraphQL(query, { id });
+  // Metadados de um anime pedidos ao TMDB, no formato AniList usado pelo restauro.
+  // Antes eram pedidos à AniList com o ID do TMDB, o que devolvia outra obra (L-23).
+  async getTmdbAnimeById(fonte: AnimeSource, id: number) {
+    if (!this.tmdbService) return null;
+    try {
+      const details =
+        fonte === MediaSource.TMDB_MOVIE
+          ? await this.tmdbService.getMovieDetails(id)
+          : await this.tmdbService.getTVShowDetails(id);
+      return normalizeTMDBToAniList(
+        details,
+        fonte === MediaSource.TMDB_MOVIE ? 'movie' : 'tv',
+      );
+    } catch {
+      return null;
+    }
   }
 
   async getAniListMangaById(id: number) {
@@ -167,7 +178,12 @@ export class BackupService {
     // Restaurar Animes
     if (Array.isArray(animes)) {
       for (const item of animes) {
-        const metadata = await this.getAniListAnimeById(item.animeId);
+        // Backups antigos não têm a fonte: usa a do catálogo local, senão deduz do formato
+        const fonte: AnimeSource =
+          item.fonte ??
+          (await findAnimeSource(this.prisma, item.animeId)) ??
+          animeSourceFromFormat(item.formato);
+        const metadata = await this.getTmdbAnimeById(fonte, item.animeId);
 
         const generosDict = metadata
           ? buildGenerosDict(metadata.genres, metadata.tags?.slice(0, 5))
@@ -178,7 +194,7 @@ export class BackupService {
 
         const numEpisodiosFallback = item.numEpisodiosTotal ?? null;
         await this.prisma.anime.upsert({
-          where: { id: item.animeId },
+          where: animeKey(fonte, item.animeId),
           update: {
             titulo: metadata
               ? metadata.title.english || metadata.title.romaji
@@ -196,6 +212,7 @@ export class BackupService {
           },
           create: {
             id: item.animeId,
+            fonte,
             titulo: metadata
               ? metadata.title.english || metadata.title.romaji
               : item.titulo,
@@ -214,7 +231,13 @@ export class BackupService {
 
         // Upsert UserAnime
         await this.prisma.userAnime.upsert({
-          where: { userId_animeId: { userId, animeId: item.animeId } },
+          where: {
+            userId_animeFonte_animeId: {
+              userId,
+              animeFonte: fonte,
+              animeId: item.animeId,
+            },
+          },
           update: {
             epAtual: item.epAtual,
             status: item.status,
@@ -222,6 +245,7 @@ export class BackupService {
           },
           create: {
             userId,
+            animeFonte: fonte,
             animeId: item.animeId,
             epAtual: item.epAtual,
             status: item.status,

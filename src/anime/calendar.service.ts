@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { MediaSource } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 
@@ -54,6 +55,7 @@ export class CalendarService {
               airingAnime.push({
                 id: ua.id * 10000 + (ep.season || 0) * 100 + episodeNum,
                 originalId: a.id,
+                fonte: a.fonte,
                 titulo: a.titulo,
                 capaUrl: ua.capaPersonalizada || a.capaUrl,
                 displayNum: episodeNum,
@@ -73,6 +75,7 @@ export class CalendarService {
           airingAnime.push({
             id: ua.id,
             originalId: a.id,
+            fonte: a.fonte,
             titulo: a.titulo,
             capaUrl: ua.capaPersonalizada || a.capaUrl,
             displayNum: a.proximoEpisodio,
@@ -94,6 +97,7 @@ export class CalendarService {
   }
 
   async autoTransitionPlannedToWatching(
+    fonte: MediaSource,
     animeId: number,
     episodesList: any[],
     animeTitle: string,
@@ -127,6 +131,7 @@ export class CalendarService {
 
     const plannedUserAnimes = await this.prisma.userAnime.findMany({
       where: {
+        animeFonte: fonte,
         animeId,
         status: 'PLANNED',
       },
@@ -147,7 +152,7 @@ export class CalendarService {
           'Anime planeado estreou!',
           `O primeiro episódio de "${animeTitle}" estreou! Mudámos o status para "A ver".`,
           'ANIME',
-          animeId,
+          { fonte, id: animeId },
         );
 
         this.logger.log(

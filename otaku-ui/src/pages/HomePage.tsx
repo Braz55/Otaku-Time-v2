@@ -42,6 +42,14 @@ const getProgressoAtual = (item: any, type: 'anime' | 'manga'): number => {
   return item.capAtual || 0;
 };
 
+// Item da biblioteca está numa lista personalizada? Compara pela chave (fonte, id) (L-23):
+// o manga vem da AniList; o anime traz a fonte (série ou filme do TMDB) da API.
+const listHasItem = (list: any, item: any): boolean => {
+  const fonte = item.mangaId ? 'ANILIST' : item.fonte;
+  const mediaId = item.mangaId || item.animeId;
+  return !!list.items?.some((i: any) => i.mediaId === mediaId && i.fonte === fonte);
+};
+
 const temPorVer = (item: any, type: 'anime' | 'manga') =>
   getProgressoAtual(item, type) < (getMaxDisponivel(item, type) ?? Infinity);
 
@@ -897,9 +905,7 @@ const HomePage = () => {
               if (listFilter !== null) {
                 const selectedList = customLists.find(l => l.id === listFilter);
                 if (selectedList) {
-                  const mediaId = item.mangaId || item.id;
-                  const isInList = selectedList.items?.some((i: any) => i.anilistMediaId === mediaId);
-                  return isInList;
+                  return listHasItem(selectedList, item);
                 }
               }
               return true;
@@ -1014,10 +1020,7 @@ const HomePage = () => {
                               </li>
                               {customLists.map((list) => {
                                 const isSelected = listFilter === list.id;
-                                const activeCount = rawDashboardItems.filter(item => {
-                                  const mediaId = item.mangaId || item.id;
-                                  return list.items?.some((i: any) => i.anilistMediaId === mediaId);
-                                }).length;
+                                const activeCount = rawDashboardItems.filter(item => listHasItem(list, item)).length;
 
                                 return (
                                   <li key={list.id}>

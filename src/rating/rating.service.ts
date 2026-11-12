@@ -1,43 +1,48 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
-import { MediaType } from '@prisma/client';
+import { Injectable, BadRequestException, Optional } from '@nestjs/common';
+import { MediaSource } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { mediaKey } from './media-type';
+import { TMDBService } from '../anime/tmdb.service';
+import { kindOf, mediaKey } from './media-type';
 
 @Injectable()
 export class RatingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly tmdbService?: TMDBService,
+  ) {}
 
-  async getOverallRating(mediaId: number, mediaType: MediaType) {
+  async getOverallRating(fonte: MediaSource, mediaId: number) {
     const media = await this.prisma.media.findUnique({
-      where: mediaKey(mediaId, mediaType),
+      where: mediaKey(fonte, mediaId),
       select: {
         id: true,
-        mediaType: true,
+        fonte: true,
         avaliacao_geral: true,
         total_votos_users: true,
       },
     });
 
     if (media) {
-      return media;
+      return { ...media, mediaType: kindOf(media.fonte) };
     }
 
-    const baseScore = await this.fetchAniListAverageScore(mediaId);
+    const baseScore = await this.fetchBaseScore(fonte, mediaId);
     return {
       id: mediaId,
-      mediaType,
+      fonte,
+      mediaType: kindOf(fonte),
       avaliacao_geral: Math.round(baseScore * 100) / 100,
       total_votos_users: 0,
     };
   }
 
-  async getUserRating(userId: number, mediaId: number, mediaType: MediaType) {
+  async getUserRating(userId: number, fonte: MediaSource, mediaId: number) {
     const rating = await this.prisma.userRating.findUnique({
       where: {
-        userId_mediaId_mediaType: {
+        userId_fonte_mediaId: {
           userId,
+          fonte,
           mediaId,
-          mediaType,
         },
       },
       select: {
@@ -47,12 +52,32 @@ export class RatingService {
 
     return {
       mediaId,
-      mediaType,
+      fonte,
+      mediaType: kindOf(fonte),
       score: rating?.score ?? null,
     };
   }
 
-  // Busca o averageScore da AniList por ID de Media (Anime ou Manga)
+  // Nota base (0–10) de uma obra que ainda não tem Media, pedida à fonte certa (L-23).
+  // Antes, o ID do TMDB era enviado à AniList e devolvia a nota de outra obra.
+  async fetchBaseScore(fonte: MediaSource, mediaId: number): Promise<number> {
+    if (fonte === MediaSource.ANILIST) {
+      return this.fetchAniListAverageScore(mediaId);
+    }
+    if (!this.tmdbService) return 0;
+    try {
+      const details =
+        fonte === MediaSource.TMDB_MOVIE
+          ? await this.tmdbService.getMovieDetails(mediaId)
+          : await this.tmdbService.getTVShowDetails(mediaId);
+      const vote = Number(details?.vote_average);
+      return Number.isFinite(vote) ? vote : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  // Busca o averageScore da AniList por ID de Media (manga)
   async fetchAniListAverageScore(mediaId: number): Promise<number> {
     const query = `
       query ($id: Int) {
@@ -90,32 +115,32 @@ export class RatingService {
   // Regista ou atualiza um voto de utilizador dentro de uma Transaction
   async submitRating(
     userId: number,
+    fonte: MediaSource,
     mediaId: number,
-    mediaType: MediaType,
     score: number,
   ) {
     if (score < 0 || score > 10) {
       throw new BadRequestException('A nota deve estar entre 0 e 10.');
     }
 
-    // 1. Nota base pedida à AniList ANTES de abrir a transação (L-18): um pedido HTTP lento
+    // 1. Nota base pedida à fonte ANTES de abrir a transação (L-18): um pedido HTTP lento
     // não pode manter a transação aberta (o Prisma cancela-a ao fim de 5 s).
     const mediaExistente = await this.prisma.media.findUnique({
-      where: mediaKey(mediaId, mediaType),
+      where: mediaKey(fonte, mediaId),
       select: { id: true },
     });
     const baseScore = mediaExistente
       ? 0 // não é usada: a Media já existe e o upsert não a altera
-      : await this.fetchAniListAverageScore(mediaId);
+      : await this.fetchBaseScore(fonte, mediaId);
 
     return this.prisma.$transaction(async (tx) => {
       // upsert: se dois primeiros votos chegarem ao mesmo tempo, só um cria a Media
       const media = await tx.media.upsert({
-        where: mediaKey(mediaId, mediaType),
+        where: mediaKey(fonte, mediaId),
         update: {},
         create: {
           id: mediaId,
-          mediaType,
+          fonte,
           avaliacao_base: baseScore,
           total_votos_users: 0,
           soma_notas_users: 0,
@@ -126,10 +151,10 @@ export class RatingService {
       // 2. Verificar se já existe classificação do utilizador para esta Media
       const existingRating = await tx.userRating.findUnique({
         where: {
-          userId_mediaId_mediaType: {
+          userId_fonte_mediaId: {
             userId,
+            fonte,
             mediaId,
-            mediaType,
           },
         },
       });
@@ -142,8 +167,8 @@ export class RatingService {
         await tx.userRating.create({
           data: {
             userId,
+            fonte,
             mediaId,
-            mediaType,
             score,
           },
         });
@@ -171,7 +196,7 @@ export class RatingService {
 
       // Atualizar a Media com a nova média geral e estatísticas
       const updatedMedia = await tx.media.update({
-        where: mediaKey(mediaId, mediaType),
+        where: mediaKey(fonte, mediaId),
         data: {
           total_votos_users: totalVotos,
           soma_notas_users: somaNotas,
@@ -182,7 +207,8 @@ export class RatingService {
       return {
         userId,
         mediaId,
-        mediaType,
+        fonte,
+        mediaType: kindOf(fonte),
         score,
         isNewRating: !existingRating,
         media: updatedMedia,

@@ -221,10 +221,14 @@ describe('AnimeService', () => {
       await service['runTVTimeImportBackground'](userId, tvTimeShows);
 
       expect(tmdbService.findByTVDBId).toHaveBeenCalledWith(9999);
-      expect(mockPrismaService.anime.findUnique).toHaveBeenCalledWith({ where: { id: 101 } });
+      // L-23: o anime é procurado pela chave (fonte, id); o TV Time só tem séries
+      expect(mockPrismaService.anime.findUnique).toHaveBeenCalledWith({
+        where: { fonte_id: { fonte: 'TMDB_TV', id: 101 } },
+      });
       expect(mockPrismaService.userAnime.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           userId,
+          animeFonte: 'TMDB_TV',
           animeId: 101,
           seasonAtual: 1,
           epAtual: 2,
@@ -601,7 +605,7 @@ describe('AnimeService', () => {
       mockPrismaService.userAnime.findMany.mockResolvedValueOnce([]); // For WATCHING users to notify
 
       // Run sync
-      await service.syncLatestEpisode(tmdbId);
+      await service.syncLatestEpisode('TMDB_TV', tmdbId);
 
       // Verify that the status of the user who completed the anime was updated to WATCHING
       expect(mockPrismaService.userAnime.update).toHaveBeenCalledWith({

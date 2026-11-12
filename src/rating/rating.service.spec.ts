@@ -31,16 +31,16 @@ describe('RatingService', () => {
   });
 
   it('rejeita notas fora do intervalo 0–10', async () => {
-    await expect(service.submitRating(1, 1, 'ANIME', 11)).rejects.toThrow(
+    await expect(service.submitRating(1, 'TMDB_TV', 1, 11)).rejects.toThrow(
       BadRequestException,
     );
-    await expect(service.submitRating(1, 1, 'ANIME', -1)).rejects.toThrow(
+    await expect(service.submitRating(1, 'TMDB_TV', 1, -1)).rejects.toThrow(
       BadRequestException,
     );
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it('no primeiro voto de uma obra, obtém a nota base da AniList e aplica a fórmula', async () => {
+  it('no primeiro voto de um manga, obtém a nota base da AniList e aplica a fórmula', async () => {
     const fetchBase = jest
       .spyOn(service, 'fetchAniListAverageScore')
       .mockResolvedValue(8);
@@ -57,7 +57,7 @@ describe('RatingService', () => {
       },
     );
 
-    const result = await service.submitRating(1, 42, 'ANIME', 10);
+    const result = await service.submitRating(1, 'ANILIST', 42, 10);
 
     expect(fetchBase).toHaveBeenCalledWith(42);
     // (8 × 10 + 10) / (10 + 1) = 8.1818… → 8.18
@@ -84,7 +84,7 @@ describe('RatingService', () => {
     });
     prisma.userRating.findUnique.mockResolvedValue(null);
 
-    const result = await service.submitRating(2, 42, 'ANIME', 6);
+    const result = await service.submitRating(2, 'TMDB_TV', 42, 6);
 
     expect(fetchBase).not.toHaveBeenCalled();
     // (8 × 10 + 10 + 6) / (10 + 2) = 8
@@ -109,7 +109,7 @@ describe('RatingService', () => {
     });
     prisma.userRating.findUnique.mockResolvedValue({ id: 7, score: 10 });
 
-    const result = await service.submitRating(1, 42, 'ANIME', 4);
+    const result = await service.submitRating(1, 'TMDB_TV', 42, 4);
 
     expect(prisma.userRating.create).not.toHaveBeenCalled();
     expect(prisma.userRating.update).toHaveBeenCalledWith({
@@ -123,7 +123,25 @@ describe('RatingService', () => {
     expect(result.isNewRating).toBe(false);
   });
 
-  it('L-24: o voto de um manga usa a chave (id, MANGA) e não toca no anime com o mesmo ID', async () => {
+  it('L-23: a nota base de um anime vem do TMDB (série ou filme), nunca da AniList', async () => {
+    const tmdb = {
+      getTVShowDetails: jest.fn().mockResolvedValue({ vote_average: 7.5 }),
+      getMovieDetails: jest.fn().mockResolvedValue({ vote_average: 6 }),
+    };
+    const svc = new RatingService(
+      prisma as unknown as PrismaService,
+      tmdb as any,
+    );
+    const anilist = jest.spyOn(svc, 'fetchAniListAverageScore');
+
+    await expect(svc.fetchBaseScore('TMDB_TV', 1399)).resolves.toBe(7.5);
+    await expect(svc.fetchBaseScore('TMDB_MOVIE', 1399)).resolves.toBe(6);
+    expect(tmdb.getTVShowDetails).toHaveBeenCalledWith(1399);
+    expect(tmdb.getMovieDetails).toHaveBeenCalledWith(1399);
+    expect(anilist).not.toHaveBeenCalled();
+  });
+
+  it('L-23/L-24: o voto usa a chave (fonte, id) e não toca noutra obra com o mesmo ID', async () => {
     jest.spyOn(service, 'fetchAniListAverageScore').mockResolvedValue(7);
     prisma.media.findUnique.mockResolvedValue(null);
     prisma.media.upsert.mockImplementation(({ create }) =>
@@ -131,30 +149,31 @@ describe('RatingService', () => {
     );
     prisma.userRating.findUnique.mockResolvedValue(null);
 
-    const result = await service.submitRating(1, 42, 'MANGA', 9);
+    const result = await service.submitRating(1, 'ANILIST', 42, 9);
 
-    const key = { id_mediaType: { id: 42, mediaType: 'MANGA' } };
+    const key = { fonte_id: { fonte: 'ANILIST', id: 42 } };
     expect(prisma.media.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({ where: key }),
     );
     expect(prisma.media.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: key,
-        create: expect.objectContaining({ id: 42, mediaType: 'MANGA' }),
+        create: expect.objectContaining({ id: 42, fonte: 'ANILIST' }),
       }),
     );
     expect(prisma.userRating.findUnique).toHaveBeenCalledWith({
       where: {
-        userId_mediaId_mediaType: {
+        userId_fonte_mediaId: {
           userId: 1,
+          fonte: 'ANILIST',
           mediaId: 42,
-          mediaType: 'MANGA',
         },
       },
     });
     expect(prisma.userRating.create).toHaveBeenCalledWith({
-      data: { userId: 1, mediaId: 42, mediaType: 'MANGA', score: 9 },
+      data: { userId: 1, fonte: 'ANILIST', mediaId: 42, score: 9 },
     });
+    expect(result.fonte).toBe('ANILIST');
     expect(result.mediaType).toBe('MANGA');
   });
 });

@@ -242,7 +242,7 @@ export class AnilistMangaService {
       });
 
       const rating = await this.prisma.media.findUnique({
-        where: mediaKey(manga.id, 'MANGA'),
+        where: mediaKey('ANILIST', manga.id),
       });
       return {
         ...userManga,
@@ -308,13 +308,13 @@ export class AnilistMangaService {
       ? aniListData.averageScore / 10
       : 0;
     const existingMedia = await this.prisma.media.findUnique({
-      where: mediaKey(manga.id, 'MANGA'),
+      where: mediaKey('ANILIST', manga.id),
     });
     if (!existingMedia) {
       await this.prisma.media.create({
         data: {
           id: manga.id,
-          mediaType: 'MANGA',
+          fonte: 'ANILIST',
           avaliacao_base: averageScore,
           total_votos_users: 0,
           soma_notas_users: 0,
@@ -349,7 +349,7 @@ export class AnilistMangaService {
     });
 
     const rating = await this.prisma.media.findUnique({
-      where: mediaKey(manga.id, 'MANGA'),
+      where: mediaKey('ANILIST', manga.id),
     });
     return {
       ...userManga,

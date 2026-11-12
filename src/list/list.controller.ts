@@ -9,7 +9,6 @@ import {
   Request,
   UseGuards,
 } from '@nestjs/common';
-import { MediaType } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AddListItemDto } from './dto/add-list-item.dto';
 import { CreateListDto } from './dto/create-list.dto';
@@ -56,19 +55,15 @@ export class ListController {
     return this.listService.addItem(req.user.userId, +id, dto);
   }
 
-  @Delete(':id/items/:mediaType/:mediaId')
+  // :fonte é a fonte (TMDB_TV, TMDB_MOVIE, ANILIST); ANIME/MANGA continua aceite (versões antigas)
+  @Delete(':id/items/:fonte/:mediaId')
   removeItem(
     @Request() req,
     @Param('id') id: string,
-    @Param('mediaType') mediaType: MediaType,
+    @Param('fonte') fonte: string,
     @Param('mediaId') mediaId: string,
   ) {
-    return this.listService.removeItem(
-      req.user.userId,
-      +id,
-      mediaType,
-      +mediaId,
-    );
+    return this.listService.removeItem(req.user.userId, +id, fonte, +mediaId);
   }
 
   @Patch(':id/items/order')

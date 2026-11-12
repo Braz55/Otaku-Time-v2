@@ -5,6 +5,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { BackfillStatsService } from './backfill-stats.service';
 import { BackupService } from './backup.service';
 import { StatisticsModule } from '../statistics/statistics.module';
+import { TMDBService } from '../anime/tmdb.service';
 
 @Module({
   imports: [PrismaModule, StatisticsModule],
@@ -13,6 +14,7 @@ import { StatisticsModule } from '../statistics/statistics.module';
     UserService,
     BackfillStatsService,
     BackupService,
+    TMDBService,
   ],
   exports: [
     UserService,

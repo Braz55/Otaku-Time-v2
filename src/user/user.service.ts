@@ -7,6 +7,12 @@ import * as bcrypt from 'bcrypt';
 import { RestoreBackupDto } from './dto/restore-backup.dto';
 import { UpdateUserStatisticsDto } from './dto/update-statistics.dto';
 import { BackupService } from './backup.service';
+import { SetFavoriteDto } from './dto/set-favorite.dto';
+import {
+  isAnimeSource,
+  kindOf,
+  resolveMediaSource,
+} from '../rating/media-type';
 
 @Injectable()
 export class UserService {
@@ -29,10 +35,6 @@ export class UserService {
 
   async fetchAniListGraphQL(query: string, variables: any) {
     return this.backupService.fetchAniListGraphQL(query, variables);
-  }
-
-  async getAniListAnimeById(id: number) {
-    return this.backupService.getAniListAnimeById(id);
   }
 
   async getAniListMangaById(id: number) {
@@ -159,24 +161,29 @@ export class UserService {
     });
   }
 
-  async setFavorite(
-    userId: number,
-    favoriteData: {
-      anilistMediaId: number;
-      mediaType: 'ANIME' | 'MANGA';
-      rankPosition: number;
-    },
-  ) {
-    const { anilistMediaId, mediaType, rankPosition } = favoriteData;
+  async setFavorite(userId: number, favoriteData: SetFavoriteDto) {
+    const { mediaType, rankPosition } = favoriteData;
+    const mediaId = favoriteData.mediaId ?? favoriteData.anilistMediaId;
+    if (mediaId === undefined) {
+      throw new BadRequestException('O campo mediaId é obrigatório.');
+    }
     if (rankPosition < 1 || rankPosition > 3) {
       throw new BadRequestException('A posição do ranking deve ser 1, 2 ou 3.');
+    }
+    const fonte = await resolveMediaSource(this.prisma, mediaId, {
+      fonte: favoriteData.fonte,
+      mediaType,
+      format: favoriteData.format,
+    });
+    if (kindOf(fonte) !== mediaType) {
+      throw new BadRequestException('A fonte não corresponde ao tipo do destaque.');
     }
 
     await this.prisma.userTopFavorite.deleteMany({
       where: {
         userId,
-        anilistMediaId,
-        mediaType,
+        fonte,
+        mediaId,
       },
     });
 
@@ -189,12 +196,13 @@ export class UserService {
         },
       },
       update: {
-        anilistMediaId,
-        mediaType,
+        fonte,
+        mediaId,
       },
       create: {
         userId,
-        anilistMediaId,
+        fonte,
+        mediaId,
         mediaType,
         rankPosition,
       },
@@ -262,18 +270,21 @@ export class UserService {
 
     let topFavoritesWithDetails: any[] = [];
     if (user.topFavorites && user.topFavorites.length > 0) {
-      const animeIds = user.topFavorites
-        .filter((f) => f.mediaType === 'ANIME')
-        .map((f) => f.anilistMediaId);
+      // Animes identificados por (fonte, id): uma série e um filme podem ter o mesmo id (L-23)
+      const animeKeys = user.topFavorites
+        .filter((f) => isAnimeSource(f.fonte))
+        .map((f) => ({ fonte: f.fonte, id: f.mediaId }));
       const mangaIds = user.topFavorites
-        .filter((f) => f.mediaType === 'MANGA')
-        .map((f) => f.anilistMediaId);
+        .filter((f) => !isAnimeSource(f.fonte))
+        .map((f) => f.mediaId);
+      const keyOf = (fonte: string, id: number) => `${fonte}:${id}`;
 
       const [localAnimes, localMangas, userAnimes, userMangas] =
         await Promise.all([
+          // OR vazio não devolve nada
           this.prisma.anime.findMany({
-            where: { id: { in: animeIds } },
-            select: { id: true, titulo: true, capaUrl: true },
+            where: { OR: animeKeys },
+            select: { fonte: true, id: true, titulo: true, capaUrl: true },
           }),
           this.prisma.manga.findMany({
             where: { id: { in: mangaIds } },
@@ -281,8 +292,18 @@ export class UserService {
           }),
           // Capa personalizada do dono do perfil (L-15)
           this.prisma.userAnime.findMany({
-            where: { userId, animeId: { in: animeIds } },
-            select: { animeId: true, capaPersonalizada: true },
+            where: {
+              userId,
+              OR: animeKeys.map((k) => ({
+                animeFonte: k.fonte,
+                animeId: k.id,
+              })),
+            },
+            select: {
+              animeFonte: true,
+              animeId: true,
+              capaPersonalizada: true,
+            },
           }),
           this.prisma.userManga.findMany({
             where: { userId, mangaId: { in: mangaIds } },
@@ -290,31 +311,35 @@ export class UserService {
           }),
         ]);
 
-      const animeMap = new Map(localAnimes.map((a) => [a.id, a]));
+      const animeMap = new Map(
+        localAnimes.map((a) => [keyOf(a.fonte, a.id), a]),
+      );
       const mangaMap = new Map(localMangas.map((m) => [m.id, m]));
       const animeCapaMap = new Map(
-        userAnimes.map((ua) => [ua.animeId, ua.capaPersonalizada]),
+        userAnimes.map((ua) => [
+          keyOf(ua.animeFonte, ua.animeId),
+          ua.capaPersonalizada,
+        ]),
       );
       const mangaCapaMap = new Map(
         userMangas.map((um) => [um.mangaId, um.capaPersonalizada]),
       );
 
       topFavoritesWithDetails = user.topFavorites.map((fav) => {
-        if (fav.mediaType === 'ANIME') {
-          const anime = animeMap.get(fav.anilistMediaId);
+        if (isAnimeSource(fav.fonte)) {
+          const key = keyOf(fav.fonte, fav.mediaId);
+          const anime = animeMap.get(key);
           return {
             ...fav,
             titulo: anime?.titulo || 'Título Desconhecido',
-            capaUrl:
-              animeCapaMap.get(fav.anilistMediaId) || anime?.capaUrl || '',
+            capaUrl: animeCapaMap.get(key) || anime?.capaUrl || '',
           };
         } else {
-          const manga = mangaMap.get(fav.anilistMediaId);
+          const manga = mangaMap.get(fav.mediaId);
           return {
             ...fav,
             titulo: manga?.titulo || 'Título Desconhecido',
-            capaUrl:
-              mangaCapaMap.get(fav.anilistMediaId) || manga?.capaUrl || '',
+            capaUrl: mangaCapaMap.get(fav.mediaId) || manga?.capaUrl || '',
           };
         }
       });

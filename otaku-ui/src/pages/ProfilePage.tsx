@@ -18,6 +18,7 @@ import { useTranslation } from '../hooks/useTranslation';
 import { DashboardTab } from '../components/profile/DashboardTab';
 import { AccountTab } from '../components/profile/AccountTab';
 import { AdminTab } from '../components/profile/AdminTab';
+import { getMediaSource } from '../services/mediaSource';
 
 
 
@@ -586,6 +587,8 @@ const ProfilePage = () => {
           const mapped = data.map((item: any) => {
             return {
               id: type === 'anime' ? item.animeId : item.mangaId,
+              // L-23: fonte da obra (série/filme do TMDB ou AniList)
+              fonte: getMediaSource(type, item),
               coverImage: {
                 large: item.capaUrl
               },
@@ -629,13 +632,15 @@ const ProfilePage = () => {
     }
   };
 
-  const handleSelectFavorite = async (mediaId: number) => {
+  const handleSelectFavorite = async (item: any) => {
     try {
       const res = await customFetch(`${API_BASE_URL}/user/favorites`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({
-          anilistMediaId: mediaId,
+          mediaId: item.id,
+          // Resultados da biblioteca já trazem a fonte; os da pesquisa trazem o formato (TV/MOVIE)
+          fonte: item.fonte || getMediaSource(favSearchType, item),
           mediaType: favSearchType.toUpperCase(),
           rankPosition: selectedRank
         })
@@ -1367,7 +1372,7 @@ const ProfilePage = () => {
                   {favSearchResults.map(item => (
                     <div 
                       key={item.id}
-                      onClick={() => handleSelectFavorite(item.id)}
+                      onClick={() => handleSelectFavorite(item)}
                       className="p-2 bg-white/5 border border-white/5 hover:border-primary/40 rounded-xl flex items-center gap-3 cursor-pointer hover:bg-white/10 transition-all select-none group"
                     >
                       <div className="w-10 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-surface">

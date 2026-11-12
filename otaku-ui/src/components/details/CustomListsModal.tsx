@@ -9,6 +9,8 @@ interface CustomListsModalProps {
   loadingLists: boolean;
   lists: any[];
   getMediaId: () => number;
+  // L-23: fonte da obra (ANILIST, TMDB_TV ou TMDB_MOVIE)
+  getFonte: () => string;
   toggleItemInList: (listId: number, isCurrentlyInList: boolean) => void;
   navigate: any;
   showPriorityModal: boolean;
@@ -44,6 +46,7 @@ export const CustomListsModal: React.FC<CustomListsModalProps> = ({
   loadingLists,
   lists,
   getMediaId,
+  getFonte,
   toggleItemInList,
   navigate,
   showPriorityModal,
@@ -92,7 +95,7 @@ export const CustomListsModal: React.FC<CustomListsModalProps> = ({
                 </p>
               ) : (
                 lists.map(list => {
-                  const isCurrentlyInList = list.items?.some((i: any) => i.anilistMediaId === getMediaId() && i.mediaType === (mediaType?.toUpperCase()));
+                  const isCurrentlyInList = list.items?.some((i: any) => i.mediaId === getMediaId() && i.fonte === getFonte());
                   
                   return (
                     <div 

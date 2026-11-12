@@ -4,6 +4,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { MediaRef } from '../rating/media-type';
 
 @Injectable()
 export class NotificationService {
@@ -14,7 +15,7 @@ export class NotificationService {
     title: string,
     message: string,
     type: string,
-    mediaId?: number,
+    media?: MediaRef,
   ) {
     return this.prisma.notification.create({
       data: {
@@ -22,7 +23,8 @@ export class NotificationService {
         title,
         message,
         type,
-        mediaId,
+        fonte: media?.fonte,
+        mediaId: media?.id,
       },
     });
   }
@@ -87,14 +89,15 @@ export class NotificationService {
     title: string,
     message: string,
     type: string,
-    mediaId?: number,
+    media?: MediaRef,
   ) {
-    if (mediaId) {
+    if (media) {
       await this.prisma.notification.deleteMany({
         where: {
           userId,
           type,
-          mediaId,
+          fonte: media.fonte,
+          mediaId: media.id,
         },
       });
     }
@@ -105,7 +108,8 @@ export class NotificationService {
         title,
         message,
         type,
-        mediaId,
+        fonte: media?.fonte,
+        mediaId: media?.id,
       },
     });
   }

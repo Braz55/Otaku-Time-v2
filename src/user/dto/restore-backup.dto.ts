@@ -6,13 +6,23 @@ import {
   IsNotEmpty,
   ValidateNested,
   IsEnum,
+  IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { TrackingStatus } from '@prisma/client';
 
 class BackupAnimeDto {
+  // L-23: TMDB_TV ou TMDB_MOVIE; ausente em backups antigos
+  @IsOptional()
+  @IsIn(['TMDB_TV', 'TMDB_MOVIE'])
+  fonte?: 'TMDB_TV' | 'TMDB_MOVIE';
+
   @IsInt()
   animeId!: number;
+
+  @IsOptional()
+  @IsString()
+  formato?: string;
 
   @IsString()
   @IsNotEmpty()

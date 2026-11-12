@@ -259,7 +259,7 @@ export class MangaSyncService {
               'Novo capítulo de Mangá!',
               `O capítulo ${latest} de "${existe.titulo}" foi lançado!`,
               'MANGA',
-              anilistId,
+              { fonte: 'ANILIST', id: anilistId },
             );
           }
         }

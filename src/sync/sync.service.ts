@@ -2,6 +2,7 @@ import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { AnimeService } from '../anime/anime.service';
+import { animeKey } from '../rating/media-type';
 import { MangaService } from '../manga/manga.service';
 import { KeepAwakeService } from '../keep-awake.service';
 import { NotificationService } from '../notification/notification.service';
@@ -102,7 +103,8 @@ export class SyncService implements OnApplicationBootstrap {
       },
     });
 
-    const animeUserCache = new Map<number, any[]>();
+    // Chave fonte:id, porque uma série e um filme podem ter o mesmo id (L-23)
+    const animeUserCache = new Map<string, any[]>();
 
     for (const anime of releasingAnimes) {
       if (!anime.episodesList) continue;
@@ -115,10 +117,12 @@ export class SyncService implements OnApplicationBootstrap {
           const epDate = new Date(ep.airDate);
           if (now >= epDate && !ep.notified) {
             if (Number(ep.season) > 0) {
-              let userAnimes = animeUserCache.get(anime.id);
+              const cacheKey = `${anime.fonte}:${anime.id}`;
+              let userAnimes = animeUserCache.get(cacheKey);
               if (!userAnimes) {
                 userAnimes = await this.prisma.userAnime.findMany({
                   where: {
+                    animeFonte: anime.fonte,
                     animeId: anime.id,
                     status: 'WATCHING',
                   },
@@ -131,7 +135,7 @@ export class SyncService implements OnApplicationBootstrap {
                     },
                   },
                 });
-                animeUserCache.set(anime.id, userAnimes);
+                animeUserCache.set(cacheKey, userAnimes);
               }
 
               for (const ua of userAnimes) {
@@ -155,7 +159,7 @@ export class SyncService implements OnApplicationBootstrap {
                   title,
                   message,
                   'ANIME',
-                  anime.id,
+                  { fonte: anime.fonte, id: anime.id },
                 );
               }
             }
@@ -174,7 +178,7 @@ export class SyncService implements OnApplicationBootstrap {
           this.animeService.calculateAiredEpisodesInfo(episodes);
 
         await this.prisma.anime.update({
-          where: { id: anime.id },
+          where: animeKey(anime.fonte, anime.id),
           data: {
             episodesList: episodes,
             numEpisodiosAired,
@@ -480,11 +484,11 @@ export class SyncService implements OnApplicationBootstrap {
               { statusLancamento: null },
             ],
           },
-          select: { id: true, titulo: true },
+          select: { fonte: true, id: true, titulo: true },
         });
 
-        const outcome = await this.syncItems('[ANIME_ACTIVE]', animes, (id) =>
-          this.animeService.syncLatestEpisode(id),
+        const outcome = await this.syncItems('[ANIME_ACTIVE]', animes, (a) =>
+          this.animeService.syncLatestEpisode(a.fonte, a.id),
         );
         await this.finishSyncLog(activeLog.id, '[ANIME_ACTIVE]', 'active/releasing animes', outcome);
       }
@@ -506,12 +510,12 @@ export class SyncService implements OnApplicationBootstrap {
           },
           orderBy: { updatedAt: 'asc' },
           take: 100, // Limit full sync to 100 oldest outdated items to avoid Render timeouts/crashes
-          select: { id: true, titulo: true },
+          select: { fonte: true, id: true, titulo: true },
         });
         this.logger.log(`Selected ${animes.length} outdated animes (updated > 7 days ago) to sync.`);
 
-        const outcome = await this.syncItems('[ANIME_FULL]', animes, (id) =>
-          this.animeService.syncLatestEpisode(id),
+        const outcome = await this.syncItems('[ANIME_FULL]', animes, (a) =>
+          this.animeService.syncLatestEpisode(a.fonte, a.id),
         );
         await this.finishSyncLog(fullLog.id, '[ANIME_FULL]', 'animes', outcome);
       }
@@ -538,8 +542,8 @@ export class SyncService implements OnApplicationBootstrap {
           select: { id: true, titulo: true },
         });
 
-        const outcome = await this.syncItems(mangaLabel, mangas, (id) =>
-          this.mangaService.syncLatestChapter(id),
+        const outcome = await this.syncItems(mangaLabel, mangas, (m) =>
+          this.mangaService.syncLatestChapter(m.id),
         );
         await this.finishSyncLog(mangaLog.id, mangaLabel, 'releasing mangas', outcome);
       }
@@ -565,8 +569,8 @@ export class SyncService implements OnApplicationBootstrap {
         });
         this.logger.log(`Selected ${mangas.length} outdated mangas (updated > 7 days ago) to sync.`);
 
-        const outcome = await this.syncItems('[MANGA_FULL]', mangas, (id) =>
-          this.mangaService.syncLatestChapter(id),
+        const outcome = await this.syncItems('[MANGA_FULL]', mangas, (m) =>
+          this.mangaService.syncLatestChapter(m.id),
         );
         await this.finishSyncLog(mangaLog.id, '[MANGA_FULL]', 'mangas', outcome);
       }
@@ -608,10 +612,10 @@ export class SyncService implements OnApplicationBootstrap {
 
   // Sincroniza as obras em lotes de 3. Um erro numa obra fica registado e o ciclo
   // continua com as seguintes, em vez de abortar a sincronização toda (L-22).
-  private async syncItems(
+  private async syncItems<T extends { id: number; titulo: string }>(
     label: string,
-    items: { id: number; titulo: string }[],
-    syncOne: (id: number) => Promise<unknown>,
+    items: T[],
+    syncOne: (item: T) => Promise<unknown>,
   ): Promise<SyncOutcome> {
     const outcome: SyncOutcome = { total: items.length, sincronizadas: 0, falhas: [] };
     this.totalItemsToSync = items.length;
@@ -626,7 +630,7 @@ export class SyncService implements OnApplicationBootstrap {
           `[ScheduledSync] ${label} Syncing: "${item.titulo}" (${this.currentSyncedCount + 1}/${this.totalItemsToSync})`,
         );
         try {
-          await syncOne(item.id);
+          await syncOne(item);
           outcome.sincronizadas++;
         } catch (err) {
           const erro = err instanceof Error ? err.message : String(err);

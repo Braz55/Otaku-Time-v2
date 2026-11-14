@@ -34,6 +34,9 @@ import {
   mediaKey,
 } from '../rating/media-type';
 
+const isNotFound = (err: unknown) =>
+  (err as { status?: number } | null)?.status === 404;
+
 @Injectable()
 export class AniListService {
   private readonly logger = new Logger(AniListService.name);
@@ -176,11 +179,19 @@ export class AniListService {
       } else {
         try {
           await tryTV();
-        } catch {
+        } catch (tvError) {
+          if (!isNotFound(tvError)) throw tvError;
           await tryMovie();
         }
       }
     } catch (error) {
+      // Só um 404 ("este ID não existe neste tipo") justifica tentar o outro tipo ou a migração
+      // de IDs antigos. Numa falha temporária do TMDB (rede, 429, 5xx) o mesmo número podia
+      // devolver outra obra, e a migração moveria a biblioteca dos utilizadores para ela.
+      if (!isNotFound(error)) {
+        this.logger.error(`Error fetching TMDB details for ID ${id}:`, error);
+        return null;
+      }
       try {
         if (format && format.toUpperCase() === 'MOVIE') {
           await tryTV();
@@ -190,16 +201,16 @@ export class AniListService {
           throw error;
         }
       } catch (error2) {
+        if (!isNotFound(error2)) {
+          this.logger.error(`Error fetching TMDB details for ID ${id}:`, error2);
+          return null;
+        }
         // Both failed. Let's see if we can perform a lazy migration from AniList ID to TMDB ID.
         const localAnime = await this.prisma.anime.findFirst({
           where: format ? { id, fonte: animeSourceFromFormat(format) } : { id },
         });
         if (!localAnime) {
-          if ((error2 as any).status === 404) {
-            this.logger.warn(`TMDB details not found (404) for ID ${id}`);
-          } else {
-            this.logger.error(`Error fetching TMDB details for ID ${id}:`, error2);
-          }
+          this.logger.warn(`TMDB details not found (404) for ID ${id}`);
           return null;
         }
 
@@ -388,45 +399,43 @@ export class AniListService {
           });
         }
 
-        // Update relations
-        await this.prisma.userAnime.updateMany({
-          where: { animeFonte: oldFonte, animeId: id },
-          data: { animeFonte: newFonte, animeId: tmdbId },
-        });
-
-        await this.prisma.customListItem.updateMany({
-          where: { fonte: oldFonte, animeId: id },
-          data: { fonte: newFonte, animeId: tmdbId },
-        });
-
-        await this.prisma.comment.updateMany({
-          where: { fonte: oldFonte, mediaId: id },
-          data: { fonte: newFonte, mediaId: tmdbId },
-        });
-
-        await this.prisma.userRating.updateMany({
-          where: { fonte: oldFonte, mediaId: id },
-          data: { fonte: newFonte, mediaId: tmdbId },
-        });
-
-        await this.prisma.userTopFavorite.updateMany({
-          where: { fonte: oldFonte, mediaId: id },
-          data: { fonte: newFonte, mediaId: tmdbId },
-        });
-
-        await this.prisma.notification.updateMany({
-          where: { fonte: oldFonte, mediaId: id },
-          data: { fonte: newFonte, mediaId: tmdbId },
-        });
-
-        // Delete old Anime record and old Media rating
+        // Mover as relações e apagar o registo antigo numa só transação: se algo falhar
+        // (ex.: o utilizador já tem a obra de destino), fica tudo como estava.
         try {
-          await this.prisma.anime.delete({ where: animeKey(oldFonte, id) });
-          await this.prisma.media
-            .delete({ where: mediaKey(oldFonte, id) })
-            .catch(() => {});
+          await this.prisma.$transaction([
+            this.prisma.userAnime.updateMany({
+              where: { animeFonte: oldFonte, animeId: id },
+              data: { animeFonte: newFonte, animeId: tmdbId },
+            }),
+            this.prisma.customListItem.updateMany({
+              where: { fonte: oldFonte, animeId: id },
+              data: { fonte: newFonte, animeId: tmdbId },
+            }),
+            this.prisma.comment.updateMany({
+              where: { fonte: oldFonte, mediaId: id },
+              data: { fonte: newFonte, mediaId: tmdbId },
+            }),
+            this.prisma.userRating.updateMany({
+              where: { fonte: oldFonte, mediaId: id },
+              data: { fonte: newFonte, mediaId: tmdbId },
+            }),
+            this.prisma.userTopFavorite.updateMany({
+              where: { fonte: oldFonte, mediaId: id },
+              data: { fonte: newFonte, mediaId: tmdbId },
+            }),
+            this.prisma.notification.updateMany({
+              where: { fonte: oldFonte, mediaId: id },
+              data: { fonte: newFonte, mediaId: tmdbId },
+            }),
+            this.prisma.anime.deleteMany({ where: { fonte: oldFonte, id } }),
+            this.prisma.media.deleteMany({ where: { fonte: oldFonte, id } }),
+          ]);
         } catch (err) {
-          this.logger.error(`[Migration] Error deleting old record:`, err);
+          this.logger.error(
+            `[Migration] Could not move "${localAnime.titulo}" (${oldFonte}:${id}) to ${newFonte}:${tmdbId}; nothing was changed:`,
+            err,
+          );
+          return null;
         }
 
         // Update local variable so subsequent blocks use the new ID

@@ -14,6 +14,7 @@ import { TVTimeImportService } from './tvtime-import.service';
 import { CalendarService } from './calendar.service';
 import { NotificationService } from '../notification/notification.service';
 import { StatisticsService } from '../statistics/statistics.service';
+import { SyncNotFoundError, SyncTransientError } from '../common/sync-errors';
 
 describe('AnimeService', () => {
   let service: AnimeService;
@@ -31,6 +32,8 @@ describe('AnimeService', () => {
       update: jest.fn(),
       create: jest.fn(),
       findMany: jest.fn(),
+      updateMany: jest.fn(),
+      updateManyAndReturn: jest.fn(),
     },
     userManga: {
       findMany: jest.fn(),
@@ -54,11 +57,14 @@ describe('AnimeService', () => {
 
   const mockListService = {};
 
+  const mockNotificationService = { createOrReplaceNotification: jest.fn() };
+
   const mockTMDBService = {
     findByTVDBId: jest.fn(),
     search: jest.fn(),
     getTVShowDetails: jest.fn(),
     getMovieDetails: jest.fn(),
+    getTVSeasonDetails: jest.fn(),
   };
 
   let originalFetch: any;
@@ -95,7 +101,7 @@ describe('AnimeService', () => {
         },
         {
           provide: NotificationService,
-          useValue: { createOrReplaceNotification: jest.fn() },
+          useValue: mockNotificationService,
         },
         {
           provide: StatisticsService,
@@ -561,59 +567,138 @@ describe('AnimeService', () => {
   });
 
   describe('syncLatestEpisode', () => {
-    it('should transition COMPLETED user status to WATCHING if new episodes are detected', async () => {
-      const tmdbId = 123;
-      const dbAnime = {
-        id: tmdbId,
-        titulo: 'Test Anime',
-        formato: 'TV',
-        episodesList: [],
-      };
+    const tmdbId = 123;
+    const AIRED = '2023-01-01';
+    const FUTURE = '2999-01-01';
+    // Linha da tabela Anime em memória: findUnique lê-a e update grava nela
+    let row: any;
 
-      mockPrismaService.anime.findUnique.mockResolvedValueOnce(dbAnime); // First call at the start
-      
-      const mockMedia = {
-        id: tmdbId,
-        episodes: 12,
-        coverImage: { large: 'image-url' },
-        status: 'RELEASING',
-        nextAiringEpisode: null,
-        dataLancamento: '2023-01-01',
-      };
-      jest.spyOn(service, 'getTmdbDetailsById').mockResolvedValue(mockMedia);
+    const tvDetails = {
+      id: tmdbId,
+      name: 'Test Anime',
+      status: 'Returning Series',
+      number_of_episodes: 3,
+      seasons: [{ season_number: 1 }, { season_number: 2 }],
+    };
+    const season1 = {
+      episodes: [{ season_number: 1, episode_number: 1, air_date: AIRED }],
+    };
+    const season2 = {
+      episodes: [
+        { season_number: 2, episode_number: 1, air_date: AIRED },
+        { season_number: 2, episode_number: 2, air_date: FUTURE },
+      ],
+    };
 
-      // Second findUnique mock returns the updated anime with new episodes list
-      const updatedAnime = {
-        ...dbAnime,
-        episodesList: [
-          { season: 1, episodeNumber: 1, airDate: '2023-01-01' },
-          { season: 2, episodeNumber: 1, airDate: '2023-06-01' }, // Season 2 ep 1 (new episode)
-        ],
-      };
-      mockPrismaService.anime.findUnique.mockResolvedValueOnce(updatedAnime); // Second call
+    beforeEach(() => {
+      row = { titulo: 'Test Anime', syncFailures: 0, episodesList: [] };
+      mockPrismaService.anime.findUnique
+        .mockReset()
+        .mockImplementation(async () => row);
+      mockPrismaService.anime.update
+        .mockReset()
+        .mockImplementation(async ({ data }: any) => Object.assign(row, data));
+      mockPrismaService.userAnime.findMany.mockReset().mockResolvedValue([]);
+      mockPrismaService.userAnime.updateMany
+        .mockReset()
+        .mockResolvedValue({ count: 0 });
+      mockPrismaService.userAnime.updateManyAndReturn
+        .mockReset()
+        .mockResolvedValue([]);
+      mockTMDBService.getTVShowDetails.mockReset().mockResolvedValue(tvDetails);
+      mockTMDBService.getMovieDetails.mockReset();
+      mockTMDBService.getTVSeasonDetails
+        .mockReset()
+        .mockImplementation(async (_id: number, season: number) =>
+          season === 1 ? season1 : season2,
+        );
+    });
 
-      // userAnime.findMany mocks:
-      // First findMany call in our logic looks for COMPLETED userAnimes:
-      const mockCompletedUserAnime = {
-        id: 99,
-        userId: 1,
-        animeId: tmdbId,
-        status: 'COMPLETED',
-        epAtual: 1, // User watched Season 1 Ep 1 (only 1 episode total previously)
-      };
-      mockPrismaService.userAnime.findMany.mockResolvedValueOnce([mockCompletedUserAnime]); // For COMPLETED users
-      mockPrismaService.userAnime.findMany.mockResolvedValueOnce([]); // For WATCHING users to notify
-
-      // Run sync
+    it('reopens COMPLETED trackers counting only aired episodes, in a conditional update', async () => {
       await service.syncLatestEpisode('TMDB_TV', tmdbId);
 
-      // Verify that the status of the user who completed the anime was updated to WATCHING
-      expect(mockPrismaService.userAnime.update).toHaveBeenCalledWith({
-        where: { id: 99 },
-        data: expect.objectContaining({
-          status: 'WATCHING',
-        }),
+      // 3 episódios listados, 2 já estreados: só quem viu menos de 2 volta a "A ver"
+      expect(row.episodesList).toHaveLength(3);
+      expect(mockPrismaService.userAnime.updateMany).toHaveBeenCalledWith({
+        where: {
+          animeFonte: 'TMDB_TV',
+          animeId: tmdbId,
+          status: 'COMPLETED',
+          epAtual: { lt: 2 },
+        },
+        data: expect.objectContaining({ status: 'WATCHING' }),
       });
+      expect(row.syncStatus).toBe('OK');
+      expect(row.syncFailures).toBe(0);
+      expect(row.lastSyncedAt).toBeInstanceOf(Date);
+      expect(row.nextSyncAt.getTime()).toBeGreaterThan(Date.now());
+    });
+
+    it('does not write a partial episode list when a season fails, and records the failure', async () => {
+      const original = [
+        { season: 1, episodeNumber: 1, airDate: AIRED, notified: true },
+      ];
+      row.episodesList = original;
+      mockTMDBService.getTVSeasonDetails.mockImplementation(
+        async (_id: number, season: number) => {
+          if (season === 2) throw new Error('TMDB API error: HTTP 503');
+          return season1;
+        },
+      );
+
+      await expect(
+        service.syncLatestEpisode('TMDB_TV', tmdbId),
+      ).rejects.toBeInstanceOf(SyncTransientError);
+
+      expect(row.episodesList).toBe(original);
+      expect(row.syncFailures).toEqual({ increment: 1 });
+      expect(row.nextSyncAt.getTime()).toBeGreaterThan(Date.now());
+      expect(row.syncStatus).toBeUndefined();
+      expect(mockPrismaService.userAnime.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('marks the anime as GONE on a 404 without trying the ID as a movie', async () => {
+      mockTMDBService.getTVShowDetails.mockRejectedValue(
+        Object.assign(new Error('TMDB API error: HTTP 404'), { status: 404 }),
+      );
+
+      await expect(
+        service.syncLatestEpisode('TMDB_TV', tmdbId),
+      ).rejects.toBeInstanceOf(SyncNotFoundError);
+
+      expect(row.syncStatus).toBe('GONE');
+      expect(mockTMDBService.getMovieDetails).not.toHaveBeenCalled();
+      expect(row.episodesList).toEqual([]);
+    });
+
+    it('notifies each watcher once, with the latest newly aired episode', async () => {
+      row.episodesList = [
+        { season: 1, episodeNumber: 1, airDate: AIRED, notified: true },
+        { season: 1, episodeNumber: 2, airDate: AIRED, notified: false },
+        { season: 1, episodeNumber: 3, airDate: AIRED, notified: false },
+        { season: 1, episodeNumber: 4, airDate: FUTURE, notified: false },
+      ];
+      mockPrismaService.userAnime.findMany.mockResolvedValue([
+        { userId: 7, user: { preferences: {} } },
+      ]);
+
+      const result = await service.notifyAiredEpisodes('TMDB_TV', tmdbId);
+
+      expect(result.notificationsSent).toBe(2);
+      expect(mockNotificationService.createOrReplaceNotification).toHaveBeenCalledTimes(1);
+      expect(mockNotificationService.createOrReplaceNotification).toHaveBeenCalledWith(
+        7,
+        expect.any(String),
+        expect.stringContaining('episódio 3'),
+        'ANIME',
+        { fonte: 'TMDB_TV', id: tmdbId },
+      );
+      expect(row.episodesList.map((ep: any) => ep.notified)).toEqual([
+        true,
+        true,
+        true,
+        false,
+      ]);
     });
   });
 });

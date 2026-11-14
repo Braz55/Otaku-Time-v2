@@ -70,8 +70,11 @@ export class MangaService {
     return this.mangaSyncService.getLatestChapterFromMangaDex(anilistId, title, mangaObj);
   }
 
-  async syncLatestChapter(anilistId: number) {
-    return this.mangaSyncService.syncLatestChapter(anilistId);
+  async syncLatestChapter(
+    anilistId: number,
+    options: { throwOnFailure?: boolean } = {},
+  ) {
+    return this.mangaSyncService.syncLatestChapter(anilistId, options);
   }
 
   // -------------------------------------------------------------

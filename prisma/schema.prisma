@@ -69,8 +69,15 @@ model Anime {
   numEpisodiosAired   Int?
   ultimoEpisodioEstreadoData DateTime?
   updatedAt           DateTime    @default(now()) @updatedAt
+  // Estado da sincronização com o TMDB, separado do updatedAt (que muda com qualquer escrita)
+  lastSyncedAt        DateTime?   // Última sincronização bem sucedida
+  nextSyncAt          DateTime?   // Quando volta a entrar na fila FULL (sucesso: +7 dias; falha: backoff)
+  syncFailures        Int         @default(0) // Falhas seguidas
+  syncStatus          String      @default("OK") // 'OK' ou 'GONE' (a fonte respondeu 404)
 
   @@id([fonte, id])
+  @@index([nextSyncAt])
+  @@index([statusLancamento])
 }
 
 model UserAnime {
@@ -94,6 +101,7 @@ model UserAnime {
   updatedAt  DateTime       @default(now()) @updatedAt
 
   @@unique([userId, animeFonte, animeId])
+  @@index([animeFonte, animeId, status])
 }
 
 // O manga vem sempre da AniList: a sua chave natural é (ANILIST, id), por isso basta o id.
@@ -115,6 +123,17 @@ model Manga {
   utilizadores          UserManga[]
   customListItems       CustomListItem[]
   updatedAt             DateTime    @default(now()) @updatedAt
+  // IDs da obra nas fontes de capítulos, guardados para não repetir a pesquisa por título
+  mangaUpdatesId        String?
+  mangaDexId            String?
+  // Estado da sincronização (ver Anime)
+  lastSyncedAt          DateTime?
+  nextSyncAt            DateTime?
+  syncFailures          Int         @default(0)
+  syncStatus            String      @default("OK")
+
+  @@index([nextSyncAt])
+  @@index([statusLancamento])
 }
 
 model UserManga {
@@ -135,6 +154,7 @@ model UserManga {
   updatedAt  DateTime       @default(now()) @updatedAt
 
   @@unique([userId, mangaId])
+  @@index([mangaId, status])
 }
 
 model SyncLog {
@@ -142,6 +162,8 @@ model SyncLog {
   timestamp DateTime @default(now())
   status    String   // 'RUNNING', 'SUCCESS', 'PARTIAL' (algumas obras falharam) ou 'FAILED'
   details   String?  // Description of what was synced or error details
+
+  @@index([timestamp])
 }
 
 enum MediaType {
@@ -279,6 +301,9 @@ model Notification {
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, type, fonte, mediaId])
 }
 
 model CommentLike {

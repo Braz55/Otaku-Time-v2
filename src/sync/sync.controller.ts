@@ -16,7 +16,12 @@ export class SyncController {
   @UseGuards(JwtAuthGuard, AdminGuard)
   async startSync() {
     // Inicia em background para não bloquear a resposta HTTP
-    this.syncService.runManualSync();
-    return { message: 'Background manual sync started successfully' };
+    const started = this.syncService.runManualSync();
+    return {
+      started,
+      message: started
+        ? 'Background manual sync started successfully'
+        : 'A synchronization is already running',
+    };
   }
 }

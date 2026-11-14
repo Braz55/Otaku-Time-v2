@@ -10,6 +10,8 @@ import { createLibraryEntry } from '../library/library-errors';
 import { MangaService } from './manga.service';
 import { MangaSyncService } from './manga-sync.service';
 import { mediaKey } from '../rating/media-type';
+import { fetchJson } from '../common/http-client';
+import { SyncNotFoundError, toSyncError } from '../common/sync-errors';
 
 @Injectable()
 export class AnilistMangaService {
@@ -72,7 +74,23 @@ export class AnilistMangaService {
     }
   }
 
+  // Para ecrãs e importação: qualquer falha devolve null
   async searchAniListById(id: number) {
+    try {
+      return await this.fetchAniListMangaById(id);
+    } catch (error: any) {
+      if (!(error instanceof SyncNotFoundError)) {
+        console.error(
+          `AniList searchAniListById error: ${error.message || error}`,
+        );
+      }
+      return null;
+    }
+  }
+
+  // Para a sincronização: distingue "não existe" (SyncNotFoundError) de "a AniList falhou"
+  // (SyncTransientError), com timeout e repetição em 429/5xx.
+  async fetchAniListMangaById(id: number) {
     const query = `
       query ($id: Int) {
         Media(id: $id, type: MANGA) {
@@ -93,24 +111,28 @@ export class AnilistMangaService {
         }
       }
     `;
+    let result: any;
     try {
-      const response = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
+      result = await fetchJson(
+        'https://graphql.anilist.co',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({ query, variables: { id } }),
         },
-        body: JSON.stringify({ query, variables: { id } }),
-      });
-      const result = await response.json();
-      return result?.data?.Media || null;
-    } catch (error: any) {
-      console.error(
-        `AniList searchAniListById error: ${error.message || error}`,
-        error.stack,
+        // A AniList pede esperas de até 1 minuto quando limita os pedidos
+        { maxRetryAfterMs: 60_000 },
       );
-      return null;
+    } catch (error) {
+      throw toSyncError(error, `AniList manga ${id}`);
     }
+    if (!result?.data?.Media) {
+      throw new SyncNotFoundError(`AniList manga ${id}: não encontrado`);
+    }
+    return result.data.Media;
   }
 
   async searchMangaList(nome: string, page: number = 1, userId?: number) {

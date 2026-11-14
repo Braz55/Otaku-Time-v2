@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { fetchJson } from '../common/http-client';
 
 @Injectable()
 export class TMDBService {
@@ -60,55 +61,28 @@ export class TMDBService {
     }
 
     const url = this.buildUrl(endpoint, params);
-    for (let i = 0; i < retries; i++) {
-      try {
-        const response = await fetch(url, { headers: this.headers });
-        if (response.status === 429) {
-          const retryAfter = response.headers.get('Retry-After');
-          const waitTime = retryAfter
-            ? parseInt(retryAfter, 10) * 1000
-            : delay * Math.pow(2, i);
-          this.logger.warn(
-            `TMDB rate limit hit (429) on ${endpoint}. Waiting ${waitTime}ms before retry...`,
-          );
-          await new Promise((resolve) => setTimeout(resolve, waitTime));
-          continue;
-        }
-        if (!response.ok) {
-          if (response.status >= 500 && i < retries - 1) {
+    try {
+      // Timeout por tentativa; só repete rede/429/5xx. Os erros trazem `status` (404, etc.)
+      return await fetchJson(
+        url,
+        { headers: this.headers },
+        {
+          retries,
+          baseDelayMs: delay,
+          onRetry: ({ attempt, waitMs, reason }) =>
             this.logger.warn(
-              `TMDB server error (${response.status}) on ${endpoint}. Retrying in ${delay * Math.pow(2, i)}ms...`,
-            );
-            await new Promise((resolve) =>
-              setTimeout(resolve, delay * Math.pow(2, i)),
-            );
-            continue;
-          }
-          const err = new Error(
-            `TMDB API error: ${response.status} ${response.statusText}`,
-          );
-          (err as any).status = response.status;
-          throw err;
-        }
-        return await response.json();
-      } catch (error: any) {
-        if (error.status === 404) {
-          throw error;
-        }
-        if (i === retries - 1) {
-          this.logger.error(
-            `Error fetching from TMDB endpoint ${endpoint} after ${retries} attempts:`,
-            error,
-          );
-          throw error;
-        }
-        this.logger.warn(
-          `Error fetching from TMDB endpoint ${endpoint} (attempt ${i + 1}/${retries}): ${error.message || error}. Retrying...`,
-        );
-        await new Promise((resolve) =>
-          setTimeout(resolve, delay * Math.pow(2, i)),
+              `TMDB ${endpoint} failed (${reason}), attempt ${attempt}/${retries}. Retrying in ${Math.round(waitMs)}ms...`,
+            ),
+        },
+      );
+    } catch (error: any) {
+      if (error.status !== 404) {
+        this.logger.error(
+          `Error fetching from TMDB endpoint ${endpoint}: ${error.message || error}`,
         );
       }
+      error.message = `TMDB API error: ${error.message}`;
+      throw error;
     }
   }
 

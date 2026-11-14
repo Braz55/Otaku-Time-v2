@@ -91,18 +91,7 @@ export class NotificationService {
     type: string,
     media?: MediaRef,
   ) {
-    if (media) {
-      await this.prisma.notification.deleteMany({
-        where: {
-          userId,
-          type,
-          fonte: media.fonte,
-          mediaId: media.id,
-        },
-      });
-    }
-
-    return this.prisma.notification.create({
+    const create = this.prisma.notification.create({
       data: {
         userId,
         title,
@@ -112,6 +101,21 @@ export class NotificationService {
         mediaId: media?.id,
       },
     });
+    if (!media) return create;
+
+    // Apagar a anterior e criar a nova na mesma transação: nunca fica sem nenhuma
+    const [, created] = await this.prisma.$transaction([
+      this.prisma.notification.deleteMany({
+        where: {
+          userId,
+          type,
+          fonte: media.fonte,
+          mediaId: media.id,
+        },
+      }),
+      create,
+    ]);
+    return created;
   }
 
   async autoMarkOldAsRead(hours = 48) {

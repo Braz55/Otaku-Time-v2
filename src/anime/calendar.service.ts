@@ -129,36 +129,34 @@ export class CalendarService {
       return;
     }
 
-    const plannedUserAnimes = await this.prisma.userAnime.findMany({
+    // A condição vai no próprio UPDATE: quem mudou o estado entretanto não é afetado, e
+    // duas execuções em simultâneo não transitam (nem notificam) o mesmo registo duas vezes.
+    const moved = await this.prisma.userAnime.updateManyAndReturn({
       where: {
         animeFonte: fonte,
         animeId,
         status: 'PLANNED',
+        updatedAt: { lt: firstEpAirDate },
       },
+      data: {
+        status: 'WATCHING',
+        lastProgressUpdate: now,
+      },
+      select: { userId: true },
     });
 
-    for (const ua of plannedUserAnimes) {
-      if (ua.updatedAt.getTime() < firstEpAirDate.getTime()) {
-        await this.prisma.userAnime.update({
-          where: { id: ua.id },
-          data: {
-            status: 'WATCHING',
-            lastProgressUpdate: now,
-          },
-        });
+    for (const ua of moved) {
+      await this.notificationService.createOrReplaceNotification(
+        ua.userId,
+        'Anime planeado estreou!',
+        `O primeiro episódio de "${animeTitle}" estreou! Mudámos o status para "A ver".`,
+        'ANIME',
+        { fonte, id: animeId },
+      );
 
-        await this.notificationService.createOrReplaceNotification(
-          ua.userId,
-          'Anime planeado estreou!',
-          `O primeiro episódio de "${animeTitle}" estreou! Mudámos o status para "A ver".`,
-          'ANIME',
-          { fonte, id: animeId },
-        );
-
-        this.logger.log(
-          `[AutoTransition] Moved user ${ua.userId} tracking of anime "${animeTitle}" (${animeId}) from PLANNED to WATCHING.`,
-        );
-      }
+      this.logger.log(
+        `[AutoTransition] Moved user ${ua.userId} tracking of anime "${animeTitle}" (${animeId}) from PLANNED to WATCHING.`,
+      );
     }
   }
 }

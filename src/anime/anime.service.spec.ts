@@ -66,6 +66,8 @@ describe('AnimeService', () => {
 
   const mockTMDBService = {
     findByTVDBId: jest.fn(),
+    findMovieByImdbId: jest.fn(),
+    searchMovies: jest.fn(),
     search: jest.fn(),
     getTVShowDetails: jest.fn(),
     getMovieDetails: jest.fn(),
@@ -308,6 +310,147 @@ describe('AnimeService', () => {
       const status = service.getTvTimeImportStatus(userId);
       expect(status.errors.length).toBeGreaterThan(0);
       expect(status.errors[0]).toContain('Não foi possível mapear a série');
+    });
+
+    describe('filmes (export "movies" do TV Time)', () => {
+      const mockMovie = {
+        id: 550,
+        titulo: 'Test Movie',
+        capaUrl: null,
+        numEpisodiosTotal: 1,
+        episodesList: null,
+      };
+
+      it('resolve pelo IMDb (nunca pelo TVDB) e guarda um filme visto como COMPLETED', async () => {
+        mockTMDBService.findMovieByImdbId.mockResolvedValue(550);
+        mockPrismaService.anime.findUnique.mockResolvedValue(mockMovie);
+        mockPrismaService.userAnime.findUnique.mockResolvedValue(null);
+
+        await service['runTVTimeImportBackground'](userId, [
+          {
+            id: { tvdb: 339, imdb: 'tt0096283' },
+            title: 'Test Movie',
+            year: 2009,
+            watched_at: '2024-11-25T19:49:51Z',
+            is_watched: true,
+            is_favorite: false,
+            rewatch_count: 0,
+          },
+        ]);
+
+        expect(tmdbService.findByTVDBId).not.toHaveBeenCalled();
+        expect(mockTMDBService.findMovieByImdbId).toHaveBeenCalledWith(
+          'tt0096283',
+        );
+        expect(mockPrismaService.userAnime.create).toHaveBeenCalledWith({
+          data: {
+            userId,
+            animeFonte: 'TMDB_MOVIE',
+            animeId: 550,
+            seasonAtual: 1,
+            epAtual: 1,
+            status: 'COMPLETED',
+            lastProgressUpdate: new Date('2024-11-25T19:49:51Z'),
+          },
+        });
+      });
+
+      it('guarda um filme por ver como PLANNED, mesmo com watched_at preenchido', async () => {
+        mockTMDBService.findMovieByImdbId.mockResolvedValue(550);
+        mockPrismaService.anime.findUnique.mockResolvedValue(mockMovie);
+        mockPrismaService.userAnime.findUnique.mockResolvedValue(null);
+
+        await service['runTVTimeImportBackground'](userId, [
+          {
+            id: { tvdb: 3, imdb: 'tt5848272' },
+            title: 'Test Movie',
+            year: 2018,
+            watched_at: '2022-10-27T20:27:04Z',
+            is_watched: false,
+          },
+        ]);
+
+        expect(mockPrismaService.userAnime.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({
+            animeFonte: 'TMDB_MOVIE',
+            epAtual: 0,
+            status: 'PLANNED',
+          }),
+        });
+      });
+
+      it('sem IMDb válido pesquisa pelo título e ano, preferindo o título exato', async () => {
+        mockTMDBService.searchMovies.mockResolvedValue([
+          { id: 1, title: 'Outro Filme' },
+          { id: 2, title: 'Test Movie' },
+        ]);
+        mockPrismaService.anime.findUnique.mockResolvedValue(mockMovie);
+        mockPrismaService.userAnime.findUnique.mockResolvedValue(null);
+
+        await service['runTVTimeImportBackground'](userId, [
+          {
+            id: { tvdb: 143296, imdb: '' },
+            title: 'Test Movie',
+            year: 2021,
+            watched_at: null,
+            is_watched: false,
+          },
+        ]);
+
+        expect(mockTMDBService.findMovieByImdbId).not.toHaveBeenCalled();
+        expect(mockTMDBService.searchMovies).toHaveBeenCalledWith(
+          'Test Movie',
+          2021,
+        );
+        expect(mockPrismaService.userAnime.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({ animeId: 2 }),
+        });
+      });
+
+      it('aceita um IMDb sem o prefixo "tt"', async () => {
+        mockTMDBService.findMovieByImdbId.mockResolvedValue(550);
+        mockPrismaService.anime.findUnique.mockResolvedValue(mockMovie);
+        mockPrismaService.userAnime.findUnique.mockResolvedValue(null);
+
+        await service['runTVTimeImportBackground'](userId, [
+          { id: { imdb: '36461929' }, title: 'Test Movie', is_watched: false },
+        ]);
+
+        expect(mockTMDBService.findMovieByImdbId).toHaveBeenCalledWith(
+          'tt36461929',
+        );
+      });
+
+      it('não recua um filme que já está na biblioteca', async () => {
+        mockTMDBService.findMovieByImdbId.mockResolvedValue(550);
+        mockPrismaService.anime.findUnique.mockResolvedValue(mockMovie);
+        mockPrismaService.userAnime.findUnique.mockResolvedValue({
+          id: 7,
+          status: 'COMPLETED',
+          epAtual: 1,
+          anime: mockMovie,
+        });
+
+        await service['runTVTimeImportBackground'](userId, [
+          { id: { imdb: 'tt0096283' }, title: 'Test Movie', is_watched: false },
+        ]);
+
+        expect(mockPrismaService.userAnime.create).not.toHaveBeenCalled();
+        expect(mockPrismaService.userAnime.update).not.toHaveBeenCalled();
+      });
+
+      it('regista erro quando o filme não se consegue mapear', async () => {
+        mockTMDBService.findMovieByImdbId.mockResolvedValue(null);
+        mockTMDBService.searchMovies.mockResolvedValue([]);
+
+        await service['runTVTimeImportBackground'](userId, [
+          { id: { imdb: 'tt0000001' }, title: 'Fantasma', is_watched: true },
+        ]);
+
+        const status = service.getTvTimeImportStatus(userId);
+        expect(status.errors[0]).toContain('Não foi possível mapear o filme');
+        expect(mockPrismaService.userAnime.create).not.toHaveBeenCalled();
+      });
     });
   });
 

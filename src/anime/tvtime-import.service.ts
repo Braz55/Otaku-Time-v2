@@ -102,6 +102,8 @@ export class TVTimeImportService {
         Array.isArray(existing.episodesList) &&
         existing.episodesList.length > 0;
       if (existing && hasEpisodes) return true;
+      // Um filme não tem lista de episódios: se já está no catálogo, não se volta a pedir ao TMDB
+      if (existing && fonte === MediaSource.TMDB_MOVIE) return true;
 
       const tmdbData = await this.animeService.searchAniListById(
         tmdbId,
@@ -215,6 +217,123 @@ export class TVTimeImportService {
     }
   }
 
+  // Item do export "movies" do TV Time: tem is_watched no topo e não traz temporadas
+  private isMovieItem(item: any): boolean {
+    return (
+      !!item &&
+      !Array.isArray(item.seasons) &&
+      typeof item.is_watched === 'boolean'
+    );
+  }
+
+  // O ID do TVDB de um filme não serve: no TMDB esse número aponta para uma série qualquer.
+  // Usa-se o IMDb e, na falta dele, o título (com o ano, quando existe).
+  private async resolveMovieTmdbId(movie: any): Promise<number | null> {
+    let imdb = String(movie.id?.imdb ?? '').trim();
+    if (/^\d+$/.test(imdb)) imdb = `tt${imdb}`;
+    if (/^tt\d+$/.test(imdb)) {
+      const byImdb = await this.tmdbService.findMovieByImdbId(imdb);
+      if (byImdb) return byImdb;
+    }
+
+    const title = String(movie.title ?? '').trim();
+    if (!title) return null;
+    const year = Number(movie.year) || undefined;
+
+    let results = await this.tmdbService.searchMovies(title, year);
+    if (results.length === 0 && year) {
+      results = await this.tmdbService.searchMovies(title);
+    }
+    if (results.length === 0) return null;
+
+    const norm = (s: unknown) =>
+      String(s ?? '')
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, '');
+    const wanted = norm(title);
+    const exact = results.find(
+      (r: any) => norm(r.title) === wanted || norm(r.original_title) === wanted,
+    );
+    return (exact || results[0]).id;
+  }
+
+  private async processMovie(
+    userId: number,
+    movie: any,
+    status: { errors: string[]; importedShows: any[] },
+  ) {
+    const fonte: AnimeSource = MediaSource.TMDB_MOVIE;
+    const tmdbId = await this.resolveMovieTmdbId(movie);
+    if (!tmdbId) {
+      status.errors.push(
+        `Não foi possível mapear o filme: "${movie.title}" (IMDb: ${movie.id?.imdb || 'sem ID'})`,
+      );
+      return;
+    }
+
+    const ok = await this.ensureAnimeExists(fonte, tmdbId);
+    if (!ok) {
+      throw new Error(
+        `Falha ao obter dados e registar o filme: "${movie.title}" (TMDB ID: ${tmdbId})`,
+      );
+    }
+
+    const watched = movie.is_watched === true;
+    const watchedAt = movie.watched_at ? new Date(movie.watched_at) : null;
+    const progressDate =
+      watched && watchedAt && !isNaN(watchedAt.getTime())
+        ? watchedAt
+        : new Date();
+
+    const libraryKey = {
+      userId_animeFonte_animeId: { userId, animeFonte: fonte, animeId: tmdbId },
+    };
+    const existing = await this.prisma.userAnime.findUnique({
+      where: libraryKey,
+    });
+
+    if (!existing) {
+      await this.prisma.userAnime.create({
+        data: {
+          userId,
+          animeFonte: fonte,
+          animeId: tmdbId,
+          seasonAtual: 1,
+          epAtual: watched ? 1 : 0,
+          status: watched ? 'COMPLETED' : 'PLANNED',
+          lastProgressUpdate: progressDate,
+        },
+      });
+    } else if (watched && existing.status !== 'COMPLETED') {
+      // Nunca se recua o que já está na biblioteca: só se promove a "visto"
+      await this.prisma.userAnime.update({
+        where: { id: existing.id },
+        data: {
+          seasonAtual: 1,
+          epAtual: 1,
+          status: 'COMPLETED',
+          lastProgressUpdate: progressDate,
+        },
+      });
+    }
+
+    const saved = await this.prisma.userAnime.findUnique({
+      where: libraryKey,
+      include: { anime: true },
+    });
+    status.importedShows.push({
+      id: saved?.id ?? 0,
+      fonte,
+      animeId: tmdbId,
+      titulo: saved?.anime?.titulo || movie.title || 'Sem título',
+      capaUrl: saved?.anime?.capaUrl ?? null,
+      status: saved?.status ?? (watched ? 'COMPLETED' : 'PLANNED'),
+      seasonAtual: 1,
+      epAtual: saved?.epAtual ?? (watched ? 1 : 0),
+      numEpisodiosTotal: 1,
+    });
+  }
+
   private async runTVTimeImportBackground(userId: number, tvTimeShows: any[]) {
     const status = this.tvTimeImportStatus.get(userId);
     if (!status) return;
@@ -228,6 +347,14 @@ export class TVTimeImportService {
         try {
           status.currentShow = show.title || 'Sem título';
           this.tvTimeImportStatus.set(userId, { ...status });
+
+          // O export de filmes do TV Time tem outro formato (sem temporadas nem status)
+          if (this.isMovieItem(show)) {
+            await this.processMovie(userId, show, status);
+            processedSuccessfully = true;
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            continue;
+          }
 
           let tmdbId: number | null = null;
           // O TV Time só tem séries; a pesquisa por título pode devolver um filme (L-23)

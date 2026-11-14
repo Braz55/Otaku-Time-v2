@@ -11,6 +11,10 @@ import { Type } from 'class-transformer';
 export class TvdbIdDto {
   @IsOptional()
   tvdb?: string | number;
+
+  // Usado para resolver filmes; pode vir vazio ou null
+  @IsOptional()
+  imdb?: string | null;
 }
 
 export class TVTimeEpisodeDto {
@@ -56,4 +60,15 @@ export class ImportTVTimeItemDto {
   @ValidateNested({ each: true })
   @Type(() => TVTimeSeasonDto)
   seasons?: TVTimeSeasonDto[];
+
+  // Campos do export de filmes (sem temporadas)
+  @IsOptional()
+  @IsBoolean()
+  is_watched?: boolean;
+
+  @IsOptional()
+  watched_at?: string | null;
+
+  @IsOptional()
+  year?: number | null;
 }

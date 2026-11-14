@@ -251,6 +251,29 @@ export class TMDBService {
   }
 
   /**
+   * Resolve um filme pelo ID do IMDb (ex.: "tt1735898").
+   * Devolve null quando o TMDB não conhece o ID; falhas de rede sobem para quem chama repetir.
+   */
+  async findMovieByImdbId(imdbId: string): Promise<number | null> {
+    const results = await this.fetchFromTMDB(`/find/${imdbId}`, {
+      external_source: 'imdb_id',
+    });
+    const movie = results.movie_results?.[0];
+    return movie ? movie.id : null;
+  }
+
+  /**
+   * Pesquisa só filmes, opcionalmente pelo ano de estreia.
+   */
+  async searchMovies(query: string, year?: number): Promise<any[]> {
+    const results = await this.fetchFromTMDB('/search/movie', {
+      query,
+      ...(year ? { primary_release_year: String(year) } : {}),
+    });
+    return results.results || [];
+  }
+
+  /**
    * Get posters and backdrops for a TV Show or Movie.
    */
   async getImages(

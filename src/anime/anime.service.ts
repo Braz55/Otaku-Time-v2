@@ -15,6 +15,7 @@ import { RecommendationService } from './recommendation.service';
 import { StatisticsService } from '../statistics/statistics.service';
 import { TVTimeImportService } from './tvtime-import.service';
 import { CalendarService } from './calendar.service';
+import { EpisodeStoreService, FetchedEpisode } from './episode-store.service';
 import { NotificationService } from '../notification/notification.service';
 import { aplicarRegrasDeProgresso } from '../library/progress-rules';
 import { artworkUpdateData, resolveArtwork } from '../library/artwork';
@@ -25,6 +26,7 @@ import {
   resolveLatinTitleForSearchItem,
 } from './anime.utils';
 import { MediaSource } from '@prisma/client';
+import { CircuitOpenError } from '../common/circuit-breaker';
 import { KeyedMutex } from '../common/keyed-mutex';
 import { SyncTransientError, toSyncError } from '../common/sync-errors';
 import { syncFailureData, syncSuccessData } from '../common/sync-state';
@@ -58,6 +60,7 @@ export class AnimeService {
     private readonly calendarService: CalendarService,
     private readonly notificationService: NotificationService,
     private readonly statisticsService: StatisticsService,
+    private readonly episodeStore: EpisodeStoreService,
   ) {}
 
   // -------------------------------------------------------------
@@ -290,20 +293,6 @@ export class AnimeService {
 
   async getCalendar(userId: number, startDateStr?: string) {
     return this.calendarService.getCalendar(userId, startDateStr);
-  }
-
-  async autoTransitionPlannedToWatching(
-    fonte: MediaSource,
-    animeId: number,
-    episodesList: any[],
-    animeTitle: string,
-  ) {
-    return this.calendarService.autoTransitionPlannedToWatching(
-      fonte,
-      animeId,
-      episodesList,
-      animeTitle,
-    );
   }
 
   // -------------------------------------------------------------
@@ -983,6 +972,8 @@ export class AnimeService {
       return result;
     } catch (err) {
       const syncError = toSyncError(err, `TMDB ${fonte}:${tmdbId}`);
+      // Fornecedor em pausa: a obra não tem culpa, não se regista falha nela
+      if (syncError instanceof CircuitOpenError) throw syncError;
       await this.prisma.anime
         .update({
           where: animeKey(fonte, tmdbId),
@@ -1015,10 +1006,15 @@ export class AnimeService {
     }
 
     // Primeiro os episódios: se alguma temporada falhar, nada é gravado
+    let notificationsSent = 0;
     if (!isMovie && Array.isArray(details.seasons)) {
-      await this.syncAnimeEpisodes(fonte, tmdbId, details.seasons, {
-        throwOnError: true,
-      });
+      const applied = await this.syncAnimeEpisodes(
+        fonte,
+        tmdbId,
+        details.seasons,
+        { throwOnError: true },
+      );
+      notificationsSent = applied?.notificationsSent ?? 0;
     }
 
     await this.prisma.anime.update({
@@ -1036,132 +1032,19 @@ export class AnimeService {
       },
     });
 
-    const { episodes, notificationsSent } = await this.processAiredEpisodes(
-      fonte,
-      tmdbId,
-      titulo,
-    );
-    if (!episodes) {
-      return { latest: null, source: 'TMDB', notificationsSent: 0 };
-    }
-    return { latest: episodes, source: 'TMDB', notificationsSent };
+    return { source: 'TMDB', notificationsSent };
   }
 
-  // Usado pelo cron de notificações: trata os episódios que estrearam entretanto, com o
-  // mesmo lock da sincronização, para nenhum dos dois gravar por cima do outro.
+  // Usado pelo cron de notificações: trata os episódios que estrearam entretanto. Passa pelo
+  // mesmo lock da sincronização, para não correr a meio de uma.
   async notifyAiredEpisodes(fonte: MediaSource, animeId: number) {
-    return this.animeLocks.run(`${fonte}:${animeId}`, async () => {
-      const anime = await this.prisma.anime.findUnique({
-        where: animeKey(fonte, animeId),
-        select: { titulo: true },
-      });
-      if (!anime) return { episodes: null, notificationsSent: 0 };
-      return this.processAiredEpisodes(fonte, animeId, anime.titulo);
-    });
-  }
-
-  // Lê a lista de episódios atual e trata os que já estrearam e ainda não foram notificados.
-  // Tem de correr dentro do lock da obra.
-  private async processAiredEpisodes(
-    fonte: MediaSource,
-    animeId: number,
-    titulo: string,
-  ): Promise<{ episodes: any[] | null; notificationsSent: number }> {
-    const anime = await this.prisma.anime.findUnique({
-      where: animeKey(fonte, animeId),
-      select: { episodesList: true },
-    });
-    if (!anime || !Array.isArray(anime.episodesList)) {
-      return { episodes: null, notificationsSent: 0 };
-    }
-
-    const episodes = anime.episodesList as any[];
-    const now = new Date();
-
-    // Quem tinha a obra como COMPLETED volta a "A ver" quando há episódios estreados por ver.
-    // Só contam os já estreados (os anunciados não reabrem a obra) e a condição vai no próprio
-    // UPDATE, para não passar por cima de uma alteração feita pelo utilizador entretanto.
-    const airedCount = episodes.filter(
-      (ep) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now,
-    ).length;
-    if (airedCount > 0) {
-      const reopened = await this.prisma.userAnime.updateMany({
-        where: {
-          animeFonte: fonte,
-          animeId,
-          status: 'COMPLETED',
-          epAtual: { lt: airedCount },
-        },
-        data: { status: 'WATCHING', lastProgressUpdate: now },
-      });
-      if (reopened.count > 0) {
-        this.logger.log(
-          `[AutoTransition] Moved ${reopened.count} tracking(s) of anime "${titulo}" (${animeId}) from COMPLETED to WATCHING because new episodes aired (${airedCount} aired).`,
-        );
-      }
-    }
-
-    const newlyAired = episodes.filter(
-      (ep) => ep.airDate && now >= new Date(ep.airDate) && !ep.notified,
+    return this.animeLocks.run(`${fonte}:${animeId}`, () =>
+      this.episodeStore.processAired(fonte, animeId),
     );
-    if (newlyAired.length === 0) {
-      return { episodes, notificationsSent: 0 };
-    }
-
-    // Os especiais (temporada 0) ficam marcados mas não geram notificação
-    const toNotify = newlyAired.filter((ep) => Number(ep.season) > 0);
-    if (toNotify.length > 0) {
-      const userAnimes = await this.prisma.userAnime.findMany({
-        where: { animeFonte: fonte, animeId, status: 'WATCHING' },
-        select: {
-          userId: true,
-          user: { select: { preferences: true } },
-        },
-      });
-
-      for (const ua of userAnimes) {
-        const userPrefs = ua.user?.preferences as any;
-        const notifyWeeklyEpisodes = userPrefs?.notifyWeeklyEpisodes !== false;
-        // Cada notificação substitui a anterior da mesma obra, por isso basta uma por
-        // utilizador: a do episódio mais recente que ele quer receber.
-        const ep = [...toNotify]
-          .reverse()
-          .find(
-            (e) => Number(e.episodeNumber) === 1 || notifyWeeklyEpisodes,
-          );
-        if (!ep) continue;
-
-        const isPremiere = Number(ep.episodeNumber) === 1;
-        await this.notificationService.createOrReplaceNotification(
-          ua.userId,
-          isPremiere
-            ? 'Estreia de Nova Temporada / Série!'
-            : 'Novo episódio de Série/Anime!',
-          isPremiere
-            ? `O 1º episódio da Temporada ${ep.season} de "${titulo}" estreou!`
-            : `O episódio ${ep.episodeNumber} da Temporada ${ep.season} de "${titulo}" estreou!`,
-          'ANIME',
-          { fonte, id: animeId },
-        );
-      }
-    }
-
-    for (const ep of newlyAired) ep.notified = true;
-
-    const { numEpisodiosAired, ultimoEpisodioEstreadoData } =
-      this.calculateAiredEpisodesInfo(episodes);
-    await this.prisma.anime.update({
-      where: animeKey(fonte, animeId),
-      data: {
-        episodesList: episodes,
-        numEpisodiosAired,
-        ultimoEpisodioEstreadoData,
-      },
-    });
-
-    return { episodes, notificationsSent: toNotify.length };
   }
 
+  // Vai buscar ao TMDB os episódios de todas as temporadas e aplica-os na tabela Episode.
+  // Devolve o resultado da aplicação, ou undefined se não chegou a aplicar.
   async syncAnimeEpisodes(
     fonte: MediaSource,
     animeId: number,
@@ -1172,6 +1055,7 @@ export class AnimeService {
     try {
       const anime = await this.prisma.anime.findUnique({
         where: animeKey(fonte, animeId),
+        select: { titulo: true },
       });
       if (!anime) {
         this.logger.warn(
@@ -1180,33 +1064,12 @@ export class AnimeService {
         return;
       }
 
-      // Map to keep track of already notified episodes
-      const existingNotifiedMap = new Map<string, boolean>();
-      let isFirstTimeSync = true;
-      if (anime.episodesList) {
-        try {
-          const list = anime.episodesList as any[];
-          if (list.length > 0) {
-            isFirstTimeSync = false;
-          }
-          list.forEach((ep: any) => {
-            const key = `${ep.season}-${ep.episodeNumber}`;
-            existingNotifiedMap.set(key, !!ep.notified);
-          });
-        } catch (e) {
-          this.logger.error(
-            `Error parsing existing episodes list for anime ID ${animeId}:`,
-            e,
-          );
-        }
-      }
-
       const activeSeasons = (detailsSeasons || [])
         .filter((s: any) => s.season_number >= 0)
         .sort((a: any, b: any) => a.season_number - b.season_number);
 
       let globalCounter = 0;
-      const episodesList: any[] = [];
+      const episodesList: FetchedEpisode[] = [];
 
       for (const season of activeSeasons) {
         let seasonDetails: any = null;
@@ -1217,6 +1080,7 @@ export class AnimeService {
           );
           await new Promise((resolve) => setTimeout(resolve, 150));
         } catch (err) {
+          if (err instanceof CircuitOpenError) throw err;
           if ((err as any)?.status === 404) {
             // A temporada está anunciada mas ainda não existe no TMDB: não tem episódios
             continue;
@@ -1240,33 +1104,14 @@ export class AnimeService {
             globalCounter++;
             globalEpNum = globalCounter;
           }
-          let airDateVal: string | null = null;
+          let airDate: Date | null = null;
           if (ep.air_date) {
             const parsedDate = new Date(
               ep.air_date.includes('T')
                 ? ep.air_date
                 : ep.air_date + 'T12:00:00Z',
             );
-            if (!isNaN(parsedDate.getTime())) {
-              airDateVal = parsedDate.toISOString();
-            }
-          }
-          const key = `${ep.season_number}-${ep.episode_number}`;
-          let isNotified = existingNotifiedMap.get(key);
-
-          if (isNotified === undefined) {
-            if (isFirstTimeSync && airDateVal) {
-              const epDate = new Date(airDateVal);
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              if (epDate < today) {
-                isNotified = true;
-              } else {
-                isNotified = false;
-              }
-            } else {
-              isNotified = false;
-            }
+            if (!isNaN(parsedDate.getTime())) airDate = parsedDate;
           }
 
           episodesList.push({
@@ -1274,37 +1119,27 @@ export class AnimeService {
             episodeNumber: ep.episode_number,
             globalEpisodeNumber: globalEpNum,
             name: ep.name || null,
-            airDate: airDateVal,
+            airDate,
             stillPath: ep.still_path
               ? `https://image.tmdb.org/t/p/w300${ep.still_path}`
               : null,
-            notified: isNotified,
           });
         }
       }
 
-      const { numEpisodiosAired, ultimoEpisodioEstreadoData } =
-        this.calculateAiredEpisodesInfo(episodesList);
-
-      await this.prisma.anime.update({
-        where: animeKey(fonte, animeId),
-        data: {
-          episodesList,
-          numEpisodiosAired,
-          ultimoEpisodioEstreadoData,
-        },
-      });
-
-      await this.autoTransitionPlannedToWatching(
+      // Numa só transação: episódios novos/alterados/removidos, cópia de leitura,
+      // transições de estado e notificações
+      const applied = await this.episodeStore.applyEpisodes(
         fonte,
         animeId,
-        episodesList,
         anime.titulo,
+        episodesList,
       );
 
       this.logger.log(
-        `Successfully synced ${globalCounter} episodes in JSON for anime ID ${animeId}`,
+        `Synced ${globalCounter} episodes for anime ID ${animeId}${applied.changed ? '' : ' (no changes)'}`,
       );
+      return applied;
     } catch (err) {
       if (options.throwOnError) throw err;
       if (err instanceof SyncTransientError) {

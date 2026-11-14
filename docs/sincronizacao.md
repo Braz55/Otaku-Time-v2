@@ -9,7 +9,7 @@ Esta página descreve em detalhe o funcionamento técnico e a lógica dos mecani
 A coordenação principal de todas as tarefas de sincronização em segundo plano é realizada no [SyncService](file:///c:/Users/Utilizador/source/repos/Otaku-Time-v2/src/sync/sync.service.ts), utilizando dois agendamentos `@Cron` baseados no pacote `@nestjs/schedule`:
 
 1. **Sincronização Periódica de Dados (`@Cron('0 */30 * * * *')`):** 
-   Executada de 30 em 30 minutos. Invoca o método `checkAndRunScheduledSyncs()`, que avalia quais as séries (Anime/Manga) que necessitam de sincronização.
+   Executada de 30 em 30 minutos. Invoca o método `checkAndRunScheduledSyncs()`, que avalia quais as séries (Anime/Manga) que necessitam de sincronização, põe-nas na fila (tabela `SyncJob`) e arranca o worker (ver secção 8).
 2. **Notificações Locais (`@Cron('0 15 * * * *')`):** 
    Executada a cada hora, ao minuto 15 (para não arrancar no mesmo instante que a verificação anterior). Invoca o método `handleLocalNotificationsCron()`, que verifica episódios estreados recentemente e dispara notificações em lote na aplicação.
 
@@ -111,6 +111,27 @@ Os administradores têm à disposição um endpoint de controlo no [SyncControll
 * **Obra inexistente** (a fonte responde 404): fica `GONE` e sai das filas automáticas. O ID nunca é tentado no outro tipo (série/filme) nem trocado por uma pesquisa de título durante a sincronização. Um refresh manual bem sucedido repõe o estado `OK`.
 * **Pedidos HTTP** ([http-client.ts](../src/common/http-client.ts)): timeout de 10s por tentativa e repetição com backoff apenas em falhas de rede, 429 e 5xx, respeitando o `Retry-After`. Usado no TMDB, na AniList (manga), no Baka-Updates e no MangaDex.
 * **Lista de episódios completa ou nada:** se uma temporada falhar, a lista guardada não é alterada (uma lista parcial mudava a numeração global dos episódios e as marcas de "já notificado").
-* **Uma escrita de cada vez por obra:** a sincronização, o refresh manual e o cron de notificações partilham um lock por obra dentro do processo ([keyed-mutex.ts](../src/common/keyed-mutex.ts)). Com mais do que uma instância do servidor seria preciso um lock na base de dados.
+* **Uma escrita de cada vez por obra:** dentro do processo, a sincronização, o refresh manual e o cron de notificações partilham um lock por obra ([keyed-mutex.ts](../src/common/keyed-mutex.ts)). As escritas de episódios correm ainda numa transação com um lock da própria base de dados (`pg_advisory_xact_lock`), que protege também entre instâncias do servidor.
 * **Transições de estado atómicas:** `COMPLETED → WATCHING` e `PLANNED → WATCHING` são feitas com a condição dentro do próprio `UPDATE`, por isso não passam por cima de uma alteração feita pelo utilizador entretanto. Num anime só contam os episódios já estreados.
 * **Manga:** o total de capítulos só sobe (exceto quando a AniList dá a contagem final de uma obra terminada), e os IDs da obra no Baka-Updates e no MangaDex ficam guardados (`mangaUpdatesId`, `mangaDexId`) para não repetir a pesquisa por título.
+
+---
+
+## 🧱 8. Fila de Sincronização, Episódios por Linha e Circuit Breaker
+
+### Fila em Postgres (`SyncJob`)
+* **Agendar é só pôr na fila:** cada execução cria um registo no `SyncLog` (`RUNNING`) e um `SyncJob` por obra. Um índice único parcial garante no máximo um job por tratar por obra, por isso pedir a mesma obra duas vezes não duplica trabalho.
+* **Worker** ([sync.service.ts](../src/sync/sync.service.ts)): reserva jobs com `FOR UPDATE SKIP LOCKED` (duas instâncias nunca ficam com o mesmo job). Anime e manga correm lado a lado: 3 animes em paralelo (TMDB) e 1 manga de cada vez (AniList, Baka-Updates, MangaDex).
+* **Novas tentativas:** uma falha temporária devolve o job à fila (2 min, depois 10 min); à terceira falha fica `FAILED`. Uma obra inexistente (404) falha logo.
+* **Fecho da execução:** quando já não há jobs por tratar, o resultado (`SUCCESS`/`PARTIAL`/`FAILED`) é escrito no `SyncLog` a partir dos jobs, e estes são apagados.
+* **Reinícios:** a fila fica na base de dados. Jobs reservados há mais de 15 minutos voltam à fila; uma execução com mais de 2 horas é dada como falhada e os jobs que restam são largados (as obras voltam a ser escolhidas na execução seguinte).
+
+### Episódios por linha (`Episode`)
+* **Fonte de verdade:** a tabela `Episode` tem uma linha por episódio, com `notifiedAt` (quando a estreia foi tratada). `Anime.episodesList` continua a existir como cópia de leitura para a app, mas só é regravada quando algum episódio muda.
+* **Aplicação atómica** ([episode-store.service.ts](../src/anime/episode-store.service.ts)): numa única transação criam-se os episódios novos, atualizam-se os alterados, apagam-se os removidos, fazem-se as transições de estado e criam-se as notificações. Um episódio nunca fica marcado sem a notificação ter sido criada, nem é notificado duas vezes.
+* **Cron de notificações:** uma consulta à tabela diz que obras têm episódios estreados por tratar; já não carrega a lista de todas as obras em lançamento.
+* **Obras existentes:** no arranque, as obras que só têm a lista antiga em JSON ganham as suas linhas (`backfillFromJson`, idempotente). Episódios estreados há mais de 7 dias ficam como já tratados.
+
+### Circuit breaker por fornecedor
+* [circuit-breaker.ts](../src/common/circuit-breaker.ts): depois de 5 pedidos seguidos falhados (já com as repetições) a um fornecedor (`tmdb`, `anilist`, `mangaupdates`, `mangadex`), os pedidos a esse fornecedor falham logo durante 5 minutos, sem ir à rede. Passada a pausa, um pedido de teste decide se fecha ou volta a abrir.
+* Com o fornecedor em pausa, os jobs esperam por ele: não gastam tentativas e a obra não fica com uma falha registada.

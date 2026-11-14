@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MediaRef } from '../rating/media-type';
 
@@ -116,6 +117,37 @@ export class NotificationService {
       create,
     ]);
     return created;
+  }
+
+  // Versão em lote de createOrReplaceNotification: uma notificação por utilizador sobre a mesma
+  // obra, em duas instruções. `db` é a transação do chamador, para as notificações nascerem
+  // (ou não) juntamente com a alteração que as provocou.
+  async replaceMany(
+    db: Prisma.TransactionClient,
+    notifications: { userId: number; title: string; message: string }[],
+    type: string,
+    media: MediaRef,
+  ) {
+    if (notifications.length === 0) return;
+
+    await db.notification.deleteMany({
+      where: {
+        userId: { in: notifications.map((n) => n.userId) },
+        type,
+        fonte: media.fonte,
+        mediaId: media.id,
+      },
+    });
+    await db.notification.createMany({
+      data: notifications.map((n) => ({
+        userId: n.userId,
+        title: n.title,
+        message: n.message,
+        type,
+        fonte: media.fonte,
+        mediaId: media.id,
+      })),
+    });
   }
 
   async autoMarkOldAsRead(hours = 48) {

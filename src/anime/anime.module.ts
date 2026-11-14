@@ -6,6 +6,7 @@ import { AniListService } from './anilist.service';
 import { RecommendationService } from './recommendation.service';
 import { TVTimeImportService } from './tvtime-import.service';
 import { CalendarService } from './calendar.service';
+import { EpisodeStoreService } from './episode-store.service';
 import { ListModule } from '../list/list.module';
 import { NotificationModule } from '../notification/notification.module';
 import { StatisticsModule } from '../statistics/statistics.module';
@@ -20,6 +21,7 @@ import { StatisticsModule } from '../statistics/statistics.module';
     RecommendationService,
     TVTimeImportService,
     CalendarService,
+    EpisodeStoreService,
   ],
   exports: [
     AnimeService,
@@ -28,6 +30,7 @@ import { StatisticsModule } from '../statistics/statistics.module';
     RecommendationService,
     TVTimeImportService,
     CalendarService,
+    EpisodeStoreService,
   ],
 })
 export class AnimeModule {}

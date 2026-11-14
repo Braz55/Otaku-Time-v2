@@ -1,11 +1,19 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { MediaSource } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AnimeService } from '../anime/anime.service';
+import { EpisodeStoreService } from '../anime/episode-store.service';
 import { MangaService } from '../manga/manga.service';
 import { KeepAwakeService } from '../keep-awake.service';
 import { NotificationService } from '../notification/notification.service';
+import { CircuitOpenError } from '../common/circuit-breaker';
+import { SyncNotFoundError } from '../common/sync-errors';
 import { SYNC_STATUS_GONE, dueForFullSync } from '../common/sync-state';
 import {
   SYNC_DONE_STATUSES,
@@ -23,28 +31,62 @@ interface SyncPlan {
   mangaLabel: string; // janela do manga ativo: [MANGA_MIDDAY], [MANGA_NIGHT] ou [MANGA_MANUAL]
 }
 
-type AnimeRef = { fonte: MediaSource; id: number; titulo: string };
-type MangaRef = { id: number; titulo: string };
+// Uma obra a sincronizar. O manga vem sempre da AniList.
+type WorkRef = { fonte: MediaSource; id: number; titulo: string };
 
-const HOUR_MS = 60 * 60 * 1000;
+// Um job da fila já reservado por este processo
+interface ClaimedJob {
+  id: number;
+  runId: number;
+  fonte: MediaSource;
+  mediaId: number;
+  titulo: string;
+  attempts: number;
+}
+
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
 // Uma sincronização concluída não se repete antes de 20 horas
 const DONE_GUARD_MS = 20 * HOUR_MS;
 // Uma que falhou por inteiro pode ser repetida ao fim de 1 hora
 const FAILED_GUARD_MS = 1 * HOUR_MS;
+// Uma execução que não acaba em 2 horas é dada como falhada e os jobs que restam são largados
+const STALE_RUN_MS = 2 * HOUR_MS;
+// Um job reservado há mais tempo do que isto ficou órfão (o processo morreu): volta à fila
+const STALE_JOB_MS = 15 * MINUTE_MS;
 // Máximo de obras por sincronização completa, para não esgotar o tempo do Render
 const FULL_SYNC_BATCH = 100;
+// Quantas vezes se tenta uma obra dentro da mesma execução, e a espera antes de cada nova tentativa
+const MAX_JOB_ATTEMPTS = 3;
+const JOB_RETRY_DELAYS_MS = [2 * MINUTE_MS, 10 * MINUTE_MS];
+// Obras em paralelo e pausa entre lotes, por fornecedor. O TMDB aguenta bem pedidos em paralelo;
+// as fontes de manga (AniList, Baka-Updates, MangaDex) têm limites apertados.
+const ANIME_LANE = { concurrency: 3, pauseMs: 500 };
+const MANGA_LANE = { concurrency: 1, pauseMs: 1500 };
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+function tipoObraFor(label: string): string {
+  if (label === '[ANIME_ACTIVE]') return 'active/releasing animes';
+  if (label === '[ANIME_FULL]') return 'animes';
+  if (label === '[MANGA_FULL]') return 'mangas';
+  return 'releasing mangas';
+}
 
 @Injectable()
-export class SyncService implements OnApplicationBootstrap {
+export class SyncService implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(SyncService.name);
-  private isSyncingActive = false;
+  // Estado do worker deste processo (mostrado na app em /sync/status)
+  private draining = false;
   private totalItemsToSync = 0;
   private currentSyncedCount = 0;
   private currentItemTitle = '';
+  private retryTimer?: NodeJS.Timeout;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly animeService: AnimeService,
+    private readonly episodeStore: EpisodeStoreService,
     private readonly mangaService: MangaService,
     private readonly keepAwakeService: KeepAwakeService,
     private readonly notificationService: NotificationService,
@@ -64,6 +106,10 @@ export class SyncService implements OnApplicationBootstrap {
     this.checkAndRunScheduledSyncs().catch((err) =>
       this.logger.error('Error in startup scheduled sync check:', err),
     );
+  }
+
+  onModuleDestroy() {
+    if (this.retryTimer) clearTimeout(this.retryTimer);
   }
 
   @Cron('0 */30 * * * *')
@@ -117,27 +163,24 @@ export class SyncService implements OnApplicationBootstrap {
       this.logger.error('Error cleaning up old notifications:', err);
     }
 
-    // Só as chaves: cada obra é lida e gravada dentro do seu lock (o mesmo da sincronização),
-    // para nenhum dos dois escrever uma lista de episódios desatualizada por cima do outro.
-    const releasingAnimes = await this.prisma.anime.findMany({
-      where: { statusLancamento: 'RELEASING' },
-      select: { fonte: true, id: true, titulo: true },
-    });
+    // Uma consulta à tabela Episode diz que obras têm episódios estreados por tratar; já não é
+    // preciso carregar a lista de episódios de todas as obras em lançamento.
+    const pending = await this.episodeStore.findAnimesWithPendingAired();
 
-    for (const anime of releasingAnimes) {
+    for (const { animeFonte, animeId } of pending) {
       try {
         const { notificationsSent } = await this.animeService.notifyAiredEpisodes(
-          anime.fonte,
-          anime.id,
+          animeFonte,
+          animeId,
         );
         if (notificationsSent > 0) {
           this.logger.log(
-            `[LocalSync] ${notificationsSent} newly aired episode(s) of "${anime.titulo}" notified.`,
+            `[LocalSync] ${notificationsSent} newly aired episode(s) of anime ${animeFonte}:${animeId} notified.`,
           );
         }
       } catch (err) {
         this.logger.error(
-          `[LocalSync] Error checking aired episodes of "${anime.titulo}" (${anime.fonte}:${anime.id}):`,
+          `[LocalSync] Error checking aired episodes of anime ${animeFonte}:${animeId}:`,
           err,
         );
       }
@@ -197,6 +240,10 @@ export class SyncService implements OnApplicationBootstrap {
     return new Date(targetLocalUtc + offsetMs);
   }
 
+  // ---------------------------------------------------------------------------------------
+  // Agendamento: decide o que precisa de correr e põe as obras na fila (tabela SyncJob)
+  // ---------------------------------------------------------------------------------------
+
   async checkAndRunScheduledSyncs() {
     const timezone = process.env.AWAKE_TIMEZONE || 'Europe/Lisbon';
     const now = new Date();
@@ -208,29 +255,7 @@ export class SyncService implements OnApplicationBootstrap {
       return;
     }
 
-    // Cleanup stuck sync logs first (running for more than 2 hours)
-    try {
-      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
-      const stuckLogs = await this.prisma.syncLog.findMany({
-        where: {
-          status: 'RUNNING',
-          timestamp: { lt: twoHoursAgo },
-        },
-      });
-
-      for (const log of stuckLogs) {
-        await this.prisma.syncLog.update({
-          where: { id: log.id },
-          data: {
-            status: 'FAILED',
-            details: `${log.details} | Automatically marked as failed after 2 hours of inactivity (process termination/timeout).`,
-          },
-        });
-        this.logger.warn(`Automatically marked stuck sync log ID ${log.id} from ${log.timestamp.toISOString()} as FAILED.`);
-      }
-    } catch (err) {
-      this.logger.error('Error cleaning up stuck sync logs:', err);
-    }
+    await this.cleanupStaleWork();
 
     const plan: SyncPlan = {
       animeActive: false,
@@ -278,9 +303,48 @@ export class SyncService implements OnApplicationBootstrap {
       this.logger.log(
         `Scheduled sync check: anime active: ${plan.animeActive}, anime full: ${plan.animeFull}, manga active: ${plan.mangaActive} (${plan.mangaLabel}), manga full: ${plan.mangaFull}`,
       );
-      this.runScheduledSyncs(plan).catch((err) =>
-        this.logger.error('Error running scheduled syncs:', err),
-      );
+      await this.enqueuePlan(plan);
+    }
+
+    // Mesmo sem nada novo pode haver jobs à espera (de antes de um reinício, ou novas tentativas)
+    this.kickWorker();
+  }
+
+  // Execuções e jobs que ficaram a meio porque o processo morreu ou adormeceu
+  private async cleanupStaleWork() {
+    try {
+      const stuckLogs = await this.prisma.syncLog.findMany({
+        where: {
+          status: 'RUNNING',
+          timestamp: { lt: new Date(Date.now() - STALE_RUN_MS) },
+        },
+      });
+
+      for (const log of stuckLogs) {
+        await this.prisma.syncLog.update({
+          where: { id: log.id },
+          data: {
+            status: 'FAILED',
+            details: `${log.details} | Automatically marked as failed after 2 hours of inactivity (process termination/timeout).`,
+          },
+        });
+        // As obras que ficaram por tratar voltam a ser escolhidas pela próxima execução
+        await this.prisma.syncJob.deleteMany({ where: { runId: log.id } });
+        this.logger.warn(`Automatically marked stuck sync log ID ${log.id} from ${log.timestamp.toISOString()} as FAILED.`);
+      }
+
+      const orphaned = await this.prisma.syncJob.updateMany({
+        where: {
+          status: 'RUNNING',
+          lockedAt: { lt: new Date(Date.now() - STALE_JOB_MS) },
+        },
+        data: { status: 'PENDING', lockedAt: null },
+      });
+      if (orphaned.count > 0) {
+        this.logger.warn(`Returned ${orphaned.count} orphaned sync job(s) to the queue.`);
+      }
+    } catch (err) {
+      this.logger.error('Error cleaning up stuck sync work:', err);
     }
   }
 
@@ -330,215 +394,326 @@ export class SyncService implements OnApplicationBootstrap {
     return !!recent;
   }
 
-  // Devolve false se já havia uma sincronização a correr (e não fez nada).
-  private async runScheduledSyncs(plan: SyncPlan): Promise<boolean> {
-    if (this.isSyncingActive) {
-      this.logger.warn('A synchronization is already running. Skipping scheduled trigger.');
-      return false;
+  private async enqueuePlan(plan: SyncPlan) {
+    const animeSelect = { fonte: true, id: true, titulo: true } as const;
+    const mangaSelect = { id: true, titulo: true } as const;
+    const asManga = (rows: { id: number; titulo: string }[]): WorkRef[] =>
+      rows.map((m) => ({ ...m, fonte: MediaSource.ANILIST }));
+    // As mais atrasadas primeiro; as que nunca tiveram data marcada vão à frente
+    const oldestFirst = { nextSyncAt: { sort: 'asc', nulls: 'first' } } as const;
+
+    // 1a. Anime: obras em lançamento (diária)
+    if (plan.animeActive) {
+      await this.enqueueRun('[ANIME_ACTIVE]', () =>
+        this.prisma.anime.findMany({
+          where: {
+            syncStatus: { not: SYNC_STATUS_GONE },
+            OR: [
+              { statusLancamento: { notIn: ['FINISHED', 'CANCELED', 'CANCELLED'] } },
+              { statusLancamento: null },
+            ],
+          },
+          select: animeSelect,
+        }),
+      );
     }
 
-    this.isSyncingActive = true;
-    this.currentSyncedCount = 0;
-    this.currentItemTitle = 'Initializing...';
-
-    try {
-      const animeSelect = { fonte: true, id: true, titulo: true } as const;
-      const mangaSelect = { id: true, titulo: true } as const;
-      const syncAnime = (a: AnimeRef) =>
-        this.animeService.syncLatestEpisode(a.fonte, a.id);
-      const syncManga = (m: MangaRef) =>
-        this.mangaService.syncLatestChapter(m.id, { throwOnFailure: true });
-      // As mais atrasadas primeiro; as que nunca tiveram data marcada vão à frente
-      const oldestFirst = { nextSyncAt: { sort: 'asc', nulls: 'first' } } as const;
-
-      // 1a. Anime: obras em lançamento (diária)
-      if (plan.animeActive) {
-        await this.runPhase<AnimeRef>(
-          '[ANIME_ACTIVE]',
-          'active/releasing animes',
-          () =>
-            this.prisma.anime.findMany({
-              where: {
-                syncStatus: { not: SYNC_STATUS_GONE },
-                OR: [
-                  { statusLancamento: { notIn: ['FINISHED', 'CANCELED', 'CANCELLED'] } },
-                  { statusLancamento: null },
-                ],
-              },
-              select: animeSelect,
-            }),
-          syncAnime,
-        );
-      }
-
-      // 1b. Anime: fila completa. As obras que a fase anterior acabou de sincronizar já
-      //     saíram da fila (o nextSyncAt avançou).
-      if (plan.animeFull) {
-        await this.runPhase<AnimeRef>(
-          '[ANIME_FULL]',
-          'animes',
-          () =>
-            this.prisma.anime.findMany({
-              where: dueForFullSync(),
-              orderBy: oldestFirst,
-              take: FULL_SYNC_BATCH,
-              select: animeSelect,
-            }),
-          syncAnime,
-        );
-      }
-
-      // 2a. Manga: obras em lançamento (janela atual)
-      if (plan.mangaActive) {
-        await this.runPhase<MangaRef>(
-          plan.mangaLabel,
-          'releasing mangas',
-          () =>
-            this.prisma.manga.findMany({
-              where: {
-                statusLancamento: 'RELEASING',
-                syncStatus: { not: SYNC_STATUS_GONE },
-              },
-              select: mangaSelect,
-            }),
-          syncManga,
-        );
-      }
-
-      // 2b. Manga: fila completa
-      if (plan.mangaFull) {
-        await this.runPhase<MangaRef>(
-          '[MANGA_FULL]',
-          'mangas',
-          () =>
-            this.prisma.manga.findMany({
-              where: dueForFullSync(),
-              orderBy: oldestFirst,
-              take: FULL_SYNC_BATCH,
-              select: mangaSelect,
-            }),
-          syncManga,
-        );
-      }
-    } finally {
-      this.isSyncingActive = false;
-      this.currentItemTitle = '';
-      this.currentSyncedCount = 0;
-      this.totalItemsToSync = 0;
+    // 1b. Anime: fila completa. Uma obra que já entrou pela fase anterior não é repetida
+    //     (só pode haver um job por tratar por obra).
+    if (plan.animeFull) {
+      await this.enqueueRun('[ANIME_FULL]', () =>
+        this.prisma.anime.findMany({
+          where: dueForFullSync(),
+          orderBy: oldestFirst,
+          take: FULL_SYNC_BATCH,
+          select: animeSelect,
+        }),
+      );
     }
-    return true;
+
+    // 2a. Manga: obras em lançamento (janela atual)
+    if (plan.mangaActive) {
+      await this.enqueueRun(plan.mangaLabel, async () =>
+        asManga(
+          await this.prisma.manga.findMany({
+            where: {
+              statusLancamento: 'RELEASING',
+              syncStatus: { not: SYNC_STATUS_GONE },
+            },
+            select: mangaSelect,
+          }),
+        ),
+      );
+    }
+
+    // 2b. Manga: fila completa
+    if (plan.mangaFull) {
+      await this.enqueueRun('[MANGA_FULL]', async () =>
+        asManga(
+          await this.prisma.manga.findMany({
+            where: dueForFullSync(),
+            orderBy: oldestFirst,
+            take: FULL_SYNC_BATCH,
+            select: mangaSelect,
+          }),
+        ),
+      );
+    }
   }
 
-  // Corre uma fase com o seu próprio registo no SyncLog. Um erro numa fase fica no registo
-  // dessa fase e não impede as seguintes nem altera o resultado das que já terminaram.
-  private async runPhase<T extends { id: number; titulo: string }>(
-    label: string,
-    tipoObra: string,
-    loadItems: () => Promise<T[]>,
-    syncOne: (item: T) => Promise<unknown>,
-  ) {
-    this.logger.log(`Starting scheduled ${label} sync...`);
-    this.currentSyncedCount = 0;
-    this.totalItemsToSync = 0;
-    this.currentItemTitle = 'Initializing...';
-
-    let logId: number | null = null;
+  // Cria uma execução (um registo no SyncLog) e um job por obra. Um erro aqui fica no log e
+  // não impede as outras execuções.
+  private async enqueueRun(label: string, loadItems: () => Promise<WorkRef[]>) {
     try {
+      const items = await loadItems();
+      const now = new Date();
       const log = await this.prisma.syncLog.create({
         data: { status: 'RUNNING', details: `${label} Sync started` },
       });
-      logId = log.id;
 
-      const items = await loadItems();
-      this.logger.log(`${label} Selected ${items.length} ${tipoObra} to sync.`);
+      // skipDuplicates: uma obra que já tem um job por tratar (noutra execução) não entra de novo
+      const created =
+        items.length > 0
+          ? await this.prisma.syncJob.createMany({
+              data: items.map((item) => ({
+                runId: log.id,
+                fonte: item.fonte,
+                mediaId: item.id,
+                titulo: item.titulo,
+                runAfter: now,
+              })),
+              skipDuplicates: true,
+            })
+          : { count: 0 };
+      this.logger.log(
+        `${label} Queued ${created.count} of ${items.length} selected ${tipoObraFor(label)}.`,
+      );
 
-      const outcome = await this.syncItems(label, items, syncOne);
-      await this.finishSyncLog(log.id, label, tipoObra, outcome);
+      if (created.count === 0) await this.finalizeRun(log.id);
     } catch (error) {
-      this.logger.error(`Error during scheduled ${label} sync:`, error);
-      if (logId !== null) {
-        const msg = error instanceof Error ? error.stack || error.message : String(error);
-        await this.prisma.syncLog
-          .update({
-            where: { id: logId },
-            data: { status: 'FAILED', details: `${label} Failed: ${msg}` },
-          })
-          .catch((e) => this.logger.error(`Failed to update ${label} log status:`, e));
-      }
+      this.logger.error(`Error queueing scheduled ${label} sync:`, error);
     }
   }
 
-  // Sincroniza as obras uma a uma, com uma pausa a cada 3 para respeitar os limites das
-  // fontes. Um erro numa obra fica registado e o ciclo continua com as seguintes (L-22).
-  private async syncItems<T extends { id: number; titulo: string }>(
-    label: string,
-    items: T[],
-    syncOne: (item: T) => Promise<unknown>,
-  ): Promise<SyncOutcome> {
-    const outcome: SyncOutcome = { total: items.length, sincronizadas: 0, falhas: [] };
-    this.totalItemsToSync = items.length;
+  // ---------------------------------------------------------------------------------------
+  // Worker: trata os jobs da fila
+  // ---------------------------------------------------------------------------------------
 
-    for (let i = 0; i < items.length; i += 3) {
-      if (!this.isSyncingActive) break;
+  // Arranca o worker se não estiver já a correr. Não espera por ele.
+  private kickWorker() {
+    if (this.draining) return;
+    this.draining = true;
+    if (this.retryTimer) clearTimeout(this.retryTimer);
 
-      const batch = items.slice(i, i + 3);
-      for (const item of batch) {
-        this.currentItemTitle = item.titulo;
-        this.logger.log(
-          `[ScheduledSync] ${label} Syncing: "${item.titulo}" (${this.currentSyncedCount + 1}/${this.totalItemsToSync})`,
+    this.drainQueue()
+      .catch((err) => this.logger.error('Error in sync worker:', err))
+      .finally(() => {
+        this.draining = false;
+        this.currentItemTitle = '';
+        this.currentSyncedCount = 0;
+        this.totalItemsToSync = 0;
+        this.scheduleNextKick().catch((err) =>
+          this.logger.error('Error scheduling the next sync worker run:', err),
         );
-        try {
-          await syncOne(item);
-          outcome.sincronizadas++;
-        } catch (err) {
-          const erro = err instanceof Error ? err.message : String(err);
-          outcome.falhas.push({ id: item.id, titulo: item.titulo, erro });
-          this.logger.error(`[ScheduledSync] ${label} Failed: "${item.titulo}" (${item.id}): ${erro}`);
-        }
-        this.currentSyncedCount++;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-    }
-    return outcome;
+      });
   }
 
-  private async finishSyncLog(
-    logId: number,
-    label: string,
-    tipoObra: string,
-    outcome: SyncOutcome,
-  ) {
-    const status = decidirEstadoSync(outcome);
-    await this.prisma.syncLog.update({
-      where: { id: logId },
-      data: { status, details: descreverSync(label, tipoObra, outcome) },
+  private async drainQueue() {
+    this.currentSyncedCount = 0;
+    this.totalItemsToSync = await this.prisma.syncJob.count({
+      where: { status: 'PENDING', runAfter: { lte: new Date() } },
     });
+    if (this.totalItemsToSync === 0) return;
+
+    this.currentItemTitle = 'Initializing...';
+    // Anime e manga usam fornecedores diferentes, por isso correm lado a lado
+    await Promise.all([
+      this.runLane(false, ANIME_LANE.concurrency, ANIME_LANE.pauseMs),
+      this.runLane(true, MANGA_LANE.concurrency, MANGA_LANE.pauseMs),
+    ]);
+  }
+
+  private async runLane(manga: boolean, concurrency: number, pauseMs: number) {
+    for (;;) {
+      const jobs = await this.claimJobs(manga, concurrency);
+      if (jobs.length === 0) return;
+
+      await Promise.all(jobs.map((job) => this.processJob(job)));
+      await this.finalizeRuns([...new Set(jobs.map((job) => job.runId))]);
+      await sleep(pauseMs);
+    }
+  }
+
+  // Reserva até `limit` jobs prontos a correr. FOR UPDATE SKIP LOCKED: dois workers (duas
+  // instâncias do servidor) nunca ficam com o mesmo job, e nenhum espera pelo outro.
+  private claimJobs(manga: boolean, limit: number): Promise<ClaimedJob[]> {
+    return this.prisma.$queryRaw<ClaimedJob[]>`
+      UPDATE "SyncJob"
+      SET "status" = 'RUNNING',
+          "lockedAt" = (NOW() AT TIME ZONE 'UTC'),
+          "attempts" = "attempts" + 1
+      WHERE "id" IN (
+        SELECT "id" FROM "SyncJob"
+        WHERE "status" = 'PENDING'
+          AND "runAfter" <= (NOW() AT TIME ZONE 'UTC')
+          AND ("fonte" = 'ANILIST') = ${manga}
+        ORDER BY "runAfter", "id"
+        LIMIT ${limit}
+        FOR UPDATE SKIP LOCKED
+      )
+      RETURNING "id", "runId", "fonte", "mediaId", "titulo", "attempts"`;
+  }
+
+  // Sincroniza a obra de um job e regista o desfecho no próprio job. Nunca lança.
+  private async processJob(job: ClaimedJob) {
+    this.currentItemTitle = job.titulo;
+    this.logger.log(
+      `[SyncWorker] Syncing "${job.titulo}" (${job.fonte}:${job.mediaId}), attempt ${job.attempts}`,
+    );
+
+    let data: Record<string, unknown>;
+    try {
+      if (job.fonte === MediaSource.ANILIST) {
+        await this.mangaService.syncLatestChapter(job.mediaId, { throwOnFailure: true });
+      } else {
+        await this.animeService.syncLatestEpisode(job.fonte, job.mediaId);
+      }
+      data = { status: 'DONE', finishedAt: new Date(), lockedAt: null, lastError: null };
+    } catch (err) {
+      const erro = (err instanceof Error ? err.message : String(err)).slice(0, 500);
+
+      if (err instanceof CircuitOpenError) {
+        // O fornecedor está em pausa: o job espera por ele e esta tentativa não conta
+        data = {
+          status: 'PENDING',
+          runAfter: err.retryAt,
+          attempts: { decrement: 1 },
+          lockedAt: null,
+          lastError: erro,
+        };
+        this.logger.warn(`[SyncWorker] "${job.titulo}" postponed: ${erro}`);
+      } else if (!(err instanceof SyncNotFoundError) && job.attempts < MAX_JOB_ATTEMPTS) {
+        const delay =
+          JOB_RETRY_DELAYS_MS[Math.min(job.attempts, JOB_RETRY_DELAYS_MS.length) - 1];
+        data = {
+          status: 'PENDING',
+          runAfter: new Date(Date.now() + delay),
+          lockedAt: null,
+          lastError: erro,
+        };
+        this.logger.warn(
+          `[SyncWorker] "${job.titulo}" failed (attempt ${job.attempts}/${MAX_JOB_ATTEMPTS}), retrying in ${delay / MINUTE_MS} min: ${erro}`,
+        );
+      } else {
+        data = { status: 'FAILED', finishedAt: new Date(), lockedAt: null, lastError: erro };
+        this.logger.error(
+          `[SyncWorker] Failed: "${job.titulo}" (${job.fonte}:${job.mediaId}): ${erro}`,
+        );
+      }
+    }
+
+    if (data.status !== 'PENDING') {
+      this.currentSyncedCount++;
+      // Jobs que entraram na fila já com o worker a correr
+      this.totalItemsToSync = Math.max(this.totalItemsToSync, this.currentSyncedCount);
+    }
+    await this.prisma.syncJob
+      .update({ where: { id: job.id }, data })
+      .catch((e) => this.logger.error(`Error updating sync job ${job.id}:`, e));
+  }
+
+  // Fecha as execuções que já não têm jobs por tratar
+  private async finalizeRuns(runIds: number[]) {
+    for (const runId of runIds) {
+      try {
+        const open = await this.prisma.syncJob.count({
+          where: { runId, status: { in: ['PENDING', 'RUNNING'] } },
+        });
+        if (open === 0) await this.finalizeRun(runId);
+      } catch (err) {
+        this.logger.error(`Error finalizing sync run ${runId}:`, err);
+      }
+    }
+  }
+
+  // Escreve o resultado da execução no SyncLog a partir dos seus jobs e apaga-os. Uma obra
+  // que falhou fica registada e não impede as outras (L-22).
+  private async finalizeRun(runId: number) {
+    const log = await this.prisma.syncLog.findUnique({ where: { id: runId } });
+    if (!log || log.status !== 'RUNNING') return;
+
+    const jobs = await this.prisma.syncJob.findMany({
+      where: { runId },
+      select: { mediaId: true, titulo: true, status: true, lastError: true },
+    });
+    const label = log.details?.match(/^\[[A-Z_]+\]/)?.[0] ?? '[SYNC]';
+    const outcome: SyncOutcome = {
+      total: jobs.length,
+      sincronizadas: jobs.filter((job) => job.status === 'DONE').length,
+      falhas: jobs
+        .filter((job) => job.status === 'FAILED')
+        .map((job) => ({
+          id: job.mediaId,
+          titulo: job.titulo,
+          erro: job.lastError ?? 'unknown error',
+        })),
+    };
+    const status = decidirEstadoSync(outcome);
+
+    // Só fecha se ainda estiver RUNNING: com duas instâncias, só uma escreve o resultado
+    const closed = await this.prisma.syncLog.updateMany({
+      where: { id: runId, status: 'RUNNING' },
+      data: { status, details: descreverSync(label, tipoObraFor(label), outcome) },
+    });
+    if (closed.count === 0) return;
+
+    await this.prisma.syncJob.deleteMany({ where: { runId } });
     this.logger.log(
       `Scheduled ${label} sync finished with status ${status} (${outcome.sincronizadas}/${outcome.total}, ${outcome.falhas.length} failed).`,
     );
   }
 
-  // Arranca a sincronização das obras em lançamento em background, ignorando o agendamento.
+  // Se ficaram jobs à espera (novas tentativas, fornecedor em pausa), volta a arrancar o
+  // worker quando o primeiro estiver pronto.
+  private async scheduleNextKick() {
+    const next = await this.prisma.syncJob.findFirst({
+      where: { status: 'PENDING' },
+      orderBy: { runAfter: 'asc' },
+      select: { runAfter: true },
+    });
+    if (!next) return;
+
+    const delay = Math.min(
+      Math.max(next.runAfter.getTime() - Date.now(), 0) + 5000,
+      30 * MINUTE_MS,
+    );
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.retryTimer = setTimeout(() => this.kickWorker(), delay);
+    this.retryTimer.unref?.();
+  }
+
+  // Põe na fila a sincronização das obras em lançamento, ignorando o agendamento.
   // Devolve false se já havia uma sincronização a correr.
-  runManualSync(): boolean {
-    if (this.isSyncingActive) {
+  async runManualSync(): Promise<boolean> {
+    if (this.getStatus().isSyncing) {
       this.logger.warn('Manual sync requested, but a synchronization is already running.');
       return false;
     }
     this.logger.log('Manual sync triggered by administrator. Bypassing schedule.');
-    this.runScheduledSyncs({
+    await this.enqueuePlan({
       animeActive: true,
       animeFull: false,
       mangaActive: true,
       mangaFull: false,
       mangaLabel: '[MANGA_MANUAL]',
-    }).catch((err) => this.logger.error('Error running manual sync:', err));
+    });
+    this.kickWorker();
     return true;
   }
 
   getStatus() {
     return {
-      isSyncing: this.isSyncingActive,
+      isSyncing: this.draining && this.totalItemsToSync > 0,
       total: this.totalItemsToSync,
       current: this.currentSyncedCount,
       currentItemTitle: this.currentItemTitle,

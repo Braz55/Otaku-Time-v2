@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { MediaSource } from '@prisma/client';
+import { MediaSource, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 
@@ -101,6 +101,8 @@ export class CalendarService {
     animeId: number,
     episodesList: any[],
     animeTitle: string,
+    // Transação do chamador: a transição e as notificações ficam atómicas com o resto
+    db: Prisma.TransactionClient = this.prisma,
   ) {
     if (
       !episodesList ||
@@ -131,7 +133,7 @@ export class CalendarService {
 
     // A condição vai no próprio UPDATE: quem mudou o estado entretanto não é afetado, e
     // duas execuções em simultâneo não transitam (nem notificam) o mesmo registo duas vezes.
-    const moved = await this.prisma.userAnime.updateManyAndReturn({
+    const moved = await db.userAnime.updateManyAndReturn({
       where: {
         animeFonte: fonte,
         animeId,
@@ -145,15 +147,18 @@ export class CalendarService {
       select: { userId: true },
     });
 
-    for (const ua of moved) {
-      await this.notificationService.createOrReplaceNotification(
-        ua.userId,
-        'Anime planeado estreou!',
-        `O primeiro episódio de "${animeTitle}" estreou! Mudámos o status para "A ver".`,
-        'ANIME',
-        { fonte, id: animeId },
-      );
+    await this.notificationService.replaceMany(
+      db,
+      moved.map((ua) => ({
+        userId: ua.userId,
+        title: 'Anime planeado estreou!',
+        message: `O primeiro episódio de "${animeTitle}" estreou! Mudámos o status para "A ver".`,
+      })),
+      'ANIME',
+      { fonte, id: animeId },
+    );
 
+    for (const ua of moved) {
       this.logger.log(
         `[AutoTransition] Moved user ${ua.userId} tracking of anime "${animeTitle}" (${animeId}) from PLANNED to WATCHING.`,
       );

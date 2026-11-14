@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { CircuitOpenError } from '../common/circuit-breaker';
 import { fetchJson } from '../common/http-client';
 
 @Injectable()
@@ -69,6 +70,7 @@ export class TMDBService {
         {
           retries,
           baseDelayMs: delay,
+          breaker: 'tmdb',
           onRetry: ({ attempt, waitMs, reason }) =>
             this.logger.warn(
               `TMDB ${endpoint} failed (${reason}), attempt ${attempt}/${retries}. Retrying in ${Math.round(waitMs)}ms...`,
@@ -76,7 +78,7 @@ export class TMDBService {
         },
       );
     } catch (error: any) {
-      if (error.status !== 404) {
+      if (error.status !== 404 && !(error instanceof CircuitOpenError)) {
         this.logger.error(
           `Error fetching from TMDB endpoint ${endpoint}: ${error.message || error}`,
         );

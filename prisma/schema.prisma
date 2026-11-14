@@ -65,7 +65,9 @@ model Anime {
   linksExternos       String?     // JSON string com os links oficiais
   utilizadores        UserAnime[]
   customListItems     CustomListItem[]
-  episodesList        Json?       // Lista de todos os episódios em formato JSON
+  episodes            Episode[]
+  // Cópia de leitura da tabela Episode (a fonte de verdade), regravada só quando algo muda
+  episodesList        Json?
   numEpisodiosAired   Int?
   ultimoEpisodioEstreadoData DateTime?
   updatedAt           DateTime    @default(now()) @updatedAt
@@ -157,13 +159,54 @@ model UserManga {
   @@index([mangaId, status])
 }
 
+// Um episódio de um anime. É aqui que a sincronização escreve (uma linha por episódio) e onde
+// fica registado se a estreia já foi tratada; Anime.episodesList é a cópia de leitura.
+model Episode {
+  animeFonte          MediaSource
+  animeId             Int
+  season              Int       // 0 = especiais
+  episodeNumber       Int
+  globalEpisodeNumber Int?      // Posição na contagem contínua da obra; null nos especiais
+  name                String?
+  airDate             DateTime?
+  stillPath           String?
+  notifiedAt          DateTime? // Quando a estreia foi tratada (notificações enviadas)
+  anime               Anime     @relation(fields: [animeFonte, animeId], references: [fonte, id], onDelete: Cascade)
+
+  @@id([animeFonte, animeId, season, episodeNumber])
+  @@index([notifiedAt, airDate])
+}
+
 model SyncLog {
   id        Int      @id @default(autoincrement())
   timestamp DateTime @default(now())
   status    String   // 'RUNNING', 'SUCCESS', 'PARTIAL' (algumas obras falharam) ou 'FAILED'
   details   String?  // Description of what was synced or error details
+  jobs      SyncJob[]
 
   @@index([timestamp])
+}
+
+// Fila de sincronização: uma obra por linha, dentro de uma execução (SyncLog). Fica na base de
+// dados para sobreviver a reinícios e para duas instâncias não tratarem a mesma obra.
+// Um índice único parcial (na migração) garante no máximo um job por tratar por obra.
+model SyncJob {
+  id         Int         @id @default(autoincrement())
+  runId      Int
+  fonte      MediaSource
+  mediaId    Int
+  titulo     String
+  status     String      @default("PENDING") // 'PENDING', 'RUNNING', 'DONE' ou 'FAILED'
+  attempts   Int         @default(0)
+  runAfter   DateTime    @default(now()) // Não tratar antes desta hora (novas tentativas)
+  lockedAt   DateTime?   // Quando um worker pegou no job
+  lastError  String?
+  createdAt  DateTime    @default(now())
+  finishedAt DateTime?
+  run        SyncLog     @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([status, runAfter])
+  @@index([runId])
 }
 
 enum MediaType {

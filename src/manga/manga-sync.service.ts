@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AnilistMangaService } from './anilist-manga.service';
 import { NotificationService } from '../notification/notification.service';
 import { fetchJson, FetchRetryOptions } from '../common/http-client';
+import { CircuitOpenError, circuitBreaker } from '../common/circuit-breaker';
 import { KeyedMutex } from '../common/keyed-mutex';
 import { SyncTransientError, toSyncError } from '../common/sync-errors';
 import { syncFailureData, syncSuccessData } from '../common/sync-state';
@@ -22,7 +23,11 @@ const MANGADEX_INIT: RequestInit = {
   headers: { 'User-Agent': 'OtakuTimeBot/1.0' },
 };
 // Timeout de 10s por tentativa; repete uma vez em falhas de rede, 429 e 5xx
-const HTTP_OPTIONS: FetchRetryOptions = { retries: 2 };
+const MANGAUPDATES_HTTP: FetchRetryOptions = {
+  retries: 2,
+  breaker: 'mangaupdates',
+};
+const MANGADEX_HTTP: FetchRetryOptions = { retries: 2, breaker: 'mangadex' };
 
 const cleanTitle = (s: string) =>
   s
@@ -75,7 +80,7 @@ export class MangaSyncService {
         detailData = await fetchJson(
           `${MANGAUPDATES_API}/series/${seriesId}`,
           {},
-          HTTP_OPTIONS,
+          MANGAUPDATES_HTTP,
         );
       } catch (err) {
         if (knownSeriesId && isNotFound(err)) {
@@ -126,7 +131,7 @@ export class MangaSyncService {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ search: title, limit }),
         },
-        HTTP_OPTIONS,
+        MANGAUPDATES_HTTP,
       );
 
     const searchData = await search(1);
@@ -236,7 +241,8 @@ export class MangaSyncService {
         return result;
       } catch (err) {
         const syncError = toSyncError(err);
-        if (existe) {
+        // Fornecedor em pausa: a obra não tem culpa, não se regista falha nela
+        if (existe && !(syncError instanceof CircuitOpenError)) {
           await this.prisma.manga
             .update({
               where: { id: anilistId },
@@ -317,7 +323,10 @@ export class MangaSyncService {
       if (latest) {
         source = 'MangaDex';
       } else if (mdResult.error) {
-        // A última fonte disponível falhou: não se sabe se há capítulos novos
+        // A última fonte disponível falhou: não se sabe se há capítulos novos.
+        // Se foi por o MangaDex estar em pausa, a obra é só adiada (não conta como falha).
+        const pausedUntil = circuitBreaker('mangadex').retryAt;
+        if (pausedUntil) throw new CircuitOpenError('mangadex', pausedUntil);
         throw new SyncTransientError(
           [bakaRes.error, mdResult.error].filter(Boolean).join('; '),
         );
@@ -346,21 +355,7 @@ export class MangaSyncService {
       const oldLatest = existe.numCapitulosTotal || 0;
 
       if (latest > oldLatest) {
-        // O total só avança se ainda estiver abaixo do novo valor. A condição vai no UPDATE,
-        // por isso só uma execução "ganha" e as transições e notificações saem uma vez.
-        const advanced = await this.prisma.manga.updateMany({
-          where: {
-            id: anilistId,
-            OR: [
-              { numCapitulosTotal: null },
-              { numCapitulosTotal: { lt: latest } },
-            ],
-          },
-          data: { numCapitulosTotal: latest },
-        });
-        if (advanced.count > 0) {
-          await this.announceNewChapter(anilistId, existe.titulo, latest);
-        }
+        await this.advanceChapterTotal(anilistId, existe.titulo, latest);
       }
 
       // O total nunca desce por uma fonte dar um número mais baixo (as fontes alternam e o
@@ -382,35 +377,53 @@ export class MangaSyncService {
     return { latest, error: errorMsg, source, breakdown };
   }
 
-  // Há um capítulo novo: reabre quem tinha a obra como COMPLETED e avisa quem a está a ler
-  private async announceNewChapter(
+  // Há um capítulo novo. Numa só transação: o total avança, quem tinha a obra como COMPLETED
+  // volta a "A ler" e quem a está a ler é avisado. O total só avança se ainda estiver abaixo
+  // do novo valor, e essa condição vai no próprio UPDATE: se duas execuções chegarem aqui ao
+  // mesmo tempo, só uma "ganha" e as notificações saem uma única vez.
+  private async advanceChapterTotal(
     mangaId: number,
     titulo: string,
     latest: number,
   ) {
-    const reopened = await this.prisma.userManga.updateMany({
-      where: { mangaId, status: 'COMPLETED', capAtual: { lt: latest } },
-      data: { status: 'WATCHING', lastProgressUpdate: new Date() },
-    });
-    if (reopened.count > 0) {
-      console.log(
-        `[AutoTransition] Moved ${reopened.count} tracking(s) of manga "${titulo}" (${mangaId}) from COMPLETED to WATCHING because new chapters were detected (up to ${latest}).`,
-      );
-    }
+    await this.prisma.$transaction(async (tx) => {
+      const advanced = await tx.manga.updateMany({
+        where: {
+          id: mangaId,
+          OR: [
+            { numCapitulosTotal: null },
+            { numCapitulosTotal: { lt: latest } },
+          ],
+        },
+        data: { numCapitulosTotal: latest },
+      });
+      if (advanced.count === 0) return;
 
-    const userMangas = await this.prisma.userManga.findMany({
-      where: { mangaId, status: 'WATCHING' },
-      select: { userId: true },
-    });
-    for (const um of userMangas) {
-      await this.notificationService.createOrReplaceNotification(
-        um.userId,
-        'Novo capítulo de Mangá!',
-        `O capítulo ${latest} de "${titulo}" foi lançado!`,
+      const reopened = await tx.userManga.updateMany({
+        where: { mangaId, status: 'COMPLETED', capAtual: { lt: latest } },
+        data: { status: 'WATCHING', lastProgressUpdate: new Date() },
+      });
+      if (reopened.count > 0) {
+        console.log(
+          `[AutoTransition] Moved ${reopened.count} tracking(s) of manga "${titulo}" (${mangaId}) from COMPLETED to WATCHING because new chapters were detected (up to ${latest}).`,
+        );
+      }
+
+      const readers = await tx.userManga.findMany({
+        where: { mangaId, status: 'WATCHING' },
+        select: { userId: true },
+      });
+      await this.notificationService.replaceMany(
+        tx,
+        readers.map((um) => ({
+          userId: um.userId,
+          title: 'Novo capítulo de Mangá!',
+          message: `O capítulo ${latest} de "${titulo}" foi lançado!`,
+        })),
         'MANGA',
         { fonte: 'ANILIST', id: mangaId },
       );
-    }
+    });
   }
 
   // PLAN B: MangaDex
@@ -431,7 +444,7 @@ export class MangaSyncService {
           const known = await fetchJson(
             `${MANGADEX_API}/manga/${knownMangaDexId}`,
             MANGADEX_INIT,
-            HTTP_OPTIONS,
+            MANGADEX_HTTP,
           );
           match = known?.data ?? null;
           exact = !!match;
@@ -472,7 +485,7 @@ export class MangaSyncService {
         feedData = await fetchJson(
           `${MANGADEX_API}/manga/${match.id}/feed?limit=10&order[chapter]=desc`,
           MANGADEX_INIT,
-          HTTP_OPTIONS,
+          MANGADEX_HTTP,
         );
       } catch (err) {
         console.error(`[Plan B] MangaDex feed error: ${errorMessage(err)}`);
@@ -528,7 +541,7 @@ export class MangaSyncService {
     const data = await fetchJson(
       `${MANGADEX_API}/manga?title=${encodeURIComponent(title)}&limit=10&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&contentRating[]=pornographic`,
       MANGADEX_INIT,
-      HTTP_OPTIONS,
+      MANGADEX_HTTP,
     );
 
     if (!data.data || data.data.length === 0) {

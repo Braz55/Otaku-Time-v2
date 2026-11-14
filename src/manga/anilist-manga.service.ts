@@ -124,7 +124,7 @@ export class AnilistMangaService {
           body: JSON.stringify({ query, variables: { id } }),
         },
         // A AniList pede esperas de até 1 minuto quando limita os pedidos
-        { maxRetryAfterMs: 60_000 },
+        { maxRetryAfterMs: 60_000, breaker: 'anilist' },
       );
     } catch (error) {
       throw toSyncError(error, `AniList manga ${id}`);

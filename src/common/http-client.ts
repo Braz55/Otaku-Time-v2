@@ -1,3 +1,4 @@
+import { circuitBreaker } from './circuit-breaker';
 import { HttpError } from './sync-errors';
 
 export interface FetchRetryOptions {
@@ -11,6 +12,11 @@ export interface FetchRetryOptions {
   maxRetryAfterMs?: number;
   /** Chamado antes de cada nova tentativa (para logs). */
   onRetry?: (info: { attempt: number; waitMs: number; reason: string }) => void;
+  /**
+   * Nome do fornecedor ('tmdb', 'anilist', ...). Com ele o pedido passa pelo circuit breaker
+   * desse fornecedor: falha logo (CircuitOpenError) enquanto o fornecedor estiver em pausa.
+   */
+  breaker?: string;
 }
 
 const sleep = (ms: number) =>
@@ -42,6 +48,9 @@ export async function fetchWithRetry(
     onRetry,
   } = options;
 
+  const breaker = options.breaker ? circuitBreaker(options.breaker) : null;
+  breaker?.assertClosed();
+
   let lastError: HttpError = new HttpError(`Sem tentativas para ${url}`);
 
   for (let attempt = 0; attempt < retries; attempt++) {
@@ -64,7 +73,10 @@ export async function fetchWithRetry(
     }
 
     if (response) {
-      if (response.ok) return response;
+      if (response.ok) {
+        breaker?.recordSuccess();
+        return response;
+      }
 
       // Liberta a ligação: o corpo de uma resposta de erro não é lido
       await response.body?.cancel().catch(() => undefined);
@@ -74,7 +86,11 @@ export async function fetchWithRetry(
         response.status,
       );
       const retryable = response.status === 429 || response.status >= 500;
-      if (!retryable) throw lastError;
+      if (!retryable) {
+        // O fornecedor respondeu (404, 400...): está a funcionar
+        breaker?.recordSuccess();
+        throw lastError;
+      }
 
       const retryAfter = parseRetryAfter(response.headers?.get('Retry-After'));
       if (retryAfter !== null) waitMs = Math.min(retryAfter, maxRetryAfterMs);
@@ -86,6 +102,8 @@ export async function fetchWithRetry(
     }
   }
 
+  // Esgotou as tentativas em falhas de rede, 429 ou 5xx: conta para abrir o circuito
+  breaker?.recordFailure();
   throw lastError;
 }
 

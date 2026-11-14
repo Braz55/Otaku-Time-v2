@@ -15,8 +15,8 @@ export class SyncController {
   @Post('start')
   @UseGuards(JwtAuthGuard, AdminGuard)
   async startSync() {
-    // Inicia em background para não bloquear a resposta HTTP
-    const started = this.syncService.runManualSync();
+    // Só põe as obras na fila; a sincronização corre em background
+    const started = await this.syncService.runManualSync();
     return {
       started,
       message: started

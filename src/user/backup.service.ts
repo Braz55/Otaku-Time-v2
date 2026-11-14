@@ -99,6 +99,7 @@ export class BackupService {
             Accept: 'application/json',
           },
           body: JSON.stringify({ query, variables }),
+          signal: AbortSignal.timeout(15_000),
         });
 
         if (response.status === 429) {

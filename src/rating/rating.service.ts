@@ -3,6 +3,7 @@ import { MediaSource } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TMDBService } from '../anime/tmdb.service';
 import { kindOf, mediaKey } from './media-type';
+import { anilistRequest } from '../common/anilist-client';
 
 @Injectable()
 export class RatingService {
@@ -89,15 +90,7 @@ export class RatingService {
     const variables = { id: mediaId };
 
     try {
-      const response = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({ query, variables }),
-      });
-      const result = await response.json();
+      const result = await anilistRequest({ query, variables });
       const averageScore = result?.data?.Media?.averageScore;
       if (averageScore !== undefined && averageScore !== null) {
         // A AniList devolve valores de 0 a 100 (ex: 78). Convertemos para escala de 0 a 10 (ex: 7.8).

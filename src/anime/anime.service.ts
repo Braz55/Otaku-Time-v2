@@ -29,9 +29,14 @@ import { MediaSource } from '@prisma/client';
 import { CircuitOpenError } from '../common/circuit-breaker';
 import { KeyedMutex } from '../common/keyed-mutex';
 import { SyncTransientError, toSyncError } from '../common/sync-errors';
-import { syncFailureData, syncSuccessData } from '../common/sync-state';
+import {
+  SYNC_STATUS_GONE,
+  syncFailureData,
+  syncSuccessData,
+} from '../common/sync-state';
 import {
   ANIME_SOURCES,
+  AnimeSource,
   animeKey,
   animeSourceFromFormat,
   formatFromSource,
@@ -1157,6 +1162,38 @@ export class AnimeService {
         err,
       );
     }
+  }
+
+  // Obras marcadas como GONE: a fonte respondeu 404 e já não são sincronizadas. Com o número
+  // de utilizadores que as têm, para o administrador decidir se as migra para outro ID.
+  async listUnavailableAnimes() {
+    const animes = await this.prisma.anime.findMany({
+      where: { syncStatus: SYNC_STATUS_GONE },
+      orderBy: { titulo: 'asc' },
+      select: {
+        fonte: true,
+        id: true,
+        titulo: true,
+        lastSyncedAt: true,
+        _count: { select: { utilizadores: true } },
+      },
+    });
+    return animes.map(({ _count, ...anime }) => ({
+      ...anime,
+      utilizadores: _count.utilizadores,
+    }));
+  }
+
+  // Com o lock da obra de origem, para não correr a meio de uma sincronização dela
+  async migrateAnimeId(
+    fonte: AnimeSource,
+    id: number,
+    tmdbId: number,
+    format: 'TV' | 'MOVIE',
+  ) {
+    return this.animeLocks.run(`${fonte}:${id}`, () =>
+      this.anilistService.migrateAnimeId(fonte, id, tmdbId, format),
+    );
   }
 
   async clearAnimeCatalog() {

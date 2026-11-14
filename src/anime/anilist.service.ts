@@ -25,6 +25,7 @@ import {
   TMDB_STATIC_KEYWORDS,
 } from './anime.utils';
 import { MediaSource } from '@prisma/client';
+import { anilistRequest } from '../common/anilist-client';
 import {
   AnimeSource,
   animeKey,
@@ -205,241 +206,10 @@ export class AniListService {
           this.logger.error(`Error fetching TMDB details for ID ${id}:`, error2);
           return null;
         }
-        // Both failed. Let's see if we can perform a lazy migration from AniList ID to TMDB ID.
-        const localAnime = await this.prisma.anime.findFirst({
-          where: format ? { id, fonte: animeSourceFromFormat(format) } : { id },
-        });
-        if (!localAnime) {
-          this.logger.warn(`TMDB details not found (404) for ID ${id}`);
-          return null;
-        }
-
-        this.logger.log(
-          `[Migration] Detected AniList ID ${id} for "${localAnime.titulo}". Migrating to TMDB...`,
-        );
-        const searchResults = await this.tmdbService.search(localAnime.titulo);
-        if (searchResults.length === 0) {
-          this.logger.error(
-            `[Migration] Could not find any TMDB match for "${localAnime.titulo}".`,
-          );
-          return null;
-        }
-
-        const bestMatch = searchResults[0];
-        const tmdbId = bestMatch.id;
-        const isTV = bestMatch.media_type === 'tv';
-
-        try {
-          details = isTV
-            ? await this.tmdbService.getTVShowDetails(tmdbId)
-            : await this.tmdbService.getMovieDetails(tmdbId);
-          isMovie = !isTV;
-        } catch (e) {
-          this.logger.error(
-            `[Migration] Failed to fetch details for new TMDB ID ${tmdbId}:`,
-            e,
-          );
-          return null;
-        }
-
-        // Perform DB updates. A obra passa da chave antiga (fonte, id) para a nova (L-23).
-        const oldFonte = localAnime.fonte;
-        const newFonte: AnimeSource = isMovie
-          ? MediaSource.TMDB_MOVIE
-          : MediaSource.TMDB_TV;
-        const normalized = normalizeTMDBToAniList(
-          details,
-          isMovie ? 'movie' : 'tv',
-        );
-        const generosDict: Record<string, number> = {};
-        if (normalized.genres) {
-          normalized.genres.forEach((g: string) => {
-            const trimmed = g.trim();
-            generosDict[trimmed] = 100;
-
-            const mapped = TMDB_GENRE_MAP[trimmed];
-            if (mapped) {
-              mapped.forEach((m) => {
-                generosDict[m] = 100;
-              });
-            }
-          });
-        }
-
-        const formatValue = normalized.format;
-        if (formatValue === 'MOVIE') {
-          generosDict['Movie'] = 100;
-          generosDict['Filme'] = 100;
-        } else if (formatValue === 'TV') {
-          generosDict['TV Show'] = 100;
-          generosDict['Série'] = 100;
-        }
-
-        const isAnimation = normalized.genres?.some(
-          (g: string) =>
-            g.trim().toLowerCase() === 'animação' ||
-            g.trim().toLowerCase() === 'animation',
-        );
-        if (isAnimation) {
-          generosDict['Animation'] = 100;
-          generosDict['Animação'] = 100;
-        }
-
-        try {
-          const tmdbKeywords = await this.tmdbService.getKeywords(
-            tmdbId,
-            isMovie ? 'movie' : 'tv',
-          );
-          if (tmdbKeywords && tmdbKeywords.length > 0) {
-            tmdbKeywords.forEach((k: string) => {
-              const capitalized = capitalizeKeyword(k.trim());
-              if (capitalized) {
-                generosDict[capitalized] = 100;
-              }
-            });
-          }
-        } catch (e) {
-          this.logger.error(
-            `[Migration] Error fetching TMDB keywords for ID ${tmdbId}:`,
-            e,
-          );
-        }
-
-        let proximosEpisodiosJson: any[] = [];
-        if (!isMovie && details.number_of_seasons > 0) {
-          try {
-            const latestSeason = details.seasons
-              .filter((s: any) => s.season_number > 0)
-              .sort((a: any, b: any) => b.season_number - a.season_number)[0];
-            if (latestSeason) {
-              const seasonDetails = await this.tmdbService.getTVSeasonDetails(
-                tmdbId,
-                latestSeason.season_number,
-              );
-              proximosEpisodiosJson = (seasonDetails.episodes || []).map(
-                (ep: any) => {
-                  let epAirDate: string | null = null;
-                  if (ep.air_date) {
-                    const parsedDate = new Date(
-                      ep.air_date.includes('T')
-                        ? ep.air_date
-                        : ep.air_date + 'T12:00:00Z',
-                    );
-                    if (!isNaN(parsedDate.getTime())) {
-                      epAirDate = parsedDate.toISOString();
-                    }
-                  }
-                  return {
-                    season: ep.season_number,
-                    episode: ep.episode_number,
-                    airDate: epAirDate,
-                    notified: false,
-                  };
-                },
-              );
-            }
-          } catch {}
-        }
-
-        // Create new Anime record
-        await this.prisma.anime.upsert({
-          where: animeKey(newFonte, tmdbId),
-          update: {
-            tipo: detectMediaType(generosDict, normalized.format),
-            dataLancamento: normalized.dataLancamento,
-          },
-          create: {
-            id: tmdbId,
-            fonte: newFonte,
-            titulo:
-              normalized.title.english ||
-              normalized.title.romaji ||
-              'Sem título',
-            statusLancamento: normalized.status,
-            descricao: normalized.description,
-            generos: generosDict,
-            capaUrl: normalized.coverImage.large,
-            numEpisodiosTotal: normalized.episodes,
-            temporada: normalized.season,
-            ano:
-              normalized.seasonYear && !isNaN(normalized.seasonYear)
-                ? normalized.seasonYear
-                : null,
-            paisOrigem: normalized.countryOfOrigin,
-            formato: normalized.format,
-            tipo: detectMediaType(generosDict, normalized.format),
-            dataLancamento: normalized.dataLancamento,
-          },
-        });
-
-        // Sync episodes of all seasons to the database
-        await this.animeService.syncAnimeEpisodes(
-          newFonte,
-          tmdbId,
-          details.seasons,
-        );
-
-        // Ensure Media rating exists
-        const averageScore = normalized.averageScore
-          ? normalized.averageScore / 10
-          : 0;
-        const existingMedia = await this.prisma.media.findUnique({
-          where: mediaKey(newFonte, tmdbId),
-        });
-        if (!existingMedia) {
-          await this.prisma.media.create({
-            data: {
-              id: tmdbId,
-              fonte: newFonte,
-              avaliacao_base: averageScore,
-              total_votos_users: 0,
-              soma_notas_users: 0,
-              avaliacao_geral: averageScore,
-            },
-          });
-        }
-
-        // Mover as relações e apagar o registo antigo numa só transação: se algo falhar
-        // (ex.: o utilizador já tem a obra de destino), fica tudo como estava.
-        try {
-          await this.prisma.$transaction([
-            this.prisma.userAnime.updateMany({
-              where: { animeFonte: oldFonte, animeId: id },
-              data: { animeFonte: newFonte, animeId: tmdbId },
-            }),
-            this.prisma.customListItem.updateMany({
-              where: { fonte: oldFonte, animeId: id },
-              data: { fonte: newFonte, animeId: tmdbId },
-            }),
-            this.prisma.comment.updateMany({
-              where: { fonte: oldFonte, mediaId: id },
-              data: { fonte: newFonte, mediaId: tmdbId },
-            }),
-            this.prisma.userRating.updateMany({
-              where: { fonte: oldFonte, mediaId: id },
-              data: { fonte: newFonte, mediaId: tmdbId },
-            }),
-            this.prisma.userTopFavorite.updateMany({
-              where: { fonte: oldFonte, mediaId: id },
-              data: { fonte: newFonte, mediaId: tmdbId },
-            }),
-            this.prisma.notification.updateMany({
-              where: { fonte: oldFonte, mediaId: id },
-              data: { fonte: newFonte, mediaId: tmdbId },
-            }),
-            this.prisma.anime.deleteMany({ where: { fonte: oldFonte, id } }),
-            this.prisma.media.deleteMany({ where: { fonte: oldFonte, id } }),
-          ]);
-        } catch (err) {
-          this.logger.error(
-            `[Migration] Could not move "${localAnime.titulo}" (${oldFonte}:${id}) to ${newFonte}:${tmdbId}; nothing was changed:`,
-            err,
-          );
-          return null;
-        }
-
-        // Update local variable so subsequent blocks use the new ID
-        id = tmdbId;
+        // O ID não existe no TMDB em nenhum dos tipos. Não se tenta adivinhar a obra pelo
+        // título: trocar o ID de uma obra é uma ação de administração (migrateAnimeId).
+        this.logger.warn(`TMDB details not found (404) for ID ${id}`);
+        return null;
       }
     }
 
@@ -542,6 +312,247 @@ export class AniListService {
     media.tipo = localAnimeRecord ? localAnimeRecord.tipo : 'ANIME';
 
     return media;
+  }
+
+  // Ação de administração: passa uma obra do catálogo para outro ID do TMDB (por exemplo, um
+  // ID antigo que deixou de existir). O destino é indicado por quem pede, nunca adivinhado.
+  // As bibliotecas, listas, avaliações e comentários dos utilizadores vão atrás, numa transação.
+  async migrateAnimeId(
+    fonte: AnimeSource,
+    id: number,
+    tmdbId: number,
+    format: 'TV' | 'MOVIE',
+  ) {
+    const localAnime = await this.prisma.anime.findUnique({
+      where: animeKey(fonte, id),
+    });
+    if (!localAnime) {
+      throw new NotFoundException('Obra de origem não encontrada no catálogo.');
+    }
+    const isMovie = format === 'MOVIE';
+    if (animeSourceFromFormat(format) === fonte && tmdbId === id) {
+      throw new ConflictException('A origem e o destino são a mesma obra.');
+    }
+
+    let details: any;
+    try {
+      details = isMovie
+        ? await this.tmdbService.getMovieDetails(tmdbId)
+        : await this.tmdbService.getTVShowDetails(tmdbId);
+    } catch (e) {
+      if (isNotFound(e)) {
+        throw new NotFoundException('A obra de destino não existe no TMDB.');
+      }
+      throw e;
+    }
+
+    this.logger.log(
+      `[Migration] Moving "${localAnime.titulo}" (${fonte}:${id}) to TMDB ${format} ID ${tmdbId}...`,
+    );
+
+    // Perform DB updates. A obra passa da chave antiga (fonte, id) para a nova (L-23).
+    const oldFonte = localAnime.fonte;
+    const newFonte: AnimeSource = isMovie
+      ? MediaSource.TMDB_MOVIE
+      : MediaSource.TMDB_TV;
+    const normalized = normalizeTMDBToAniList(
+      details,
+      isMovie ? 'movie' : 'tv',
+    );
+    const generosDict: Record<string, number> = {};
+    if (normalized.genres) {
+      normalized.genres.forEach((g: string) => {
+        const trimmed = g.trim();
+        generosDict[trimmed] = 100;
+
+        const mapped = TMDB_GENRE_MAP[trimmed];
+        if (mapped) {
+          mapped.forEach((m) => {
+            generosDict[m] = 100;
+          });
+        }
+      });
+    }
+
+    const formatValue = normalized.format;
+    if (formatValue === 'MOVIE') {
+      generosDict['Movie'] = 100;
+      generosDict['Filme'] = 100;
+    } else if (formatValue === 'TV') {
+      generosDict['TV Show'] = 100;
+      generosDict['Série'] = 100;
+    }
+
+    const isAnimation = normalized.genres?.some(
+      (g: string) =>
+        g.trim().toLowerCase() === 'animação' ||
+        g.trim().toLowerCase() === 'animation',
+    );
+    if (isAnimation) {
+      generosDict['Animation'] = 100;
+      generosDict['Animação'] = 100;
+    }
+
+    try {
+      const tmdbKeywords = await this.tmdbService.getKeywords(
+        tmdbId,
+        isMovie ? 'movie' : 'tv',
+      );
+      if (tmdbKeywords && tmdbKeywords.length > 0) {
+        tmdbKeywords.forEach((k: string) => {
+          const capitalized = capitalizeKeyword(k.trim());
+          if (capitalized) {
+            generosDict[capitalized] = 100;
+          }
+        });
+      }
+    } catch (e) {
+      this.logger.error(
+        `[Migration] Error fetching TMDB keywords for ID ${tmdbId}:`,
+        e,
+      );
+    }
+
+    let proximosEpisodiosJson: any[] = [];
+    if (!isMovie && details.number_of_seasons > 0) {
+      try {
+        const latestSeason = details.seasons
+          .filter((s: any) => s.season_number > 0)
+          .sort((a: any, b: any) => b.season_number - a.season_number)[0];
+        if (latestSeason) {
+          const seasonDetails = await this.tmdbService.getTVSeasonDetails(
+            tmdbId,
+            latestSeason.season_number,
+          );
+          proximosEpisodiosJson = (seasonDetails.episodes || []).map(
+            (ep: any) => {
+              let epAirDate: string | null = null;
+              if (ep.air_date) {
+                const parsedDate = new Date(
+                  ep.air_date.includes('T')
+                    ? ep.air_date
+                    : ep.air_date + 'T12:00:00Z',
+                );
+                if (!isNaN(parsedDate.getTime())) {
+                  epAirDate = parsedDate.toISOString();
+                }
+              }
+              return {
+                season: ep.season_number,
+                episode: ep.episode_number,
+                airDate: epAirDate,
+                notified: false,
+              };
+            },
+          );
+        }
+      } catch {}
+    }
+
+    // Create new Anime record
+    await this.prisma.anime.upsert({
+      where: animeKey(newFonte, tmdbId),
+      update: {
+        tipo: detectMediaType(generosDict, normalized.format),
+        dataLancamento: normalized.dataLancamento,
+      },
+      create: {
+        id: tmdbId,
+        fonte: newFonte,
+        titulo:
+          normalized.title.english ||
+          normalized.title.romaji ||
+          'Sem título',
+        statusLancamento: normalized.status,
+        descricao: normalized.description,
+        generos: generosDict,
+        capaUrl: normalized.coverImage.large,
+        numEpisodiosTotal: normalized.episodes,
+        temporada: normalized.season,
+        ano:
+          normalized.seasonYear && !isNaN(normalized.seasonYear)
+            ? normalized.seasonYear
+            : null,
+        paisOrigem: normalized.countryOfOrigin,
+        formato: normalized.format,
+        tipo: detectMediaType(generosDict, normalized.format),
+        dataLancamento: normalized.dataLancamento,
+      },
+    });
+
+    // Sync episodes of all seasons to the database
+    await this.animeService.syncAnimeEpisodes(
+      newFonte,
+      tmdbId,
+      details.seasons,
+    );
+
+    // Ensure Media rating exists
+    const averageScore = normalized.averageScore
+      ? normalized.averageScore / 10
+      : 0;
+    const existingMedia = await this.prisma.media.findUnique({
+      where: mediaKey(newFonte, tmdbId),
+    });
+    if (!existingMedia) {
+      await this.prisma.media.create({
+        data: {
+          id: tmdbId,
+          fonte: newFonte,
+          avaliacao_base: averageScore,
+          total_votos_users: 0,
+          soma_notas_users: 0,
+          avaliacao_geral: averageScore,
+        },
+      });
+    }
+
+    // Mover as relações e apagar o registo antigo numa só transação: se algo falhar
+    // (ex.: o utilizador já tem a obra de destino), fica tudo como estava.
+    try {
+      await this.prisma.$transaction([
+        this.prisma.userAnime.updateMany({
+          where: { animeFonte: oldFonte, animeId: id },
+          data: { animeFonte: newFonte, animeId: tmdbId },
+        }),
+        this.prisma.customListItem.updateMany({
+          where: { fonte: oldFonte, animeId: id },
+          data: { fonte: newFonte, animeId: tmdbId },
+        }),
+        this.prisma.comment.updateMany({
+          where: { fonte: oldFonte, mediaId: id },
+          data: { fonte: newFonte, mediaId: tmdbId },
+        }),
+        this.prisma.userRating.updateMany({
+          where: { fonte: oldFonte, mediaId: id },
+          data: { fonte: newFonte, mediaId: tmdbId },
+        }),
+        this.prisma.userTopFavorite.updateMany({
+          where: { fonte: oldFonte, mediaId: id },
+          data: { fonte: newFonte, mediaId: tmdbId },
+        }),
+        this.prisma.notification.updateMany({
+          where: { fonte: oldFonte, mediaId: id },
+          data: { fonte: newFonte, mediaId: tmdbId },
+        }),
+        this.prisma.anime.deleteMany({ where: { fonte: oldFonte, id } }),
+        this.prisma.media.deleteMany({ where: { fonte: oldFonte, id } }),
+      ]);
+    } catch (err) {
+      this.logger.error(
+        `[Migration] Could not move "${localAnime.titulo}" (${oldFonte}:${id}) to ${newFonte}:${tmdbId}; nothing was changed:`,
+        err,
+      );
+      throw new ConflictException(
+        'Não foi possível migrar a obra: há utilizadores que já têm a obra de destino. Nada foi alterado.',
+      );
+    }
+
+    return {
+      from: { fonte: oldFonte, id },
+      to: { fonte: newFonte, id: tmdbId },
+      titulo: localAnime.titulo,
+    };
   }
 
   private isAnimeNotYetAired(anime: {
@@ -865,15 +876,7 @@ export class AniListService {
     if (country) variables.country = country;
 
     try {
-      const response = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({ query, variables }),
-      });
-      const result = await response.json();
+      const result = await anilistRequest({ query, variables });
       return result?.data?.Page?.media || [];
     } catch (error) {
       this.logger.error('Error fetching candidates from AniList:', error);
@@ -1233,15 +1236,7 @@ export class AniListService {
     }
 
     try {
-      const response = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({ query, variables }),
-      });
-      const result = await response.json();
+      const result = await anilistRequest({ query, variables });
       return result?.data?.Page?.media || [];
     } catch (error) {
       this.logger.error('Error in explore query:', error);

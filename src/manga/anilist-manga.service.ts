@@ -10,7 +10,7 @@ import { createLibraryEntry } from '../library/library-errors';
 import { MangaService } from './manga.service';
 import { MangaSyncService } from './manga-sync.service';
 import { mediaKey } from '../rating/media-type';
-import { fetchJson } from '../common/http-client';
+import { anilistRequest } from '../common/anilist-client';
 import { SyncNotFoundError, toSyncError } from '../common/sync-errors';
 
 @Injectable()
@@ -55,15 +55,7 @@ export class AnilistMangaService {
       }
     `;
     try {
-      const response = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({ query, variables: { s: nomeManga, isAdult } }),
-      });
-      const result = await response.json();
+      const result = await anilistRequest({ query, variables: { s: nomeManga, isAdult } });
       return result?.data?.Page?.media[0] || null;
     } catch (error: any) {
       console.error(
@@ -113,18 +105,10 @@ export class AnilistMangaService {
     `;
     let result: any;
     try {
-      result = await fetchJson(
-        'https://graphql.anilist.co',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-          },
-          body: JSON.stringify({ query, variables: { id } }),
-        },
-        // A AniList pede esperas de até 1 minuto quando limita os pedidos
-        { maxRetryAfterMs: 60_000, breaker: 'anilist' },
+      // A AniList pede esperas de até 1 minuto quando limita os pedidos
+      result = await anilistRequest(
+        { query, variables: { id } },
+        { retries: 3, maxRetryAfterMs: 60_000 },
       );
     } catch (error) {
       throw toSyncError(error, `AniList manga ${id}`);
@@ -160,15 +144,7 @@ export class AnilistMangaService {
       }
     `;
     try {
-      const response = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({ query, variables: { s: nome, page, isAdult } }),
-      });
-      const data = await response.json();
+      const data = await anilistRequest({ query, variables: { s: nome, page, isAdult } });
       return data.data?.Page?.media || [];
     } catch (error: any) {
       console.error(
@@ -204,15 +180,7 @@ export class AnilistMangaService {
       }
     `;
     try {
-      const response = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({ query, variables: { genre, page, isAdult } }),
-      });
-      const data = await response.json();
+      const data = await anilistRequest({ query, variables: { genre, page, isAdult } });
       return data.data?.Page?.media || [];
     } catch (error: any) {
       console.error(

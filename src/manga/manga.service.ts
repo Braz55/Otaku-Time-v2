@@ -397,6 +397,7 @@ export class MangaService {
         try {
           const searchRes = await fetch(
             `https://api.mangadex.org/manga?title=${encodeURIComponent(candidateTitle)}&limit=1`,
+            { signal: AbortSignal.timeout(10_000) },
           );
           if (searchRes.ok) {
             const searchJson = await searchRes.json();
@@ -404,6 +405,7 @@ export class MangaService {
               const mangadexId = searchJson.data[0].id;
               const coverRes = await fetch(
                 `https://api.mangadex.org/cover?manga[]=${mangadexId}&limit=100&order[volume]=asc`,
+                { signal: AbortSignal.timeout(10_000) },
               );
               if (coverRes.ok) {
                 const coverJson = await coverRes.json();

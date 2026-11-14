@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { ImportAnimeDto } from './dto/import-anime.dto';
 import { ImportTVTimeItemDto } from './dto/import-tvtime-item.dto';
+import { MigrateAnimeIdDto } from './dto/migrate-anime-id.dto';
 
 @Controller('anime')
 export class AnimeController {
@@ -192,6 +193,25 @@ export class AnimeController {
   @Get('import-tvtime/status')
   getTVTimeImportStatus(@Request() req) {
     return this.animeService.getTvTimeImportStatus(req.user.userId);
+  }
+
+  // Obras que a fonte deixou de reconhecer (404) e saíram da sincronização automática
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Get('admin/unavailable')
+  listUnavailable() {
+    return this.animeService.listUnavailableAnimes();
+  }
+
+  // Passa uma obra para outro ID do TMDB, levando as bibliotecas dos utilizadores
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Post('admin/migrate-id')
+  migrateId(@Body() dto: MigrateAnimeIdDto) {
+    return this.animeService.migrateAnimeId(
+      dto.fonte,
+      dto.id,
+      dto.tmdbId,
+      dto.format,
+    );
   }
 
   @UseGuards(JwtAuthGuard, AdminGuard)

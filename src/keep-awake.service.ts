@@ -126,6 +126,7 @@ export class KeepAwakeService implements OnModuleDestroy {
           headers: {
             'x-self-ping': 'true',
           },
+          signal: AbortSignal.timeout(30_000),
         });
         const currentMode = currentlyActive
           ? 'Horas Ativas'

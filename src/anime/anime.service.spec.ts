@@ -367,6 +367,8 @@ describe('AnimeService', () => {
       };
 
       (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
         json: jest.fn().mockResolvedValue(mockGraphQLResponse),
       });
 
@@ -417,6 +419,8 @@ describe('AnimeService', () => {
       };
 
       (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
         json: jest.fn().mockResolvedValue(mockGraphQLResponse),
       });
 

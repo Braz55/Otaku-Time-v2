@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { animeSourceFromFormat } from '../rating/media-type';
+import { anilistRequest } from '../common/anilist-client';
 
 @Injectable()
 export class RecommendationService {
@@ -407,15 +408,7 @@ export class RecommendationService {
     if (country) variables.country = country;
 
     try {
-      const response = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({ query, variables }),
-      });
-      const result = await response.json();
+      const result = await anilistRequest({ query, variables });
       return result?.data?.Page?.media || [];
     } catch (error) {
       this.logger.error('Error fetching candidates from AniList:', error);

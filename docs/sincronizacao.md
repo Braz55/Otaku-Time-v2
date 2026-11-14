@@ -102,14 +102,18 @@ Cada fase de sincronização fica registada na tabela `SyncLog` (estado `RUNNING
 Os administradores têm à disposição um endpoint de controlo no [SyncController](file:///c:/Users/Utilizador/source/repos/Otaku-Time-v2/src/sync/sync.controller.ts):
 * **`POST /sync/start`:** Inicia imediatamente o método `runManualSync()` em background. Esta ação ignora os agendamentos automáticos e executa a sincronização ativa imediata de animes e mangas, registando o processo sob a etiqueta `[MANGA_MANUAL]`. A resposta traz `started: false` se já houver uma sincronização a correr.
 
+No [AnimeController](../src/anime/anime.controller.ts), também só para administradores:
+* **`GET /anime/admin/unavailable`:** lista as obras marcadas como `GONE` (a fonte respondeu 404), com o número de utilizadores que as têm na biblioteca.
+* **`POST /anime/admin/migrate-id`:** passa uma obra para outro ID do TMDB. Corpo: `{ "fonte": "TMDB_TV", "id": 123, "tmdbId": 456, "format": "TV" }` (origem no catálogo e destino no TMDB). As bibliotecas, listas, avaliações, comentários e notificações dos utilizadores vão atrás numa transação; se algum utilizador já tiver a obra de destino, nada é alterado (409).
+
 ---
 
 ## 🛡️ 7. Estado de Sincronização e Tolerância a Falhas
 
 * **Estado por obra:** `Anime` e `Manga` guardam `lastSyncedAt` (última sincronização bem sucedida), `nextSyncAt` (quando voltam à fila completa), `syncFailures` (falhas seguidas) e `syncStatus` (`OK` ou `GONE`). O `updatedAt` deixou de servir para isto, porque muda com qualquer escrita.
 * **Falha temporária** (rede, timeout, 429, 5xx, resposta incompleta): a obra é adiada com backoff (6h, 12h, 24h, 48h, 96h e depois 7 dias), para não ficar presa no topo da fila.
-* **Obra inexistente** (a fonte responde 404): fica `GONE` e sai das filas automáticas. O ID nunca é tentado no outro tipo (série/filme) nem trocado por uma pesquisa de título durante a sincronização. Um refresh manual bem sucedido repõe o estado `OK`.
-* **Pedidos HTTP** ([http-client.ts](../src/common/http-client.ts)): timeout de 10s por tentativa e repetição com backoff apenas em falhas de rede, 429 e 5xx, respeitando o `Retry-After`. Usado no TMDB, na AniList (manga), no Baka-Updates e no MangaDex.
+* **Obra inexistente** (a fonte responde 404): fica `GONE` e sai das filas automáticas. O ID nunca é tentado no outro tipo (série/filme) durante a sincronização, e em lado nenhum é trocado por uma pesquisa de título: passar uma obra para outro ID é uma ação de administração (secção 6). Um refresh manual bem sucedido repõe o estado `OK`.
+* **Pedidos HTTP** ([http-client.ts](../src/common/http-client.ts)): timeout de 10s por tentativa e repetição com backoff apenas em falhas de rede, 429 e 5xx, respeitando o `Retry-After`. Usado no TMDB, no Baka-Updates, no MangaDex e em todos os pedidos à AniList ([anilist-client.ts](../src/common/anilist-client.ts)), incluindo pesquisas e recomendações.
 * **Lista de episódios completa ou nada:** se uma temporada falhar, a lista guardada não é alterada (uma lista parcial mudava a numeração global dos episódios e as marcas de "já notificado").
 * **Uma escrita de cada vez por obra:** dentro do processo, a sincronização, o refresh manual e o cron de notificações partilham um lock por obra ([keyed-mutex.ts](../src/common/keyed-mutex.ts)). As escritas de episódios correm ainda numa transação com um lock da própria base de dados (`pg_advisory_xact_lock`), que protege também entre instâncias do servidor.
 * **Transições de estado atómicas:** `COMPLETED → WATCHING` e `PLANNED → WATCHING` são feitas com a condição dentro do próprio `UPDATE`, por isso não passam por cima de uma alteração feita pelo utilizador entretanto. Num anime só contam os episódios já estreados.

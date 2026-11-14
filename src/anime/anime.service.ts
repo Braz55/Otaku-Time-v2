@@ -12,6 +12,7 @@ import { ListService } from '../list/list.service';
 import { TMDBService } from './tmdb.service';
 import { AniListService } from './anilist.service';
 import { RecommendationService } from './recommendation.service';
+import { AnimeRecommendationService } from './anime-recommendation.service';
 import { StatisticsService } from '../statistics/statistics.service';
 import { TVTimeImportService } from './tvtime-import.service';
 import { CalendarService } from './calendar.service';
@@ -60,6 +61,7 @@ export class AnimeService {
     @Inject(forwardRef(() => AniListService))
     private readonly anilistService: AniListService,
     private readonly recommendationService: RecommendationService,
+    private readonly animeRecommendationService: AnimeRecommendationService,
     @Inject(forwardRef(() => TVTimeImportService))
     private readonly tvtimeImportService: TVTimeImportService,
     private readonly calendarService: CalendarService,
@@ -277,6 +279,10 @@ export class AnimeService {
     userId: number,
     page: number = 1,
   ) {
+    // Anime → TMDB; manga → AniList. Cada fonte tem o seu motor.
+    if (type === 'ANIME') {
+      return this.animeRecommendationService.getRecommendations(userId, page);
+    }
     return this.recommendationService.getRecommendations(type, userId, page);
   }
 
@@ -333,7 +339,7 @@ export class AnimeService {
     const format = formatFromSource(fonte as 'TMDB_TV' | 'TMDB_MOVIE');
     const tmdbData = await this.getTmdbDetailsById(animeId, userId, format);
     if (tmdbData) {
-      const generosDict = buildGenerosDict(tmdbData.genres, undefined);
+      const generosDict = buildGenerosDict(tmdbData.genres, tmdbData.tags);
       await this.anilistService.registerGenreTags(generosDict);
 
       let details: any = null;

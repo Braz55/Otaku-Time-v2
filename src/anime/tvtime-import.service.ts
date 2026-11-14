@@ -116,6 +116,9 @@ export class TVTimeImportService {
           generosDict[g.trim()] = 100;
         });
       }
+      (tmdbData.tags || []).forEach((t: { name: string; rank: number }) => {
+        generosDict[t.name] = t.rank;
+      });
 
       let details: any = null;
       if (tmdbData.format === 'TV' && tmdbData.id) {

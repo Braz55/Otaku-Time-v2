@@ -1,4 +1,5 @@
 import { TMDBService } from './tmdb.service';
+import { extractTmdbKeywordTags } from './tmdb-taste.mapper';
 
 export const TMDB_GENRE_MAP: Record<string, string[]> = {
   Ação: ['Action'],
@@ -246,7 +247,7 @@ export function normalizeTMDBToAniList(
     status,
     description: media.overview || 'Sem descrição.',
     genres,
-    tags: [],
+    tags: extractTmdbKeywordTags(media),
     episodes: isMovie ? 1 : media.number_of_episodes || null,
     season: isMovie ? 'MOVIE' : year ? 'YEAR' : null,
     seasonYear: year,

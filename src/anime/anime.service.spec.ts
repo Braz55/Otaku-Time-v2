@@ -10,6 +10,7 @@ import { ListService } from '../list/list.service';
 import { TMDBService } from './tmdb.service';
 import { AniListService } from './anilist.service';
 import { RecommendationService } from './recommendation.service';
+import { AnimeRecommendationService } from './anime-recommendation.service';
 import { TVTimeImportService } from './tvtime-import.service';
 import { CalendarService } from './calendar.service';
 import { NotificationService } from '../notification/notification.service';
@@ -69,6 +70,9 @@ describe('AnimeService', () => {
     getTVShowDetails: jest.fn(),
     getMovieDetails: jest.fn(),
     getTVSeasonDetails: jest.fn(),
+    discoverTV: jest.fn(),
+    discoverMovies: jest.fn(),
+    searchKeywords: jest.fn(),
   };
 
   let originalFetch: any;
@@ -89,6 +93,7 @@ describe('AnimeService', () => {
         AnimeService,
         AniListService,
         RecommendationService,
+        AnimeRecommendationService,
         TVTimeImportService,
         CalendarService,
         {
@@ -318,6 +323,7 @@ describe('AnimeService', () => {
 
     const mockUserAnimeHistory = [
       {
+        animeFonte: 'TMDB_TV',
         animeId: 201,
         status: 'COMPLETED',
         anime: {
@@ -327,6 +333,7 @@ describe('AnimeService', () => {
         },
       },
       {
+        animeFonte: 'TMDB_TV',
         animeId: 202,
         status: 'DROPPED',
         anime: {
@@ -342,45 +349,64 @@ describe('AnimeService', () => {
       mockPrismaService.user.findUnique.mockResolvedValue({ id: userId, showAdultContent: true });
     });
 
-    it('should return recommended anime, filtering out items already in the user library', async () => {
+    it('should recommend anime from TMDB only, filtering out items already in the user library', async () => {
       mockPrismaService.userAnime.findMany.mockResolvedValue(mockUserAnimeHistory);
 
-      const mockGraphQLResponse = {
-        data: {
-          Page: {
-            media: [
-              {
-                id: 201, // Already in library, should be filtered out
-                title: { english: 'Action Show', romaji: 'Action Show Romaji' },
-                genres: ['Action'],
-                tags: [],
-              },
-              {
-                id: 301, // New recommendation
-                title: { english: 'New Anime Rec', romaji: 'New Anime Rec Romaji' },
-                genres: ['Action', 'Adventure'],
-                tags: [],
-              },
-            ],
+      mockTMDBService.discoverTV.mockResolvedValue({
+        results: [
+          {
+            id: 201, // Already in library, should be filtered out
+            name: 'Action Show',
+            original_name: 'Action Show',
+            poster_path: '/a.jpg',
+            genre_ids: [16, 10759],
           },
-        },
-      };
-
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: jest.fn().mockResolvedValue(mockGraphQLResponse),
+          {
+            id: 301, // New recommendation
+            name: 'New Anime Rec',
+            original_name: 'New Anime Rec',
+            poster_path: '/b.jpg',
+            genre_ids: [16, 10759],
+          },
+        ],
+      });
+      // Um filme com o mesmo ID de uma série da biblioteca é outra obra (L-23)
+      mockTMDBService.discoverMovies.mockResolvedValue({
+        results: [
+          {
+            id: 201,
+            title: 'Some Movie',
+            original_title: 'Some Movie',
+            poster_path: '/c.jpg',
+            genre_ids: [16, 28],
+          },
+        ],
       });
 
-      const recommendations = await service.getRecommendations('ANIME', userId, 1);
+      const recommendations: any[] = await service.getRecommendations('ANIME', userId, 1);
 
       expect(mockPrismaService.userAnime.findMany).toHaveBeenCalledWith({
         where: { userId },
         include: { anime: true },
       });
-      expect(global.fetch).toHaveBeenCalled();
-      expect(recommendations.length).toBe(1);
-      expect(recommendations[0].id).toBe(301);
+      // Os animes não tocam na AniList
+      expect(global.fetch).not.toHaveBeenCalled();
+      expect(recommendations.map((r) => `${r.fonte}:${r.id}`).sort()).toEqual([
+        'TMDB_MOVIE:201',
+        'TMDB_TV:301',
+      ]);
+      expect(recommendations.find((r) => r.id === 301)).toMatchObject({
+        format: 'TV',
+        genres: ['Action', 'Adventure'],
+      });
+
+      // Perfil principal (Action): Animação E Action & Adventure nas séries, Action nos filmes
+      expect(mockTMDBService.discoverTV).toHaveBeenCalledWith(
+        expect.objectContaining({ with_genres: '16,10759' }),
+      );
+      expect(mockTMDBService.discoverMovies).toHaveBeenCalledWith(
+        expect.objectContaining({ with_genres: '16,28' }),
+      );
     });
 
     it('should return recommended manga using user manga history and filtering appropriately', async () => {
@@ -432,6 +458,10 @@ describe('AnimeService', () => {
       });
       expect(recommendations.length).toBe(1);
       expect(recommendations[0].id).toBe(601);
+      // O manga continua a vir da AniList e não passa pelo TMDB
+      expect(global.fetch).toHaveBeenCalled();
+      expect(mockTMDBService.discoverTV).not.toHaveBeenCalled();
+      expect(mockTMDBService.discoverMovies).not.toHaveBeenCalled();
     });
   });
 

@@ -4,6 +4,7 @@ import { AnimeController } from './anime.controller';
 import { TMDBService } from './tmdb.service';
 import { AniListService } from './anilist.service';
 import { RecommendationService } from './recommendation.service';
+import { AnimeRecommendationService } from './anime-recommendation.service';
 import { TVTimeImportService } from './tvtime-import.service';
 import { CalendarService } from './calendar.service';
 import { EpisodeStoreService } from './episode-store.service';
@@ -19,6 +20,7 @@ import { StatisticsModule } from '../statistics/statistics.module';
     TMDBService,
     AniListService,
     RecommendationService,
+    AnimeRecommendationService,
     TVTimeImportService,
     CalendarService,
     EpisodeStoreService,

@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { createLibraryEntry } from '../library/library-errors';
 import { TMDBService } from './tmdb.service';
 import { RecommendationService } from './recommendation.service';
+import { AnimeRecommendationService } from './anime-recommendation.service';
 import { AnimeService } from './anime.service';
 import {
   normalizeTMDBToAniList,
@@ -46,6 +47,7 @@ export class AniListService {
     private readonly prisma: PrismaService,
     private readonly tmdbService: TMDBService,
     private readonly recommendationService: RecommendationService,
+    private readonly animeRecommendationService: AnimeRecommendationService,
     @Inject(forwardRef(() => AnimeService))
     private readonly animeService: AnimeService,
   ) {}
@@ -925,6 +927,10 @@ export class AniListService {
   ) {
     if (sort === 'RECOMMENDED') {
       if (!userId) return [];
+      // Anime → TMDB; manga → AniList. Cada fonte tem o seu motor.
+      if (type === 'ANIME') {
+        return this.animeRecommendationService.getRecommendations(userId, page);
+      }
       return this.recommendationService.getRecommendations(type, userId, page);
     }
     if (type === 'ANIME') {

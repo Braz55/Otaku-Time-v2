@@ -126,7 +126,8 @@ export class TMDBService {
    */
   async getTVShowDetails(id: number): Promise<any> {
     return this.fetchFromTMDB(`/tv/${id}`, {
-      append_to_response: 'translations',
+      // keywords: os temas da obra, usados nas recomendações (sem pedido extra)
+      append_to_response: 'translations,keywords',
     });
   }
 
@@ -166,7 +167,7 @@ export class TMDBService {
    */
   async getMovieDetails(id: number): Promise<any> {
     return this.fetchFromTMDB(`/movie/${id}`, {
-      append_to_response: 'translations',
+      append_to_response: 'translations,keywords',
     });
   }
 

@@ -8,6 +8,43 @@ import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
 import { useTranslation } from '../hooks/useTranslation';
 import GenreTagPicker from '../components/GenreTagPicker';
+import { isFilme, isMovieUnreleased, getMovieState, getMovieReleaseDate, formatMovieDate, daysUntil } from '../services/movies';
+
+// Secções da biblioteca de anime: tudo junto, ou só animes / séries / filmes
+const SECCOES = [
+  { id: 'ALL', label: 'Tudo', icon: 'apps' },
+  { id: 'ANIME', label: 'Animes', icon: 'animation' },
+  { id: 'SERIE', label: 'Séries', icon: 'tv' },
+  { id: 'FILME', label: 'Filmes', icon: 'movie' },
+];
+const normalizeSeccao = (value: any): string =>
+  value === 'MOVIE' ? 'FILME' : (SECCOES.some(s => s.id === value) ? value : 'ALL');
+
+// Separadores e ordenações da secção de filmes
+const FILME_TABS = [
+  { id: 'POR_VER', label: 'Por Ver', ordem: 'PRIORITY' },
+  { id: 'POR_ESTREAR', label: 'Por Estrear', ordem: 'RELEASE_ASC' },
+  { id: 'VISTOS', label: 'Vistos', ordem: 'WATCHED' },
+  { id: 'ALL', label: 'Todos', ordem: 'PRIORITY' },
+];
+const FILME_ORDENS = [
+  { id: 'PRIORITY', label: 'Prioridade' },
+  { id: 'TITLE', label: 'Nome' },
+  { id: 'RELEASE_DESC', label: 'Estreia (mais recente)' },
+  { id: 'RELEASE_ASC', label: 'Estreia (mais antiga)' },
+  { id: 'RATING', label: 'Avaliação' },
+  { id: 'WATCHED', label: 'Visto recentemente' },
+];
+const FILME_DECADAS = [
+  { id: 'ALL', label: 'Todas' },
+  { id: '2020', label: 'Anos 2020' },
+  { id: '2010', label: 'Anos 2010' },
+  { id: '2000', label: 'Anos 2000' },
+  { id: '1990', label: 'Anos 90' },
+  { id: 'OLD', label: 'Antes de 1990' },
+];
+const getMovieYear = (item: any): number | null =>
+  getMovieReleaseDate(item)?.getFullYear() ?? item.ano ?? item.anime?.ano ?? null;
 
 const getGenresList = (generos: any): { name: string; weight: number }[] => {
   if (!generos) return [];
@@ -87,7 +124,11 @@ const LibraryPage = () => {
 
   const [filtroStatus, setFiltroStatus] = useState<string>(() => getInitialState('filtroStatus', 'WATCHING'));
   const [filtroLancamento, setFiltroLancamento] = useState<string>(() => getInitialState('filtroLancamento', 'ALL'));
-  const [filtroFormato, setFiltroFormato] = useState<string>(() => getInitialState('filtroFormato', 'ALL'));
+  const [filtroFormato, setFiltroFormato] = useState<string>(() => normalizeSeccao(getInitialState('filtroFormato', 'ALL')));
+  // Filtros próprios da secção de filmes
+  const [filtroFilme, setFiltroFilme] = useState<string>(() => getInitialState('filtroFilme', 'POR_VER'));
+  const [ordenacaoFilme, setOrdenacaoFilme] = useState<string>(() => getInitialState('ordenacaoFilme', 'PRIORITY'));
+  const [filtroDecada, setFiltroDecada] = useState<string>(() => getInitialState('filtroDecada', 'ALL'));
   const [searchQuery, setSearchQuery] = useState<string>(() => getInitialState('searchQuery', ''));
   const [ordenacao, setOrdenacao] = useState<string>(() => {
     const defaultOrder = categoria === 'anime' ? 'LATEST_EPISODE' : 'PRIORITY';
@@ -95,7 +136,7 @@ const LibraryPage = () => {
     return initial === 'LAST_UPDATED' ? defaultOrder : initial;
   });
   const [showLancamentoMenu, setShowLancamentoMenu] = useState(false);
-  const [showFormatoMenu, setShowFormatoMenu] = useState(false);
+  const [showDecadaMenu, setShowDecadaMenu] = useState(false);
   const [showOrdemMenu, setShowOrdemMenu] = useState(false);
 
   // Genre/Tag selector states
@@ -119,6 +160,9 @@ const LibraryPage = () => {
     filtroStatus,
     filtroLancamento,
     filtroFormato,
+    filtroFilme,
+    ordenacaoFilme,
+    filtroDecada,
     ordenacao,
     selectedGenres,
     selectedTags,
@@ -138,6 +182,9 @@ const LibraryPage = () => {
       filtroStatus,
       filtroLancamento,
       filtroFormato,
+      filtroFilme,
+      ordenacaoFilme,
+      filtroDecada,
       ordenacao,
       selectedGenres,
       selectedTags,
@@ -148,7 +195,7 @@ const LibraryPage = () => {
       visibleCountEmDia,
       visibleCountPorEstrear
     };
-  }, [filtroStatus, filtroLancamento, filtroFormato, ordenacao, selectedGenres, selectedTags, searchQuery, visibleCount, visibleCountPending, visibleCountEmDia, visibleCountPorEstrear]);
+  }, [filtroStatus, filtroLancamento, filtroFormato, filtroFilme, ordenacaoFilme, filtroDecada, ordenacao, selectedGenres, selectedTags, searchQuery, visibleCount, visibleCountPending, visibleCountEmDia, visibleCountPorEstrear]);
 
   // Clear saved library state if not returning from details page
   useEffect(() => {
@@ -191,7 +238,10 @@ const LibraryPage = () => {
         const state = JSON.parse(saved);
         setFiltroStatus(state.filtroStatus || 'WATCHING');
         setFiltroLancamento(state.filtroLancamento || 'ALL');
-        setFiltroFormato(state.filtroFormato || 'ALL');
+        setFiltroFormato(normalizeSeccao(state.filtroFormato));
+        setFiltroFilme(state.filtroFilme || 'POR_VER');
+        setOrdenacaoFilme(state.ordenacaoFilme || 'PRIORITY');
+        setFiltroDecada(state.filtroDecada || 'ALL');
         const restoredOrder = state.ordenacao === 'LAST_UPDATED' ? null : state.ordenacao;
         setOrdenacao(restoredOrder || defaultOrder);
         setSelectedGenres(state.selectedGenres || []);
@@ -209,6 +259,9 @@ const LibraryPage = () => {
       setFiltroStatus('WATCHING');
       setFiltroLancamento('ALL');
       setFiltroFormato('ALL');
+      setFiltroFilme('POR_VER');
+      setOrdenacaoFilme('PRIORITY');
+      setFiltroDecada('ALL');
       setOrdenacao(defaultOrder);
       setSelectedGenres([]);
       setSelectedTags([]);
@@ -238,6 +291,9 @@ const LibraryPage = () => {
       filtroStatus,
       filtroLancamento,
       filtroFormato,
+      filtroFilme,
+      ordenacaoFilme,
+      filtroDecada,
       ordenacao,
       selectedGenres,
       selectedTags,
@@ -305,10 +361,19 @@ const LibraryPage = () => {
     fetchMetadata();
   }, [categoria]);
 
+  // Secção de filmes: tem separadores, filtros e ordenações próprios
+  const modoFilmes = categoria === 'anime' && filtroFormato === 'FILME';
+  const isFilmeItem = (item: any) => categoria === 'anime' && isFilme(item);
+
   const sorteioAleatorioBiblioteca = async () => {
-    const candidates = resultadosDB.filter(item => item.status === 'PLANNED');
+    // Nos filmes sorteia-se entre os que já estrearam e ainda estão por ver
+    const candidates = modoFilmes
+      ? resultadosDB.filter(item => isFilme(item) && item.status !== 'DROPPED' && getMovieState(item) === 'POR_VER')
+      : resultadosDB.filter(item => item.status === 'PLANNED');
     if (candidates.length === 0) {
-      showToast('Não tens nenhum conteúdo com o estado "Planeado" para sortear nesta biblioteca.', 'warning');
+      showToast(modoFilmes
+        ? 'Não tens nenhum filme por ver para sortear.'
+        : 'Não tens nenhum conteúdo com o estado "Planeado" para sortear nesta biblioteca.', 'warning');
       return;
     }
 
@@ -363,15 +428,33 @@ const LibraryPage = () => {
       const title = (item.anime?.titulo || item.manga?.titulo || item.titulo || '').toLowerCase();
       if (!title.includes(searchQuery.toLowerCase())) return false;
     }
-    if (filtroStatus !== 'ALL' && item.status !== filtroStatus) return false;
-    const statusLancamento = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
-    if (filtroLancamento !== 'ALL' && statusLancamento !== filtroLancamento) return false;
-    
-    // Type Filter (Série / Filme)
-    if (categoria === 'anime' && filtroFormato !== 'ALL') {
-      const isMovieItem = item.formato === 'MOVIE' || item.tipo === 'FILME' || item.anime?.formato === 'MOVIE';
-      if (filtroFormato === 'MOVIE' && !isMovieItem) return false;
-      if (filtroFormato === 'SERIE' && isMovieItem) return false;
+    if (modoFilmes) {
+      // Filmes: o separador depende de estar visto e de já ter estreado, não do estado guardado
+      if (!isFilme(item)) return false;
+      const estado = getMovieState(item);
+      if (filtroFilme === 'POR_VER' && estado !== 'POR_VER') return false;
+      if (filtroFilme === 'POR_ESTREAR' && estado !== 'POR_ESTREAR') return false;
+      if (filtroFilme === 'VISTOS' && estado !== 'VISTO') return false;
+      if (filtroDecada !== 'ALL') {
+        const year = getMovieYear(item);
+        if (!year) return false;
+        if (filtroDecada === 'OLD' ? year >= 1990 : Math.floor(year / 10) * 10 !== Number(filtroDecada)) return false;
+      }
+    } else {
+      // Um filme por estrear aparece em "Por Estrear" (separador A Ver), quer tenha sido
+      // adicionado à mão (WATCHING) quer importado do TV Time (PLANNED)
+      const statusEfetivo =
+        isFilmeItem(item) && item.status === 'PLANNED' && isMovieUnreleased(item) ? 'WATCHING' : item.status;
+      if (filtroStatus !== 'ALL' && statusEfetivo !== filtroStatus) return false;
+      const statusLancamento = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
+      if (filtroLancamento !== 'ALL' && statusLancamento !== filtroLancamento) return false;
+
+      // Secção (Animes / Séries); os filmes de anime contam como anime
+      if (categoria === 'anime' && filtroFormato !== 'ALL') {
+        const tipo = item.tipo || item.anime?.tipo || 'ANIME';
+        if (filtroFormato === 'SERIE' && tipo !== 'SERIE') return false;
+        if (filtroFormato === 'ANIME' && (tipo === 'SERIE' || tipo === 'FILME')) return false;
+      }
     }
 
     if (selectedGenres.length > 0 || selectedTags.length > 0) {
@@ -386,6 +469,25 @@ const LibraryPage = () => {
   });
 
   const ordenados = [...filtrados].sort((a, b) => {
+    if (modoFilmes) {
+      const byTitle = () => (a.titulo || '').toLowerCase().localeCompare((b.titulo || '').toLowerCase());
+      const time = (d: Date | null, missing: number) => (d ? d.getTime() : missing);
+      switch (ordenacaoFilme) {
+        case 'TITLE':
+          return byTitle();
+        case 'RELEASE_DESC':
+          return time(getMovieReleaseDate(b), -Infinity) - time(getMovieReleaseDate(a), -Infinity) || byTitle();
+        case 'RELEASE_ASC':
+          // Sem data de estreia vai para o fim
+          return time(getMovieReleaseDate(a), Infinity) - time(getMovieReleaseDate(b), Infinity) || byTitle();
+        case 'RATING':
+          return (b.avaliacaoGeral || 0) - (a.avaliacaoGeral || 0) || byTitle();
+        case 'WATCHED':
+          return new Date(b.lastProgressUpdate || b.updatedAt || 0).getTime() - new Date(a.lastProgressUpdate || a.updatedAt || 0).getTime();
+        default:
+          return (a.prioridade || 999) - (b.prioridade || 999) || byTitle();
+      }
+    }
     if (ordenacao === 'PRIORITY') {
       return (a.prioridade || 999) - (b.prioridade || 999);
     } else if (ordenacao === 'TITLE') {
@@ -438,6 +540,7 @@ const LibraryPage = () => {
 
   const isPorEstrear = (item: any) => {
     if (categoria !== 'anime') return false;
+    if (isFilme(item)) return isMovieUnreleased(item);
     const statusLancamento = item.anime?.statusLancamento || item.statusLancamento;
     if (statusLancamento === 'NOT_YET_RELEASED') return true;
     
@@ -472,6 +575,17 @@ const LibraryPage = () => {
 
   const hasMore = filtrados.length > visibleCount;
 
+  // Contagens dos separadores da secção de filmes
+  const filmeCounts = modoFilmes
+    ? resultadosDB.reduce((acc: Record<string, number>, item: any) => {
+        if (!isFilme(item)) return acc;
+        const estado = getMovieState(item);
+        acc[estado === 'VISTO' ? 'VISTOS' : estado]++;
+        acc.ALL++;
+        return acc;
+      }, { POR_VER: 0, POR_ESTREAR: 0, VISTOS: 0, ALL: 0 })
+    : null;
+
   const renderLibraryItem = (item: any) => {
     const coverUrl = item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl;
     const title = item.anime?.titulo || item.manga?.titulo || item.titulo;
@@ -481,7 +595,20 @@ const LibraryPage = () => {
     const proxNum = categoria === 'anime' ? (item.anime?.proximoEpisodio || item.proximoEpisodio) : (item.manga?.proximoCapituloNumero || item.proximoCapituloNumero);
     const numTotal = categoria === 'anime' ? (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal) : (item.manga?.numCapitulosTotal || item.numCapitulosTotal);
     const isMovie = item.formato === 'MOVIE' || item.tipo === 'FILME' || item.anime?.formato === 'MOVIE';
-    
+
+    // Filmes: o cartão mostra Por Ver / Por Estrear / Visto em vez do estado e do progresso por episódios
+    const filmeState = isFilmeItem(item) ? getMovieState(item) : null;
+    const filmeRelease = filmeState ? getMovieReleaseDate(item) : null;
+    const badgeStatus = !filmeState
+      ? item.status
+      : item.status === 'DROPPED' ? 'DROPPED'
+      : filmeState === 'VISTO' ? 'COMPLETED'
+      : filmeState === 'POR_ESTREAR' ? 'PAUSED'
+      : 'PLANNED';
+    const filmeLabel = !filmeState || badgeStatus === 'DROPPED'
+      ? null
+      : filmeState === 'VISTO' ? 'Visto' : filmeState === 'POR_ESTREAR' ? 'Por Estrear' : 'Por Ver';
+
     return (
       <div 
         key={item.id} 
@@ -497,27 +624,28 @@ const LibraryPage = () => {
             {/* Tracking Status Badge */}
             {item.status && (
               <span className={`px-2 py-0.5 sm:py-1 rounded-lg text-[9px] sm:text-[10px] font-bold flex items-center gap-1 backdrop-blur-md border shadow-lg ${
-                item.status === 'WATCHING' ? (categoria === 'anime' ? 'bg-secondary/30 border-secondary/50 text-secondary' : 'bg-primary/30 border-primary/50 text-primary') :
-                item.status === 'COMPLETED' ? 'bg-emerald-500/30 border-emerald-500/50 text-emerald-200' :
-                item.status === 'PAUSED' ? 'bg-amber-500/30 border-amber-500/50 text-amber-200' :
-                item.status === 'PLANNED' ? 'bg-blue-500/30 border-blue-500/50 text-blue-200' :
-                item.status === 'DROPPED' ? 'bg-red-500/30 border-red-500/50 text-red-200' :
+                badgeStatus === 'WATCHING' ? (categoria === 'anime' ? 'bg-secondary/30 border-secondary/50 text-secondary' : 'bg-primary/30 border-primary/50 text-primary') :
+                badgeStatus === 'COMPLETED' ? 'bg-emerald-500/30 border-emerald-500/50 text-emerald-200' :
+                badgeStatus === 'PAUSED' ? 'bg-amber-500/30 border-amber-500/50 text-amber-200' :
+                badgeStatus === 'PLANNED' ? 'bg-blue-500/30 border-blue-500/50 text-blue-200' :
+                badgeStatus === 'DROPPED' ? 'bg-red-500/30 border-red-500/50 text-red-200' :
                 'bg-surface-variant/50 border-white/10 text-on-surface-variant'
               }`}>
                 <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                  item.status === 'WATCHING' ? (categoria === 'anime' ? 'bg-secondary animate-pulse shadow-[0_0_8px_rgba(194,24,91,0.8)]' : 'bg-primary animate-pulse shadow-[0_0_8px_rgba(106,27,154,0.8)]') :
-                  item.status === 'COMPLETED' ? 'bg-emerald-400' :
-                  item.status === 'PAUSED' ? 'bg-amber-400' :
-                  item.status === 'PLANNED' ? 'bg-blue-400' :
-                  item.status === 'DROPPED' ? 'bg-red-400' :
+                  badgeStatus === 'WATCHING' ? (categoria === 'anime' ? 'bg-secondary animate-pulse shadow-[0_0_8px_rgba(194,24,91,0.8)]' : 'bg-primary animate-pulse shadow-[0_0_8px_rgba(106,27,154,0.8)]') :
+                  badgeStatus === 'COMPLETED' ? 'bg-emerald-400' :
+                  badgeStatus === 'PAUSED' ? 'bg-amber-400' :
+                  badgeStatus === 'PLANNED' ? 'bg-blue-400' :
+                  badgeStatus === 'DROPPED' ? 'bg-red-400' :
                   'bg-on-surface-variant'
                 }`}></span>
                 <span className="truncate">
-                  {item.status === 'WATCHING' ? (categoria === 'anime' ? 'A Ver' : 'A Ler') :
-                   item.status === 'COMPLETED' ? 'Completo' :
-                   item.status === 'PAUSED' ? 'Pausado' :
-                   item.status === 'PLANNED' ? 'Planeado' :
-                   item.status === 'DROPPED' ? 'Desistido' : 'Salvo'}
+                  {filmeLabel ? filmeLabel :
+                   badgeStatus === 'WATCHING' ? (categoria === 'anime' ? 'A Ver' : 'A Ler') :
+                   badgeStatus === 'COMPLETED' ? 'Completo' :
+                   badgeStatus === 'PAUSED' ? 'Pausado' :
+                   badgeStatus === 'PLANNED' ? 'Planeado' :
+                   badgeStatus === 'DROPPED' ? 'Desistido' : 'Salvo'}
                 </span>
               </span>
             )}
@@ -551,8 +679,35 @@ const LibraryPage = () => {
               {title}
             </p>
 
+            {/* Filmes: ano / estreia / visto em vez da barra de episódios */}
+            {filmeState && (
+              <div className="pt-1.5 border-t border-white/10 flex items-center justify-between gap-2 text-[11px] font-medium">
+                {filmeState === 'POR_ESTREAR' ? (
+                  <>
+                    <span className="text-amber-300 flex items-center gap-1 min-w-0">
+                      <span className="material-symbols-outlined text-[12px]">event</span>
+                      <span className="truncate">{filmeRelease ? formatMovieDate(filmeRelease) : 'Sem data'}</span>
+                    </span>
+                    {filmeRelease && daysUntil(filmeRelease) <= 99 && (
+                      <span className="text-white font-bold flex-shrink-0">{daysUntil(filmeRelease)}d</span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className={`flex items-center gap-1 ${filmeState === 'VISTO' ? 'text-emerald-300' : 'text-on-surface-variant'}`}>
+                      <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                        {filmeState === 'VISTO' ? 'check_circle' : 'movie'}
+                      </span>
+                      {filmeState === 'VISTO' ? 'Visto' : 'Por ver'}
+                    </span>
+                    <span className="text-white font-bold">{getMovieYear(item) || ''}</span>
+                  </>
+                )}
+              </div>
+            )}
+
             {/* Progress Info & Bar */}
-            {(() => {
+            {!filmeState && (() => {
               const totalVal = isMovie
                 ? 1
                 : (categoria === 'anime'
@@ -619,18 +774,52 @@ const LibraryPage = () => {
                     ? 'bg-secondary hover:bg-secondary/90 hover:shadow-[0_0_15px_rgba(194,24,91,0.4)]' 
                     : 'bg-primary hover:bg-primary/90 hover:shadow-[0_0_15px_rgba(106,27,154,0.4)]'
                 }`}
-                title="Sorteio Planeado (Itens Planeados da tua Biblioteca)"
+                title={modoFilmes ? 'Sortear um filme por ver' : 'Sorteio Planeado (Itens Planeados da tua Biblioteca)'}
               >
-                <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>casino</span> 
-                <span className="hidden sm:inline">Sorteio Planeado</span>
+                <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>casino</span>
+                <span className="hidden sm:inline">{modoFilmes ? 'Sortear Filme' : 'Sorteio Planeado'}</span>
               </button>
             </div>
           </div>
+
+          {/* Secções: Tudo / Animes / Séries / Filmes */}
+          {categoria === 'anime' && (
+            <div className="flex items-center gap-1 bg-black/40 p-1 rounded-2xl border border-white/5 w-full sm:w-fit">
+              {SECCOES.map(sec => (
+                <button
+                  key={sec.id}
+                  onClick={() => { setFiltroFormato(sec.id); setShowLancamentoMenu(false); setShowOrdemMenu(false); setShowDecadaMenu(false); resetVisibleCounts(); }}
+                  className={`flex items-center justify-center gap-1.5 px-3 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex-1 sm:flex-initial cursor-pointer ${
+                    filtroFormato === sec.id
+                      ? (sec.id === 'FILME'
+                          ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-sm'
+                          : 'bg-secondary/20 text-secondary border border-secondary/40 shadow-sm')
+                      : 'text-on-surface-variant hover:text-white border border-transparent'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-base hidden sm:inline">{sec.icon}</span>
+                  {sec.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-surface-variant/10 p-2 rounded-2xl border border-white/5 backdrop-blur-md w-full sm:w-fit relative z-30">
           <div className="flex flex-wrap items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/5 w-full sm:w-auto justify-center">
-            {[
+            {modoFilmes ? FILME_TABS.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => { setFiltroFilme(tab.id); setOrdenacaoFilme(tab.ordem); resetVisibleCounts(); }}
+                className={`px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex-1 sm:flex-initial text-center cursor-pointer whitespace-nowrap ${
+                  filtroFilme === tab.id
+                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-sm'
+                    : 'text-on-surface-variant hover:text-white'
+                }`}
+              >
+                {tab.label} <span className="opacity-60">({filmeCounts?.[tab.id] ?? 0})</span>
+              </button>
+            )) : [
               { id: 'WATCHING', label: categoria === 'anime' ? 'A Ver' : 'A Ler' },
               { id: 'COMPLETED', label: 'Completo' },
               { id: 'PLANNED', label: 'Planeado' },
@@ -641,10 +830,10 @@ const LibraryPage = () => {
                 key={tab.id}
                 onClick={() => { setFiltroStatus(tab.id); resetVisibleCounts(); }}
                 className={`px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex-1 sm:flex-initial text-center cursor-pointer ${
-                  filtroStatus === tab.id 
-                    ? (categoria === 'anime' 
-                        ? 'bg-secondary/20 text-secondary border border-secondary/40 shadow-sm' 
-                        : 'bg-primary/20 text-primary border border-primary/40 shadow-sm') 
+                  filtroStatus === tab.id
+                    ? (categoria === 'anime'
+                        ? 'bg-secondary/20 text-secondary border border-secondary/40 shadow-sm'
+                        : 'bg-primary/20 text-primary border border-primary/40 shadow-sm')
                     : 'text-on-surface-variant hover:text-white'
                 }`}
               >
@@ -654,9 +843,10 @@ const LibraryPage = () => {
           </div>
 
           <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-between sm:justify-start">
+            {!modoFilmes && (
             <div className="relative flex-1 sm:flex-initial">
               <button
-                onClick={() => { setShowLancamentoMenu(!showLancamentoMenu); setShowOrdemMenu(false); setShowFormatoMenu(false); }}
+                onClick={() => { setShowLancamentoMenu(!showLancamentoMenu); setShowOrdemMenu(false); setShowDecadaMenu(false); }}
                 className="flex items-center justify-between gap-1.5 px-3 py-2 bg-black/40 border border-white/5 rounded-xl text-on-surface-variant hover:text-white transition-all text-xs font-bold w-full cursor-pointer"
               >
                 <span className="material-symbols-outlined text-sm">filter_list</span>
@@ -686,33 +876,29 @@ const LibraryPage = () => {
                 </div>
               )}
             </div>
+            )}
 
-            {categoria === 'anime' && (
+            {/* Filmes: filtro por década de estreia */}
+            {modoFilmes && (
               <div className="relative flex-1 sm:flex-initial">
                 <button
-                  onClick={() => { setShowFormatoMenu(!showFormatoMenu); setShowLancamentoMenu(false); setShowOrdemMenu(false); }}
+                  onClick={() => { setShowDecadaMenu(!showDecadaMenu); setShowLancamentoMenu(false); setShowOrdemMenu(false); }}
                   className="flex items-center justify-between gap-1.5 px-3 py-2 bg-black/40 border border-white/5 rounded-xl text-on-surface-variant hover:text-white transition-all text-xs font-bold w-full cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-sm">movie</span>
+                  <span className="material-symbols-outlined text-sm">calendar_month</span>
                   <span className="truncate">
-                    {filtroFormato === 'ALL' ? 'Tipo: Todos' : 
-                     filtroFormato === 'SERIE' ? 'Séries / Outros' : 
-                     filtroFormato === 'MOVIE' ? 'Filmes' : filtroFormato}
+                    {filtroDecada === 'ALL' ? 'Década: Todas' : FILME_DECADAS.find(d => d.id === filtroDecada)?.label}
                   </span>
                   <span className="material-symbols-outlined text-xs">keyboard_arrow_down</span>
                 </button>
 
-                {showFormatoMenu && (
+                {showDecadaMenu && (
                   <div className="absolute left-0 right-0 sm:right-auto sm:w-48 mt-1.5 bg-surface-container border border-white/10 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                    {[
-                      { id: 'ALL', label: 'Todos' },
-                      { id: 'SERIE', label: 'Séries / Outros' },
-                      { id: 'MOVIE', label: 'Filmes' },
-                    ].map(opt => (
+                    {FILME_DECADAS.map(opt => (
                       <button
                         key={opt.id}
-                        onClick={() => { setFiltroFormato(opt.id); setShowFormatoMenu(false); resetVisibleCounts(); }}
-                        className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-colors hover:bg-white/5 ${filtroFormato === opt.id ? 'text-secondary' : 'text-on-surface-variant'}`}
+                        onClick={() => { setFiltroDecada(opt.id); setShowDecadaMenu(false); resetVisibleCounts(); }}
+                        className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-colors hover:bg-white/5 ${filtroDecada === opt.id ? 'text-amber-400' : 'text-on-surface-variant'}`}
                       >
                         {opt.label}
                       </button>
@@ -724,13 +910,14 @@ const LibraryPage = () => {
 
             <div className="relative flex-1 sm:flex-initial">
               <button
-                onClick={() => { setShowOrdemMenu(!showOrdemMenu); setShowLancamentoMenu(false); setShowFormatoMenu(false); }}
+                onClick={() => { setShowOrdemMenu(!showOrdemMenu); setShowLancamentoMenu(false); setShowDecadaMenu(false); }}
                 className="flex items-center justify-between gap-1.5 px-3 py-2 bg-black/40 border border-white/5 rounded-xl text-on-surface-variant hover:text-white transition-all text-xs font-bold w-full cursor-pointer"
               >
                 <span className="material-symbols-outlined text-sm">sort</span>
                 <span className="truncate">
-                  {ordenacao === 'PRIORITY' ? 'Ordem: Prioridade' : 
-                   ordenacao === 'TITLE' ? 'Ordem: Nome' : 
+                  {modoFilmes ? `Ordem: ${FILME_ORDENS.find(o => o.id === ordenacaoFilme)?.label ?? 'Prioridade'}` :
+                   ordenacao === 'PRIORITY' ? 'Ordem: Prioridade' :
+                   ordenacao === 'TITLE' ? 'Ordem: Nome' :
                    ordenacao === 'LATEST_EPISODE' ? 'Ordem: Ep. Mais Recente' :
                    'Ordem: Progresso'}
                 </span>
@@ -739,7 +926,15 @@ const LibraryPage = () => {
 
               {showOrdemMenu && (
                 <div className="absolute right-0 sm:left-0 sm:right-auto sm:w-48 mt-1.5 bg-surface-container border border-white/10 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                  {[
+                  {modoFilmes ? FILME_ORDENS.map(opt => (
+                    <button
+                      key={opt.id}
+                      onClick={() => { setOrdenacaoFilme(opt.id); setShowOrdemMenu(false); resetVisibleCounts(); }}
+                      className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-colors hover:bg-white/5 ${ordenacaoFilme === opt.id ? 'text-amber-400' : 'text-on-surface-variant'}`}
+                    >
+                      {opt.label}
+                    </button>
+                  )) : [
                     { id: 'PRIORITY', label: 'Prioridade' },
                     { id: 'TITLE', label: 'Nome' },
                     ...(categoria === 'anime' ? [{ id: 'LATEST_EPISODE', label: 'Episódio Mais Recente Estreado' }] : []),
@@ -759,7 +954,7 @@ const LibraryPage = () => {
 
             <div className="relative flex-1 sm:flex-initial">
               <button
-                onClick={() => { setPickerOpen(true); setShowLancamentoMenu(false); setShowOrdemMenu(false); setShowFormatoMenu(false); }}
+                onClick={() => { setPickerOpen(true); setShowLancamentoMenu(false); setShowOrdemMenu(false); setShowDecadaMenu(false); }}
                 className="flex items-center justify-between gap-1.5 px-3 py-2 bg-black/40 border border-white/5 rounded-xl text-on-surface-variant hover:text-white transition-all text-xs font-bold w-full cursor-pointer min-h-[38px] active:scale-95"
               >
                 <span className="material-symbols-outlined text-sm">style</span>
@@ -852,7 +1047,7 @@ const LibraryPage = () => {
             <Loader2 className={`w-8 h-8 animate-spin ${categoria === 'anime' ? 'text-secondary' : 'text-primary'}`} />
             <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">{t("A carregar biblioteca...")}</span>
           </div>
-        ) : filtroStatus === 'WATCHING' ? (
+        ) : !modoFilmes && filtroStatus === 'WATCHING' ? (
           <div className="space-y-10 w-full relative z-10 animate-in fade-in duration-300">
             {/* Section 1: Pending */}
             <div className="space-y-4">
@@ -969,7 +1164,7 @@ const LibraryPage = () => {
             ) : (
               <div className="col-span-full py-16 text-center glass-panel rounded-3xl border border-white/5 space-y-4 w-full">
                 <span className="material-symbols-outlined text-5xl text-on-surface-variant">search_off</span>
-                <p className="text-on-surface font-bold text-lg">Sem títulos na biblioteca com este filtro.</p>
+                <p className="text-on-surface font-bold text-lg">{modoFilmes ? 'Sem filmes com este filtro.' : 'Sem títulos na biblioteca com este filtro.'}</p>
                 <p className="text-on-surface-variant text-sm">Adiciona títulos novos usando a pesquisa superior!</p>
               </div>
             )}
@@ -977,7 +1172,7 @@ const LibraryPage = () => {
         )}
 
         {/* Load More Button */}
-        {!loading && hasMore && filtroStatus !== 'WATCHING' && (
+        {!loading && hasMore && (modoFilmes || filtroStatus !== 'WATCHING') && (
           <div className="flex justify-center pt-8 pb-4 relative z-20">
             <button
               onClick={() => setVisibleCount(prev => prev + 24)}

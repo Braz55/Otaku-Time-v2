@@ -15,6 +15,7 @@ import { CustomListsModal } from '../components/details/CustomListsModal';
 import { TrackingTab } from '../components/details/TrackingTab';
 import { InfoTab } from '../components/details/InfoTab';
 import { ArtworkSelectorModal } from '../components/details/ArtworkSelectorModal';
+import { isMovieUnreleased, getMovieReleaseDate, formatMovieDate, daysUntil, formatRuntime, formatMoney } from '../services/movies';
 import { getMediaSource } from '../services/mediaSource';
 
 // Esperas entre tentativas quando o servidor está a acordar (cold start do Render) ou a rede falha
@@ -575,7 +576,8 @@ const DetailsPage = () => {
             formato: data.format,
             fonte: data.fonte, // L-23: série ou filme do TMDB (só no anime)
             duracaoEpisodio: data.duracaoEpisodio || data.duration || null,
-            relations: data.relations
+            relations: data.relations,
+            filme: data.filme // metadados do filme (realizador, elenco, ...); só nos filmes
           };
           setSelectedItem(normalized);
           loadedKeyRef.current = loadKey;
@@ -610,7 +612,12 @@ const DetailsPage = () => {
                         capaUrl: prev.capaUrl || extData.coverImage?.extraLarge || extData.coverImage?.large || extData.coverImage?.medium || extData.coverUrl,
                         relations: extData.relations, 
                         relationsManga: extData.relationsManga,
-                        duracaoEpisodio: prev.duracaoEpisodio || extData.duracaoEpisodio || extData.duration || null
+                        duracaoEpisodio: prev.duracaoEpisodio || extData.duracaoEpisodio || extData.duration || null,
+                        // Filmes: metadados para a página de detalhes e sinopse em falta
+                        ...(extData.format === 'MOVIE' ? {
+                          filme: extData.filme,
+                          descricao: prev.descricao || (extData.description ? extData.description.replace(/<[^>]*>?/gm, '') : prev.descricao)
+                        } : {})
                       };
                     }
                     return prev;
@@ -925,6 +932,15 @@ const DetailsPage = () => {
         if (!localItem.formato && localItem.tipo === 'FILME') {
           localItem.formato = 'MOVIE';
         }
+        // Filmes: a resposta de "adicionar" não traz sinopse, géneros nem metadados; mantém-se
+        // o que já estava no ecrã para a página não ficar "Sem sinopse disponível".
+        if (localItem.formato === 'MOVIE' && selectedItem) {
+          for (const campo of ['descricao', 'generos', 'bannerUrl', 'relations', 'filme', 'duracaoEpisodio', 'dataLancamento', 'statusLancamento']) {
+            if (localItem[campo] == null && selectedItem[campo] != null) {
+              localItem[campo] = selectedItem[campo];
+            }
+          }
+        }
         setSelectedItem(localItem);
 
         if (mediaType === 'anime') {
@@ -947,7 +963,12 @@ const DetailsPage = () => {
               if (extData) {
                 setSelectedItem((prev: any) => {
                   if (prev && (prev.animeId === externalId || prev.mangaId === externalId || prev.id === externalId)) {
-                    return { ...prev, relations: extData.relations, relationsManga: extData.relationsManga };
+                    return {
+                      ...prev,
+                      relations: extData.relations,
+                      relationsManga: extData.relationsManga,
+                      ...(extData.format === 'MOVIE' && extData.filme ? { filme: extData.filme } : {})
+                    };
                   }
                   return prev;
                 });
@@ -1412,21 +1433,80 @@ const DetailsPage = () => {
     if (!selectedItem) return null;
 
     const isWatched = selectedItem.status === 'COMPLETED';
+    const inLibrary = !selectedItem.isExternal;
+    const releaseDate = getMovieReleaseDate(selectedItem);
+    const unreleased = isMovieUnreleased(selectedItem);
+    const daysLeft = unreleased && releaseDate ? daysUntil(releaseDate) : null;
+    const priorityOpt = PRIORITY_OPTIONS.find(opt => opt.num === selectedItem.prioridade) || PRIORITY_OPTIONS[4];
+
+    // Metadados do filme (vêm do TMDB com os detalhes externos)
+    const meta = selectedItem.filme || {};
+    const idiomaOriginal = (() => {
+      if (!meta.idiomaOriginal) return '';
+      try {
+        const nome = new Intl.DisplayNames(['pt-PT'], { type: 'language' }).of(meta.idiomaOriginal);
+        return nome ? nome.charAt(0).toUpperCase() + nome.slice(1) : meta.idiomaOriginal;
+      } catch {
+        return meta.idiomaOriginal;
+      }
+    })();
+    const metadados: { icon: string; label: string; value: string }[] = [
+      { icon: 'event', label: unreleased ? 'Estreia' : 'Data de Estreia', value: releaseDate ? formatMovieDate(releaseDate) : (selectedItem.ano ? String(selectedItem.ano) : '') },
+      { icon: 'schedule', label: 'Duração', value: formatRuntime(meta.duracao || selectedItem.duracaoEpisodio) },
+      { icon: 'movie_edit', label: 'Realização', value: (meta.realizadores || []).join(', ') },
+      { icon: 'edit_note', label: 'Argumento', value: (meta.argumentistas || []).join(', ') },
+      { icon: 'title', label: 'Título Original', value: meta.tituloOriginal && meta.tituloOriginal !== selectedItem.titulo ? meta.tituloOriginal : '' },
+      { icon: 'translate', label: 'Idioma Original', value: idiomaOriginal },
+      { icon: 'public', label: 'País', value: (meta.paises || []).join(', ') },
+      { icon: 'apartment', label: 'Produção', value: (meta.produtoras || []).join(', ') },
+      { icon: 'collections_bookmark', label: 'Coleção', value: meta.colecao || '' },
+      { icon: 'payments', label: 'Orçamento', value: formatMoney(meta.orcamento) },
+      { icon: 'trending_up', label: 'Receita', value: formatMoney(meta.receita) },
+      { icon: 'star', label: 'Nota TMDB', value: meta.notaTmdb ? `${Number(meta.notaTmdb).toFixed(1)} / 10${meta.votosTmdb ? ` (${Number(meta.votosTmdb).toLocaleString('pt-PT')} votos)` : ''}` : '' },
+    ].filter(m => !!m.value);
+    const elenco: { nome: string; personagem?: string | null; fotoUrl?: string | null }[] = meta.elenco || [];
 
     return (
       <div className="w-full text-left space-y-6">
         {/* Back cover background gradient */}
         <div className="relative w-full rounded-[32px] overflow-hidden border border-white/5 bg-[#121214]/65 p-6 md:p-8 flex flex-col md:flex-row gap-8 shadow-2xl backdrop-blur-md animate-in fade-in duration-300">
-          
-          {/* BACKGROUND BLUR */}
-          <img src={selectedItem.capaUrl} className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-15 pointer-events-none" alt="" referrerPolicy="no-referrer" />
-          
-          {/* COLUNA ESQUERDA: Poster + Rating */}
-          <div className="w-full md:w-[280px] flex-shrink-0 flex flex-col gap-5 relative z-10">
-            {/* Poster Image */}
-            <div className="w-full aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border border-white/10 group relative">
-              <img src={selectedItem.capaUrl} className="w-full h-full object-cover" alt={selectedItem.titulo} referrerPolicy="no-referrer" />
+
+          {/* BACKGROUND: banner (se houver) ou capa desfocada */}
+          {selectedItem.bannerUrl ? (
+            <div className="absolute inset-x-0 top-0 h-64 z-0 overflow-hidden pointer-events-none">
+              <img src={selectedItem.bannerUrl} className="w-full h-full object-cover opacity-60" alt="" referrerPolicy="no-referrer" />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-[#121214]/80 to-[#121214]" />
             </div>
+          ) : (
+            <img src={selectedItem.capaUrl} className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-15 pointer-events-none" alt="" referrerPolicy="no-referrer" />
+          )}
+
+          {/* COLUNA ESQUERDA: Poster */}
+          <div className="w-full md:w-[280px] flex-shrink-0 flex flex-col gap-5 relative z-10">
+            {/* Poster Image (na biblioteca: clicar para trocar o poster ou o banner) */}
+            <div
+              onClick={inLibrary ? () => setShowArtworkModal(true) : undefined}
+              className={`w-full max-w-[280px] mx-auto aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border border-white/10 group relative ${inLibrary ? 'cursor-pointer' : ''}`}
+              title={inLibrary ? 'Clique para escolher outro poster ou banner' : undefined}
+            >
+              <img src={selectedItem.capaUrl} className={`w-full h-full object-cover ${inLibrary ? 'group-hover:scale-105 transition-transform duration-500' : ''}`} alt={selectedItem.titulo} referrerPolicy="no-referrer" />
+              {inLibrary && (
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white text-xs font-bold p-2 text-center backdrop-blur-[2px]">
+                  <span className="material-symbols-outlined text-lg">photo_library</span>
+                  <span>Trocar Poster / Banner</span>
+                </div>
+              )}
+            </div>
+            {inLibrary && (
+              <button
+                type="button"
+                onClick={() => setShowArtworkModal(true)}
+                className="w-full max-w-[280px] mx-auto py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-on-surface-variant hover:text-white text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-sm">photo_library</span>
+                Trocar Poster / Banner
+              </button>
+            )}
           </div>
 
           {/* COLUNA DIREITA: Main Content (Synopsis & Tracking) */}
@@ -1443,19 +1523,37 @@ const DetailsPage = () => {
                     {selectedItem.ano}
                   </span>
                 )}
-                {selectedItem.statusLancamento && (
+                {unreleased ? (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold border bg-amber-500/15 text-amber-300 border-amber-500/30 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-xs">schedule</span>
+                    Por Estrear{releaseDate ? ` · ${formatMovieDate(releaseDate)}` : ''}
+                  </span>
+                ) : (selectedItem.statusLancamento === 'CANCELLED' || selectedItem.statusLancamento === 'CANCELED') ? (
                   <span className="px-3 py-1 rounded-full text-xs font-bold border border-white/10 bg-[#18181c] text-gray-300">
-                    {selectedItem.statusLancamento === 'RELEASING' ? t("Em Lançamento") : 
-                     selectedItem.statusLancamento === 'FINISHED' ? t("Terminado") : 
-                     selectedItem.statusLancamento === 'HIATUS' ? t("Hiato") : 
-                     selectedItem.statusLancamento === 'CANCELLED' ? t("Cancelado") : 
-                     selectedItem.statusLancamento}
+                    {t("Cancelado")}
+                  </span>
+                ) : (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold border border-white/10 bg-[#18181c] text-gray-300">
+                    Estreado
+                  </span>
+                )}
+                {formatRuntime(meta.duracao || selectedItem.duracaoEpisodio) && (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold border border-white/10 bg-[#18181c] text-gray-300">
+                    {formatRuntime(meta.duracao || selectedItem.duracaoEpisodio)}
+                  </span>
+                )}
+                {inLibrary && (
+                  <span className={`text-xs flex items-center gap-1 font-extrabold ${getPriorityStarColor(selectedItem.prioridade)}`}>
+                    <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> #{selectedItem.prioridade}
                   </span>
                 )}
               </div>
               <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white">
                 {selectedItem.titulo}
               </h2>
+              {meta.tagline && (
+                <p className="text-sm italic text-on-surface-variant">{meta.tagline}</p>
+              )}
             </div>
 
             {/* Genres */}
@@ -1512,11 +1610,22 @@ const DetailsPage = () => {
                   </div>
                 ) : (
                   <div className="space-y-5">
+                    {unreleased && (
+                      <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-200">
+                        <span className="material-symbols-outlined text-base flex-shrink-0">schedule</span>
+                        <p className="text-xs font-medium leading-relaxed">
+                          Este filme ainda não estreou.
+                          {releaseDate ? ` Estreia a ${formatMovieDate(releaseDate)}${daysLeft !== null ? ` (${daysLeft === 1 ? 'falta 1 dia' : `faltam ${daysLeft} dias`})` : ''}.` : ' Ainda sem data de estreia.'}
+                          {' '}Fica na lista "Por Estrear" até lá.
+                        </p>
+                      </div>
+                    )}
+
                     <div className="space-y-2">
                       <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest block">
                         Estado de Visualização
                       </label>
-                      
+
                       <div className="grid grid-cols-2 gap-3 pt-1">
                         {/* Option 1: Não Assistido */}
                         <button
@@ -1529,7 +1638,7 @@ const DetailsPage = () => {
                           }}
                           disabled={isSavingDetailsProgress}
                           className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border font-bold text-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50 ${
-                            selectedItem.status === 'PLANNED'
+                            !isWatched
                               ? 'bg-amber-500/20 border-amber-500 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.25)]'
                               : 'bg-white/5 border-white/10 hover:border-white/20 text-on-surface-variant hover:text-white'
                           }`}
@@ -1547,8 +1656,9 @@ const DetailsPage = () => {
                             await atualizarCampo({ status: 'COMPLETED', epAtual: 1, epAtualGlobal: 1 });
                             setIsSavingDetailsProgress(false);
                           }}
-                          disabled={isSavingDetailsProgress}
-                          className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border font-bold text-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50 ${
+                          disabled={isSavingDetailsProgress || (unreleased && !isWatched)}
+                          title={unreleased && !isWatched ? 'Só podes marcar como assistido depois da estreia' : undefined}
+                          className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border font-bold text-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                             isWatched
                               ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.25)]'
                               : 'bg-white/5 border-white/10 hover:border-white/20 text-on-surface-variant hover:text-white'
@@ -1558,6 +1668,24 @@ const DetailsPage = () => {
                           <span>Assistido</span>
                         </button>
                       </div>
+                    </div>
+
+                    {/* Prioridade (usada na ordenação e no sorteio da secção de filmes) */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest block">
+                        Prioridade
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowPriorityModal(true)}
+                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:border-white/20 transition-all font-bold text-xs cursor-pointer active:scale-95 ${priorityOpt.starColor}`}
+                      >
+                        <span className="flex items-center gap-2 min-w-0">
+                          <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                          <span className="truncate">#{priorityOpt.num} - {t(priorityOpt.desc)}</span>
+                        </span>
+                        <span className="material-symbols-outlined text-sm">keyboard_arrow_down</span>
+                      </button>
                     </div>
 
                     <div className="pt-3 border-t border-white/5">
@@ -1605,6 +1733,54 @@ const DetailsPage = () => {
                 )}
               </div>
             </div>
+
+            {/* Metadados do filme */}
+            {metadados.length > 0 && (
+              <div className="pt-6 border-t border-white/5 space-y-4">
+                <div className="flex items-center gap-2 text-white">
+                  <span className="material-symbols-outlined text-base text-amber-400">movie</span>
+                  <h3 className="text-xs font-extrabold uppercase tracking-wider">Detalhes do Filme</h3>
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                  {metadados.map(m => (
+                    <div key={m.label} className="bg-white/[0.03] border border-white/5 rounded-2xl p-3.5 flex items-start gap-3 min-w-0">
+                      <span className="material-symbols-outlined text-base text-on-surface-variant flex-shrink-0 mt-0.5">{m.icon}</span>
+                      <div className="min-w-0">
+                        <p className="text-[9px] text-on-surface-variant uppercase font-bold tracking-widest mb-0.5">{m.label}</p>
+                        <p className="text-xs font-bold text-white break-words">{m.value}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Elenco */}
+            {elenco.length > 0 && (
+              <div className="pt-6 border-t border-white/5 space-y-4">
+                <div className="flex items-center gap-2 text-white">
+                  <span className="material-symbols-outlined text-base text-amber-400">groups</span>
+                  <h3 className="text-xs font-extrabold uppercase tracking-wider">Elenco Principal</h3>
+                </div>
+                <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+                  {elenco.map((ator, idx) => (
+                    <div key={`${ator.nome}-${idx}`} className="w-24 flex-shrink-0 text-center">
+                      <div className="w-24 h-24 rounded-2xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
+                        {ator.fotoUrl ? (
+                          <img src={ator.fotoUrl} className="w-full h-full object-cover" alt={ator.nome} loading="lazy" referrerPolicy="no-referrer" />
+                        ) : (
+                          <span className="material-symbols-outlined text-3xl text-on-surface-variant">person</span>
+                        )}
+                      </div>
+                      <p className="text-[11px] font-bold text-white mt-1.5 line-clamp-2">{ator.nome}</p>
+                      {ator.personagem && (
+                        <p className="text-[10px] text-on-surface-variant line-clamp-2">{ator.personagem}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Relations */}
             {selectedItem.relations && selectedItem.relations.edges && selectedItem.relations.edges.length > 0 && (

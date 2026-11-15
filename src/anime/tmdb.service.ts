@@ -167,7 +167,8 @@ export class TMDBService {
    */
   async getMovieDetails(id: number): Promise<any> {
     return this.fetchFromTMDB(`/movie/${id}`, {
-      append_to_response: 'translations,keywords',
+      // credits: realizador e elenco, mostrados na página de detalhes do filme
+      append_to_response: 'translations,keywords,credits',
     });
   }
 

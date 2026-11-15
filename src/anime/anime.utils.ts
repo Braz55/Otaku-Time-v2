@@ -204,11 +204,17 @@ export function normalizeTMDBToAniList(
     'Post Production': 'RELEASING',
     'In Production': 'RELEASING',
   };
-  const status =
+  let status =
     statusMap[media.status] ||
     (media.status ? media.status.toUpperCase() : 'FINISHED');
 
   const releaseDate = isMovie ? media.release_date : media.first_air_date;
+
+  // Um filme não fica "em lançamento": ou já estreou, ou está por estrear, ou foi cancelado.
+  // (As séries/animes mantêm o mapeamento de cima.)
+  if (isMovie) {
+    status = movieReleaseStatus(media.status, releaseDate);
+  }
   const parsedYear = releaseDate ? new Date(releaseDate).getFullYear() : null;
   const year = parsedYear && !isNaN(parsedYear) ? parsedYear : null;
 
@@ -289,6 +295,63 @@ export function normalizeTMDBToAniList(
         : null,
     number_of_seasons: media.number_of_seasons || 1,
     seasons: media.seasons || [],
+    // Metadados próprios de um filme (só para mostrar na página de detalhes)
+    ...(isMovie ? { filme: extractMovieMeta(media) } : {}),
+  };
+}
+
+// Estado de lançamento de um filme a partir do estado e da data de estreia do TMDB.
+export function movieReleaseStatus(
+  tmdbStatus?: string | null,
+  releaseDate?: string | null,
+  now: Date = new Date(),
+): 'FINISHED' | 'NOT_YET_RELEASED' | 'CANCELLED' {
+  if (tmdbStatus === 'Canceled') return 'CANCELLED';
+  if (releaseDate) {
+    const date = new Date(
+      releaseDate.includes('T') ? releaseDate : releaseDate + 'T12:00:00Z',
+    );
+    // Com data, é a data que manda (o estado do TMDB às vezes fica desatualizado)
+    if (!isNaN(date.getTime())) {
+      return date > now ? 'NOT_YET_RELEASED' : 'FINISHED';
+    }
+  }
+  // Sem data: só "Released" (ou sem estado nenhum, como nas pesquisas) conta como estreado
+  return !tmdbStatus || tmdbStatus === 'Released'
+    ? 'FINISHED'
+    : 'NOT_YET_RELEASED';
+}
+
+function extractMovieMeta(media: any) {
+  const crew: any[] = media.credits?.crew || [];
+  const cast: any[] = media.credits?.cast || [];
+  const names = (list: any[] | undefined) =>
+    (list || []).map((x: any) => x?.name).filter(Boolean);
+  return {
+    tagline: media.tagline || null,
+    tituloOriginal: media.original_title || null,
+    idiomaOriginal: media.original_language || null,
+    duracao: media.runtime || null,
+    realizadores: names(crew.filter((c) => c.job === 'Director')),
+    argumentistas: names(
+      crew.filter((c) => c.job === 'Screenplay' || c.job === 'Writer'),
+    ).slice(0, 4),
+    elenco: cast.slice(0, 12).map((c) => ({
+      nome: c.name,
+      personagem: c.character || null,
+      fotoUrl: c.profile_path
+        ? `https://image.tmdb.org/t/p/w185${c.profile_path}`
+        : null,
+    })),
+    produtoras: names(media.production_companies).slice(0, 4),
+    paises: names(media.production_countries),
+    colecao: media.belongs_to_collection?.name || null,
+    orcamento: media.budget || null,
+    receita: media.revenue || null,
+    notaTmdb: media.vote_average || null,
+    votosTmdb: media.vote_count || null,
+    imdbId: media.imdb_id || null,
+    estadoTmdb: media.status || null,
   };
 }
 

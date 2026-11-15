@@ -163,7 +163,7 @@ export class AniListService {
     let isMovie = false;
 
     const tryTV = async () => {
-      details = await this.tmdbService.getTVShowDetails(id);
+      details = await this.tmdbService.getTVShowDetails(id, { credits: true });
       isMovie = false;
     };
 

@@ -124,10 +124,17 @@ export class TMDBService {
   /**
    * Get TV Show details.
    */
-  async getTVShowDetails(id: number): Promise<any> {
+  async getTVShowDetails(
+    id: number,
+    options: { credits?: boolean } = {},
+  ): Promise<any> {
     return this.fetchFromTMDB(`/tv/${id}`, {
       // keywords: os temas da obra, usados nas recomendações (sem pedido extra)
-      append_to_response: 'translations,keywords',
+      // aggregate_credits: elenco e equipa de todas as temporadas; só para a página de
+      // detalhes (a resposta é grande, por isso as sincronizações não o pedem)
+      append_to_response: options.credits
+        ? 'translations,keywords,aggregate_credits'
+        : 'translations,keywords',
     });
   }
 

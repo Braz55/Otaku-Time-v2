@@ -1,6 +1,8 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from '../../hooks/useTranslation';
+import { MediaMetaSection } from './MediaMetaSection';
+import { buildSeriesMeta } from '../../services/mediaMeta';
 
 interface InfoTabProps {
   selectedItem: any;
@@ -47,6 +49,12 @@ export const InfoTab: React.FC<InfoTabProps> = ({
 }) => {
   const linksOficiais = selectedItem.linksExternos ? JSON.parse(selectedItem.linksExternos).map((l: any) => ({ ...l, tipo: 'Official' })) : [];
   const { t } = useTranslation();
+  // Na biblioteca o tipo vem guardado; numa obra externa decide-se pelo género "Animation"
+  const isAnimeTipo = !selectedItem.isExternal && selectedItem.tipo
+    ? selectedItem.tipo === 'ANIME'
+    : selectedItem.generos && typeof selectedItem.generos === 'object'
+      ? Object.keys(selectedItem.generos).some(g => ['anime', 'animation', 'animação'].includes(g.toLowerCase()))
+      : true;
   void overallRating;
   void commentsElement;
 
@@ -208,6 +216,18 @@ export const InfoTab: React.FC<InfoTabProps> = ({
             </p>
           </div>
         </div>
+      )}
+
+      {/* Metadados do TMDB + elenco (séries e animes) */}
+      {mediaType === 'anime' && selectedItem.serie && (
+        <MediaMetaSection
+          title={isAnimeTipo ? 'Detalhes do Anime' : 'Detalhes da Série'}
+          icon={isAnimeTipo ? 'animation' : 'tv'}
+          metadados={buildSeriesMeta(selectedItem)}
+          elenco={selectedItem.serie.elenco || []}
+          castTitle={isAnimeTipo ? 'Elenco de Vozes' : 'Elenco Principal'}
+          accentClass="text-primary"
+        />
       )}
     </div>
   );

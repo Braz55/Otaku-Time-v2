@@ -296,7 +296,71 @@ export function normalizeTMDBToAniList(
     number_of_seasons: media.number_of_seasons || 1,
     seasons: media.seasons || [],
     // Metadados próprios de um filme (só para mostrar na página de detalhes)
-    ...(isMovie ? { filme: extractMovieMeta(media) } : {}),
+    // O mesmo para as séries e os animes
+    ...(isMovie
+      ? { filme: extractMovieMeta(media) }
+      : { serie: extractSeriesMeta(media) }),
+  };
+}
+
+// Metadados de uma série/anime do TMDB. O elenco e a equipa só vêm quando os detalhes
+// são pedidos com aggregate_credits (página de detalhes); sem isso ficam listas vazias.
+function extractSeriesMeta(media: any) {
+  const credits = media.aggregate_credits || media.credits || {};
+  const crew: any[] = credits.crew || [];
+  const cast: any[] = credits.cast || [];
+  const names = (list: any[] | undefined) => [
+    ...new Set((list || []).map((x: any) => x?.name).filter(Boolean)),
+  ];
+  // aggregate_credits: jobs[] por pessoa; credits: um job por entrada
+  const hasJob = (c: any, jobs: string[]) =>
+    Array.isArray(c.jobs)
+      ? c.jobs.some((j: any) => jobs.includes(j?.job))
+      : jobs.includes(c.job);
+  const paises = names(media.production_countries);
+  const criadores = names(media.created_by).slice(0, 4);
+  // "Director" numa série são os realizadores de episódios soltos: só interessam quando
+  // não há realizador da série nem criadores (o caso habitual dos animes)
+  let realizadores = names(crew.filter((c) => hasJob(c, ['Series Director'])));
+  if (realizadores.length === 0 && criadores.length === 0) {
+    realizadores = names(crew.filter((c) => hasJob(c, ['Director'])));
+  }
+  return {
+    tagline: media.tagline || null,
+    tituloOriginal: media.original_name || null,
+    idiomaOriginal: media.original_language || null,
+    criadores,
+    realizadores: realizadores.slice(0, 3),
+    obraOriginal: names(
+      crew.filter((c) =>
+        hasJob(c, [
+          'Comic Book',
+          'Original Concept',
+          'Original Story',
+          'Novel',
+          'Original Series Creator',
+        ]),
+      ),
+    ).slice(0, 3),
+    elenco: cast.slice(0, 12).map((c) => ({
+      nome: c.name,
+      personagem: c.roles?.[0]?.character || c.character || null,
+      fotoUrl: c.profile_path
+        ? `https://image.tmdb.org/t/p/w185${c.profile_path}`
+        : null,
+    })),
+    canais: names(media.networks).slice(0, 4),
+    produtoras: names(media.production_companies).slice(0, 4),
+    // Sem países de produção, ficam os códigos de origem (a app traduz os códigos)
+    paises: paises.length > 0 ? paises : media.origin_country || [],
+    temporadas: media.number_of_seasons || null,
+    episodios: media.number_of_episodes || null,
+    primeiraEmissao: media.first_air_date || null,
+    ultimaEmissao: media.last_air_date || null,
+    tipoSerie: media.type || null,
+    notaTmdb: media.vote_average || null,
+    votosTmdb: media.vote_count || null,
+    estadoTmdb: media.status || null,
   };
 }
 

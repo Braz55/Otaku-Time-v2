@@ -17,6 +17,8 @@ import { InfoTab } from '../components/details/InfoTab';
 import { ArtworkSelectorModal } from '../components/details/ArtworkSelectorModal';
 import { isMovieUnreleased, getMovieReleaseDate, formatMovieDate, daysUntil, formatRuntime, formatMoney } from '../services/movies';
 import { getMediaSource } from '../services/mediaSource';
+import { MediaMetaSection } from '../components/details/MediaMetaSection';
+import { formatLanguageName, formatTmdbScore, type MetaEntry, type CastMember } from '../services/mediaMeta';
 
 // Esperas entre tentativas quando o servidor está a acordar (cold start do Render) ou a rede falha
 const DETAILS_RETRY_DELAYS = [3000, 8000, 15000];
@@ -577,7 +579,8 @@ const DetailsPage = () => {
             fonte: data.fonte, // L-23: série ou filme do TMDB (só no anime)
             duracaoEpisodio: data.duracaoEpisodio || data.duration || null,
             relations: data.relations,
-            filme: data.filme // metadados do filme (realizador, elenco, ...); só nos filmes
+            filme: data.filme, // metadados do filme (realizador, elenco, ...); só nos filmes
+            serie: data.serie // o mesmo para as séries e os animes
           };
           setSelectedItem(normalized);
           loadedKeyRef.current = loadKey;
@@ -617,7 +620,7 @@ const DetailsPage = () => {
                         ...(extData.format === 'MOVIE' ? {
                           filme: extData.filme,
                           descricao: prev.descricao || (extData.description ? extData.description.replace(/<[^>]*>?/gm, '') : prev.descricao)
-                        } : {})
+                        } : { serie: extData.serie })
                       };
                     }
                     return prev;
@@ -941,6 +944,10 @@ const DetailsPage = () => {
             }
           }
         }
+        // Séries/animes: os metadados já no ecrã mantêm-se até chegarem os novos
+        if (localItem.serie == null && selectedItem?.serie) {
+          localItem.serie = selectedItem.serie;
+        }
         setSelectedItem(localItem);
 
         if (mediaType === 'anime') {
@@ -967,7 +974,8 @@ const DetailsPage = () => {
                       ...prev,
                       relations: extData.relations,
                       relationsManga: extData.relationsManga,
-                      ...(extData.format === 'MOVIE' && extData.filme ? { filme: extData.filme } : {})
+                      ...(extData.format === 'MOVIE' && extData.filme ? { filme: extData.filme } : {}),
+                      ...(extData.format !== 'MOVIE' && extData.serie ? { serie: extData.serie } : {})
                     };
                   }
                   return prev;
@@ -1441,16 +1449,8 @@ const DetailsPage = () => {
 
     // Metadados do filme (vêm do TMDB com os detalhes externos)
     const meta = selectedItem.filme || {};
-    const idiomaOriginal = (() => {
-      if (!meta.idiomaOriginal) return '';
-      try {
-        const nome = new Intl.DisplayNames(['pt-PT'], { type: 'language' }).of(meta.idiomaOriginal);
-        return nome ? nome.charAt(0).toUpperCase() + nome.slice(1) : meta.idiomaOriginal;
-      } catch {
-        return meta.idiomaOriginal;
-      }
-    })();
-    const metadados: { icon: string; label: string; value: string }[] = [
+    const idiomaOriginal = formatLanguageName(meta.idiomaOriginal);
+    const metadados: MetaEntry[] = [
       { icon: 'event', label: unreleased ? 'Estreia' : 'Data de Estreia', value: releaseDate ? formatMovieDate(releaseDate) : (selectedItem.ano ? String(selectedItem.ano) : '') },
       { icon: 'schedule', label: 'Duração', value: formatRuntime(meta.duracao || selectedItem.duracaoEpisodio) },
       { icon: 'movie_edit', label: 'Realização', value: (meta.realizadores || []).join(', ') },
@@ -1462,9 +1462,9 @@ const DetailsPage = () => {
       { icon: 'collections_bookmark', label: 'Coleção', value: meta.colecao || '' },
       { icon: 'payments', label: 'Orçamento', value: formatMoney(meta.orcamento) },
       { icon: 'trending_up', label: 'Receita', value: formatMoney(meta.receita) },
-      { icon: 'star', label: 'Nota TMDB', value: meta.notaTmdb ? `${Number(meta.notaTmdb).toFixed(1)} / 10${meta.votosTmdb ? ` (${Number(meta.votosTmdb).toLocaleString('pt-PT')} votos)` : ''}` : '' },
+      { icon: 'star', label: 'Nota TMDB', value: formatTmdbScore(meta.notaTmdb, meta.votosTmdb) },
     ].filter(m => !!m.value);
-    const elenco: { nome: string; personagem?: string | null; fotoUrl?: string | null }[] = meta.elenco || [];
+    const elenco: CastMember[] = meta.elenco || [];
 
     return (
       <div className="w-full text-left space-y-6">
@@ -1734,53 +1734,8 @@ const DetailsPage = () => {
               </div>
             </div>
 
-            {/* Metadados do filme */}
-            {metadados.length > 0 && (
-              <div className="pt-6 border-t border-white/5 space-y-4">
-                <div className="flex items-center gap-2 text-white">
-                  <span className="material-symbols-outlined text-base text-amber-400">movie</span>
-                  <h3 className="text-xs font-extrabold uppercase tracking-wider">Detalhes do Filme</h3>
-                </div>
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                  {metadados.map(m => (
-                    <div key={m.label} className="bg-white/[0.03] border border-white/5 rounded-2xl p-3.5 flex items-start gap-3 min-w-0">
-                      <span className="material-symbols-outlined text-base text-on-surface-variant flex-shrink-0 mt-0.5">{m.icon}</span>
-                      <div className="min-w-0">
-                        <p className="text-[9px] text-on-surface-variant uppercase font-bold tracking-widest mb-0.5">{m.label}</p>
-                        <p className="text-xs font-bold text-white break-words">{m.value}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Elenco */}
-            {elenco.length > 0 && (
-              <div className="pt-6 border-t border-white/5 space-y-4">
-                <div className="flex items-center gap-2 text-white">
-                  <span className="material-symbols-outlined text-base text-amber-400">groups</span>
-                  <h3 className="text-xs font-extrabold uppercase tracking-wider">Elenco Principal</h3>
-                </div>
-                <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
-                  {elenco.map((ator, idx) => (
-                    <div key={`${ator.nome}-${idx}`} className="w-24 flex-shrink-0 text-center">
-                      <div className="w-24 h-24 rounded-2xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
-                        {ator.fotoUrl ? (
-                          <img src={ator.fotoUrl} className="w-full h-full object-cover" alt={ator.nome} loading="lazy" referrerPolicy="no-referrer" />
-                        ) : (
-                          <span className="material-symbols-outlined text-3xl text-on-surface-variant">person</span>
-                        )}
-                      </div>
-                      <p className="text-[11px] font-bold text-white mt-1.5 line-clamp-2">{ator.nome}</p>
-                      {ator.personagem && (
-                        <p className="text-[10px] text-on-surface-variant line-clamp-2">{ator.personagem}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Metadados do filme + elenco */}
+            <MediaMetaSection title="Detalhes do Filme" icon="movie" metadados={metadados} elenco={elenco} />
 
             {/* Relations */}
             {selectedItem.relations && selectedItem.relations.edges && selectedItem.relations.edges.length > 0 && (

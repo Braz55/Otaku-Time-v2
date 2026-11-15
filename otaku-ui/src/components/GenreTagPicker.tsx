@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, ChevronDown, ChevronUp, Grid, Plus, Tag, X, Lock } from 'lucide-react';
 import { useTranslation } from '../hooks/useTranslation';
 
@@ -116,9 +117,9 @@ const GenreTagPicker = ({
         </div>
       )}
 
-      {isOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-surface-dim border border-border-glass rounded-3xl w-full max-w-4xl h-[80vh] md:h-[650px] flex flex-col shadow-2xl overflow-hidden animate-scale-up">
+      {isOpen && createPortal(
+        <div className="ot-modal-backdrop fixed inset-0 z-[140] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="ot-modal-panel bg-surface-dim border border-border-glass rounded-3xl w-full max-w-4xl h-[80vh] md:h-[650px] flex flex-col shadow-2xl overflow-hidden animate-scale-up">
             <div className="px-6 py-4 border-b border-border-glass flex justify-between items-center bg-surface-container-low/40">
               <div className="flex items-center gap-2">
                 <Grid size={18} className="text-primary" />
@@ -265,7 +266,8 @@ const GenreTagPicker = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

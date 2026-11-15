@@ -146,7 +146,7 @@ const ListsPage = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-margin-mobile md:px-margin-desktop py-6 md:py-10 space-y-8">
+    <div className="max-w-7xl mx-auto px-margin-mobile md:px-margin-desktop py-4 md:py-10 space-y-6 md:space-y-8">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h2 className="font-display-lg text-3xl md:text-5xl font-black text-white tracking-tight">Listas</h2>

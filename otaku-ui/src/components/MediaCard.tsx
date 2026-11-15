@@ -23,7 +23,7 @@ const MediaCard: React.FC<MediaCardProps> = ({
 
   return (
     <motion.div 
-      className="group cursor-pointer space-y-3 select-none"
+      className="group cursor-pointer select-none"
       onClick={onClick}
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
@@ -35,7 +35,7 @@ const MediaCard: React.FC<MediaCardProps> = ({
       whileHover={{ scale: 1.04, y: -6 }}
       whileTap={{ scale: 0.96 }}
     >
-      <div className="relative aspect-[2/3] rounded-3xl overflow-hidden shadow-lg transition-shadow duration-300 group-hover:shadow-2xl group-hover:shadow-primary/25 border border-white/5 group-hover:border-primary/30">
+      <div className="relative aspect-[2/3] rounded-2xl sm:rounded-3xl overflow-hidden shadow-lg transition-shadow duration-300 group-hover:shadow-2xl group-hover:shadow-primary/25 border border-white/5 group-hover:border-primary/30">
         {/* Placeholder / Skeleton Loader */}
         {!imageLoaded && (
           <div className="absolute inset-0 bg-surface-container-high animate-pulse" />
@@ -57,7 +57,7 @@ const MediaCard: React.FC<MediaCardProps> = ({
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent opacity-70 group-hover:opacity-85 transition-opacity duration-300"></div>
 
         {/* Informação no fundo do card */}
-        <div className="absolute bottom-4 left-4 right-4 z-10">
+        <div className="absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-4 z-10">
           {progresso && (
             <motion.span 
               initial={{ scale: 0.9, opacity: 0 }}
@@ -67,14 +67,14 @@ const MediaCard: React.FC<MediaCardProps> = ({
               {progresso}
             </motion.span>
           )}
-          <p className="font-bold text-sm text-white line-clamp-2 leading-snug drop-shadow-md group-hover:text-primary-light transition-colors">
+          <p className="font-bold text-[13px] sm:text-sm text-white line-clamp-2 leading-snug drop-shadow-md group-hover:text-primary-light transition-colors">
             {titulo}
           </p>
         </div>
 
         {/* Badge de Ranking */}
         {ranking && (
-          <div className="absolute top-3.5 right-3.5 bg-black/50 backdrop-blur-md px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1 text-white border border-white/10 shadow-md z-10">
+          <div className="absolute top-2.5 right-2.5 sm:top-3.5 sm:right-3.5 bg-black/50 backdrop-blur-md px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1 text-white border border-white/10 shadow-md z-10">
             <span className="material-symbols-outlined text-[12px] text-yellow-400" style={{ fontVariationSettings: "'FILL' 1" }}>star</span> #{ranking}
           </div>
         )}

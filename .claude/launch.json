@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "otaku-api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start:dev"],
+      "port": 3001
+    },
+    {
+      "name": "otaku-ui",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "otaku-ui", "run", "dev", "--", "--port", "5173", "--strictPort"],
+      "port": 5173
+    }
+  ]
+}

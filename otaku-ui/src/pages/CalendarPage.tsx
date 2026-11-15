@@ -284,9 +284,9 @@ const CalendarPage = () => {
   };
 
   return (
-    <div className="pt-8 px-6 md:px-margin-desktop pb-32 max-w-3xl mx-auto">
+    <div className="pt-5 md:pt-8 px-margin-mobile md:px-margin-desktop pb-32 max-w-3xl mx-auto">
       {/* Header Section */}
-      <section className="mb-12 text-center md:text-left">
+      <section className="mb-8 md:mb-12 text-center md:text-left">
         <div>
           <span className="text-secondary font-label-md tracking-widest mb-2 block uppercase font-bold text-xs">
             Upcoming Releases

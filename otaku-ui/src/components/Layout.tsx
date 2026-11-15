@@ -200,7 +200,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
 
   return (
-    <div className="min-h-screen bg-background text-on-background selection:bg-primary selection:text-on-primary font-body-md flex max-w-full overflow-x-hidden">
+    <div className="min-h-screen app-ambient text-on-background selection:bg-primary selection:text-on-primary font-body-md flex max-w-full overflow-x-hidden">
       {/* SideNavBar (Desktop Only) */}
       <aside className="hidden md:flex flex-col h-screen w-64 fixed left-0 top-0 bg-surface-dim border-r border-border-glass backdrop-blur-xl z-50 py-8">
         {/* Brand Header */}
@@ -341,70 +341,29 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </div>
 
       {/* BottomNavBar (Mobile Only) */}
-      <nav className="md:hidden fixed bottom-0 left-0 w-full z-50 bg-surface-container/90 backdrop-blur-md border-t border-border-glass safe-h-nav-bottom flex flex-col justify-start px-4 rounded-t-xl shadow-[0_-4px_20px_rgba(139,92,246,0.1)]">
-        <div className="flex justify-around items-center h-16 w-full">
-          <button 
-            onClick={handleShowDashboard} 
-            className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${
-              isHomeActive 
-                ? 'bg-secondary-container/20 text-primary font-bold' 
-                : 'text-on-surface-variant hover:text-primary'
-            }`}
-          >
-            <span className="material-symbols-outlined text-lg font-bold" style={{ fontVariationSettings: isHomeActive ? "'FILL' 1" : "'FILL' 0" }}>home</span>
-             <span className="font-label-sm text-[10px] mt-0.5">{t("Home")}</span>
-          </button>
-
-          <button 
-            onClick={() => safeNavigate('/explore', () => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/explore'); })} 
-            className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${
-              isExploreActive 
-                ? 'bg-secondary-container/20 text-primary font-bold' 
-                : 'text-on-surface-variant hover:text-primary'
-            }`}
-          >
-            <span className="material-symbols-outlined text-lg font-bold" style={{ fontVariationSettings: isExploreActive ? "'FILL' 1" : "'FILL' 0" }}>explore</span>
-             <span className="font-label-sm text-[10px] mt-0.5">{t("Explorar")}</span>
-          </button>
-
-          <button 
-            onClick={handleShowFavorites} 
-            className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${
-              isLibraryActive 
-                ? 'bg-secondary-container/20 text-primary font-bold' 
-                : 'text-on-surface-variant hover:text-primary'
-            }`}
-          >
-            <span className="material-symbols-outlined text-lg font-bold" style={{ fontVariationSettings: isLibraryActive ? "'FILL' 1" : "'FILL' 0" }}>video_library</span>
-             <span className="font-label-sm text-[10px] mt-0.5">{t("My List")}</span>
-          </button>
-
-
-          
-          <button 
-            onClick={() => safeNavigate('/calendar', () => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/calendar'); })} 
-            className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${
-              isCalendarActive 
-                ? 'bg-secondary-container/20 text-primary font-bold' 
-                : 'text-on-surface-variant hover:text-primary'
-            }`}
-          >
-            <span className="material-symbols-outlined text-lg font-bold" style={{ fontVariationSettings: isCalendarActive ? "'FILL' 1" : "'FILL' 0" }}>event_note</span>
-             <span className="font-label-sm text-[10px] mt-0.5">{t("Agenda")}</span>
-          </button>
-
-
-          <button 
-            onClick={() => safeNavigate('/profile', () => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/profile'); })} 
-            className={`flex flex-col items-center justify-center rounded-xl px-4 py-1 active:scale-90 duration-150 ${
-              isProfileActive 
-                ? 'bg-secondary-container/20 text-primary font-bold' 
-                : 'text-on-surface-variant hover:text-primary'
-            }`}
-          >
-            <span className="material-symbols-outlined text-lg font-bold" style={{ fontVariationSettings: isProfileActive ? "'FILL' 1" : "'FILL' 0" }}>account_circle</span>
-             <span className="font-label-sm text-[10px] mt-0.5">{t("Me")}</span>
-          </button>
+      <nav className="md:hidden fixed bottom-0 left-0 w-full z-50 bg-surface-container-lowest/85 backdrop-blur-xl border-t border-border-glass safe-h-nav-bottom flex flex-col justify-start px-2">
+        <div className="flex justify-around items-stretch h-16 w-full">
+          {[
+            { key: 'home', icon: 'home', label: t("Home"), active: isHomeActive, onClick: handleShowDashboard },
+            { key: 'explore', icon: 'explore', label: t("Explorar"), active: isExploreActive, onClick: () => safeNavigate('/explore', () => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/explore'); }) },
+            { key: 'library', icon: 'video_library', label: t("My List"), active: isLibraryActive, onClick: handleShowFavorites },
+            { key: 'calendar', icon: 'event_note', label: t("Agenda"), active: isCalendarActive, onClick: () => safeNavigate('/calendar', () => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/calendar'); }) },
+            { key: 'profile', icon: 'account_circle', label: t("Me"), active: isProfileActive, onClick: () => safeNavigate('/profile', () => { setIsSearchOpen(false); setIsShowingFavorites(false); navigate('/profile'); }) },
+          ].map(item => (
+            <button
+              key={item.key}
+              onClick={item.onClick}
+              aria-current={item.active ? 'page' : undefined}
+              className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 active:scale-90 transition-all duration-150 cursor-pointer ${
+                item.active ? 'text-primary-light' : 'text-on-surface-variant'
+              }`}
+            >
+              <span className={`flex items-center justify-center w-14 h-7 rounded-full transition-colors duration-200 ${item.active ? 'bg-primary/25' : ''}`}>
+                <span className="material-symbols-outlined !text-[22px]" style={{ fontVariationSettings: item.active ? "'FILL' 1" : "'FILL' 0" }}>{item.icon}</span>
+              </span>
+              <span className={`font-label-sm text-[10px] truncate max-w-full ${item.active ? 'font-bold' : 'font-medium'}`}>{item.label}</span>
+            </button>
+          ))}
         </div>
       </nav>
 

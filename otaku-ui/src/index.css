@@ -107,7 +107,7 @@
   --font-headline-lg-mobile: 'Sora', sans-serif;
 
   /* Espaçamentos do Novo Design */
-  --spacing-margin-mobile: 20px;
+  --spacing-margin-mobile: 16px;
   --spacing-margin-desktop: 64px;
   --spacing-gutter: 24px;
   --spacing-unit: 4px;
@@ -319,6 +319,280 @@ h1, h2, h3, h4, h5, h6 {
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.25);
+}
+
+/* ==========================================================================
+   Redesign global — base, movimento e componentes reutilizáveis (ot-*)
+   ========================================================================== */
+
+:root { color-scheme: dark; }
+:root.light { color-scheme: light; }
+
+button, a, label, [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1, h2, h3 {
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary-light) 70%, transparent);
+  outline-offset: 2px;
+}
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: none;
+}
+
+/* Fundo ambiente: brilho subtil da paleta ativa no topo da app */
+.app-ambient {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(60% 100% at 10% 0%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 70%),
+    radial-gradient(50% 90% at 100% 0%, color-mix(in srgb, var(--secondary) 11%, transparent), transparent 70%);
+  background-repeat: no-repeat;
+  background-size: 100% 460px;
+}
+
+/* --- Animações de entrada (as classes animate-in / fade-in / zoom-in / slide-in
+       já eram usadas em modais e menus mas não estavam definidas) --- */
+@keyframes otEnter {
+  from {
+    opacity: var(--ot-enter-opacity, 1);
+    transform: translate3d(var(--ot-enter-x, 0), var(--ot-enter-y, 0), 0) scale(var(--ot-enter-scale, 1));
+  }
+}
+.animate-in {
+  animation: otEnter var(--tw-duration, 220ms) cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.fade-in { --ot-enter-opacity: 0; }
+.zoom-in-95 { --ot-enter-scale: 0.95; }
+.slide-in-from-top-1 { --ot-enter-y: -0.25rem; }
+.slide-in-from-top-2 { --ot-enter-y: -0.5rem; }
+.slide-in-from-top-4 { --ot-enter-y: -1rem; }
+.slide-in-from-bottom-2 { --ot-enter-y: 0.5rem; }
+.slide-in-from-bottom-4 { --ot-enter-y: 1rem; }
+.slide-in-from-bottom-5 { --ot-enter-y: 1.25rem; }
+.slide-in-from-bottom-8 { --ot-enter-y: 2rem; }
+.slide-in-from-right-4 { --ot-enter-x: 1rem; }
+.slide-in-from-left-4 { --ot-enter-x: -1rem; }
+
+@keyframes otScaleUp {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+}
+.animate-scale-up { animation: otScaleUp 240ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+
+@keyframes otSlideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+}
+.animate-slide-down { animation: otSlideDown 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+
+@keyframes otSheetUp {
+  from { transform: translateY(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* --- Componentes --- */
+
+/* Contentor de página: margens laterais e ritmo vertical consistentes */
+.ot-page {
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
+  padding: 1rem var(--spacing-margin-mobile) 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+@media (min-width: 768px) {
+  .ot-page {
+    padding: 2rem var(--spacing-margin-desktop);
+    gap: 1.5rem;
+  }
+}
+
+.ot-page-title {
+  font-family: 'Sora', sans-serif;
+  font-weight: 800;
+  font-size: 1.5rem;
+  line-height: 1.15;
+  color: var(--on-surface);
+}
+.ot-page-subtitle {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--on-surface-variant);
+  margin-top: 0.125rem;
+}
+
+.ot-eyebrow {
+  font-family: 'Sora', sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--on-surface-variant);
+}
+
+/* Linha horizontal com scroll, a sangrar até às margens do ecrã */
+.ot-scroller {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+  margin-inline: calc(var(--spacing-margin-mobile) * -1);
+  padding-inline: var(--spacing-margin-mobile);
+  scroll-padding-inline: var(--spacing-margin-mobile);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overscroll-behavior-x: contain;
+}
+.ot-scroller::-webkit-scrollbar { display: none; }
+
+.ot-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+  height: 2.25rem;
+  padding-inline: 0.875rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-glass);
+  background: var(--surface-container);
+  color: var(--on-surface-variant);
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 160ms, border-color 160ms, color 160ms, transform 120ms;
+}
+.ot-chip:active { transform: scale(0.96); }
+.ot-chip:hover { color: var(--on-surface); }
+.ot-chip[data-active="true"] {
+  background: color-mix(in srgb, var(--chip-tone, var(--primary)) 22%, transparent);
+  border-color: color-mix(in srgb, var(--chip-tone, var(--primary)) 55%, transparent);
+  color: var(--chip-tone-text, var(--primary-light));
+}
+.ot-chip[data-tone="secondary"] { --chip-tone: var(--secondary); --chip-tone-text: var(--secondary-light); }
+.ot-chip[data-tone="amber"] { --chip-tone: #f59e0b; --chip-tone-text: #fbbf24; }
+.ot-chip[data-tone="sky"] { --chip-tone: #00b0ff; --chip-tone-text: #7dd3fc; }
+.light .ot-chip[data-active="true"] { color: var(--chip-tone, var(--primary)); }
+.light .ot-chip[data-tone="amber"][data-active="true"] { color: #b45309; }
+.light .ot-chip[data-tone="sky"][data-active="true"] { color: #0369a1; }
+.ot-chip[data-size="sm"] { height: 1.875rem; padding-inline: 0.625rem; font-size: 0.6875rem; }
+
+.ot-chip-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding-inline: 0.25rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 0.625rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* Campo (input / select) */
+.ot-field {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.875rem;
+  border: 1px solid var(--border-glass);
+  background: var(--surface-container);
+  color: var(--on-surface);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  transition: border-color 160ms, background-color 160ms;
+}
+.ot-field:focus, .ot-field:focus-within {
+  border-color: color-mix(in srgb, var(--primary-light) 55%, transparent);
+  outline: none;
+}
+
+.ot-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding-inline: 1.125rem;
+  border-radius: 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background-color 160ms, transform 120ms, opacity 160ms;
+}
+.ot-btn:active { transform: scale(0.97); }
+.ot-btn-primary {
+  background: var(--primary);
+  color: var(--on-primary);
+  box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--primary) 70%, transparent);
+}
+.ot-btn-ghost {
+  background: var(--overlay-soft);
+  border: 1px solid var(--overlay-border);
+  color: var(--on-surface);
+}
+.ot-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.875rem;
+  border: 1px solid var(--border-glass);
+  background: var(--surface-container);
+  color: var(--on-surface-variant);
+  cursor: pointer;
+  position: relative;
+  transition: background-color 160ms, color 160ms, transform 120ms;
+}
+.ot-icon-btn:active { transform: scale(0.94); }
+.ot-icon-btn[data-active="true"] {
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 55%, transparent);
+  color: var(--primary-light);
+}
+
+/* Controlo segmentado */
+.ot-segmented {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 1rem;
+  background: var(--field-bg);
+  border: 1px solid var(--border-glass);
+}
+
+/* Modais em ecrãs pequenos: ocupam o fundo do ecrã como uma folha */
+@media (max-width: 767px) {
+  .ot-modal-backdrop {
+    padding: 0 !important;
+    align-items: flex-end !important;
+  }
+  .ot-modal-panel {
+    height: 90dvh !important;
+    max-width: none !important;
+    border-radius: 1.75rem 1.75rem 0 0 !important;
+    border-bottom: 0 !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    animation: otSheetUp 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards !important;
+  }
 }
 
 

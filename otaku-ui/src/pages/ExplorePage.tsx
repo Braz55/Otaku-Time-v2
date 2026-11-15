@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMedia } from '../context/MediaContext';
 import { API_BASE_URL } from '../config';
@@ -6,8 +7,11 @@ import { customFetch } from '../services/apiBridge';
 import { useTranslation } from '../hooks/useTranslation';
 import { useNavigate } from 'react-router-dom';
 import MediaCard from '../components/MediaCard';
-import { 
-  RefreshCw, X, Grid, Tag, ChevronDown, ChevronUp, Check, SlidersHorizontal, ArrowUpDown, Plus
+import BottomSheet from '../components/ui/BottomSheet';
+import { Chip, ChipScroller, OptionGroup, RemovableChip, ToggleRow } from '../components/ui/Chip';
+import { useIsMobile } from '../hooks/useIsMobile';
+import {
+  RefreshCw, X, Grid, Tag, ChevronDown, ChevronUp, Check, SlidersHorizontal, ArrowUpDown, Plus, Sparkles
 } from 'lucide-react';
 
 interface GenreTag {
@@ -43,6 +47,11 @@ const ExplorePage = () => {
   const { categoria } = useMedia();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+
+  // Folhas inferiores (mobile)
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+  const [isSortSheetOpen, setIsSortSheetOpen] = useState(false);
 
   // Metadata & Library States
   const [metadata, setMetadata] = useState<GenreTag[]>([]);
@@ -62,7 +71,7 @@ const ExplorePage = () => {
   const [season, setSeason] = useState('Any');
   const [format, setFormat] = useState('Any');
   const [country, setCountry] = useState('Any');
-  
+
   // Advanced Filters State
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [airingStatus, setAiringStatus] = useState('Any');
@@ -139,9 +148,9 @@ const ExplorePage = () => {
       const genresParam = selectedGenres.length > 0 ? encodeURIComponent(selectedGenres.join(',')) : '';
       const tagsParam = selectedTags.length > 0 ? encodeURIComponent(selectedTags.join(',')) : '';
       const typeParam = categoria.toUpperCase(); // 'ANIME' or 'MANGA'
-      
+
       let url = `${API_BASE_URL}/anime/explore?type=${typeParam}&genres=${genresParam}&tags=${tagsParam}&sort=${sortOrder}&page=${targetPage}`;
-      
+
       if (categoria === 'anime') {
         if (year !== 'Any') url += `&year=${year}`;
         if (season !== 'Any') url += `&season=${season}`;
@@ -276,9 +285,9 @@ const ExplorePage = () => {
       try {
         const state = JSON.parse(saved);
         console.log("[Explore] Found saved state for:", categoria, state);
-        
+
         isRestoringRef.current = true;
-        
+
         setSelectedGenres(state.selectedGenres || []);
         setSelectedTags(state.selectedTags || []);
         setYear(state.year || 'Any');
@@ -292,14 +301,14 @@ const ExplorePage = () => {
         setSortOrder(state.sortOrder || 'TRENDING_DESC');
         setPage(state.page || 1);
         setResults(state.results || []);
-        
+
         // Restore scroll position after React renders the cards
         setTimeout(() => {
           console.log("[Explore] Restoring scroll position to:", state.scrollPosition);
           window.scrollTo(0, state.scrollPosition || 0);
           isRestoringRef.current = false;
         }, 150);
-        
+
         return; // Skip default fetching
       } catch (e) {
         console.error("[Explore] Error restoring state:", e);
@@ -437,7 +446,7 @@ const ExplorePage = () => {
     yearOptions.push(String(y));
   }
 
-  const formatOptions = categoria === 'anime' 
+  const formatOptions = categoria === 'anime'
     ? [
         { value: 'Any', label: t('Qualquer') },
         { value: 'TV', label: t('TV') },
@@ -484,17 +493,255 @@ const ExplorePage = () => {
     navigate(`/details/${categoria}/${id}?external=true${formatQuery}`);
   };
 
+  const seasonOptions = [
+    { value: 'Any', label: t('Qualquer') },
+    { value: 'WINTER', label: t('Inverno') },
+    { value: 'SPRING', label: t('Primavera') },
+    { value: 'SUMMER', label: t('Verão') },
+    { value: 'FALL', label: t('Outono') },
+  ];
 
+  const sourceOptions = [
+    { value: 'Any', label: t('Qualquer') },
+    { value: 'ORIGINAL', label: t('Original') },
+    { value: 'MANGA', label: t('Manga') },
+    { value: 'LIGHT_NOVEL', label: t('Light Novel') },
+    { value: 'VISUAL_NOVEL', label: t('Visual Novel') },
+    { value: 'VIDEO_GAME', label: t('Video Game') },
+    { value: 'OTHER', label: t('Outro') },
+  ];
+
+  const sortOptions = [
+    { value: 'TRENDING_DESC', label: t('Em Alta') },
+    { value: 'POPULARITY_DESC', label: t('Mais Populares') },
+    { value: 'SCORE_DESC', label: t('Mais Bem Avaliados') },
+    { value: 'START_DATE_DESC', label: t('Mais Recentes') },
+  ];
+  const sortLabel = sortOptions.find(o => o.value === sortOrder)?.label ?? t('Em Alta');
+
+  // Mesmo comportamento do interruptor "Feito para si" do desktop
+  const handleRecommendedChange = (checked: boolean) => {
+    if (checked) {
+      setSelectedGenres([]);
+      setSelectedTags([]);
+      setSortOrder('RECOMMENDED');
+    } else {
+      setSortOrder('TRENDING_DESC');
+    }
+  };
+
+  // Nº de filtros ativos (mostrado no botão "Filtros" em mobile)
+  const activeFilterCount =
+    selectedGenres.length +
+    selectedTags.length +
+    (categoria === 'anime' && year !== 'Any' ? 1 : 0) +
+    (categoria === 'anime' && season !== 'Any' ? 1 : 0) +
+    (format !== 'Any' ? 1 : 0) +
+    (airingStatus !== 'Any' ? 1 : 0) +
+    (categoria === 'manga' && country !== 'Any' ? 1 : 0) +
+    (sourceMaterial !== 'Any' ? 1 : 0) +
+    (hideMyLibrary ? 1 : 0) +
+    (onlyShowMyLibrary ? 1 : 0);
 
   return (
-    <div className="p-4 md:p-8 min-h-screen bg-background text-on-background max-w-full overflow-hidden flex flex-col gap-6">
-      
+    <div className="ot-page min-h-screen text-on-background md:!max-w-none md:!p-8">
+
+      {/* Mobile: título + barra de chips; os filtros vivem numa folha inferior */}
+      {isMobile && (
+        <>
+          <div>
+            <h1 className="ot-page-title">{t("Explorar")}</h1>
+            <p className="ot-page-subtitle">
+              {categoria === 'anime' ? t("Anime") : t("Mangá")} · {sortOrder === 'RECOMMENDED' ? t("Feito para si") : sortLabel}
+            </p>
+          </div>
+
+          <ChipScroller>
+            <Chip
+              active={activeFilterCount > 0}
+              count={activeFilterCount}
+              icon={<SlidersHorizontal size={14} />}
+              onClick={() => setIsFilterSheetOpen(true)}
+            >
+              {t("Filtros")}
+            </Chip>
+            <Chip
+              active={sortOrder === 'RECOMMENDED'}
+              icon={<Sparkles size={14} />}
+              onClick={() => handleRecommendedChange(sortOrder !== 'RECOMMENDED')}
+            >
+              {t("Feito para si")}
+            </Chip>
+            {sortOrder !== 'RECOMMENDED' && (
+              <Chip icon={<ArrowUpDown size={14} />} onClick={() => setIsSortSheetOpen(true)}>
+                {sortLabel}
+                <ChevronDown size={14} />
+              </Chip>
+            )}
+            <Chip icon={<Plus size={14} />} count={selectedTags.length} onClick={() => setIsModalOpen(true)}>
+              {t("Adicionar Tags")}
+            </Chip>
+          </ChipScroller>
+
+          {(selectedGenres.length > 0 || selectedTags.length > 0) && (
+            <ChipScroller>
+              {selectedGenres.map(genreName => (
+                <RemovableChip key={genreName} label={genreName} onRemove={() => handleToggleGenre(genreName)} />
+              ))}
+              {selectedTags.map(tagName => (
+                <RemovableChip key={tagName} label={tagName} tone="sky" onRemove={() => handleToggleTag(tagName)} />
+              ))}
+              <button
+                onClick={() => {
+                  setSelectedGenres([]);
+                  setSelectedTags([]);
+                }}
+                className="flex-shrink-0 text-xs text-primary-light font-bold px-2 h-[30px] cursor-pointer"
+              >
+                {t("Limpar Filtros")}
+              </button>
+            </ChipScroller>
+          )}
+
+          {/* Folha de filtros */}
+          <BottomSheet
+            open={isFilterSheetOpen}
+            onClose={() => setIsFilterSheetOpen(false)}
+            title={t("Filtros")}
+            subtitle={categoria === 'anime' ? t("Anime") : t("Mangá")}
+            footer={
+              <div className="flex gap-3">
+                {(selectedGenres.length > 0 || selectedTags.length > 0) && (
+                  <button
+                    onClick={() => {
+                      setSelectedGenres([]);
+                      setSelectedTags([]);
+                    }}
+                    className="ot-btn ot-btn-ghost"
+                  >
+                    {t("Limpar Filtros")}
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    fetchResults(true);
+                    setIsFilterSheetOpen(false);
+                  }}
+                  className="ot-btn ot-btn-primary flex-1"
+                >
+                  {t("Filtrar")}
+                </button>
+              </div>
+            }
+          >
+            <div className="space-y-2.5">
+              <h3 className="ot-eyebrow">{t("Géneros")}</h3>
+              <div className="flex flex-wrap gap-2">
+                {genresList.map(genre => {
+                  const isSelected = selectedGenres.includes(genre.name);
+                  return (
+                    <Chip
+                      key={genre.id}
+                      active={isSelected}
+                      icon={isSelected ? <Check size={13} /> : undefined}
+                      onClick={() => handleToggleGenre(genre.name)}
+                    >
+                      {genre.name}
+                    </Chip>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-2.5">
+              <h3 className="ot-eyebrow">{t("Tags")}</h3>
+              <button onClick={() => setIsModalOpen(true)} className="ot-field flex items-center justify-between gap-3 text-left cursor-pointer">
+                <span className="flex items-center gap-2 min-w-0">
+                  <Tag size={15} className="text-on-surface-variant flex-shrink-0" />
+                  <span className="truncate">
+                    {selectedTags.length === 0 ? t("Adicionar Tags") : selectedTags.join(', ')}
+                  </span>
+                </span>
+                {selectedTags.length > 0 && <span className="ot-chip-badge">{selectedTags.length}</span>}
+              </button>
+            </div>
+
+            {categoria === 'anime' ? (
+              <>
+                <div className="space-y-2.5">
+                  <h3 className="ot-eyebrow">{t("Ano")}</h3>
+                  <select value={year} onChange={(e) => setYear(e.target.value)} className="ot-field cursor-pointer">
+                    {yearOptions.map(y => (
+                      <option key={y} value={y} className="bg-surface-dim text-white">{y === 'Any' ? t('Qualquer') : y}</option>
+                    ))}
+                  </select>
+                </div>
+                <OptionGroup label={t("Estação")} options={seasonOptions} value={season} onChange={setSeason} />
+                <OptionGroup label={t("Formato")} options={formatOptions} value={format} onChange={setFormat} />
+                <OptionGroup label={t("Estado de Exibição")} options={statusOptions} value={airingStatus} onChange={setAiringStatus} />
+              </>
+            ) : (
+              <>
+                <OptionGroup label={t("Formato")} options={formatOptions} value={format} onChange={setFormat} />
+                <OptionGroup label={t("Estado de Publicação")} options={statusOptions} value={airingStatus} onChange={setAiringStatus} />
+                <OptionGroup label={t("País de Origem")} options={countryOptions} value={country} onChange={setCountry} />
+              </>
+            )}
+
+            <OptionGroup label={t("Material de Origem")} options={sourceOptions} value={sourceMaterial} onChange={setSourceMaterial} />
+
+            <div className="space-y-1">
+              <h3 className="ot-eyebrow">{t("Biblioteca")}</h3>
+              <ToggleRow
+                label={categoria === 'anime' ? t("Apenas os meus Animes") : t("Apenas os meus Mangas")}
+                checked={onlyShowMyLibrary}
+                onChange={(checked) => {
+                  setOnlyShowMyLibrary(checked);
+                  if (checked) setHideMyLibrary(false);
+                }}
+              />
+              <ToggleRow
+                label={categoria === 'anime' ? t("Ocultar os meus Animes") : t("Ocultar os meus Mangas")}
+                checked={hideMyLibrary}
+                onChange={(checked) => {
+                  setHideMyLibrary(checked);
+                  if (checked) setOnlyShowMyLibrary(false);
+                }}
+              />
+            </div>
+          </BottomSheet>
+
+          {/* Folha de ordenação */}
+          <BottomSheet open={isSortSheetOpen} onClose={() => setIsSortSheetOpen(false)} title={t("Ordenar por")}>
+            <div className="flex flex-col gap-1">
+              {sortOptions.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    setSortOrder(opt.value);
+                    setIsSortSheetOpen(false);
+                  }}
+                  className={`flex items-center justify-between px-4 min-h-12 rounded-2xl text-sm font-bold text-left transition-colors cursor-pointer ${
+                    sortOrder === opt.value ? 'bg-primary/20 text-primary-light' : 'text-on-surface hover:bg-white/5'
+                  }`}
+                >
+                  <span>{opt.label}</span>
+                  {sortOrder === opt.value && <Check size={16} />}
+                </button>
+              ))}
+            </div>
+          </BottomSheet>
+        </>
+      )}
+
+      {!isMobile && (
+      <>
       {/* 1. Filter Bar (AniList Style) */}
       <div className="bg-surface-container-low rounded-2xl p-5 border border-border-glass shadow-xl flex flex-col gap-4">
-        
+
         {/* Row 1: Quick Filters */}
         <div className="grid grid-cols-2 md:grid-cols-5 items-end gap-4 relative">
-          
+
           {/* A. Genres Multiselect Dropdown */}
           <div className="flex flex-col gap-2" ref={genreDropdownRef}>
             <label className="text-xs font-bold text-on-surface-variant">{t("Géneros")}</label>
@@ -522,7 +769,7 @@ const ExplorePage = () => {
 
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   {selectedGenres.length > 0 && (
-                    <span 
+                    <span
                       onClick={handleClearGenres}
                       className="p-0.5 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-white transition-colors cursor-pointer"
                     >
@@ -678,7 +925,7 @@ const ExplorePage = () => {
         {/* Row 2: Advanced Filters (Expandable) */}
         {showAdvanced && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border-t border-border-glass pt-4 animate-slide-down">
-            
+
             {/* Status Dropdown (Anime only - for Manga it is a Quick Filter) */}
             {categoria === 'anime' && (
               <div className="flex flex-col gap-2">
@@ -719,9 +966,9 @@ const ExplorePage = () => {
             {/* Local Library Checkboxes */}
             <div className="flex flex-col gap-3 justify-end h-full py-1">
               <label className="flex items-center gap-2 text-xs font-semibold text-white/80 cursor-pointer select-none">
-                <input 
-                  type="checkbox" 
-                  checked={onlyShowMyLibrary} 
+                <input
+                  type="checkbox"
+                  checked={onlyShowMyLibrary}
                   onChange={(e) => {
                     setOnlyShowMyLibrary(e.target.checked);
                     if (e.target.checked) setHideMyLibrary(false);
@@ -732,9 +979,9 @@ const ExplorePage = () => {
               </label>
 
               <label className="flex items-center gap-2 text-xs font-semibold text-white/80 cursor-pointer select-none">
-                <input 
-                  type="checkbox" 
-                  checked={hideMyLibrary} 
+                <input
+                  type="checkbox"
+                  checked={hideMyLibrary}
                   onChange={(e) => {
                     setHideMyLibrary(e.target.checked);
                     if (e.target.checked) setOnlyShowMyLibrary(false);
@@ -752,7 +999,7 @@ const ExplorePage = () => {
 
       {/* 2. Active Tags & Genres Pill Row + Sort Control */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-container-low/40 rounded-2xl p-4 border border-border-glass shadow-md">
-        
+
         {/* Left: Active Tag pills, styled exactly as the second row of image 1 */}
         <div className="flex items-center gap-2.5 flex-wrap flex-1 min-w-0">
           <div className="flex items-center text-on-surface-variant flex-shrink-0" title={t("Tags Ativas")}>
@@ -762,12 +1009,12 @@ const ExplorePage = () => {
           <div className="flex gap-2 flex-wrap items-center">
             {/* Show Selected Genres */}
             {selectedGenres.map(genreName => (
-              <span 
+              <span
                 key={genreName}
                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-primary text-on-primary text-xs font-bold shadow-sm shadow-primary/20"
               >
                 <span>{genreName}</span>
-                <button 
+                <button
                   onClick={() => handleToggleGenre(genreName)}
                   className="p-0.5 rounded-full hover:bg-black/20 text-white/70 hover:text-white"
                 >
@@ -778,12 +1025,12 @@ const ExplorePage = () => {
 
             {/* Show Selected Tags */}
             {selectedTags.map(tagName => (
-              <span 
+              <span
                 key={tagName}
                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#00b0ff] text-white text-xs font-bold shadow-sm"
               >
                 <span>{tagName}</span>
-                <button 
+                <button
                   onClick={() => handleToggleTag(tagName)}
                   className="p-0.5 rounded-full hover:bg-black/20 text-white/70 hover:text-white"
                 >
@@ -818,7 +1065,7 @@ const ExplorePage = () => {
 
         {/* Right: Feito para si Toggle + Sort selector */}
         <div className="flex items-center gap-4 self-end sm:self-auto flex-shrink-0">
-          
+
           {/* Feito para si Toggle */}
           <label className="flex items-center gap-2.5 cursor-pointer select-none bg-surface-container border border-border-glass hover:bg-surface-container-high rounded-xl px-3.5 py-2 text-xs font-bold transition-all shadow-sm">
             <span className="text-white">{t("Feito para si")}</span>
@@ -845,8 +1092,8 @@ const ExplorePage = () => {
           {sortOrder !== 'RECOMMENDED' && (
             <div className="flex items-center gap-2 animate-fade-in">
               <ArrowUpDown size={14} className="text-white/40" />
-              <select 
-                value={sortOrder} 
+              <select
+                value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value)}
                 className="bg-surface-container border border-border-glass text-white rounded-xl px-3 py-2 text-xs font-bold focus:outline-none cursor-pointer transition-colors shadow-sm"
               >
@@ -861,6 +1108,9 @@ const ExplorePage = () => {
 
       </div>
 
+      </>
+      )}
+
       {/* 3. Results Catalog */}
       <div className="flex-1">
         {loadingResults && filteredResults.length === 0 ? (
@@ -870,7 +1120,7 @@ const ExplorePage = () => {
           </div>
         ) : filteredResults.length > 0 ? (
           <div className="space-y-8">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-6">
               {filteredResults.map(item => {
                 const title = item.title.english || item.title.romaji || item.title.native || '';
                 const displayRanking = item.averageScore ? item.averageScore / 10 : undefined;
@@ -914,17 +1164,17 @@ const ExplorePage = () => {
       </div>
 
       {/* 4. Modal - "Add Tags" (Detailed Categorized Tag Selection) */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-surface-dim border border-border-glass rounded-3xl w-full max-w-4xl h-[80vh] md:h-[650px] flex flex-col shadow-2xl overflow-hidden animate-scale-up">
-            
+      {isModalOpen && createPortal(
+        <div className="ot-modal-backdrop fixed inset-0 z-[140] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="ot-modal-panel bg-surface-dim border border-border-glass rounded-3xl w-full max-w-4xl h-[80vh] md:h-[650px] flex flex-col shadow-2xl overflow-hidden animate-scale-up">
+
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-border-glass flex justify-between items-center bg-surface-container-low/40">
               <div className="flex items-center gap-2">
                 <Grid size={18} className="text-primary" />
                 <h2 className="text-lg font-bold text-white">{t("Selecionar Tags Avançadas")}</h2>
               </div>
-              <button 
+              <button
                 onClick={() => setIsModalOpen(false)}
                 className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-on-surface-variant hover:text-white transition-colors"
               >
@@ -992,7 +1242,7 @@ const ExplorePage = () => {
                               {isCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
                             </span>
                           </button>
-                          
+
                           {!isCollapsed && (
                             <div className="px-4 pb-4 pt-1 flex flex-wrap gap-1.5 border-t border-white/5">
                               {tagList.map(tag => {
@@ -1038,7 +1288,8 @@ const ExplorePage = () => {
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

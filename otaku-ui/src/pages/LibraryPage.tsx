@@ -8,6 +8,9 @@ import { API_BASE_URL } from '../config';
 import { customFetch } from '../services/apiBridge';
 import { useTranslation } from '../hooks/useTranslation';
 import GenreTagPicker from '../components/GenreTagPicker';
+import BottomSheet from '../components/ui/BottomSheet';
+import { Chip, ChipScroller, RemovableChip } from '../components/ui/Chip';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { isFilme, isMovieUnreleased, getMovieState, getMovieReleaseDate, formatMovieDate, daysUntil } from '../services/movies';
 
 // Secções da biblioteca de anime: tudo junto, ou só animes / séries / filmes
@@ -88,7 +91,7 @@ const LibraryPage = () => {
   const { token } = useAuth();
   const { showToast } = useToast();
   const { t } = useTranslation();
-  const { 
+  const {
     categoria,
     animeLibraryData,
     setAnimeLibraryData,
@@ -96,6 +99,8 @@ const LibraryPage = () => {
     setMangaLibraryData
   } = useMedia();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
 
   const resultadosDB = categoria === 'anime' ? animeLibraryData : mangaLibraryData;
   const [loading, setLoading] = useState(false);
@@ -464,7 +469,7 @@ const LibraryPage = () => {
       const wanted = [...selectedGenres, ...selectedTags].map(w => w.toLowerCase());
       if (!wanted.every(w => itemGenres.includes(w))) return false;
     }
-    
+
     return true;
   });
 
@@ -543,7 +548,7 @@ const LibraryPage = () => {
     if (isFilme(item)) return isMovieUnreleased(item);
     const statusLancamento = item.anime?.statusLancamento || item.statusLancamento;
     if (statusLancamento === 'NOT_YET_RELEASED') return true;
-    
+
     const dataLanc = item.anime?.dataLancamento || item.dataLancamento;
     if (dataLanc && new Date(dataLanc) > new Date()) return true;
 
@@ -554,11 +559,11 @@ const LibraryPage = () => {
       const now = new Date();
       totalAired = item.episodes.filter((ep: any) => ep.season > 0 && ep.airDate && new Date(ep.airDate) <= now).length;
     }
-    
+
     if (statusLancamento !== 'FINISHED' && totalAired === 0) {
       return true;
     }
-    
+
     return false;
   };
 
@@ -590,7 +595,7 @@ const LibraryPage = () => {
     const coverUrl = item.anime?.capaUrl || item.manga?.capaUrl || item.capaUrl;
     const title = item.anime?.titulo || item.manga?.titulo || item.titulo;
     const currentGlobal = categoria === 'anime' ? (item.epAtualGlobal !== undefined ? item.epAtualGlobal : (item.epAtual || 0)) : (item.capAtual || 0);
-    
+
     const statusLancamento = item.anime?.statusLancamento || item.manga?.statusLancamento || item.statusLancamento;
     const proxNum = categoria === 'anime' ? (item.anime?.proximoEpisodio || item.proximoEpisodio) : (item.manga?.proximoCapituloNumero || item.proximoCapituloNumero);
     const numTotal = categoria === 'anime' ? (item.anime?.numEpisodiosTotal || item.numEpisodiosTotal) : (item.manga?.numCapitulosTotal || item.numCapitulosTotal);
@@ -610,15 +615,15 @@ const LibraryPage = () => {
       : filmeState === 'VISTO' ? 'Visto' : filmeState === 'POR_ESTREAR' ? 'Por Estrear' : 'Por Ver';
 
     return (
-      <div 
-        key={item.id} 
-        className="group cursor-pointer" 
+      <div
+        key={item.id}
+        className="group cursor-pointer"
         onClick={() => handleNavigateToDetails(item.id)}
       >
-        <div className={`relative aspect-[2/3] rounded-3xl overflow-hidden shadow-xl transform transition-all duration-500 group-hover:scale-[1.03] group-hover:-translate-y-2 border border-white/10 ${categoria === 'anime' ? 'group-hover:border-secondary/60 group-hover:shadow-[0_0_30px_rgba(194,24,91,0.25)]' : 'group-hover:border-primary/60 group-hover:shadow-[0_0_30px_rgba(106,27,154,0.25)]'}`}>
+        <div className={`relative aspect-[2/3] rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl transform transition-all duration-500 group-hover:scale-[1.03] group-hover:-translate-y-2 border border-white/10 ${categoria === 'anime' ? 'group-hover:border-secondary/60 group-hover:shadow-[0_0_30px_rgba(194,24,91,0.25)]' : 'group-hover:border-primary/60 group-hover:shadow-[0_0_30px_rgba(106,27,154,0.25)]'}`}>
           <img src={coverUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={title} loading="lazy" referrerPolicy="no-referrer" />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-80 group-hover:opacity-90 transition-opacity"></div>
-          
+
           {/* Top Badges: Status & Priority */}
           <div className="absolute top-2 sm:top-4 left-2 sm:left-4 right-2 sm:right-4 flex items-center justify-between z-10 pointer-events-none gap-1 sm:gap-2">
             {/* Tracking Status Badge */}
@@ -663,11 +668,11 @@ const LibraryPage = () => {
           </div>
 
           {/* Bottom Content: Title & Progress Bar */}
-          <div className="absolute bottom-4 left-4 right-4 z-10 flex flex-col justify-end pointer-events-none">
+          <div className="absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-4 z-10 flex flex-col justify-end pointer-events-none">
             <span className={`w-fit px-2 py-0.5 rounded-lg text-[9px] font-extrabold tracking-wider mb-1.5 border ${
-              categoria === 'anime' 
-                ? (item.tipo === 'ANIME' 
-                  ? 'bg-primary/20 border-primary/30 text-primary shadow-[0_0_10px_rgba(221,184,255,0.1)]' 
+              categoria === 'anime'
+                ? (item.tipo === 'ANIME'
+                  ? 'bg-primary/20 border-primary/30 text-primary shadow-[0_0_10px_rgba(221,184,255,0.1)]'
                   : item.tipo === 'SERIE'
                     ? 'bg-red-500/20 border-red-500/30 text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.1)]'
                     : 'bg-amber-500/20 border-amber-500/30 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.1)]')
@@ -727,7 +732,7 @@ const LibraryPage = () => {
                     </span>
                   </div>
                   <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden border border-white/5 backdrop-blur-sm">
-                    <div 
+                    <div
                       className={`h-full transition-all duration-500 rounded-full ${categoria === 'anime' ? 'bg-primary shadow-md' : 'bg-secondary shadow-md'}`}
                       style={{ width: `${Math.max(currentGlobal > 0 ? 3 : 0, Math.min(percentVal, 100))}%` }}
                     ></div>
@@ -741,9 +746,246 @@ const LibraryPage = () => {
     );
   };
 
+  // --- Dados dos controlos em mobile (as mesmas opções e ações do desktop) ---
+  const accentTone = modoFilmes ? 'amber' : categoria === 'anime' ? 'secondary' : 'primary';
+  const statusTabs = [
+    { id: 'WATCHING', label: categoria === 'anime' ? 'A Ver' : 'A Ler' },
+    { id: 'COMPLETED', label: 'Completo' },
+    { id: 'PLANNED', label: 'Planeado' },
+    { id: 'PAUSED', label: 'Pausado' },
+    { id: 'DROPPED', label: 'Desistido' },
+  ];
+  const lancamentoOptions = [
+    { id: 'ALL', label: 'Todos' },
+    { id: 'RELEASING', label: 'Em Lançamento' },
+    { id: 'FINISHED', label: 'Finalizado' },
+  ];
+  const ordemOptions = modoFilmes ? FILME_ORDENS : [
+    { id: 'PRIORITY', label: 'Prioridade' },
+    { id: 'TITLE', label: 'Nome' },
+    ...(categoria === 'anime' ? [{ id: 'LATEST_EPISODE', label: 'Episódio Mais Recente Estreado' }] : []),
+    { id: 'PROGRESS', label: 'Progresso' },
+  ];
+  const ordemAtual = modoFilmes ? ordenacaoFilme : ordenacao;
+  const genreTagCount = selectedGenres.length + selectedTags.length;
+  const mobileFilterCount =
+    genreTagCount +
+    (modoFilmes ? (filtroDecada !== 'ALL' ? 1 : 0) : (filtroLancamento !== 'ALL' ? 1 : 0));
+
   return (
     <div className="max-w-7xl mx-auto px-margin-mobile md:px-margin-desktop py-4 md:py-8">
-      <section id="biblioteca-section" className={`space-y-6 md:space-y-8 relative ${pickerOpen ? 'z-[130]' : 'z-30'}`}>
+      <section id="biblioteca-section" className={`space-y-4 md:space-y-8 relative ${pickerOpen ? 'z-[130]' : 'z-30'}`}>
+        {isMobile ? (
+          <div className="space-y-3">
+            {/* Cabeçalho compacto */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="ot-page-title truncate">Biblioteca</h2>
+                <p className="ot-page-subtitle truncate">
+                  {categoria === 'anime' ? 'Anime' : 'Mangá'} · {filtrados.length} {t("de")} {resultadosDB.length} {t("títulos guardados")}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => navigate('/lists')}
+                  className="ot-icon-btn !w-auto px-3 gap-1.5 text-xs font-bold text-white"
+                  title="Gerir Listas Personalizadas"
+                >
+                  <span className="material-symbols-outlined !text-[18px]">format_list_bulleted</span>
+                  <span>{t("Listas")}</span>
+                </button>
+                <button
+                  onClick={sorteioAleatorioBiblioteca}
+                  className={`ot-icon-btn !border-transparent text-white ${categoria === 'anime' ? '!bg-secondary' : '!bg-primary'}`}
+                  title={modoFilmes ? 'Sortear um filme por ver' : 'Sorteio Planeado (Itens Planeados da tua Biblioteca)'}
+                  aria-label={modoFilmes ? 'Sortear Filme' : 'Sorteio Planeado'}
+                >
+                  <span className="material-symbols-outlined !text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>casino</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Secções: Tudo / Animes / Séries / Filmes */}
+            {categoria === 'anime' && (
+              <div className="ot-segmented">
+                {SECCOES.map(sec => (
+                  <button
+                    key={sec.id}
+                    onClick={() => { setFiltroFormato(sec.id); setShowLancamentoMenu(false); setShowOrdemMenu(false); setShowDecadaMenu(false); resetVisibleCounts(); }}
+                    className={`flex-1 h-9 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                      filtroFormato === sec.id
+                        ? (sec.id === 'FILME'
+                            ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
+                            : 'bg-secondary/20 text-secondary-light border-secondary/40')
+                        : 'text-on-surface-variant border-transparent'
+                    }`}
+                  >
+                    {sec.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Estado: chips com scroll horizontal */}
+            <ChipScroller>
+              {modoFilmes ? FILME_TABS.map(tab => (
+                <Chip
+                  key={tab.id}
+                  tone="amber"
+                  active={filtroFilme === tab.id}
+                  onClick={() => { setFiltroFilme(tab.id); setOrdenacaoFilme(tab.ordem); resetVisibleCounts(); }}
+                >
+                  {tab.label} <span className="opacity-60">({filmeCounts?.[tab.id] ?? 0})</span>
+                </Chip>
+              )) : statusTabs.map(tab => (
+                <Chip
+                  key={tab.id}
+                  tone={accentTone}
+                  active={filtroStatus === tab.id}
+                  onClick={() => { setFiltroStatus(tab.id); resetVisibleCounts(); }}
+                >
+                  {tab.label}
+                </Chip>
+              ))}
+            </ChipScroller>
+
+            {/* Pesquisa + botão de filtros */}
+            <div className="flex items-center gap-2">
+              <div className="ot-field flex items-center gap-2 !py-0 flex-1 min-w-0">
+                <span className="material-symbols-outlined !text-[18px] text-on-surface-variant">search</span>
+                <input
+                  type="text"
+                  placeholder="Pesquisar..."
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); resetVisibleCounts(); }}
+                  className="bg-transparent border-none outline-none w-full min-w-0 h-11 text-sm placeholder:text-on-surface-variant/50"
+                />
+                {searchQuery && (
+                  <button onClick={() => { setSearchQuery(''); resetVisibleCounts(); }} className="flex items-center justify-center w-7 h-7 -mr-1 text-on-surface-variant hover:text-white outline-none cursor-pointer" aria-label="Limpar pesquisa">
+                    <span className="material-symbols-outlined !text-[16px]">close</span>
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => setIsFilterSheetOpen(true)}
+                className="ot-icon-btn"
+                data-active={mobileFilterCount > 0}
+                aria-label="Filtros e ordenação"
+              >
+                <span className="material-symbols-outlined !text-[20px]">tune</span>
+                {mobileFilterCount > 0 && (
+                  <span className="ot-chip-badge absolute -top-1.5 -right-1.5 border-2 border-background box-content">{mobileFilterCount}</span>
+                )}
+              </button>
+            </div>
+
+            {/* Géneros/tags ativos */}
+            {genreTagCount > 0 && (
+              <ChipScroller>
+                {selectedGenres.map(genre => (
+                  <RemovableChip key={genre} label={genre} onRemove={() => { setSelectedGenres(prev => prev.filter(g => g !== genre)); resetVisibleCounts(); }} />
+                ))}
+                {selectedTags.map(tag => (
+                  <RemovableChip key={tag} label={tag} tone="sky" onRemove={() => { setSelectedTags(prev => prev.filter(t => t !== tag)); resetVisibleCounts(); }} />
+                ))}
+                <button onClick={() => { setSelectedGenres([]); setSelectedTags([]); resetVisibleCounts(); }} className="flex-shrink-0 text-xs text-on-surface-variant font-bold px-2 h-[30px] cursor-pointer">
+                  Limpar Todos
+                </button>
+              </ChipScroller>
+            )}
+
+            {/* Folha: ordenação, lançamento/década e géneros */}
+            <BottomSheet
+              open={isFilterSheetOpen}
+              onClose={() => setIsFilterSheetOpen(false)}
+              title="Filtros e ordenação"
+              subtitle={`${filtrados.length} ${t("de")} ${resultadosDB.length} ${t("títulos guardados")}`}
+              footer={
+                <button onClick={() => setIsFilterSheetOpen(false)} className="ot-btn ot-btn-primary w-full">
+                  Ver {filtrados.length} {filtrados.length === 1 ? 'título' : 'títulos'}
+                </button>
+              }
+            >
+              <div className="space-y-2.5">
+                <h3 className="ot-eyebrow">Ordenar por</h3>
+                <div className="flex flex-wrap gap-2">
+                  {ordemOptions.map(opt => (
+                    <Chip
+                      key={opt.id}
+                      tone={accentTone}
+                      active={ordemAtual === opt.id}
+                      onClick={() => {
+                        if (modoFilmes) setOrdenacaoFilme(opt.id); else setOrdenacao(opt.id);
+                        setShowOrdemMenu(false);
+                        resetVisibleCounts();
+                      }}
+                    >
+                      {opt.label}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+
+              {modoFilmes ? (
+                <div className="space-y-2.5">
+                  <h3 className="ot-eyebrow">Década de estreia</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {FILME_DECADAS.map(opt => (
+                      <Chip
+                        key={opt.id}
+                        tone="amber"
+                        active={filtroDecada === opt.id}
+                        onClick={() => { setFiltroDecada(opt.id); setShowDecadaMenu(false); resetVisibleCounts(); }}
+                      >
+                        {opt.label}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  <h3 className="ot-eyebrow">Lançamento</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {lancamentoOptions.map(opt => (
+                      <Chip
+                        key={opt.id}
+                        tone={accentTone}
+                        active={filtroLancamento === opt.id}
+                        onClick={() => { setFiltroLancamento(opt.id); setShowLancamentoMenu(false); resetVisibleCounts(); }}
+                      >
+                        {opt.label}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2.5">
+                <h3 className="ot-eyebrow">Géneros & Tags</h3>
+                <button
+                  onClick={() => { setPickerOpen(true); setShowLancamentoMenu(false); setShowOrdemMenu(false); setShowDecadaMenu(false); }}
+                  className="ot-field flex items-center justify-between gap-3 text-left cursor-pointer"
+                >
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="material-symbols-outlined !text-[18px] text-on-surface-variant">style</span>
+                    <span className="truncate">
+                      {genreTagCount === 0 ? 'Escolher géneros e tags' : [...selectedGenres, ...selectedTags].join(', ')}
+                    </span>
+                  </span>
+                  {genreTagCount > 0
+                    ? <span className="ot-chip-badge">{genreTagCount}</span>
+                    : <span className="material-symbols-outlined !text-[18px] text-on-surface-variant">chevron_right</span>}
+                </button>
+                {genreTagCount > 0 && (
+                  <button onClick={() => { setSelectedGenres([]); setSelectedTags([]); resetVisibleCounts(); }} className="text-xs text-on-surface-variant font-bold py-1 cursor-pointer">
+                    Limpar Todos
+                  </button>
+                )}
+              </div>
+            </BottomSheet>
+          </div>
+        ) : (
+        <>
         <div className="flex flex-col space-y-6 border-b border-white/10 pb-6">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 sm:gap-4 min-w-0">
@@ -757,21 +999,21 @@ const LibraryPage = () => {
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2 flex-shrink-0">
-              <button 
+              <button
                 onClick={() => navigate('/lists')}
                 className="flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs text-white bg-white/5 border border-white/10 hover:bg-white/10 transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap"
                 title="Gerir Listas Personalizadas"
               >
-                <span className="material-symbols-outlined text-sm">format_list_bulleted</span> 
+                <span className="material-symbols-outlined text-sm">format_list_bulleted</span>
                 <span>{t("Listas")}</span>
               </button>
-              <button 
+              <button
                 onClick={sorteioAleatorioBiblioteca}
                 className={`flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs text-white transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap ${
-                  categoria === 'anime' 
-                    ? 'bg-secondary hover:bg-secondary/90 hover:shadow-[0_0_15px_rgba(194,24,91,0.4)]' 
+                  categoria === 'anime'
+                    ? 'bg-secondary hover:bg-secondary/90 hover:shadow-[0_0_15px_rgba(194,24,91,0.4)]'
                     : 'bg-primary hover:bg-primary/90 hover:shadow-[0_0_15px_rgba(106,27,154,0.4)]'
                 }`}
                 title={modoFilmes ? 'Sortear um filme por ver' : 'Sorteio Planeado (Itens Planeados da tua Biblioteca)'}
@@ -851,8 +1093,8 @@ const LibraryPage = () => {
               >
                 <span className="material-symbols-outlined text-sm">filter_list</span>
                 <span className="truncate">
-                  {filtroLancamento === 'ALL' ? 'Lançamento: Todos' : 
-                   filtroLancamento === 'RELEASING' ? 'Em Lançamento' : 
+                  {filtroLancamento === 'ALL' ? 'Lançamento: Todos' :
+                   filtroLancamento === 'RELEASING' ? 'Em Lançamento' :
                    filtroLancamento === 'FINISHED' ? 'Finalizado' : filtroLancamento}
                 </span>
                 <span className="material-symbols-outlined text-xs">keyboard_arrow_down</span>
@@ -959,8 +1201,8 @@ const LibraryPage = () => {
               >
                 <span className="material-symbols-outlined text-sm">style</span>
                 <span className="truncate">
-                  {(selectedGenres.length === 0 && selectedTags.length === 0) 
-                    ? 'Géneros & Tags' 
+                  {(selectedGenres.length === 0 && selectedTags.length === 0)
+                    ? 'Géneros & Tags'
                     : `Filtros (${selectedGenres.length + selectedTags.length})`}
                 </span>
                 <span className="material-symbols-outlined text-xs">keyboard_arrow_down</span>
@@ -1011,6 +1253,8 @@ const LibraryPage = () => {
             </button>
           </div>
         )}
+        </>
+        )}
 
         <div>
           <GenreTagPicker
@@ -1021,13 +1265,13 @@ const LibraryPage = () => {
             onOpen={() => setPickerOpen(true)}
             onClose={() => setPickerOpen(false)}
             onToggleGenre={(name) => {
-              setSelectedGenres(prev => 
+              setSelectedGenres(prev =>
                 prev.includes(name) ? prev.filter(g => g !== name) : [...prev, name]
               );
               resetVisibleCounts();
             }}
             onToggleTag={(name) => {
-              setSelectedTags(prev => 
+              setSelectedTags(prev =>
                 prev.includes(name) ? prev.filter(t => t !== name) : [...prev, name]
               );
               resetVisibleCounts();
@@ -1059,7 +1303,7 @@ const LibraryPage = () => {
               </div>
               {paginatedComPendentes.length > 0 ? (
                 <>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
                     {paginatedComPendentes.map(item => renderLibraryItem(item))}
                   </div>
                   {comPendentes.length > visibleCountPending && (
@@ -1067,8 +1311,8 @@ const LibraryPage = () => {
                       <button
                         onClick={() => setVisibleCountPending(prev => prev + 24)}
                         className={`px-8 py-3 rounded-2xl text-sm font-bold text-white transition-all shadow-lg active:scale-95 cursor-pointer ${
-                          categoria === 'anime' 
-                            ? 'bg-secondary hover:bg-secondary/90 hover:shadow-[0_0_20px_rgba(194,24,91,0.4)]' 
+                          categoria === 'anime'
+                            ? 'bg-secondary hover:bg-secondary/90 hover:shadow-[0_0_20px_rgba(194,24,91,0.4)]'
                             : 'bg-primary hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(106,27,154,0.4)]'
                         }`}
                       >
@@ -1094,7 +1338,7 @@ const LibraryPage = () => {
               </div>
               {paginatedEmDia.length > 0 ? (
                 <>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
                     {paginatedEmDia.map(item => renderLibraryItem(item))}
                   </div>
                   {emDia.length > visibleCountEmDia && (
@@ -1102,8 +1346,8 @@ const LibraryPage = () => {
                       <button
                         onClick={() => setVisibleCountEmDia(prev => prev + 24)}
                         className={`px-8 py-3 rounded-2xl text-sm font-bold text-white transition-all shadow-lg active:scale-95 cursor-pointer ${
-                          categoria === 'anime' 
-                            ? 'bg-secondary hover:bg-secondary/90 hover:shadow-[0_0_20px_rgba(194,24,91,0.4)]' 
+                          categoria === 'anime'
+                            ? 'bg-secondary hover:bg-secondary/90 hover:shadow-[0_0_20px_rgba(194,24,91,0.4)]'
                             : 'bg-primary hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(106,27,154,0.4)]'
                         }`}
                       >
@@ -1130,7 +1374,7 @@ const LibraryPage = () => {
                 </div>
                 {paginatedPorEstrear.length > 0 ? (
                   <>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
                       {paginatedPorEstrear.map(item => renderLibraryItem(item))}
                     </div>
                     {porEstrear.length > visibleCountPorEstrear && (
@@ -1138,8 +1382,8 @@ const LibraryPage = () => {
                         <button
                           onClick={() => setVisibleCountPorEstrear(prev => prev + 24)}
                           className={`px-8 py-3 rounded-2xl text-sm font-bold text-white transition-all shadow-lg active:scale-95 cursor-pointer ${
-                            categoria === 'anime' 
-                              ? 'bg-secondary hover:bg-secondary/90 hover:shadow-[0_0_20px_rgba(194,24,91,0.4)]' 
+                            categoria === 'anime'
+                              ? 'bg-secondary hover:bg-secondary/90 hover:shadow-[0_0_20px_rgba(194,24,91,0.4)]'
                               : 'bg-primary hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(106,27,154,0.4)]'
                           }`}
                         >
@@ -1158,7 +1402,7 @@ const LibraryPage = () => {
           </div>
         ) : (
           /* Normal grid for other statuses */
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6 relative z-10">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6 relative z-10">
             {paginatedItems.length > 0 ? (
               paginatedItems.map(item => renderLibraryItem(item))
             ) : (
@@ -1177,8 +1421,8 @@ const LibraryPage = () => {
             <button
               onClick={() => setVisibleCount(prev => prev + 24)}
               className={`px-8 py-3 rounded-2xl text-sm font-bold text-white transition-all shadow-lg active:scale-95 cursor-pointer ${
-                categoria === 'anime' 
-                  ? 'bg-secondary hover:bg-secondary/90 hover:shadow-[0_0_20px_rgba(194,24,91,0.4)]' 
+                categoria === 'anime'
+                  ? 'bg-secondary hover:bg-secondary/90 hover:shadow-[0_0_20px_rgba(194,24,91,0.4)]'
                   : 'bg-primary hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(106,27,154,0.4)]'
               }`}
             >
